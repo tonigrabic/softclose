@@ -7,7 +7,7 @@ import { ProgressBar } from './ProgressBar'
 import { StepsOverview } from './StepsOverview'
 import { SpaceCapture } from './SpaceCapture'
 import { Inspiration } from './Inspiration'
-import { ConceptRender as ConceptRenderUI } from './ConceptRender'
+import { ConceptRender as ConceptRenderUI, type ProductReference } from './ConceptRender'
 import { ConfirmLook } from './ConfirmLook'
 import { ChipMulti } from './ChipMulti'
 import { VisualScale } from './VisualScale'
@@ -111,6 +111,7 @@ export function KitchenIntake() {
   const [inspirationVision, setInspirationVision] = useState<InspirationVisionResult | null>(null)
   const [conceptRenders, setConceptRenders] = useState<ConceptRender[]>([])
   const [chosenRenderId, setChosenRenderId] = useState<string | null>(null)
+  const [productReferences, setProductReferences] = useState<ProductReference[]>([])
   const [scopeSelected, setScopeSelected] = useState<string[]>([])
   const [siteAccess, setSiteAccess] = useState<string | null>(null)
   const [livingPlan, setLivingPlan] = useState<string | null>(null)
@@ -390,6 +391,7 @@ export function KitchenIntake() {
     setInspirationVision(null)
     setConceptRenders([])
     setChosenRenderId(null)
+    setProductReferences([])
     setScopeSelected([])
     setSiteAccess(null)
     setLivingPlan(null)
@@ -429,7 +431,7 @@ export function KitchenIntake() {
     <div className="min-h-[100dvh] bg-background text-foreground">
       <ProgressBar percent={progress} />
       <div className="flex w-full flex-row">
-        <aside className="sticky top-0 h-dvh w-64 shrink-0 overflow-y-auto border-r border-border/60 bg-card/40 px-5 py-10 lg:w-72 lg:px-6">
+        <aside className="sticky top-0 h-dvh w-64 shrink-0 overflow-y-auto px-5 py-10 lg:w-72 lg:px-6">
           <header className="mb-5 flex items-center justify-between gap-3">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               {DESIGNER_NAME}
@@ -438,7 +440,7 @@ export function KitchenIntake() {
               <button
                 type="button"
                 onClick={resetAll}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
+                className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
                 title="Start over"
               >
                 <RotateCcw className="size-3 stroke-[2]" aria-hidden />
@@ -481,6 +483,8 @@ export function KitchenIntake() {
                 onConceptRenderAdded={(r) => setConceptRenders((prev) => [...prev, r])}
                 chosenRenderId={chosenRenderId}
                 onChooseRender={chooseRender}
+                productReferences={productReferences}
+                onProductReferencesChange={setProductReferences}
                 scopeSelected={scopeSelected}
                 onScopeChange={setScopeSelected}
                 siteAccess={siteAccess}
@@ -593,6 +597,8 @@ interface StepBodyProps {
   onConceptRenderAdded: (r: ConceptRender) => void
   chosenRenderId: string | null
   onChooseRender: (id: string) => void
+  productReferences: ProductReference[]
+  onProductReferencesChange: (refs: ProductReference[]) => void
   scopeSelected: string[]
   onScopeChange: (s: string[]) => void
   siteAccess: string | null
@@ -631,6 +637,8 @@ function StepBody(props: StepBodyProps) {
     onConceptRenderAdded,
     chosenRenderId,
     onChooseRender,
+    productReferences,
+    onProductReferencesChange,
     scopeSelected,
     onScopeChange,
     siteAccess,
@@ -697,6 +705,9 @@ function StepBody(props: StepBodyProps) {
         >
           <ConceptRenderUI
             anchorPhotos={spacePhotos}
+            styleReferences={inspirationRefs.map((r) => r.imageUrl)}
+            productReferences={productReferences}
+            onProductReferencesChange={onProductReferencesChange}
             renders={conceptRenders}
             chosenId={chosenRenderId}
             profile={profile}
