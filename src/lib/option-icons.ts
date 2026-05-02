@@ -1,0 +1,131 @@
+import {
+  Banknote,
+  Building,
+  Calendar,
+  CalendarDays,
+  Camera,
+  ChefHat,
+  CircleHelp,
+  Clock,
+  Coffee,
+  CookingPot,
+  DollarSign,
+  DoorOpen,
+  Flame,
+  Gem,
+  Grid3x3,
+  Hammer,
+  Heart,
+  House,
+  Image as ImageIcon,
+  Leaf,
+  Lightbulb,
+  Lock,
+  Mail,
+  Palette,
+  Phone,
+  PiggyBank,
+  Refrigerator,
+  Ruler,
+  Search,
+  Sparkles,
+  Star,
+  User,
+  Utensils,
+  Wrench,
+  Zap,
+  type LucideIcon,
+} from 'lucide-react'
+
+/**
+ * Curated set of icon names the LLM can choose from for option cards.
+ * Keep names short and intuitive so the model picks well from the system prompt.
+ */
+export const OPTION_ICON_NAMES = [
+  // Project & space
+  'house',
+  'door-open',
+  'wrench',
+  'hammer',
+  'ruler',
+  'grid',
+  'building',
+  // Time
+  'zap',
+  'calendar',
+  'calendar-days',
+  'clock',
+  'search',
+  // Budget
+  'dollar',
+  'banknote',
+  'piggy-bank',
+  'gem',
+  'lock',
+  // Style & taste
+  'palette',
+  'leaf',
+  'sparkles',
+  'star',
+  'flame',
+  'lightbulb',
+  // Kitchen
+  'chef-hat',
+  'utensils',
+  'coffee',
+  'refrigerator',
+  'cooking-pot',
+  // Misc
+  'camera',
+  'image',
+  'phone',
+  'mail',
+  'user',
+  'heart',
+  'help',
+] as const
+
+export type OptionIconName = (typeof OPTION_ICON_NAMES)[number]
+
+export const OPTION_ICONS: Record<OptionIconName, LucideIcon> = {
+  house: House,
+  'door-open': DoorOpen,
+  wrench: Wrench,
+  hammer: Hammer,
+  ruler: Ruler,
+  grid: Grid3x3,
+  building: Building,
+  zap: Zap,
+  calendar: Calendar,
+  'calendar-days': CalendarDays,
+  clock: Clock,
+  search: Search,
+  dollar: DollarSign,
+  banknote: Banknote,
+  'piggy-bank': PiggyBank,
+  gem: Gem,
+  lock: Lock,
+  palette: Palette,
+  leaf: Leaf,
+  sparkles: Sparkles,
+  star: Star,
+  flame: Flame,
+  lightbulb: Lightbulb,
+  'chef-hat': ChefHat,
+  utensils: Utensils,
+  coffee: Coffee,
+  refrigerator: Refrigerator,
+  'cooking-pot': CookingPot,
+  camera: Camera,
+  image: ImageIcon,
+  phone: Phone,
+  mail: Mail,
+  user: User,
+  heart: Heart,
+  help: CircleHelp,
+}
+
+export function getOptionIcon(name?: string): LucideIcon | null {
+  if (!name) return null
+  return (OPTION_ICONS as Record<string, LucideIcon | undefined>)[name] ?? null
+}
