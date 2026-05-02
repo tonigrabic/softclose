@@ -21,6 +21,14 @@ interface RenderRequest {
   anchorPhoto?: string
   styleReferences?: string[]
   productReferences?: ProductReferenceInput[]
+  /**
+   * Image of the most recent render the homeowner is iterating on. When set,
+   * we feed it to the model as the iteration base so this generation refines
+   * the previous version rather than starting fresh from the anchor.
+   */
+  previousRenderImage?: string
+  /** Free-text adjustment the homeowner typed (in addition to chip nudges). */
+  freeTextNudge?: string
   style?: string
   doorMaterial?: string
   worktopPreference?: string
@@ -35,6 +43,14 @@ interface RenderRequest {
   materialHints?: string[]
   nudges?: string[]
   previousRenderId?: string
+}
+
+type ManifestRole = 'anchor' | 'style' | 'product' | 'previous_render'
+
+interface ManifestEntry {
+  role: ManifestRole
+  imageDataUrl: string
+  label?: string
 }
 
 const STYLE_LANGUAGE: Record<string, string> = {
@@ -85,10 +101,17 @@ interface RoleEntry {
 
 /**
  * Build the prompt for gpt-image-2. We address each photo by its 1-based
- * position so the model knows what each one is for: anchor, style ref, or
- * specific product to incorporate.
+ * position so the model knows what each one is for: anchor, style ref,
+ * specific product to incorporate, or the prior render to iterate on.
  */
-function buildPrompt(req: RenderRequest, anchorEntry: RoleEntry, styleEntries: RoleEntry[], productEntries: RoleEntry[]): string {
+function buildPrompt(
+  req: RenderRequest,
+  anchorEntry: RoleEntry,
+  styleEntries: RoleEntry[],
+  productEntries: RoleEntry[],
+  previousRenderEntry: RoleEntry | null,
+  freeTextNudge: string | null
+): string {
   const stylePhrase = describe(req.style, STYLE_LANGUAGE)
   const door = describe(req.doorMaterial, MATERIAL_LANGUAGE)
   const worktop = describe(req.worktopPreference, MATERIAL_LANGUAGE)
@@ -97,8 +120,17 @@ function buildPrompt(req: RenderRequest, anchorEntry: RoleEntry, styleEntries: R
 
   const parts: string[] = [
     'You are generating a photorealistic concept render of a kitchen redesign.',
-    `Photo ${anchorEntry.index} is the ${anchorEntry.role} — KEEP its room footprint, wall positions, window/door locations, ceiling height, floor extents, and approximate camera angle. Only change the kitchen elements (cabinets, worktops, backsplash, appliances, lighting, finishes).`,
   ]
+
+  if (previousRenderEntry) {
+    parts.push(
+      `Photo ${previousRenderEntry.index} is the PREVIOUS RENDER — start from this version and refine it. Preserve everything about it that the homeowner is not asking to change; only modify what the adjustments below request.`
+    )
+  }
+
+  parts.push(
+    `Photo ${anchorEntry.index} is the ${anchorEntry.role} — KEEP its room footprint, wall positions, window/door locations, ceiling height, floor extents, and approximate camera angle. Only change the kitchen elements (cabinets, worktops, backsplash, appliances, lighting, finishes).`
+  )
 
   if (styleEntries.length > 0) {
     const list = styleEntries.map((e) => `Photo ${e.index} (${e.role})`).join(', ')
@@ -131,9 +163,14 @@ function buildPrompt(req: RenderRequest, anchorEntry: RoleEntry, styleEntries: R
     )
   }
   if (req.scopeNotes) parts.push(`Scope notes: ${req.scopeNotes}.`)
-  if (req.nudges && req.nudges.length > 0) {
-    parts.push(`Adjust this iteration: ${req.nudges.join(', ')}.`)
+
+  const adjustments: string[] = []
+  if (req.nudges && req.nudges.length > 0) adjustments.push(...req.nudges)
+  if (freeTextNudge) adjustments.push(freeTextNudge)
+  if (adjustments.length > 0) {
+    parts.push(`Adjust this iteration: ${adjustments.join('; ')}.`)
   }
+
   parts.push(
     'Soft natural daylight, eye-level view, no text, no watermarks, no people. This is a concept render for discussion — not a literal commitment.'
   )
@@ -155,6 +192,12 @@ function isAcceptableImageRef(s: unknown): s is string {
 function sanitizeLabel(label: unknown): string | null {
   if (typeof label !== 'string') return null
   const cleaned = label.trim().replace(/[\r\n\t]+/g, ' ').slice(0, 60)
+  return cleaned.length > 0 ? cleaned : null
+}
+
+function sanitizeFreeText(text: unknown, maxLen = 240): string | null {
+  if (typeof text !== 'string') return null
+  const cleaned = text.trim().replace(/[\r\n\t]+/g, ' ').slice(0, maxLen)
   return cleaned.length > 0 ? cleaned : null
 }
 
@@ -208,21 +251,58 @@ export async function POST(req: Request) {
     productRefs.push({ photo: item.photo, label })
   }
 
-  // Build the ordered images array and parallel role labels for the prompt.
-  const images: string[] = [body.anchorPhoto!]
-  const anchorEntry: RoleEntry = { index: 1, role: "homeowner's existing kitchen (the anchor)" }
-  const styleEntries: RoleEntry[] = styleRefs.map((_, i) => ({
-    index: 1 + 1 + i,
-    role: 'style/inspiration reference',
-  }))
-  images.push(...styleRefs)
-  const productEntries: RoleEntry[] = productRefs.map((p, i) => ({
-    index: 1 + styleRefs.length + 1 + i,
-    role: p.label,
-  }))
-  images.push(...productRefs.map((p) => p.photo))
+  // Validate the optional previous-render base.
+  let previousRenderImage: string | null = null
+  if (body.previousRenderImage) {
+    if (
+      typeof body.previousRenderImage === 'string' &&
+      body.previousRenderImage.startsWith('data:image/') &&
+      approxBytesOfDataUrl(body.previousRenderImage) <= MAX_BYTES_PER_IMAGE
+    ) {
+      previousRenderImage = body.previousRenderImage
+    }
+  }
 
-  const prompt = buildPrompt(body, anchorEntry, styleEntries, productEntries)
+  const freeTextNudge = sanitizeFreeText(body.freeTextNudge)
+
+  // Build the ordered images array, parallel role labels for the prompt, and
+  // the manifest we hand back to the client to persist on the render record.
+  const images: string[] = []
+  const manifest: ManifestEntry[] = []
+
+  // Position 1: previous render (if iterating).
+  let previousRenderEntry: RoleEntry | null = null
+  if (previousRenderImage) {
+    images.push(previousRenderImage)
+    manifest.push({ role: 'previous_render', imageDataUrl: previousRenderImage })
+    previousRenderEntry = { index: images.length, role: 'previous render' }
+  }
+
+  // Anchor (always present).
+  images.push(body.anchorPhoto!)
+  manifest.push({ role: 'anchor', imageDataUrl: body.anchorPhoto! })
+  const anchorEntry: RoleEntry = {
+    index: images.length,
+    role: "homeowner's existing kitchen (the anchor)",
+  }
+
+  // Style refs.
+  const styleEntries: RoleEntry[] = []
+  for (const ref of styleRefs) {
+    images.push(ref)
+    manifest.push({ role: 'style', imageDataUrl: ref })
+    styleEntries.push({ index: images.length, role: 'style/inspiration reference' })
+  }
+
+  // Product refs.
+  const productEntries: RoleEntry[] = []
+  for (const p of productRefs) {
+    images.push(p.photo)
+    manifest.push({ role: 'product', imageDataUrl: p.photo, label: p.label })
+    productEntries.push({ index: images.length, role: p.label })
+  }
+
+  const prompt = buildPrompt(body, anchorEntry, styleEntries, productEntries, previousRenderEntry, freeTextNudge)
   const id = `render-${Date.now()}-${Math.floor(Math.random() * 1e6)}`
 
   try {
@@ -249,7 +329,10 @@ export async function POST(req: Request) {
       quality: QUALITY,
       styleRefCount: styleRefs.length,
       productRefCount: productRefs.length,
+      iteratedFromPreviousRender: Boolean(previousRenderImage),
       nudges: body.nudges ?? [],
+      freeTextNudge: freeTextNudge ?? undefined,
+      inputs: manifest,
       generatedAt: new Date().toISOString(),
     })
   } catch (err) {

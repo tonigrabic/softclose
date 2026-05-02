@@ -25,6 +25,7 @@ import {
 import { derivePrefills } from '@/lib/derive-prefills'
 import { DESIGNER_NAME } from '@/lib/system-prompt'
 import type { UploadedReference } from './ImageSelect'
+import type { FloorPlan } from '@/lib/floor-plan'
 import type {
   ClientMessage,
   ConceptRender,
@@ -106,6 +107,7 @@ export function KitchenIntake() {
   // Per-step transient state lifted to the parent so Back navigation preserves work.
   const [spacePhotos, setSpacePhotos] = useState<string[]>([])
   const [spaceVision, setSpaceVision] = useState<SpaceVisionResult | null>(null)
+  const [floorPlan, setFloorPlan] = useState<FloorPlan | null>(null)
   const [inspirationStyles, setInspirationStyles] = useState<string[]>([])
   const [inspirationRefs, setInspirationRefs] = useState<UploadedReference[]>([])
   const [inspirationVision, setInspirationVision] = useState<InspirationVisionResult | null>(null)
@@ -163,12 +165,26 @@ export function KitchenIntake() {
   }
 
   /**
-   * Apply space-vision results to the profile. Called when SpaceCapture confirms.
+   * Apply space-vision + editor results to the profile. Called when SpaceCapture confirms.
+   *
+   * Persists three things to LeadProfile:
+   *   - the raw photos and the raw vision result (provenance for the maker),
+   *   - top-level layoutShape / hasIsland / dims (for back-compat with legacy
+   *     consumers that haven't migrated to `floorPlan` yet),
+   *   - the confirmed `floorPlan` object — the new source of truth.
    */
   function commitSpacePhotos() {
     const inferred: Partial<LeadProfile> = { spacePhotos }
     if (spaceVision) {
       inferred.spaceVisionResult = spaceVision
+    }
+    if (floorPlan) {
+      inferred.floorPlan = floorPlan
+      inferred.layoutShape = floorPlan.layoutShape
+      inferred.hasIsland = floorPlan.hasIsland
+      inferred.spaceLengthCm = floorPlan.room.lengthCm
+      inferred.spaceWidthCm = floorPlan.room.widthCm
+    } else if (spaceVision) {
       if (spaceVision.layoutShape && spaceVision.layoutShape !== 'unsure') {
         inferred.layoutShape = spaceVision.layoutShape
       }
@@ -179,13 +195,17 @@ export function KitchenIntake() {
       if (spaceVision.widthCm) inferred.spaceWidthCm = spaceVision.widthCm
     }
     patchProfile(inferred)
-    logTurn(
-      'user',
-      spaceVision?.summary
-        ? `Uploaded ${spacePhotos.length} space photo${spacePhotos.length === 1 ? '' : 's'}. AI read: ${spaceVision.summary}`
-        : `Uploaded ${spacePhotos.length} space photo${spacePhotos.length === 1 ? '' : 's'}.`,
-      spacePhotos
-    )
+    const summary = floorPlan
+      ? floorPlan.measurementMethod === 'deferred_to_designer'
+        ? 'Plan deferred to designer for on-site measurement.'
+        : `Confirmed plan (${Math.round(floorPlan.room.lengthCm)} × ${Math.round(floorPlan.room.widthCm)} cm).`
+      : spaceVision?.summary
+        ? `AI read: ${spaceVision.summary}`
+        : null
+    const photoNote = spacePhotos.length
+      ? `Uploaded ${spacePhotos.length} space photo${spacePhotos.length === 1 ? '' : 's'}.`
+      : 'No photos uploaded.'
+    logTurn('user', [photoNote, summary].filter(Boolean).join(' '), spacePhotos)
     goNext()
   }
 
@@ -386,6 +406,7 @@ export function KitchenIntake() {
     setFinaliseError(null)
     setSpacePhotos([])
     setSpaceVision(null)
+    setFloorPlan(null)
     setInspirationStyles([])
     setInspirationRefs([])
     setInspirationVision(null)
@@ -473,6 +494,8 @@ export function KitchenIntake() {
                 onSpacePhotosChange={setSpacePhotos}
                 spaceVision={spaceVision}
                 onSpaceVisionChange={setSpaceVision}
+                floorPlan={floorPlan}
+                onFloorPlanChange={setFloorPlan}
                 inspirationStyles={inspirationStyles}
                 onInspirationStylesChange={setInspirationStyles}
                 inspirationRefs={inspirationRefs}
@@ -587,6 +610,8 @@ interface StepBodyProps {
   onSpacePhotosChange: (photos: string[]) => void
   spaceVision: SpaceVisionResult | null
   onSpaceVisionChange: (v: SpaceVisionResult | null) => void
+  floorPlan: FloorPlan | null
+  onFloorPlanChange: (p: FloorPlan | null) => void
   inspirationStyles: string[]
   onInspirationStylesChange: (s: string[]) => void
   inspirationRefs: UploadedReference[]
@@ -627,6 +652,8 @@ function StepBody(props: StepBodyProps) {
     onSpacePhotosChange,
     spaceVision,
     onSpaceVisionChange,
+    floorPlan,
+    onFloorPlanChange,
     inspirationStyles,
     onInspirationStylesChange,
     inspirationRefs,
@@ -671,6 +698,8 @@ function StepBody(props: StepBodyProps) {
             onPhotosChange={onSpacePhotosChange}
             visionResult={spaceVision}
             onVisionResult={onSpaceVisionChange}
+            floorPlan={floorPlan}
+            onFloorPlanChange={onFloorPlanChange}
             onSkip={onSpacePhotosSkip}
             onConfirm={onSpacePhotosCommit}
           />

@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { ArrowLeft, Check, AlertTriangle, MessageCircle, X, Quote } from 'lucide-react'
 import type { HandoffBundle, LeadProfile, TranslatedField } from '@/lib/types'
+import type { FloorPlan } from '@/lib/floor-plan'
+import { FEATURE_DEFAULTS, OPENING_DEFAULTS, formatLength } from '@/lib/floor-plan'
 import { cn } from '@/lib/utils'
 
 type Confidence = 'H' | 'M' | 'L' | null
@@ -216,13 +218,19 @@ export function MakerDashboardPreview({ bundle, onBack }: MakerDashboardPreviewP
           {/* Floor plan */}
           {bundle.floorPlan && (
             <section className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-              <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-slate-700">
-                Schematic
-              </h2>
+              <div className="mb-2 flex items-baseline justify-between">
+                <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
+                  Schematic
+                </h2>
+                <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500">
+                  {bundle.floorPlan.plan.measurementMethod.replace(/_/g, ' ')}
+                </span>
+              </div>
               <div
                 className="overflow-hidden rounded border border-slate-200 bg-white"
                 dangerouslySetInnerHTML={{ __html: bundle.floorPlan.svg }}
               />
+              <PlanProvenanceList plan={bundle.floorPlan.plan} />
               <p className="mt-2 font-mono text-[10px] text-slate-500">
                 {bundle.floorPlan.disclaimer}
               </p>
@@ -512,6 +520,57 @@ export function MakerDashboardPreview({ bundle, onBack }: MakerDashboardPreviewP
                   <AlertTriangle className="mt-0.5 size-3 shrink-0 text-amber-700" aria-hidden />
                   Homeowner direction, not binding spec. Treat as reference for the maker conversation.
                 </p>
+
+                {bundle.chosenRender.inputs && bundle.chosenRender.inputs.length > 0 && (
+                  <div className="rounded border border-slate-300 bg-white p-2">
+                    <p className="mb-1.5 font-mono text-[10px] font-semibold uppercase text-slate-600">
+                      Render inputs ({bundle.chosenRender.inputs.length})
+                    </p>
+                    <p className="mb-2 font-mono text-[10px] leading-snug text-slate-500">
+                      The actual photos the homeowner pointed at. The render above is AI; these are the real references.
+                    </p>
+                    <div className="space-y-2">
+                      {(['anchor', 'previous_render', 'style', 'product'] as const).map((role) => {
+                        const items = bundle.chosenRender!.inputs.filter((i) => i.role === role)
+                        if (items.length === 0) return null
+                        const heading = {
+                          anchor: 'Existing kitchen (anchor)',
+                          previous_render: 'Iterated from prior render',
+                          style: 'Style references',
+                          product: 'Specific items',
+                        }[role]
+                        return (
+                          <div key={role}>
+                            <p className="mb-1 font-mono text-[10px] font-semibold uppercase text-slate-500">
+                              {heading}
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {items.map((item, i) => (
+                                <div
+                                  key={`${role}-${i}`}
+                                  className="w-20 overflow-hidden rounded border border-slate-300 bg-slate-50"
+                                >
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={item.imageDataUrl}
+                                    alt={item.label ?? role}
+                                    className="h-16 w-full object-cover"
+                                  />
+                                  {role === 'product' && item.label && (
+                                    <p className="border-t border-slate-300 px-1 py-0.5 font-mono text-[9px] font-semibold uppercase tracking-wider text-slate-700">
+                                      {item.label}
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <details className="rounded border border-slate-300 bg-white px-2 py-1">
                   <summary className="cursor-pointer font-mono text-[10px] font-semibold uppercase text-slate-600">
                     Prompt + nudges that shaped this
@@ -521,7 +580,12 @@ export function MakerDashboardPreview({ bundle, onBack }: MakerDashboardPreviewP
                   </p>
                   {bundle.chosenRender.nudges.length > 0 && (
                     <p className="mt-2 font-mono text-[10px] text-slate-500">
-                      Iterations: {bundle.chosenRender.nudges.join(', ')}
+                      Chip iterations: {bundle.chosenRender.nudges.join(', ')}
+                    </p>
+                  )}
+                  {bundle.chosenRender.freeTextNudge && (
+                    <p className="mt-2 font-mono text-[10px] text-slate-500">
+                      Final free-text adjustment: &ldquo;{bundle.chosenRender.freeTextNudge}&rdquo;
                     </p>
                   )}
                   <p className="mt-2 font-mono text-[10px] text-slate-500">
@@ -628,6 +692,97 @@ export function MakerDashboardPreview({ bundle, onBack }: MakerDashboardPreviewP
           </section>
         </div>
       </div>
+    </div>
+  )
+}
+
+function PlanProvenanceList({ plan }: { plan: FloorPlan }) {
+  type Row = {
+    key: string
+    label: string
+    detail: string
+    confidence: 'H' | 'M' | 'L'
+    source: 'homeowner' | 'ai_vision' | 'inferred' | 'preset'
+  }
+  const rows: Row[] = []
+  rows.push({
+    key: 'room',
+    label: 'Room',
+    detail: `${formatLength(plan.room.lengthCm, plan.units)} × ${formatLength(plan.room.widthCm, plan.units)}`,
+    confidence: plan.room.confidence,
+    source: plan.room.source,
+  })
+  for (const o of plan.openings) {
+    rows.push({
+      key: o.id,
+      label: OPENING_DEFAULTS[o.kind].label,
+      detail: `${o.wall} · ${formatLength(o.widthCm, plan.units)}`,
+      confidence: o.confidence,
+      source: o.source,
+    })
+  }
+  for (const f of plan.features) {
+    rows.push({
+      key: f.id,
+      label: FEATURE_DEFAULTS[f.kind].label,
+      detail: `${f.wall} · ${formatLength(f.widthCm, plan.units)}`,
+      confidence: f.confidence,
+      source: f.source,
+    })
+  }
+  if (plan.island) {
+    rows.push({
+      key: plan.island.id,
+      label: 'Island',
+      detail: `${formatLength(plan.island.lengthCm, plan.units)} × ${formatLength(plan.island.widthCm, plan.units)}`,
+      confidence: plan.island.confidence,
+      source: plan.island.source,
+    })
+  }
+  if (rows.length === 1) return null
+  return (
+    <div className="mt-3 rounded border border-slate-200 bg-slate-50/50 p-2">
+      <p className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-slate-500">
+        Per-element provenance
+      </p>
+      <ul className="space-y-1">
+        {rows.map((r) => {
+          const sourceMeta = {
+            homeowner: { label: 'homeowner', tone: 'bg-slate-200 text-slate-800' },
+            ai_vision: { label: 'ai · vision', tone: 'bg-violet-100 text-violet-800' },
+            inferred: { label: 'ai · inferred', tone: 'bg-amber-100 text-amber-800' },
+            preset: { label: 'preset', tone: 'bg-blue-100 text-blue-800' },
+          }[r.source]
+          const confTone = {
+            H: 'bg-emerald-100 text-emerald-800 ring-emerald-200',
+            M: 'bg-amber-100 text-amber-800 ring-amber-200',
+            L: 'bg-rose-100 text-rose-800 ring-rose-200',
+          }[r.confidence]
+          return (
+            <li key={r.key} className="flex items-baseline justify-between gap-2 text-[11px]">
+              <span className="font-medium text-slate-800">{r.label}</span>
+              <span className="font-mono text-[10px] text-slate-600">{r.detail}</span>
+              <span
+                className={cn(
+                  'rounded px-1.5 font-mono text-[9px] font-bold uppercase ring-1 ring-inset',
+                  confTone
+                )}
+                title={`Confidence ${r.confidence}`}
+              >
+                {r.confidence}
+              </span>
+              <span
+                className={cn(
+                  'rounded px-1.5 font-mono text-[9px] font-medium uppercase tracking-wide',
+                  sourceMeta.tone
+                )}
+              >
+                {sourceMeta.label}
+              </span>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }

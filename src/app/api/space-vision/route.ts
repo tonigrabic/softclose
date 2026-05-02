@@ -116,6 +116,29 @@ function approxBytesOfDataUrl(dataUrl: string): number {
   return Math.ceil((base64.length * 3) / 4)
 }
 
+/** Sanity bands per layout shape — see space-vision system prompt. */
+const DIM_BANDS: Record<string, { length: [number, number]; width: [number, number] }> = {
+  galley: { length: [180, 550], width: [130, 300] },
+  l_shape: { length: [220, 650], width: [180, 550] },
+  u_shape: { length: [220, 550], width: [220, 550] },
+  peninsula: { length: [220, 650], width: [220, 550] },
+  island: { length: [320, 850], width: [280, 650] },
+  open: { length: [220, 1000], width: [220, 800] },
+  unsure: { length: [120, 1100], width: [120, 1100] },
+}
+
+function dimsLookSane(shape: string | undefined, lengthCm: number, widthCm: number): boolean {
+  const band = DIM_BANDS[shape ?? 'unsure'] ?? DIM_BANDS.unsure
+  // Length is always the longer dimension; orient before checking.
+  const [longer, shorter] = lengthCm >= widthCm ? [lengthCm, widthCm] : [widthCm, lengthCm]
+  return (
+    longer >= band.length[0] &&
+    longer <= band.length[1] &&
+    shorter >= band.width[0] &&
+    shorter <= band.width[1]
+  )
+}
+
 function dataUrlToImagePart(dataUrl: string): {
   type: 'image'
   image: string
@@ -134,9 +157,25 @@ Rules:
 - If the photos clearly are not a kitchen, set lookedLikeKitchen: false and leave most other fields empty.
 - Confidence is per-feature. Use 'H' only when you can clearly see and locate the feature. Use 'L' liberally — better dashed-with-? than wrong.
 - Positional fields use percentages along the room walls. Treat the longer wall run as 'top' (or 'bottom') and the shorter as 'left'/'right'.
-- For dimensions, give your best rough guess in cm. Be conservative; do not invent precision. Skip rather than guess wildly.
 - For style and material hints, use trade language (shaker, slab, quartz, butcher block, brushed brass, etc.) — short fragments, not sentences.
-- Skip a field rather than fabricate it.`
+- Skip a field rather than fabricate it.
+
+Dimensions — be honest about what you can and cannot scale:
+- Only output lengthCm / widthCm if you can anchor the scale to a visible reference object whose real-world size is roughly known. Acceptable anchors:
+  · cooker / range top width (typically 60, 76, or 90 cm)
+  · fridge width (typically 60, 75, 84, or 90 cm)
+  · dishwasher width (typically 45 or 60 cm)
+  · standard tile pattern (300, 400, 600 mm)
+  · a clearly visible measuring tape or ruler.
+- If no anchor is visible, omit lengthCm and widthCm. Add a short note in 'summary' explaining you couldn't scale it ("Hard to scale from these — let's set the size together.").
+- Do not output dimensions to feel complete. Wrong dimensions cost the homeowner trust in the maker downstream.
+- If you do output dimensions, sanity-check against typical room footprints:
+  · galley:    200–500 cm × 150–280 cm
+  · l_shape:   240–600 cm × 200–500 cm
+  · u_shape:   240–500 cm × 240–500 cm
+  · peninsula: 240–600 cm × 240–500 cm
+  · island:    350–800 cm × 300–600 cm
+  Outside those bands, omit rather than report.`
 
 export async function POST(req: Request) {
   const limit = rateLimit(req, 'space-vision', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
@@ -210,11 +249,21 @@ export async function POST(req: Request) {
     }
     const inferred = toolCall.input as SpaceVisionResult
 
-    // Light dimension clamping defense-in-depth (model is also told to clamp).
+    // Defense-in-depth dimension validation. The model is also told to omit dims
+    // it can't anchor, but we don't trust it and drop anything outside per-shape
+    // sanity bands. The editor's "set the size" moment then takes over.
     if (inferred.lengthCm && (inferred.lengthCm < 100 || inferred.lengthCm > 1200)) {
       inferred.lengthCm = undefined
     }
     if (inferred.widthCm && (inferred.widthCm < 100 || inferred.widthCm > 1200)) {
+      inferred.widthCm = undefined
+    }
+    if (
+      inferred.lengthCm &&
+      inferred.widthCm &&
+      !dimsLookSane(inferred.layoutShape, inferred.lengthCm, inferred.widthCm)
+    ) {
+      inferred.lengthCm = undefined
       inferred.widthCm = undefined
     }
 

@@ -88,6 +88,16 @@ export interface SpaceVisionResult {
 }
 
 /** One iteration of the AI img2img concept render. Capped at 5 per session. */
+export type ConceptRenderInputRole = 'anchor' | 'style' | 'product' | 'previous_render'
+
+export interface ConceptRenderInput {
+  role: ConceptRenderInputRole
+  /** Thumbnail (data URL) so the maker can see what the homeowner pointed at. */
+  imageDataUrl: string
+  /** Required for role='product' (e.g. "stove"). Optional for the others. */
+  label?: string
+}
+
 export interface ConceptRender {
   id: string
   imageDataUrl: string
@@ -97,6 +107,15 @@ export interface ConceptRender {
   anchorPhotoIndex: number
   /** Chip nudges applied (e.g. "warmer", "darker cabinets"). */
   nudges: string[]
+  /** Free-text adjustment the homeowner typed for this iteration, if any. */
+  freeTextNudge?: string
+  /**
+   * Ordered manifest of every image we sent to the renderer for this version,
+   * with the role each one played. Lets the maker dashboard show the
+   * homeowner's actual references (their stove photo, the inspiration shot,
+   * the prior render they iterated on, etc.) — not just the AI output.
+   */
+  inputs: ConceptRenderInput[]
   generatedAt: string
 }
 
@@ -150,6 +169,15 @@ export interface LeadProfile {
   spaceWidthCm?: number
   /** Raw vision inferences from /api/space-vision — separate from confirmed values. */
   spaceVisionResult?: SpaceVisionResult
+  /**
+   * Confirmed cm-based floor plan. Created from `spaceVisionResult` (or a
+   * shape preset, if the homeowner skipped photos), then mutated as the
+   * homeowner adjusts dimensions, walls, openings, and features in the
+   * Konva editor. Per-element `confidence` + `source` carries provenance
+   * for the maker dashboard. Always prefer this over `spaceVisionResult`
+   * when rendering or quoting against the brief.
+   */
+  floorPlan?: import('@/lib/floor-plan').FloorPlan
   /** Anchor photos (data URLs) the homeowner uploaded at the opener. */
   spacePhotos?: string[]
 
@@ -350,7 +378,16 @@ export interface StubEstimate {
 export interface HandoffBundle {
   brief: LeadProfile
   moodBoard: MoodBoardItem[]
-  floorPlan: { svg: string; disclaimer: string } | null
+  /**
+   * Floor plan for the maker. Includes both the structured cm-based model
+   * (so the maker dashboard can render provenance pills per element) and a
+   * static SVG (so the bundle is human-skimmable / printable).
+   */
+  floorPlan: {
+    plan: import('@/lib/floor-plan').FloorPlan
+    svg: string
+    disclaimer: string
+  } | null
   /** Legacy concept_visual references (catalog-based; superseded by conceptRenders). */
   explorationRefs: ConceptVisualRef[]
   /** The homeowner's chosen img2img concept render. */

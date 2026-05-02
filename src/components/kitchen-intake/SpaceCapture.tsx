@@ -1,10 +1,12 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Camera, Sparkles, AlertCircle, RotateCcw, Check } from 'lucide-react'
+import { Camera, Sparkles, AlertCircle, RotateCcw, Check, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { FloorPlanSchematic } from './FloorPlanSchematic'
+import { fromVision } from '@/lib/floor-plan'
+import type { FloorPlan } from '@/lib/floor-plan'
+import { FloorPlanEditor, ShapePicker } from './floor-plan-editor'
 import type { SpaceVisionResult } from '@/lib/types'
 
 const MAX_PHOTOS = 4
@@ -15,19 +17,34 @@ interface SpaceCaptureProps {
   onPhotosChange: (photos: string[]) => void
   visionResult: SpaceVisionResult | null
   onVisionResult: (result: SpaceVisionResult | null) => void
+  /**
+   * Confirmed cm-based floor plan. Persists across step navigation so Back
+   * preserves edits. Seeded from vision (or a shape preset) the moment the
+   * homeowner enters the editor.
+   */
+  floorPlan: FloorPlan | null
+  onFloorPlanChange: (plan: FloorPlan | null) => void
   /** Notifies parent when the user explicitly skips this step. */
   onSkip: () => void
   /** Notifies parent when the user wants to confirm and continue. */
   onConfirm: () => void
 }
 
-type Phase = 'awaiting' | 'analyzing' | 'reviewing' | 'rejected' | 'error'
+type Phase =
+  | 'awaiting'
+  | 'analyzing'
+  | 'rejected'
+  | 'shape_picker'
+  | 'editing'
+  | 'error'
 
 export function SpaceCapture({
   photos,
   onPhotosChange,
   visionResult,
   onVisionResult,
+  floorPlan,
+  onFloorPlanChange,
   onSkip,
   onConfirm,
 }: SpaceCaptureProps) {
@@ -37,6 +54,15 @@ export function SpaceCapture({
   const [error, setError] = useState<string | null>(null)
   const [analyzeError, setAnalyzeError] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [showShapePicker, setShowShapePicker] = useState(false)
+
+  // Seed the editor from the vision result the moment it arrives. Don't
+  // overwrite an existing floor plan (the user may have already started editing).
+  useEffect(() => {
+    if (!floorPlan && visionResult?.lookedLikeKitchen) {
+      onFloorPlanChange(fromVision(visionResult))
+    }
+  }, [visionResult, floorPlan, onFloorPlanChange])
 
   const phase: Phase = isAnalyzing
     ? 'analyzing'
@@ -44,9 +70,11 @@ export function SpaceCapture({
       ? 'error'
       : visionResult && !visionResult.lookedLikeKitchen
         ? 'rejected'
-        : visionResult
-          ? 'reviewing'
-          : 'awaiting'
+        : floorPlan
+          ? 'editing'
+          : showShapePicker
+            ? 'shape_picker'
+            : 'awaiting'
 
   function handleFiles(files: FileList | null) {
     if (!files) return
@@ -76,6 +104,7 @@ export function SpaceCapture({
   function removePhoto(idx: number) {
     onPhotosChange(photos.filter((_, i) => i !== idx))
     onVisionResult(null)
+    onFloorPlanChange(null)
     setAnalyzeError(null)
   }
 
@@ -104,15 +133,19 @@ export function SpaceCapture({
   function startOver() {
     onPhotosChange([])
     onVisionResult(null)
+    onFloorPlanChange(null)
+    setShowShapePicker(false)
     setAnalyzeError(null)
     setError(null)
   }
 
   return (
     <div className="space-y-5">
-      <p className="text-sm text-muted-foreground">
-        Three or four wide shots of your current kitchen — corner-to-corner is ideal. Snap them now or upload from your camera roll.
-      </p>
+      {phase !== 'editing' && (
+        <p className="text-sm text-muted-foreground">
+          Three or four wide shots of your current kitchen — corner-to-corner is ideal. Snap them now or upload from your camera roll.
+        </p>
+      )}
 
       {phase === 'awaiting' && (
         <div className="space-y-3">
@@ -168,10 +201,18 @@ export function SpaceCapture({
             </button>
             <button
               type="button"
+              onClick={() => setShowShapePicker(true)}
+              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent/40"
+            >
+              <Pencil className="size-3.5 stroke-[1.75]" aria-hidden />
+              Describe instead
+            </button>
+            <button
+              type="button"
               onClick={onSkip}
               className="flex-1 rounded-xl border border-transparent bg-transparent py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              Skip — no photos right now
+              Skip
             </button>
           </div>
 
@@ -194,7 +235,7 @@ export function SpaceCapture({
         </div>
       )}
 
-      {photos.length > 0 && phase !== 'reviewing' && (
+      {photos.length > 0 && phase !== 'editing' && (
         <div className="grid grid-cols-4 gap-2">
           {photos.map((src, i) => (
             <div
@@ -264,10 +305,10 @@ export function SpaceCapture({
           <div className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 size-4 shrink-0 stroke-[1.75]" aria-hidden />
             <p className="text-sm leading-relaxed">
-              Hmm — these don&apos;t look like a kitchen. Could you re-upload, or skip and tell me about the space in your own words?
+              Hmm — these don&apos;t look like a kitchen. Re-upload, describe the shape instead, or skip and your designer will measure on site.
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={startOver}
@@ -275,6 +316,17 @@ export function SpaceCapture({
             >
               <RotateCcw className="-mt-0.5 mr-1 inline size-3.5 stroke-[1.75]" aria-hidden />
               Re-upload
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onVisionResult(null)
+                setShowShapePicker(true)
+              }}
+              className="flex-1 rounded-lg border border-border bg-card py-2 text-xs font-semibold text-foreground hover:bg-accent/40"
+            >
+              <Pencil className="-mt-0.5 mr-1 inline size-3.5 stroke-[1.75]" aria-hidden />
+              Describe instead
             </button>
             <button
               type="button"
@@ -287,45 +339,49 @@ export function SpaceCapture({
         </div>
       )}
 
-      {phase === 'reviewing' && visionResult && (
+      {phase === 'shape_picker' && (
+        <div className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <ShapePicker
+            onPick={(plan) => {
+              onFloorPlanChange(plan)
+              setShowShapePicker(false)
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowShapePicker(false)}
+            className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+          >
+            ← Back to upload
+          </button>
+        </div>
+      )}
+
+      {phase === 'editing' && floorPlan && (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-            <div className="mb-2 flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Here&apos;s what we see
-              </p>
-              <button
-                type="button"
-                onClick={startOver}
-                className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
-              >
-                Start over
-              </button>
-            </div>
-            {visionResult.summary && (
-              <p className="mb-3 text-sm font-medium text-foreground">{visionResult.summary}</p>
-            )}
-            <div className="rounded-xl border border-border bg-background/60 p-2">
-              <FloorPlanSchematic
-                input={{
-                  layoutShape: visionResult.layoutShape,
-                  hasIsland: visionResult.hasIsland,
-                  lengthCm: visionResult.lengthCm,
-                  widthCm: visionResult.widthCm,
-                  wallRuns: visionResult.wallRuns,
-                  windows: visionResult.windows,
-                  doors: visionResult.doors,
-                  features: visionResult.features,
-                }}
-              />
-            </div>
-            <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
-              Dashed boxes with a <span className="font-mono">?</span> are best guesses — confirm them so your designer can plan around them.
+          <div className="flex items-baseline justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Your space — drag, type, fix what&apos;s off
             </p>
+            <button
+              type="button"
+              onClick={startOver}
+              className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+            >
+              Start over
+            </button>
           </div>
-
-          <ChipReadback visionResult={visionResult} onChange={onVisionResult} />
-
+          {visionResult?.summary && (
+            <p className="rounded-xl border border-border bg-card/60 px-3 py-2 text-sm text-foreground">
+              <span className="mr-1.5 font-medium text-muted-foreground">AI read:</span>
+              {visionResult.summary}
+            </p>
+          )}
+          <FloorPlanEditor
+            initialPlan={floorPlan}
+            anchorPhotoUrl={photos[0]}
+            onChange={onFloorPlanChange}
+          />
           <button
             type="button"
             onClick={onConfirm}
@@ -340,7 +396,7 @@ export function SpaceCapture({
       {phase === 'error' && (
         <div className="space-y-2 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           <p className="font-medium">{analyzeError}</p>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               onClick={analyze}
@@ -350,10 +406,20 @@ export function SpaceCapture({
             </button>
             <button
               type="button"
+              onClick={() => {
+                setAnalyzeError(null)
+                setShowShapePicker(true)
+              }}
+              className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent/40"
+            >
+              Describe instead
+            </button>
+            <button
+              type="button"
               onClick={onSkip}
               className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
             >
-              Skip and describe in chat
+              Skip
             </button>
           </div>
         </div>
@@ -362,77 +428,6 @@ export function SpaceCapture({
       {error && phase === 'awaiting' && (
         <p className="text-xs font-medium text-destructive">{error}</p>
       )}
-    </div>
-  )
-}
-
-const SHAPE_LABELS: Record<string, string> = {
-  galley: 'Galley',
-  l_shape: 'L-shape',
-  u_shape: 'U-shape',
-  island: 'Island',
-  peninsula: 'Peninsula',
-  open: 'Open plan',
-  unsure: 'Not sure',
-}
-
-function ChipReadback({
-  visionResult,
-  onChange,
-}: {
-  visionResult: SpaceVisionResult
-  onChange: (r: SpaceVisionResult) => void
-}) {
-  return (
-    <div className="space-y-3 rounded-2xl border border-border bg-card/60 px-4 py-3.5">
-      <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Quick correction (optional)
-      </p>
-
-      <div>
-        <p className="mb-1.5 text-xs text-muted-foreground">Layout</p>
-        <div className="flex flex-wrap gap-1.5">
-          {Object.entries(SHAPE_LABELS).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => onChange({ ...visionResult, layoutShape: value })}
-              className={cn(
-                'rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
-                visionResult.layoutShape === value
-                  ? 'border-primary bg-primary/10 text-foreground'
-                  : 'border-border bg-card text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div>
-        <p className="mb-1.5 text-xs text-muted-foreground">Island</p>
-        <div className="flex gap-1.5">
-          {[
-            { value: true, label: 'Yes' },
-            { value: false, label: 'No' },
-          ].map((opt) => (
-            <button
-              key={String(opt.value)}
-              type="button"
-              onClick={() => onChange({ ...visionResult, hasIsland: opt.value })}
-              className={cn(
-                'rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors',
-                visionResult.hasIsland === opt.value
-                  ? 'border-primary bg-primary/10 text-foreground'
-                  : 'border-border bg-card text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }

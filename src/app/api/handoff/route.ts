@@ -1,4 +1,4 @@
-import { renderFloorPlanSvg, hasFloorPlanInput, planInputFromProfile } from '@/lib/floor-plan'
+import { hasPlan, planFromProfile, renderFloorPlanSvg, validate } from '@/lib/floor-plan'
 import { buildStubEstimate } from '@/lib/stub-estimate'
 import type {
   ClientMessage,
@@ -16,6 +16,9 @@ interface HandoffRequest {
   transcript?: ClientMessage[]
 }
 
+const PLAN_DISCLAIMER =
+  'Schematic generated from the homeowner-confirmed plan and AI-inferred features — not a survey or working drawing. Per-element provenance + confidence on hover.'
+
 export async function POST(req: Request) {
   try {
     const body = (await req.json()) as HandoffRequest
@@ -29,14 +32,19 @@ export async function POST(req: Request) {
       illustrativeOnly: true,
     }))
 
-    const planInput = planInputFromProfile(brief)
-    const floorPlan = hasFloorPlanInput(planInput)
-      ? {
-          svg: renderFloorPlanSvg(planInput),
-          disclaimer:
-            'Schematic generated from stated layout and AI-inferred features — not a survey or working drawing. Dashed boxes mark low-confidence inferences.',
+    let floorPlan: HandoffBundle['floorPlan'] = null
+    if (hasPlan(brief)) {
+      const plan = planFromProfile(brief)
+      if (plan) {
+        const validated = validate(plan)
+        floorPlan = {
+          plan: validated,
+          // Maker mode: solid lines, provenance shown by the dashboard, not by dashing.
+          svg: renderFloorPlanSvg(validated, { mode: 'maker' }),
+          disclaimer: PLAN_DISCLAIMER,
         }
-      : null
+      }
+    }
 
     let chosenRender: (ConceptRender & { conceptOnly: true }) | null = null
     if (brief.conceptRenderChosenId && brief.conceptRenders?.length) {

@@ -3,7 +3,7 @@
  * the intake. Used when an option doesn't carry an explicit `imageUrl`,
  * so the homeowner sees an evocative tile instead of a bare gradient.
  */
-import { renderFloorPlanSvg } from '@/lib/floor-plan'
+import { fromShapePreset, renderFloorPlanSvg, type LayoutShape } from '@/lib/floor-plan'
 
 interface StyleTile {
   primary: string
@@ -102,13 +102,11 @@ function normalize(value: string): string {
 }
 
 function layoutTile(value: string): string | null {
-  const shape = normalize(value)
-  const KNOWN = ['galley', 'l_shape', 'u_shape', 'island', 'peninsula', 'open', 'unsure']
+  const shape = normalize(value) as LayoutShape
+  const KNOWN: LayoutShape[] = ['galley', 'l_shape', 'u_shape', 'island', 'peninsula', 'open', 'unsure']
   if (!KNOWN.includes(shape)) return null
-  const svg = renderFloorPlanSvg({
-    layoutShape: shape,
-    hasIsland: shape === 'island',
-  })
+  const plan = fromShapePreset(shape, { hasIsland: shape === 'island' })
+  const svg = renderFloorPlanSvg(plan, { showDimensions: false, showDisclaimer: false })
   return svgDataUrl(svg)
 }
 

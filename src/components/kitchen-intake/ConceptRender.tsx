@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, RotateCcw, Check, AlertCircle, Camera, ImagePlus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { ConceptRender as ConceptRenderRecord, LeadProfile } from '@/lib/types'
+import type {
+  ConceptRender as ConceptRenderRecord,
+  ConceptRenderInput,
+  LeadProfile,
+} from '@/lib/types'
 
 const MAX_RENDERS_PER_SESSION = 5
 const MAX_PRODUCT_REFS = 4
@@ -86,6 +90,7 @@ export function ConceptRender({
 }: ConceptRenderProps) {
   const [anchorIndex, setAnchorIndex] = useState(0)
   const [activeNudges, setActiveNudges] = useState<string[]>([])
+  const [freeTextNudge, setFreeTextNudge] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [pendingLabel, setPendingLabel] = useState('')
@@ -136,6 +141,7 @@ export function ConceptRender({
     setIsGenerating(true)
     setError(null)
     try {
+      const trimmedFreeText = freeTextNudge.trim()
       const res = await fetch('/api/render-concept', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -143,6 +149,8 @@ export function ConceptRender({
           anchorPhoto: anchorPhotos[anchorIndex],
           styleReferences: forwardableStyleRefs,
           productReferences: productReferences.map((p) => ({ photo: p.photo, label: p.label })),
+          previousRenderImage: currentRender?.imageDataUrl,
+          freeTextNudge: trimmedFreeText || undefined,
           style: profile.stylePreferences?.[0],
           doorMaterial: profile.doorMaterial,
           worktopPreference: profile.worktopPreference,
@@ -167,10 +175,13 @@ export function ConceptRender({
         modelVersion: data.modelVersion,
         anchorPhotoIndex: anchorIndex,
         nudges: data.nudges ?? activeNudges,
+        freeTextNudge: data.freeTextNudge ?? (trimmedFreeText || undefined),
+        inputs: (data.inputs as ConceptRenderInput[] | undefined) ?? [],
         generatedAt: data.generatedAt,
       }
       onRenderAdded(record)
       setActiveNudges([])
+      setFreeTextNudge('')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not generate render')
     } finally {
@@ -500,6 +511,31 @@ export function ConceptRender({
         </div>
       )}
 
+      {/* Free-text adjustment */}
+      {currentRender && !capped && (
+        <div className="space-y-1.5">
+          <label
+            htmlFor="render-free-text"
+            className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
+          >
+            Or describe the change in your own words
+          </label>
+          <textarea
+            id="render-free-text"
+            value={freeTextNudge}
+            onChange={(e) => setFreeTextNudge(e.target.value.slice(0, 240))}
+            rows={2}
+            placeholder="e.g. swap the upper cabinets for floating wood shelves and add a brass faucet"
+            className="block w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
+            maxLength={240}
+          />
+          <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+            <span>Anything chip presets don&apos;t cover.</span>
+            <span>{freeTextNudge.length}/240</span>
+          </div>
+        </div>
+      )}
+
       {/* Action row */}
       {currentRender && (
         <div className="flex flex-col gap-2 sm:flex-row">
@@ -516,9 +552,11 @@ export function ConceptRender({
             <RotateCcw className="size-4 stroke-[1.75]" aria-hidden />
             {capped
               ? 'No more iterations'
-              : activeNudges.length > 0
-                ? `Regenerate with ${activeNudges.length} tweak${activeNudges.length > 1 ? 's' : ''}`
-                : 'Regenerate'}
+              : (() => {
+                  const tweakCount = activeNudges.length + (freeTextNudge.trim() ? 1 : 0)
+                  if (tweakCount === 0) return 'Regenerate from this version'
+                  return `Regenerate with ${tweakCount} tweak${tweakCount > 1 ? 's' : ''}`
+                })()}
           </button>
           <button
             type="button"
