@@ -51,6 +51,39 @@ export interface SideSpec {
   kind: SideKind
   /** Optional homeowner label, e.g. "window wall" or "to dining room". */
   label?: string
+  /**
+   * Whether this side has counter/worktop running along it. `undefined` means
+   * "use layout-shape default" (resolved by `effectiveHasCounter`). Open sides
+   * never have counter, regardless of this flag.
+   *
+   * The renderer auto-segments the counter band wherever a door/passage
+   * interrupts it — windows do not break counters (counters under windows are
+   * normal). Features like sink/hob sit ON the counter and don't break it
+   * either.
+   */
+  hasCounter?: boolean
+  /**
+   * How deep the counter is, in cm (perpendicular to the wall). `undefined`
+   * uses the standard 60 cm. Most kitchens are 60; a few use shallower 50–55
+   * (smaller flats) or deeper 65 (with appliances behind a fascia).
+   */
+  counterDepthCm?: number
+  /**
+   * How long the counter run is, in cm (along the wall). `undefined` means
+   * "the full wall" — the renderer still cuts out doors/passages automatically.
+   * Setting this lets a homeowner say "the counter only goes halfway, then
+   * there's a free wall".
+   */
+  counterLengthCm?: number
+  /**
+   * Where the counter run begins along the wall, in cm from the wall's start
+   * corner. `undefined` means "anchored at the start corner" (legacy behavior
+   * — counter sits flush in the corner). Combined with `counterLengthCm` this
+   * lets the homeowner park a partial run anywhere on the wall: aligned to
+   * the start corner, centered, against the far corner, or at a custom
+   * offset. Ignored when the counter spans the full wall.
+   */
+  counterStartCm?: number
 }
 
 export interface RoomSides {
@@ -205,6 +238,234 @@ function defaultSides(): RoomSides {
 /** Snap a wall axis ('h' or 'v') so we know which direction startCm runs. */
 export function wallAxis(wall: WallSide): 'h' | 'v' {
   return wall === 'top' || wall === 'bottom' ? 'h' : 'v'
+}
+
+/** Default counter presence per side based on layout shape (closed sides only). */
+export function defaultHasCounter(wall: WallSide, layoutShape: LayoutShape): boolean {
+  switch (layoutShape) {
+    case 'galley':
+      return wall === 'top' || wall === 'bottom'
+    case 'l_shape':
+      return wall === 'top' || wall === 'left'
+    case 'u_shape':
+      return wall === 'top' || wall === 'left' || wall === 'right'
+    case 'peninsula':
+      // Counter on the long top run; bottom counter is partial in render but the
+      // toggle is still "yes by default" so it shows up.
+      return wall === 'top' || wall === 'bottom'
+    case 'island':
+    case 'open':
+      return wall === 'top'
+    case 'unsure':
+    default:
+      return wall === 'top'
+  }
+}
+
+/** Standard kitchen counter depth in cm (60 cm worktop). */
+export const DEFAULT_COUNTER_DEPTH_CM = 60
+
+/** Common counter depth options surfaced in the UI; "Other" handled via custom input. */
+export const COUNTER_DEPTH_OPTIONS_CM = [50, 55, 60, 65, 70]
+
+/**
+ * Resolve whether a given side has counter, taking into account the homeowner
+ * override (`SideSpec.hasCounter`), the layout-shape default, and the rule that
+ * open sides never carry counter.
+ */
+export function effectiveHasCounter(plan: FloorPlan, wall: WallSide): boolean {
+  const side = plan.room.sides[wall]
+  if (side.kind === 'open') return false
+  if (typeof side.hasCounter === 'boolean') return side.hasCounter
+  return defaultHasCounter(wall, plan.layoutShape)
+}
+
+/**
+ * Resolved counter depth (cm). Falls back to `DEFAULT_COUNTER_DEPTH_CM` when
+ * the homeowner hasn't customised it.
+ */
+export function effectiveCounterDepth(plan: FloorPlan, wall: WallSide): number {
+  const side = plan.room.sides[wall]
+  const depth = side.counterDepthCm
+  if (typeof depth === 'number' && Number.isFinite(depth)) {
+    return clamp(depth, 30, 120)
+  }
+  return DEFAULT_COUNTER_DEPTH_CM
+}
+
+/**
+ * Resolved counter run length (cm). Returns the full wall length when no
+ * override is set; clamps to the wall.
+ */
+export function effectiveCounterLength(plan: FloorPlan, wall: WallSide): number {
+  const total = wallLengthCm(wall, plan.room)
+  const override = plan.room.sides[wall].counterLengthCm
+  if (typeof override === 'number' && Number.isFinite(override)) {
+    return clamp(override, 0, total)
+  }
+  return total
+}
+
+/**
+ * Resolved counter run start offset (cm from the wall's start corner). If the
+ * counter spans the full wall, start is always 0. Otherwise we honour the
+ * homeowner override, clamped so the run can't slide past the far corner.
+ */
+export function effectiveCounterStart(plan: FloorPlan, wall: WallSide): number {
+  const total = wallLengthCm(wall, plan.room)
+  const len = effectiveCounterLength(plan, wall)
+  if (len >= total) return 0
+  const override = plan.room.sides[wall].counterStartCm
+  if (typeof override === 'number' && Number.isFinite(override)) {
+    return clamp(override, 0, total - len)
+  }
+  return 0
+}
+
+/**
+ * True if the homeowner has explicitly capped the counter run for this side.
+ * The UI uses this to flag "custom length" vs. the default "full wall" run.
+ */
+export function hasCustomCounterLength(plan: FloorPlan, wall: WallSide): boolean {
+  return typeof plan.room.sides[wall].counterLengthCm === 'number'
+}
+
+/** Walls that share a corner with the given wall (left↔top/bottom, etc.). */
+function perpendicularWalls(wall: WallSide): { atStart: WallSide; atEnd: WallSide } {
+  // Wall convention: top/bottom run left→right (start=left, end=right); left/right
+  // run top→bottom (start=top, end=bottom).
+  switch (wall) {
+    case 'top':
+      return { atStart: 'left', atEnd: 'right' }
+    case 'bottom':
+      return { atStart: 'left', atEnd: 'right' }
+    case 'left':
+      return { atStart: 'top', atEnd: 'bottom' }
+    case 'right':
+      return { atStart: 'top', atEnd: 'bottom' }
+  }
+}
+
+/**
+ * Distance an opening sits from a given corner on its own wall. Top/bottom run
+ * left→right so corner-with-left = 0, corner-with-right = wallLen. Left/right
+ * run top→bottom so corner-with-top = 0, corner-with-bottom = wallLen.
+ */
+function openingCornerDistance(
+  o: Opening,
+  corner: WallSide,
+  room: { lengthCm: number; widthCm: number }
+): number {
+  const wallLen = wallLengthCm(o.wall, room)
+  const nearCornerIsStart =
+    (o.wall === 'top' && corner === 'left') ||
+    (o.wall === 'bottom' && corner === 'left') ||
+    (o.wall === 'left' && corner === 'top') ||
+    (o.wall === 'right' && corner === 'top')
+  if (nearCornerIsStart) return o.startCm
+  return wallLen - (o.startCm + o.widthCm)
+}
+
+
+/**
+ * Compute counter segments along a wall in cm-from-corner, with door and
+ * passage openings cut out. Windows do not break counters; features sit on the
+ * counter and don't break it either. Also retreats from corners that are
+ * occupied by a door/passage on the perpendicular wall, so the rendered
+ * counter doesn't impossibly hug a doorway. Returns an empty array if the
+ * side has no counter at all.
+ */
+export function counterSegmentsForWall(
+  plan: FloorPlan,
+  wall: WallSide
+): Array<{ startCm: number; endCm: number }> {
+  if (!effectiveHasCounter(plan, wall)) return []
+  const total = wallLengthCm(wall, plan.room)
+  const runStart = clamp(effectiveCounterStart(plan, wall), 0, total)
+  const runLen = clamp(effectiveCounterLength(plan, wall), 0, total - runStart)
+  const runEnd = runStart + runLen
+  if (runLen <= 0) return []
+  // Start with one segment spanning the configured run.
+  let segments: Array<{ startCm: number; endCm: number }> = [{ startCm: runStart, endCm: runEnd }]
+  // Cut out every door/passage on THIS wall.
+  for (const o of plan.openings) {
+    if (o.wall !== wall) continue
+    if (o.kind !== 'door' && o.kind !== 'passage') continue
+    const cutStart = clamp(o.startCm, 0, total)
+    const cutEnd = clamp(o.startCm + o.widthCm, 0, total)
+    segments = segments.flatMap((seg) => splitSegment(seg, cutStart, cutEnd))
+  }
+  // Retreat from corners shared with a perpendicular door/passage. The
+  // exclusion span on this wall = perpendicular wall's counter depth (or the
+  // standard depth if the perpendicular wall has no counter) + a hinge-side
+  // clearance allowance.
+  const { atStart, atEnd } = perpendicularWalls(wall)
+  const startExclusion = cornerExclusion(plan, wall, atStart, total)
+  const endExclusion = cornerExclusion(plan, wall, atEnd, total)
+  if (startExclusion > 0) {
+    segments = segments.flatMap((seg) => splitSegment(seg, 0, startExclusion))
+  }
+  if (endExclusion > 0) {
+    segments = segments.flatMap((seg) => splitSegment(seg, total - endExclusion, total))
+  }
+  // Drop pixel-thin slivers (< 20 cm reads as visual noise).
+  return segments.filter((s) => s.endCm - s.startCm >= 20)
+}
+
+/**
+ * Compute how far this wall's counter must retreat from the corner shared
+ * with `perpWall` so that any door/passage on the perp wall doesn't visually
+ * collide with the corner cabinet run.
+ *
+ * Geometry: this wall's counter occupies a band along the wall, extending
+ * into the room by `effectiveCounterDepth(wall)` perpendicular to the wall.
+ * A door/passage on the perp wall sits at the perp-wall line and (for
+ * doors) sweeps `widthCm` into the room when it opens. Any opening whose
+ * near edge falls strictly inside this wall's counter band is therefore in
+ * the same corner pocket as the cabinet — that's the "intersecting wall"
+ * overlap a homeowner sees as a door drawn over a counter. We retreat by
+ * exactly the opening's body width so the counter ends flush against the
+ * door (homeowners can choose to add their own clearance separately if
+ * they want it).
+ *
+ * Returns 0 when no opening on the perp wall intrudes into the band.
+ */
+function cornerExclusion(
+  plan: FloorPlan,
+  wall: WallSide,
+  perpWall: WallSide,
+  thisWallLen: number
+): number {
+  let maxRetreat = 0
+  // The corner influence band runs perpendicular to `wall` for as far as
+  // this wall's own counter projects into the room. An opening past that
+  // depth no longer overlaps the cabinet visually, so we don't push.
+  const counterBandDepth = effectiveCounterDepth(plan, wall)
+  for (const o of plan.openings) {
+    if (o.wall !== perpWall) continue
+    if (o.kind !== 'door' && o.kind !== 'passage') continue
+    const dist = openingCornerDistance(o, wall, plan.room)
+    if (dist >= counterBandDepth) continue
+    // Retreat along this wall by the opening's full body width. For doors
+    // this also clears the inward swing arc (which extends `widthCm` into
+    // the room along this wall's axis). The counter ends flush with the
+    // far edge of the door — they can technically butt up to each other.
+    const retreat = o.widthCm
+    maxRetreat = Math.max(maxRetreat, retreat)
+  }
+  return Math.min(maxRetreat, thisWallLen / 2)
+}
+
+function splitSegment(
+  seg: { startCm: number; endCm: number },
+  cutStart: number,
+  cutEnd: number
+): Array<{ startCm: number; endCm: number }> {
+  if (cutEnd <= seg.startCm || cutStart >= seg.endCm) return [seg]
+  const out: Array<{ startCm: number; endCm: number }> = []
+  if (cutStart > seg.startCm) out.push({ startCm: seg.startCm, endCm: cutStart })
+  if (cutEnd < seg.endCm) out.push({ startCm: cutEnd, endCm: seg.endCm })
+  return out
 }
 
 /** The length (in cm) of a given wall in the room. */

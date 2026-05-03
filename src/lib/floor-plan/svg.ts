@@ -11,9 +11,17 @@
  *     provenance via separate pills outside the SVG.
  */
 import type { FloorPlan, Feature, Opening, Island } from './model'
-import { wallAxis, wallLengthCm, FEATURE_DEFAULTS, OPENING_DEFAULTS } from './model'
+import {
+  wallAxis,
+  wallLengthCm,
+  FEATURE_DEFAULTS,
+  OPENING_DEFAULTS,
+  counterSegmentsForWall,
+  effectiveCounterDepth,
+} from './model'
 import { fitRoom, featurePxRect, openingPxRect, type FitResult } from './geometry'
 import { formatLength } from './units'
+import type { WallSide } from '@/lib/types'
 
 const W = 480
 const H = 320
@@ -21,14 +29,14 @@ const H = 320
 const COLORS = {
   wall: '#1f2937',
   wallOpen: '#cbd5e1',
-  cabFill: '#e7e5e4',
   cabStroke: '#a8a29e',
-  cabHint: '#f5f5f4',
-  cabHintStroke: '#d6d3d1',
+  counterFill: '#eef0e9',
+  counterStroke: '#bbc1ad',
   islandFill: '#d6d3d1',
   textMuted: '#78716c',
   textHint: '#a8a29e',
   textBody: '#57534e',
+  textWallLabel: '#9ca3af',
   windowFill: '#dbeafe',
   windowStroke: '#3b82f6',
   doorFill: '#fef3c7',
@@ -50,6 +58,8 @@ interface RenderOpts {
   showDimensions?: boolean
   /** Include the corner "schematic — not a survey" disclaimer. Default true. */
   showDisclaimer?: boolean
+  /** Show Top/Bottom/Left/Right wall labels just outside the room. Default false (homeowner editor turns this on). */
+  showWallLabels?: boolean
 }
 
 function escapeXml(s: string): string {
@@ -63,13 +73,19 @@ function escapeXml(s: string): string {
 
 /** Render a FloorPlan as an SVG string. */
 export function renderFloorPlanSvg(plan: FloorPlan, opts: RenderOpts = {}): string {
-  const { mode = 'homeowner', includeDataAttrs = true, showDimensions = true, showDisclaimer = true } = opts
+  const {
+    mode = 'homeowner',
+    includeDataAttrs = true,
+    showDimensions = true,
+    showDisclaimer = true,
+    showWallLabels = false,
+  } = opts
   const fit = fitRoom(plan.room, { w: W, h: H })
 
   let body = ''
 
-  // Cabinet hint background — derived from layout shape, faint, non-interactive.
-  body += renderCabinetHint(plan, fit)
+  // Counter bands per side, auto-segmented by doors/passages on that wall.
+  body += renderCounters(plan, fit)
 
   // Room rectangle with side-aware stroke (closed solid, open dashed).
   body += renderRoom(plan, fit)
@@ -85,6 +101,10 @@ export function renderFloorPlanSvg(plan: FloorPlan, opts: RenderOpts = {}): stri
   // Island.
   if (plan.island) {
     body += renderIsland(plan.island, fit, mode, includeDataAttrs)
+  }
+
+  if (showWallLabels) {
+    body += renderWallLabels(plan, fit)
   }
 
   if (showDimensions) {
@@ -133,53 +153,91 @@ function renderRoom(plan: FloorPlan, fit: FitResult): string {
 }
 
 /**
- * Faint cabinet-run background derived from layoutShape. Hint only — the
- * homeowner doesn't edit cabinets; the maker designs them.
+ * Counter bands along each closed side that has counter, auto-segmented by
+ * doors/passages on that wall. The counter is a homeowner-owned binary per
+ * side (default from layout shape, override-able). Cabinets sit ON the counter
+ * and are designed by the maker — we don't draw individual cabinets.
  */
-function renderCabinetHint(plan: FloorPlan, fit: FitResult): string {
-  const sides = plan.room.sides
-  const cabDepthPx = Math.max(20, Math.min(36, 36 * fit.scale * 8))
-  const inset = 4
-  const { x, y, w, h } = fit.inner
-  const r = (rx: number, ry: number, rw: number, rh: number) =>
-    `<rect x="${rx}" y="${ry}" width="${rw}" height="${rh}" fill="${COLORS.cabHint}" stroke="${COLORS.cabHintStroke}" stroke-dasharray="2 4" stroke-width="1" rx="2" />`
-
+function renderCounters(plan: FloorPlan, fit: FitResult): string {
   let s = ''
-  const top = () => sides.top.kind === 'closed' && r(x + inset, y + inset, w - inset * 2, cabDepthPx)
-  const bottom = () => sides.bottom.kind === 'closed' && r(x + inset, y + h - cabDepthPx - inset, w - inset * 2, cabDepthPx)
-  const left = () => sides.left.kind === 'closed' && r(x + inset, y + inset, cabDepthPx, h - inset * 2)
-  const right = () => sides.right.kind === 'closed' && r(x + w - cabDepthPx - inset, y + inset, cabDepthPx, h - inset * 2)
-
-  switch (plan.layoutShape) {
-    case 'galley':
-      s += top() || ''
-      s += bottom() || ''
-      break
-    case 'l_shape':
-      s += top() || ''
-      s += left() || ''
-      break
-    case 'u_shape':
-      s += top() || ''
-      s += left() || ''
-      s += right() || ''
-      break
-    case 'peninsula':
-      s += top() || ''
-      // Peninsula often opens on one short side; partial cabinet on bottom.
-      if (sides.bottom.kind === 'closed') {
-        s += r(x + inset, y + h - cabDepthPx - inset, (w - inset * 2) * 0.55, cabDepthPx)
-      }
-      break
-    case 'island':
-    case 'open':
-      s += top() || ''
-      break
-    default:
-      // unsure — show one faint hint along the longest closed side
-      s += top() || left() || bottom() || right() || ''
+  const sides: WallSide[] = ['top', 'bottom', 'left', 'right']
+  for (const wall of sides) {
+    const segments = counterSegmentsForWall(plan, wall)
+    if (segments.length === 0) continue
+    const depthCm = effectiveCounterDepth(plan, wall)
+    for (const seg of segments) {
+      s += counterRectSvg(wall, seg, fit, plan.room, depthCm)
+    }
   }
   return s
+}
+
+function counterRectSvg(
+  wall: WallSide,
+  seg: { startCm: number; endCm: number },
+  fit: FitResult,
+  room: { lengthCm: number; widthCm: number },
+  depthCm: number
+): string {
+  const depthPx = Math.max(14, depthCm * fit.scale)
+  const inset = 1
+  let x = 0
+  let y = 0
+  let w = 0
+  let h = 0
+  switch (wall) {
+    case 'top':
+      x = fit.inner.x + seg.startCm * fit.scale + inset
+      y = fit.inner.y + inset
+      w = (seg.endCm - seg.startCm) * fit.scale - inset * 2
+      h = depthPx
+      break
+    case 'bottom':
+      x = fit.inner.x + seg.startCm * fit.scale + inset
+      y = fit.inner.y + room.widthCm * fit.scale - depthPx - inset
+      w = (seg.endCm - seg.startCm) * fit.scale - inset * 2
+      h = depthPx
+      break
+    case 'left':
+      x = fit.inner.x + inset
+      y = fit.inner.y + seg.startCm * fit.scale + inset
+      w = depthPx
+      h = (seg.endCm - seg.startCm) * fit.scale - inset * 2
+      break
+    case 'right':
+      x = fit.inner.x + room.lengthCm * fit.scale - depthPx - inset
+      y = fit.inner.y + seg.startCm * fit.scale + inset
+      w = depthPx
+      h = (seg.endCm - seg.startCm) * fit.scale - inset * 2
+      break
+  }
+  if (w <= 0 || h <= 0) return ''
+  return (
+    `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2" ` +
+    `fill="${COLORS.counterFill}" stroke="${COLORS.counterStroke}" stroke-width="1" />`
+  )
+}
+
+function renderWallLabels(plan: FloorPlan, fit: FitResult): string {
+  const sides = plan.room.sides
+  const label = (wall: WallSide) =>
+    sides[wall].kind === 'open'
+      ? `${capitalize(wall)} (open)`
+      : sides[wall].label
+        ? `${capitalize(wall)} · ${sides[wall].label}`
+        : capitalize(wall)
+  const { x, y, w, h } = fit.inner
+  const labelStyle = `font-size="10" font-weight="600" fill="${COLORS.textWallLabel}" font-family="system-ui, sans-serif" letter-spacing="0.04em"`
+  return (
+    `<text x="${x + w / 2}" y="${y - 8}" text-anchor="middle" ${labelStyle}>${escapeXml(label('top').toUpperCase())}</text>` +
+    `<text x="${x + w / 2}" y="${y + h + 18}" text-anchor="middle" ${labelStyle}>${escapeXml(label('bottom').toUpperCase())}</text>` +
+    `<text x="${x - 8}" y="${y + h / 2 + 4}" text-anchor="end" ${labelStyle}>${escapeXml(label('left').toUpperCase())}</text>` +
+    `<text x="${x + w + 8}" y="${y + h / 2 + 4}" text-anchor="start" ${labelStyle}>${escapeXml(label('right').toUpperCase())}</text>`
+  )
+}
+
+function capitalize(s: string): string {
+  return s ? s[0].toUpperCase() + s.slice(1) : s
 }
 
 function renderOpening(

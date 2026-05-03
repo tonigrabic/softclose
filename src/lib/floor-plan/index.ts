@@ -45,6 +45,15 @@ export {
   isOpening,
   isFeature,
   isIsland,
+  defaultHasCounter,
+  effectiveHasCounter,
+  effectiveCounterDepth,
+  effectiveCounterLength,
+  effectiveCounterStart,
+  hasCustomCounterLength,
+  counterSegmentsForWall,
+  DEFAULT_COUNTER_DEPTH_CM,
+  COUNTER_DEPTH_OPTIONS_CM,
 } from './model'
 
 export { renderFloorPlanSvg } from './svg'

@@ -37,12 +37,22 @@ export function formatLength(cm: number, unit: DisplayUnit): string {
   return `${ft}′ ${inches}″`
 }
 
-/** Compact form, suitable for small canvas labels. */
+/**
+ * Compact form, suitable for small canvas labels. We round inches to a
+ * whole number and roll over to the next foot when that round produces 12
+ * (e.g. 60 cm = 1 ft 11.6 in → "2′" rather than the nonsense "1′12″").
+ */
 export function formatLengthCompact(cm: number, unit: DisplayUnit): string {
   if (unit === 'cm') return `${Math.round(cm)}`
-  const { ft, in: inches } = cmToFeetInches(cm)
-  if (inches === 0) return `${ft}′`
-  return `${ft}′${Math.round(inches)}″`
+  const parts = cmToFeetInches(cm)
+  let ft = parts.ft
+  let roundedIn = Math.round(parts.in)
+  if (roundedIn === 12) {
+    ft += 1
+    roundedIn = 0
+  }
+  if (roundedIn === 0) return `${ft}′`
+  return `${ft}′${roundedIn}″`
 }
 
 /**

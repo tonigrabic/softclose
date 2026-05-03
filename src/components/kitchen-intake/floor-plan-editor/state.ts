@@ -11,7 +11,6 @@ import {
   type Island,
   type Opening,
   type Provenance,
-  type SideKind,
 } from '@/lib/floor-plan'
 import type { WallSide } from '@/lib/types'
 
@@ -168,7 +167,7 @@ export interface EditorApi {
   // mutators
   setPlan: (plan: FloorPlan, opts?: { record?: boolean }) => void
   patchRoom: (patch: Partial<FloorPlan['room']>) => void
-  patchSide: (side: WallSide, patch: { kind?: SideKind; label?: string }) => void
+  patchSide: (side: WallSide, patch: Partial<FloorPlan['room']['sides'][WallSide]>) => void
   patchOpening: (id: string, patch: Partial<Opening>) => void
   patchFeature: (id: string, patch: Partial<Feature>) => void
   patchIsland: (patch: Partial<Island>) => void
@@ -201,7 +200,7 @@ export function useEditor(initial: FloorPlan): EditorApi {
   )
   const patchRoom = useCallback((patch: Partial<FloorPlan['room']>) => dispatch({ type: 'patch_room', patch }), [])
   const patchSide = useCallback(
-    (side: WallSide, patch: { kind?: SideKind; label?: string }) =>
+    (side: WallSide, patch: Partial<FloorPlan['room']['sides'][WallSide]>) =>
       dispatch({ type: 'patch_side', side, patch }),
     []
   )

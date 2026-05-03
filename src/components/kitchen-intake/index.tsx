@@ -451,32 +451,35 @@ export function KitchenIntake() {
   return (
     <div className="min-h-[100dvh] bg-background text-foreground">
       <ProgressBar percent={progress} />
-      <div className="flex w-full flex-row">
-        <aside className="sticky top-0 h-dvh w-64 shrink-0 overflow-y-auto px-5 py-10 lg:w-72 lg:px-6">
-          <header className="mb-5 flex items-center justify-between gap-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              {DESIGNER_NAME}
-            </p>
-            {Object.keys(profile).length > 0 && (
-              <button
-                type="button"
-                onClick={resetAll}
-                className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                title="Start over"
-              >
-                <RotateCcw className="size-3 stroke-[2]" aria-hidden />
-                Start over
-              </button>
-            )}
-          </header>
-          <StepsOverview
-            currentStepId={state.currentStepId}
-            visitedSteps={state.visitedSteps}
-            profile={profile}
-          />
-        </aside>
+      {/* The sidebar is fixed-positioned so it floats over the layout instead
+          of stealing horizontal space — that way <main> can center on the
+          full viewport via mx-auto, with the sidebar parked on the left
+          regardless of where the centered content lands. */}
+      <aside className="fixed left-0 top-0 z-30 hidden h-dvh w-64 shrink-0 overflow-y-auto px-5 py-10 lg:flex lg:w-72 lg:flex-col lg:px-6">
+        <header className="mb-5 flex items-center justify-between gap-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            {DESIGNER_NAME}
+          </p>
+          {Object.keys(profile).length > 0 && (
+            <button
+              type="button"
+              onClick={resetAll}
+              className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              title="Start over"
+            >
+              <RotateCcw className="size-3 stroke-[2]" aria-hidden />
+              Start over
+            </button>
+          )}
+        </header>
+        <StepsOverview
+          currentStepId={state.currentStepId}
+          visitedSteps={state.visitedSteps}
+          profile={profile}
+        />
+      </aside>
 
-        <main className="mx-auto w-full max-w-3xl flex-1 px-8 py-14 lg:px-14 lg:py-16">
+      <main className="mx-auto w-full max-w-3xl px-8 py-14 lg:px-14 lg:py-16">
           <AnimatePresence mode="wait">
             <motion.section
               key={state.currentStepId}
@@ -562,7 +565,6 @@ export function KitchenIntake() {
             </motion.section>
           </AnimatePresence>
         </main>
-      </div>
     </div>
   )
 
