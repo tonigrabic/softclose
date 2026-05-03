@@ -17,6 +17,7 @@ import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import { LiveBOMPanel } from './LiveBOMPanel'
 import { RerenderPanel } from './RerenderPanel'
 import { RenderCarousel } from './RenderCarousel'
+import { FactsRecap } from './FactsRecap'
 import { DoorsGroup } from './groups/DoorsGroup'
 import { WorktopGroup } from './groups/WorktopGroup'
 import { CabinetBoxesGroup } from './groups/CabinetBoxesGroup'
@@ -69,6 +70,7 @@ export function BuilderShell({
         dispatch={dispatch}
         currentId={currentId}
         onCurrentChange={setCurrentId}
+        hypothesis={hypothesis}
         renderImageDataUrl={renderImageDataUrl}
         anchorPhotoDataUrl={anchorPhotoDataUrl}
         layoutSummary={layoutSummary}
@@ -83,6 +85,7 @@ function Shell({
   dispatch,
   currentId,
   onCurrentChange,
+  hypothesis,
   renderImageDataUrl,
   anchorPhotoDataUrl,
   layoutSummary,
@@ -92,6 +95,7 @@ function Shell({
   dispatch: React.Dispatch<Parameters<ReturnType<typeof useBuilderState>[1]>[0]>
   currentId: BuilderGroupId
   onCurrentChange: (id: BuilderGroupId) => void
+  hypothesis: BuilderHypothesis | null
   renderImageDataUrl?: string
   anchorPhotoDataUrl?: string
   layoutSummary?: string
@@ -271,10 +275,14 @@ function Shell({
               </header>
 
               {currentId === 'cabinetBoxes' && (
-                <CabinetBoxesGroup
-                  state={state}
-                  onPatch={(patch) => dispatch({ type: 'patch_cabinetBoxes', patch })}
-                />
+                <>
+                  <FactsRecap hypothesis={hypothesis} />
+                  <CabinetBoxesGroup
+                    state={state}
+                    hypothesis={hypothesis}
+                    onPatch={(patch) => dispatch({ type: 'patch_cabinetBoxes', patch })}
+                  />
+                </>
               )}
               {currentId === 'doors' && (
                 <DoorsGroup

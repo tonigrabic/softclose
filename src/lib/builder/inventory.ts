@@ -204,6 +204,9 @@ export interface HardwareGroup {
   drawerSystemTier: DrawerSystemTier
   /** Specific Schachermayer SKU once a tier + brand picked. */
   drawerSystemSku?: string
+  /** Denormalised name/brand of the picked drawer system, for BOM line text. */
+  drawerSystemPickedName?: string
+  drawerSystemPickedBrand?: string
   hingeType: HingeType
   handleStyle: HandleStyle
   handleFinish: HandleFinish
@@ -227,7 +230,11 @@ export interface ApplianceSelection {
   config: string // e.g. "induction_60", "single_oven", "ceiling_recessed_extractor"
   integrated: boolean
   widthMm?: number
-  /** Free-text notes for the maker (specific brand, model, dimensions). */
+  /** Pinned Schachermayer SKU when the homeowner picks a specific product. */
+  pickedSku?: string
+  pickedName?: string
+  pickedBrand?: string
+  /** Free-text notes for the maker (intent, dimensions). Not for SKU encoding. */
   notes?: string
 }
 
@@ -259,6 +266,8 @@ export interface SinkTapsGroup {
     material: SinkMaterial
     /** Schachermayer SKU once specific model picked. */
     sku?: string
+    pickedName?: string
+    pickedBrand?: string
     /** Bowl outer dimensions, useful for cabinet sizing. */
     widthMm?: number
     depthMm?: number
@@ -267,6 +276,8 @@ export interface SinkTapsGroup {
     type: TapType
     finish: HandleFinish
     sku?: string
+    pickedName?: string
+    pickedBrand?: string
   }
   meta: {
     sinkBowls: FieldMeta

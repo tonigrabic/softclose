@@ -12,6 +12,7 @@
 import { useReducer } from 'react'
 import type { BuilderHypothesis } from './hypothesis'
 import type {
+  ApplianceSelection,
   BuilderGroupId,
   BuilderState,
   CornerSolution,
@@ -158,14 +159,18 @@ export function hydrateFromHypothesis(
 
     appliances: {
       supply: 'maker_supplies',
-      selections: [],
+      selections: seedApplianceSelections(hypothesis),
       meta: {
         supply: { ...META_DEFAULT, provenance: 'ai-default' },
         hob: metaFromHint(hypothesis?.appliances?.hob),
         oven: metaFromHint(hypothesis?.appliances?.oven),
         extractor: metaFromHint(hypothesis?.appliances?.extractor),
-        fridge: metaFromHint(hypothesis?.appliances?.fridgeIntegrated),
-        dishwasher: metaFromHint(hypothesis?.appliances?.dishwasherIntegrated),
+        fridge: metaFromHint(
+          hypothesis?.appliances?.fridge?.present ?? hypothesis?.appliances?.fridgeIntegrated
+        ),
+        dishwasher: metaFromHint(
+          hypothesis?.appliances?.dishwasher?.present ?? hypothesis?.appliances?.dishwasherIntegrated
+        ),
       },
     },
 
@@ -217,6 +222,64 @@ export function hydrateFromHypothesis(
       },
     },
   }
+}
+
+function seedApplianceSelections(hy: BuilderHypothesis | null): ApplianceSelection[] {
+  if (!hy?.appliances) return []
+  const out: ApplianceSelection[] = []
+  const ap = hy.appliances
+
+  // Hob / oven / extractor: legacy hint-shaped fields. Seed only when
+  // confidence isn't 'L' AND the value isn't 'unknown'.
+  function pushTyped(
+    type: ApplianceSelection['type'],
+    raw: { value: string; confidence: 'H' | 'M' | 'L' } | undefined
+  ) {
+    if (!raw || raw.value === 'unknown' || raw.confidence === 'L') return
+    out.push({ type, config: raw.value, integrated: false })
+  }
+  pushTyped('hob', ap.hob)
+  pushTyped('oven', ap.oven)
+  pushTyped('extractor', ap.extractor)
+
+  // Presence-flagged appliances: only seed when present === true.
+  if (ap.fridge?.present?.value) {
+    out.push({
+      type: 'fridge',
+      config: 'standard',
+      integrated: ap.fridge.integrated?.value ?? false,
+    })
+  } else if (ap.fridgeIntegrated?.value !== undefined) {
+    // Back-compat: older payloads only had `fridgeIntegrated`. Treat the
+    // flag itself as a presence signal.
+    out.push({ type: 'fridge', config: 'standard', integrated: ap.fridgeIntegrated.value })
+  }
+
+  if (ap.dishwasher?.present?.value) {
+    out.push({
+      type: 'dishwasher',
+      config: 'standard',
+      integrated: ap.dishwasher.integrated?.value ?? false,
+    })
+  } else if (ap.dishwasherIntegrated?.value !== undefined) {
+    out.push({
+      type: 'dishwasher',
+      config: 'standard',
+      integrated: ap.dishwasherIntegrated.value,
+    })
+  }
+
+  if (ap.microwave?.value?.present) {
+    out.push({
+      type: 'microwave',
+      config: 'standard',
+      integrated: ap.microwave.value.integrated ?? false,
+    })
+  }
+  if (ap.wineFridge?.value) out.push({ type: 'wine_fridge', config: 'standard', integrated: true })
+  if (ap.coffeeStation?.value) out.push({ type: 'coffee', config: 'standard', integrated: true })
+
+  return out
 }
 
 /* ────────────────────────── Reducer ────────────────────────── */

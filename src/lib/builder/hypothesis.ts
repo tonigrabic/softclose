@@ -14,6 +14,7 @@
  */
 
 import type {
+  CabinetPattern,
   CarcassMaterial,
   ConfidenceLevel,
   CorniceStyle,
@@ -72,6 +73,17 @@ export interface CabinetBoxesHypothesis {
     wall?: Hint<number>
     tall?: Hint<number>
   }
+  /**
+   * Pre-segmented cabinet patterns from vision. Each entry pins a pattern at
+   * a position along a run; hydration overrides the heuristic in
+   * `cabinet-suggest` for matching slots.
+   */
+  unitPatterns?: {
+    runId: string
+    positionPctAlongRun: number
+    pattern: CabinetPattern
+    confidence: ConfidenceLevel
+  }[]
 }
 
 /* 3. Doors */
@@ -116,8 +128,26 @@ export interface AppliancesHypothesis {
   hob?: Hint<'induction' | 'gas' | 'ceramic' | 'unknown'>
   oven?: Hint<'single' | 'double' | 'combi' | 'unknown'>
   extractor?: Hint<'chimney' | 'island' | 'downdraft' | 'recirculating' | 'ceiling_recessed' | 'unknown'>
+  /** @deprecated kept for back-compat with older payloads — prefer `fridge.integrated`. */
   fridgeIntegrated?: Hint<boolean>
+  /** @deprecated kept for back-compat with older payloads — prefer `dishwasher.integrated`. */
   dishwasherIntegrated?: Hint<boolean>
+  fridge?: { present: Hint<boolean>; integrated?: Hint<boolean> }
+  dishwasher?: { present: Hint<boolean>; integrated?: Hint<boolean> }
+  microwave?: Hint<{ present: boolean; integrated?: boolean }>
+  wineFridge?: Hint<boolean>
+  coffeeStation?: Hint<boolean>
+}
+
+/* Visible features that don't slot into a single component group. */
+export interface FeaturesHypothesis {
+  tallPantry?: { present: Hint<boolean>; runId?: string }
+  windowOnRun?: { runId: string; widthCm?: Hint<number> }
+  openShelving?: Hint<boolean>
+  corniceVisible?: Hint<boolean>
+  /** Free-text colour hints for the maker (floor / wall reference). */
+  floorColorHint?: string
+  wallColorHint?: string
 }
 
 /* 8. Sink & taps */
@@ -161,4 +191,5 @@ export interface BuilderHypothesis {
   sinkTaps?: SinkTapsHypothesis
   lighting?: LightingHypothesis
   finishing?: FinishingHypothesis
+  features?: FeaturesHypothesis
 }

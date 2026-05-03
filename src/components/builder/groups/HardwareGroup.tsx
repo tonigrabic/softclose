@@ -1,10 +1,12 @@
 'use client'
 
+import { X } from 'lucide-react'
 import { useTranslations } from '@/lib/i18n'
 import { PickerSlot } from '../PickerSlot'
 import { ChipRow } from '../ChipRow'
 import { SchachermayerBrowse } from '../SchachermayerBrowse'
 import { searchSchachermayer } from '@/lib/catalog/hardware'
+import { inferDrawerSystemTier } from '@/lib/builder/pick-inference'
 import type {
   BuilderState,
   DrawerSystemTier,
@@ -135,10 +137,38 @@ function HardwareBrowsePanel({
       {drawers.length > 0 && (
         <div className="space-y-2">
           <p className="text-[12px] font-medium text-foreground">Drawer systems</p>
+          {state.hardware.drawerSystemPickedName && (
+            <PickedChip
+              brand={state.hardware.drawerSystemPickedBrand}
+              name={state.hardware.drawerSystemPickedName}
+              onClear={() =>
+                onPatch({
+                  drawerSystemSku: undefined,
+                  drawerSystemPickedName: undefined,
+                  drawerSystemPickedBrand: undefined,
+                })
+              }
+            />
+          )}
           <SchachermayerBrowse
             products={drawers}
             selectedSku={state.hardware.drawerSystemSku}
-            onPick={(p) => onPatch({ drawerSystemSku: p.sku })}
+            onPick={(p) => {
+              const tier = inferDrawerSystemTier(p)
+              const patch: Partial<BuilderState['hardware']> = {
+                drawerSystemSku: p.sku,
+                drawerSystemPickedName: p.name,
+                drawerSystemPickedBrand: p.brand,
+              }
+              if (tier) {
+                patch.drawerSystemTier = tier
+                patch.meta = {
+                  ...state.hardware.meta,
+                  drawerSystemTier: { confidence: 'H', provenance: 'homeowner-edited' },
+                }
+              }
+              onPatch(patch)
+            }}
             initialLimit={6}
           />
         </div>
@@ -149,6 +179,34 @@ function HardwareBrowsePanel({
           <SchachermayerBrowse products={hinges} initialLimit={6} />
         </div>
       )}
+    </div>
+  )
+}
+
+function PickedChip({
+  brand,
+  name,
+  onClear,
+}: {
+  brand?: string
+  name: string
+  onClear: () => void
+}) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-[11px]">
+      <span className="font-semibold text-foreground">Picked:</span>
+      <span className="text-foreground">
+        {brand ? `${brand} ` : ''}
+        {name}
+      </span>
+      <button
+        type="button"
+        onClick={onClear}
+        className="ml-1 rounded-full p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+        aria-label="Clear pick"
+      >
+        <X className="size-3 stroke-[2.5]" aria-hidden />
+      </button>
     </div>
   )
 }

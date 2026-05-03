@@ -1,12 +1,15 @@
 'use client'
 
+import { X } from 'lucide-react'
 import { useTranslations } from '@/lib/i18n'
 import { PickerSlot } from '../PickerSlot'
 import { ChipRow } from '../ChipRow'
 import { SchachermayerBrowse } from '../SchachermayerBrowse'
 import { searchSchachermayer } from '@/lib/catalog/hardware'
+import { inferSinkAttributes, inferTapAttributes } from '@/lib/builder/pick-inference'
 import type {
   BuilderState,
+  FieldMeta,
   HandleFinish,
   SinkBowls,
   SinkMaterial,
@@ -156,14 +159,43 @@ function SinkTapBrowsePanel({
       {sinks.length > 0 && (
         <div className="space-y-2">
           <p className="text-[12px] font-medium text-foreground">Sinks</p>
+          {state.sinkTaps.sink.pickedName && (
+            <PickedChip
+              brand={state.sinkTaps.sink.pickedBrand}
+              name={state.sinkTaps.sink.pickedName}
+              onClear={() =>
+                onPatch({
+                  sink: {
+                    ...state.sinkTaps.sink,
+                    sku: undefined,
+                    pickedName: undefined,
+                    pickedBrand: undefined,
+                  },
+                })
+              }
+            />
+          )}
           <SchachermayerBrowse
             products={sinks}
             selectedSku={state.sinkTaps.sink.sku}
-            onPick={(p) =>
+            onPick={(p) => {
+              const inferred = inferSinkAttributes(p) ?? {}
+              const meta: typeof state.sinkTaps.meta = { ...state.sinkTaps.meta }
+              const editedMeta: FieldMeta = { confidence: 'H', provenance: 'homeowner-edited' }
+              if (inferred.material) meta.sinkMaterial = editedMeta
+              if (inferred.bowls) meta.sinkBowls = editedMeta
+              if (inferred.mount) meta.sinkMount = editedMeta
               onPatch({
-                sink: { ...state.sinkTaps.sink, sku: p.sku },
+                sink: {
+                  ...state.sinkTaps.sink,
+                  ...inferred,
+                  sku: p.sku,
+                  pickedName: p.name,
+                  pickedBrand: p.brand,
+                },
+                meta,
               })
-            }
+            }}
             initialLimit={6}
           />
         </div>
@@ -171,18 +203,74 @@ function SinkTapBrowsePanel({
       {taps.length > 0 && (
         <div className="space-y-2">
           <p className="text-[12px] font-medium text-foreground">Taps</p>
+          {state.sinkTaps.tap.pickedName && (
+            <PickedChip
+              brand={state.sinkTaps.tap.pickedBrand}
+              name={state.sinkTaps.tap.pickedName}
+              onClear={() =>
+                onPatch({
+                  tap: {
+                    ...state.sinkTaps.tap,
+                    sku: undefined,
+                    pickedName: undefined,
+                    pickedBrand: undefined,
+                  },
+                })
+              }
+            />
+          )}
           <SchachermayerBrowse
             products={taps}
             selectedSku={state.sinkTaps.tap.sku}
-            onPick={(p) =>
+            onPick={(p) => {
+              const inferred = inferTapAttributes(p) ?? {}
+              const meta: typeof state.sinkTaps.meta = { ...state.sinkTaps.meta }
+              const editedMeta: FieldMeta = { confidence: 'H', provenance: 'homeowner-edited' }
+              if (inferred.type) meta.tapType = editedMeta
+              if (inferred.finish) meta.tapFinish = editedMeta
               onPatch({
-                tap: { ...state.sinkTaps.tap, sku: p.sku },
+                tap: {
+                  ...state.sinkTaps.tap,
+                  ...inferred,
+                  sku: p.sku,
+                  pickedName: p.name,
+                  pickedBrand: p.brand,
+                },
+                meta,
               })
-            }
+            }}
             initialLimit={6}
           />
         </div>
       )}
+    </div>
+  )
+}
+
+function PickedChip({
+  brand,
+  name,
+  onClear,
+}: {
+  brand?: string
+  name: string
+  onClear: () => void
+}) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-[11px]">
+      <span className="font-semibold text-foreground">Picked:</span>
+      <span className="text-foreground">
+        {brand ? `${brand} ` : ''}
+        {name}
+      </span>
+      <button
+        type="button"
+        onClick={onClear}
+        className="ml-1 rounded-full p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+        aria-label="Clear pick"
+      >
+        <X className="size-3 stroke-[2.5]" aria-hidden />
+      </button>
     </div>
   )
 }

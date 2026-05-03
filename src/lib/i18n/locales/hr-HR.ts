@@ -26,6 +26,7 @@ export const hrHR = {
   'builder.shell.renders.resetToOriginal': 'Vrati na original',
   'builder.shell.renders.current': 'Trenutni',
   'builder.shell.renders.viewing': 'Pregledavaš drugi render — postavi ga kao trenutni da se izmjene odnose na njega.',
+  'builder.shell.factsRecap.title': 'AI je već vidio',
 
   // ---- Group labels & "why" copy ----------------------------------------
   'builder.groups.layout.label': 'Tlocrt i dimenzije',

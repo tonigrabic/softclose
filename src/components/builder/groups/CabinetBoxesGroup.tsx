@@ -21,6 +21,7 @@ import {
   patternsForType,
   unitIsCorner,
 } from '@/lib/builder/cabinet-patterns'
+import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type {
   BuilderState,
   CabinetPattern,
@@ -46,6 +47,7 @@ const CORNER_OPTIONS = [
 
 interface CabinetBoxesGroupProps {
   state: BuilderState
+  hypothesis?: BuilderHypothesis | null
   onPatch: (patch: Partial<BuilderState['cabinetBoxes']>) => void
 }
 
@@ -54,7 +56,7 @@ interface CabinetBoxesGroupProps {
  * turn (Main wall → Return wall → Corner) defining base / wall / tall counts
  * and widths. A fitting bar shows how much of the run is filled.
  */
-export function CabinetBoxesGroup({ state, onPatch }: CabinetBoxesGroupProps) {
+export function CabinetBoxesGroup({ state, hypothesis, onPatch }: CabinetBoxesGroupProps) {
   const { t } = useTranslations()
   const runs = state.layout.runs
   const sections = useMemo(
@@ -65,14 +67,25 @@ export function CabinetBoxesGroup({ state, onPatch }: CabinetBoxesGroupProps) {
 
   // Auto-suggest cabinets the first time the user enters this step. Only fires
   // when state.cabinetBoxes.units is empty so a returning user keeps their work.
+  // Vision-supplied unitPatterns (Track 2) override the heuristic at matching
+  // positions, with a 15% position tolerance.
   useEffect(() => {
     if (state.cabinetBoxes.units.length > 0) return
+    const overrides = hypothesis?.cabinetBoxes?.unitPatterns ?? []
     const seeded: CabinetUnit[] = []
-    runs.forEach((run, i) =>
-      seeded.push(...suggestCabinetsForRun(run, { hasCorner: i === 0 && runs.length > 1 }))
-    )
+    runs.forEach((run, i) => {
+      const runUnits = suggestCabinetsForRun(run, { hasCorner: i === 0 && runs.length > 1 })
+      const runOverrides = overrides.filter((o) => o.runId === run.id)
+      runUnits.forEach((u) => {
+        const match = runOverrides.find(
+          (o) => Math.abs(o.positionPctAlongRun - u.positionPctAlongRun) <= 15
+        )
+        if (match) u.pattern = match.pattern
+        seeded.push(u)
+      })
+    })
     if (seeded.length > 0) onPatch({ units: seeded })
-  }, [runs, state.cabinetBoxes.units.length, onPatch])
+  }, [runs, state.cabinetBoxes.units.length, hypothesis, onPatch])
 
   function updateUnit(id: string, patch: Partial<CabinetUnit>) {
     onPatch({

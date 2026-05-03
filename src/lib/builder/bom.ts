@@ -277,9 +277,12 @@ export function computeBom(state: BuilderState): BomEstimate {
   const hwQuantity = drawerCount > 0
     ? `${unitEquivalents.toFixed(1)} unit eq. · ${drawerCount} drawers`
     : `${unitEquivalents.toFixed(1)} unit eq.`
+  const hwPicked = state.hardware.drawerSystemSku ? state.hardware.drawerSystemPickedName : null
   lineItems.push({
     key: 'hardware',
-    detail: `Drawer + hinges, tier: ${state.hardware.drawerSystemTier}; ${state.hardware.hingeType}`,
+    detail:
+      `Drawer + hinges, tier: ${state.hardware.drawerSystemTier}; ${state.hardware.hingeType}` +
+      (hwPicked ? ` · ${hwPicked}` : ''),
     quantity: hwQuantity,
     low: round(hwLow),
     high: round(hwHigh),
@@ -327,9 +330,18 @@ export function computeBom(state: BuilderState): BomEstimate {
           : 80
   const tapLow = tapBaseLow
   const tapHigh = tapBaseLow * 2.0
+  const sinkPicked = state.sinkTaps.sink.pickedName
+    ? `${state.sinkTaps.sink.pickedBrand ?? ''} ${state.sinkTaps.sink.pickedName}`.trim()
+    : null
+  const tapPicked = state.sinkTaps.tap.pickedName
+    ? `${state.sinkTaps.tap.pickedBrand ?? ''} ${state.sinkTaps.tap.pickedName}`.trim()
+    : null
   lineItems.push({
     key: 'sinkTaps',
-    detail: `${state.sinkTaps.sink.bowls} bowl ${state.sinkTaps.sink.material} sink, ${state.sinkTaps.tap.type} tap`,
+    detail:
+      `${state.sinkTaps.sink.bowls} bowl ${state.sinkTaps.sink.material} sink, ${state.sinkTaps.tap.type} tap` +
+      (sinkPicked ? ` · sink: ${sinkPicked}` : '') +
+      (tapPicked ? ` · tap: ${tapPicked}` : ''),
     quantity: '1 set',
     low: round(sinkLow + tapLow),
     high: round(sinkHigh + tapHigh),
@@ -340,7 +352,7 @@ export function computeBom(state: BuilderState): BomEstimate {
   // appliance kinds that have actually been selected (or pinned to a SKU)
   // and price each by class so swapping induction → gas, single → double
   // oven actually moves the line.
-  if (state.appliances.supply !== 'homeowner_supplies') {
+  if (state.appliances.supply !== 'homeowner_supplies' && state.appliances.selections.length > 0) {
     const APPLIANCE_PRICE: Record<string, { low: number; high: number }> = {
       hob: { low: 250, high: 900 },
       oven: { low: 350, high: 1500 },
@@ -351,26 +363,25 @@ export function computeBom(state: BuilderState): BomEstimate {
       wine_fridge: { low: 600, high: 1800 },
       coffee: { low: 800, high: 3200 },
     }
-    // Always-on minimum kit so an empty pick still surfaces a sensible range.
-    const ALWAYS_ON: (keyof typeof APPLIANCE_PRICE)[] = ['hob', 'oven', 'fridge', 'dishwasher']
     const selectedTypes = new Set<string>(state.appliances.selections.map((s) => s.type))
-    for (const t of ALWAYS_ON) selectedTypes.add(t)
     let apLow = 0
     let apHigh = 0
-    for (const t of selectedTypes) {
-      const p = APPLIANCE_PRICE[t]
+    const detailNames: string[] = []
+    for (const sel of state.appliances.selections) {
+      const p = APPLIANCE_PRICE[sel.type]
       if (!p) continue
       apLow += p.low
       apHigh += p.high
+      const picked = sel.pickedBrand && sel.pickedName ? `${sel.pickedBrand} ${sel.pickedName}` : null
+      detailNames.push(picked ? `${sel.type}: ${picked}` : sel.type)
     }
-    // Mixed supply: maker still bills install + a few items, halve the spread.
     if (state.appliances.supply === 'mixed') {
       apLow *= 0.5
       apHigh *= 0.5
     }
     lineItems.push({
       key: 'appliances',
-      detail: `${selectedTypes.size} appliances, supplied by ${state.appliances.supply.replace('_', ' ')}`,
+      detail: detailNames.length > 0 ? detailNames.join(' · ') : `${selectedTypes.size} appliances`,
       quantity: `${selectedTypes.size} pcs`,
       low: round(apLow),
       high: round(apHigh),

@@ -26,6 +26,7 @@ export const enUS: Record<TranslationKey, string> = {
   'builder.shell.renders.resetToOriginal': 'Reset to original',
   'builder.shell.renders.current': 'Current',
   'builder.shell.renders.viewing': "Previewing a different render — set it as current to anchor your changes against it.",
+  'builder.shell.factsRecap.title': 'AI already saw',
 
   'builder.groups.layout.label': 'Layout & dimensions',
   'builder.groups.layout.why': 'Room shape and exact wall lengths.',

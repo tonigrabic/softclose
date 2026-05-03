@@ -57,6 +57,21 @@ const layoutSchema = z.object({
     .optional(),
 })
 
+const cabinetPatternEnum = z.enum([
+  'doors_shelf',
+  'drawer_bank',
+  'pullouts_inside_doors',
+  'drawer_door_combo',
+  'sink_unit',
+  'trash_pullout',
+  'corner_magic',
+  'corner_lazy',
+  'oven_housing',
+  'pullout_larder',
+  'wine_pullout',
+  'open_shelves',
+])
+
 const cabinetBoxesSchema = z.object({
   carcassMaterial: hint(
     z.enum([
@@ -75,6 +90,17 @@ const cabinetBoxesSchema = z.object({
       wall: hint(z.number().int().min(0).max(20)).optional(),
       tall: hint(z.number().int().min(0).max(6)).optional(),
     })
+    .optional(),
+  unitPatterns: z
+    .array(
+      z.object({
+        runId: z.string(),
+        positionPctAlongRun: z.number().min(0).max(100),
+        pattern: cabinetPatternEnum,
+        confidence: confidenceEnum,
+      })
+    )
+    .max(20)
     .optional(),
 })
 
@@ -125,8 +151,45 @@ const appliancesSchema = z.object({
   extractor: hint(
     z.enum(['chimney', 'island', 'downdraft', 'recirculating', 'ceiling_recessed', 'unknown'])
   ).optional(),
-  fridgeIntegrated: hint(z.boolean()).optional(),
-  dishwasherIntegrated: hint(z.boolean()).optional(),
+  fridge: z
+    .object({
+      present: hint(z.boolean()),
+      integrated: hint(z.boolean()).optional(),
+    })
+    .optional(),
+  dishwasher: z
+    .object({
+      present: hint(z.boolean()),
+      integrated: hint(z.boolean()).optional(),
+    })
+    .optional(),
+  microwave: hint(
+    z.object({
+      present: z.boolean(),
+      integrated: z.boolean().optional(),
+    })
+  ).optional(),
+  wineFridge: hint(z.boolean()).optional(),
+  coffeeStation: hint(z.boolean()).optional(),
+})
+
+const featuresSchema = z.object({
+  tallPantry: z
+    .object({
+      present: hint(z.boolean()),
+      runId: z.string().optional(),
+    })
+    .optional(),
+  windowOnRun: z
+    .object({
+      runId: z.string(),
+      widthCm: hint(z.number().min(20).max(400)).optional(),
+    })
+    .optional(),
+  openShelving: hint(z.boolean()).optional(),
+  corniceVisible: hint(z.boolean()).optional(),
+  floorColorHint: z.string().max(120).optional(),
+  wallColorHint: z.string().max(120).optional(),
 })
 
 const sinkTapsSchema = z.object({
@@ -167,6 +230,7 @@ const hypothesisSchema = z.object({
   sinkTaps: sinkTapsSchema.optional(),
   lighting: lightingSchema.optional(),
   finishing: finishingSchema.optional(),
+  features: featuresSchema.optional(),
 })
 
 function approxBytesOfDataUrl(dataUrl: string): number {
@@ -196,6 +260,14 @@ Rules:
 - For runs: if the render shows an L-shape, return TWO runs (e.g. "main", "return") with separate lengthCm. For galley, return up to TWO runs facing each other. For straight, return ONE.
 - Hardware is mostly invisible in renders — set drawerSystemTier confidence 'L' unless handles are clearly visible.
 - Appliances: identify integrated vs. freestanding by visible seams. Hob type from cooktop appearance.
+  - For fridge / dishwasher: return \`{ present, integrated }\` only if you can actually see them (or a clear integrated front). Skip rather than fabricate. The homeowner may not have either appliance — do not assume presence.
+  - microwave / wineFridge / coffeeStation: skip unless visible.
+- features: surface room-level facts that don't fit a single group.
+  - tallPantry: only if a tall pantry-style cabinet is clearly visible (full-height, not appliance housing). Tie to a runId if you can place it.
+  - windowOnRun: pin to the runId carrying the window. widthCm if guessable.
+  - corniceVisible: only if a top trim/cornice is rendered.
+  - floorColorHint / wallColorHint: short descriptors for the maker ("light oak floor", "off-white walls").
+- cabinetBoxes.unitPatterns: pre-segment cabinet patterns along visible runs when possible. Use the trade-language enum (drawer_bank, sink_unit, oven_housing, corner_magic, pullout_larder, etc). Each entry pins one pattern at a positionPctAlongRun (0–100). Skip slots you can't read.
 - Lighting: under-cabinet 'H' if a glow is visible under wall units; pendant only if a pendant is rendered.
 - Set usable: false if the render is unintelligible (pure noise, completely empty room, wrong room type).
 
