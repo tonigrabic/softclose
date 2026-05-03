@@ -110,6 +110,7 @@ export function StepsOverview({ currentStepId, visitedSteps, profile }: StepsOve
 const GROUP_LABELS: Record<FlowStepMeta['group'], string> = {
   space: 'Your space',
   look: 'The look',
+  build: 'Build it out',
   details: 'Project details',
   finish: 'Finish',
 }
@@ -139,6 +140,9 @@ function readbackFor(stepId: FlowStepId, p: LeadProfile): string | null {
       ].filter(Boolean) as string[]
       if (parts.length === 0) return null
       return parts.map((s) => s.replace(/_/g, ' ')).join(' · ')
+    }
+    case 'builder': {
+      return p.builderState ? 'Built · live estimate ready' : null
     }
     case 'project_basics': {
       const parts = [

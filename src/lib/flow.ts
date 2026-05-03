@@ -16,6 +16,7 @@ export type FlowStepId =
   | 'inspiration'
   | 'concept_render'
   | 'confirm_look'
+  | 'builder'
   | 'project_basics'
   | 'scope'
   | 'wishlist'
@@ -29,7 +30,7 @@ export interface FlowStepMeta {
   /** One-line description of what's being captured here. */
   why: string
   /** Group label for the sidebar — keeps scrollable list bucketed visually. */
-  group: 'space' | 'look' | 'details' | 'finish'
+  group: 'space' | 'look' | 'build' | 'details' | 'finish'
 }
 
 export const FLOW: FlowStepMeta[] = [
@@ -56,6 +57,12 @@ export const FLOW: FlowStepMeta[] = [
     label: 'Confirm the look',
     why: 'Best guesses pulled from your render — adjust anything.',
     group: 'look',
+  },
+  {
+    id: 'builder',
+    label: 'Build it out',
+    why: 'Pick every component and see a live cost range.',
+    group: 'build',
   },
   {
     id: 'project_basics',

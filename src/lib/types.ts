@@ -238,6 +238,14 @@ export interface LeadProfile {
   conceptRenders?: ConceptRender[]
   conceptRenderChosenId?: string
 
+  /**
+   * Phase-2 builder state — every confirmed component selection plus the
+   * computed BOM + price range. Stored as `unknown` here to avoid pulling the
+   * full builder type tree into LeadProfile; the builder module casts on read.
+   * Set when the homeowner walks through (and finishes) the Builder step.
+   */
+  builderState?: unknown
+
   // ---- Catch-all (also translated)
   additionalNotes?: TranslatedField
 }

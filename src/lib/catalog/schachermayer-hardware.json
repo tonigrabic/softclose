@@ -1,0 +1,621 @@
+{
+  "schema": {
+    "version": "1.0"
+  },
+  "source": {
+    "supplier": "Schachermayer (hr-HR)",
+    "scrapedAt": "2026-05-03T02:18:29.358Z"
+  },
+  "byKind": {
+    "hardware": {
+      "sourceUrl": "https://webshop.schachermayer.com/cat/hr-HR/products/okov-za-namje-taj/10000_61_1",
+      "products": [
+        {
+          "name": "BLUM CLIP ekscentar podložna pločica, čelik, vijci, razmak 0 mm",
+          "sku": "103311519",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/175/890/DV005-ppic_BLUM_EXZENTERMONTAGEPLATTEN_173H7100_0MM_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-clip-ekscentar-podlo-na-plo-ica-elik-vijci-razmak-0-mm/103311519",
+          "shortSpec": "Čelik, vijci, razmak 0 mm"
+        },
+        {
+          "name": "BLUM CLIP top BLUMOTION standardna spojnica 110°, ravna, s oprugom, vijci",
+          "sku": "103307101",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/175/920/DV005-ppic_BLUM_CLIP_top_BLUMO_110Grad_Eckb_Schr_71B3550_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-clip-top-blumotion-standardna-spojnica-110-ravna-s-oprugom-vijci/103307101",
+          "shortSpec": "Ravna, 110° s oprugom"
+        },
+        {
+          "name": "BLUM TANDEMBOX antaro prihvatnik fronte simetrični, pričvršćivanje vijcima",
+          "sku": "103338755",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/175/851/DV005-ppic_BLUM_TANDEMBOX_FRONTBEFTEILE_ZAZSF3502FE0_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-tandembox-antaro-prihvatnik-fronte-simetri-ni-pri-vr-ivanje-vijcima/103338755",
+          "shortSpec": "Simetrični, pričvršćivanje vijcima"
+        },
+        {
+          "name": "BLUM TANDEMBOX vodilica BLUMOTION M, ND 500 mm, 30 kg",
+          "sku": "103377505",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/269/118/DV005-ppic_Blum_Tandembox_Antaro_TOB_Korpusschiene_103377505_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-tandembox-vodilica-blumotion-m-nd-500-mm-30-kg/103377505",
+          "shortSpec": "ND 500 mm, 30 kg"
+        },
+        {
+          "name": "BLUM TANDEMBOX antaro držač stražnje stranice visina M, svilenobijeli",
+          "sku": "103339103",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/288/308/DV005-ppic_Blum_Antaro_RW-Halter_M_weiss_103339103_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-tandembox-antaro-dr-a-stra-nje-stranice-visina-m-svilenobijeli/103339103",
+          "shortSpec": "Visina M, svilenobijeli"
+        },
+        {
+          "name": "BLUM CLIP top standardna spojnica 110°, ravna s oprugom, vijci",
+          "sku": "103307201",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/175/918/DV005-ppic_BLUM_CLIP_top_110Grad_Eckb_Schraub_71T3550_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-clip-top-standardna-spojnica-110-ravna-s-oprugom-vijci/103307201",
+          "shortSpec": "Ravna s oprugom, vijci"
+        },
+        {
+          "name": "BLUM CLIP top BLUMOTION spojnica za paral.ugradnju 95°, 3mm, s oprugom, vijci",
+          "sku": "103307127",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/175/102/DV005-ppic_Clip_top_Stollenband_79B9550_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-clip-top-blumotion-spojnica-za-paral-ugradnju-95-3mm-s-oprugom-vijci/103307127",
+          "shortSpec": "Za paralelnu ugradnju 95°, 3mm"
+        },
+        {
+          "name": "BLUM TANDEMBOX antaro držač stražnje stranice visina D, svilenobijeli",
+          "sku": "103339100",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/288/307/DV005-ppic_Blum_Antaro_RW-Halter_D_weiss_103339100_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-tandembox-antaro-dr-a-stra-nje-stranice-visina-d-svilenobijeli/103339100",
+          "shortSpec": "Visina D, svilenobijeli"
+        },
+        {
+          "name": "BLUM CLIP ekscentar podložna pločica, čelik, vijci, razmak 3 mm",
+          "sku": "103311486",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/175/892/DV005-ppic_BLUM_EXZENTERMONTAGEPLATTEN_173H7130_3MM_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-clip-ekscentar-podlo-na-plo-ica-elik-vijci-razmak-3-mm/103311486",
+          "shortSpec": "Čelik, vijci, razmak 3 mm"
+        },
+        {
+          "name": "BLUM TANDEMBOX antaro/intivo, stranica lijeva 378M5002SA, čelik bijela",
+          "sku": "103332038",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/180/380/DV005-ppic_Blum_Tandembox_antaro-intivo_Zarge_links_378M5002SA_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-tandembox-antaro-intivo-stranica-lijeva-378m5002sa-elik-bijela/103332038",
+          "shortSpec": "Stranica lijeva, čelik bijela"
+        },
+        {
+          "name": "BLUM TANDEMBOX antaro/intivo, stranica desna 378M5002SA, čelik bijela",
+          "sku": "103332049",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/180/380/DV005-ppic_Blum_Tandembox_antaro-intivo_Zarge_rechts_378M5002SA_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-tandembox-antaro-intivo-stranica-desna-378m5002sa-elik-bijela/103332049",
+          "shortSpec": "Stranica desna, čelik bijela"
+        },
+        {
+          "name": "BLUM TANDEMBOX antaro pokrivna kapica logo \"blum\", plastika svilenobijela",
+          "sku": "103339366",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/266/650/DV005-ppic_Blum_TB_Antaro_Abdeckkappe_seidenweiss_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-tandembox-antaro-pokrivna-kapica-logo-blum-plastika-svilenobijela/103339366",
+          "shortSpec": "Plastika svilenobijela"
+        },
+        {
+          "name": "BLUM CLIP top standardna spojnica 110°, ravna bez opruge, vijci",
+          "sku": "103307205",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/175/922/DV005-ppic_BLUM_CLIP_top__Eckb_Schraub_70T3550TL_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-clip-top-standardna-spojnica-110-ravna-bez-opruge-vijci/103307205",
+          "shortSpec": "Ravna bez opruge, vijci"
+        },
+        {
+          "name": "BLUM TIP-ON za vrata 956A1004 duga verzija s magnetom, svilenobijela",
+          "sku": "103323781",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/288/196/DV005-ppic_Blum_TipOn_Langversion_956A1004_seidenweiss_103323781_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-tip-on-za-vrata-956a1004-duga-verzija-s-magnetom-svilenobijela/103323781",
+          "shortSpec": "Duga verzija s magnetom, svilenobijela"
+        },
+        {
+          "name": "BLUM TANDEM spojka lijeva, plastika / cink",
+          "sku": "103357125",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/175/713/DV005-ppic_BLUM_TANDEM___KUPPLUNG_LINKS_T511700_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-tandem-spojka-lijeva-plastika-cink/103357125",
+          "shortSpec": "Plastika / cink, lijeva"
+        },
+        {
+          "name": "BLUM TANDEM spojka desna, plastika / cink",
+          "sku": "103357126",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/175/714/DV005-ppic_BLUM_TANDEM___KUPPLUNG_RECHTS_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-tandem-spojka-desna-plastika-cink/103357126",
+          "shortSpec": "Plastika / cink, desna"
+        },
+        {
+          "name": "BLUM ANTARO Tandembox reling lijevi,naziv.dulj.500, svilenobijeli",
+          "sku": "103338057",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/133/187/DV005-ppic_TB_Antaro_Laengsreling_L_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-antaro-tandembox-reling-lijevi-naziv-dulj-500-svilenobijeli/103338057",
+          "shortSpec": "Lijevi, dulj. 500, svilenobijeli"
+        },
+        {
+          "name": "BLUM ANTARO Tandembox reling desni,naziv.dulj.500, svilenobijeli",
+          "sku": "103338059",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/133/187/DV005-ppic_TB_Antaro_Laengsreling_R_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-antaro-tandembox-reling-desni-naziv-dulj-500-svilenobijeli/103338059",
+          "shortSpec": "Desni, dulj. 500, svilenobijeli"
+        },
+        {
+          "name": "BLUM CLIP podložna pločica duga rupa, čelik, vijci, razmak 0 mm",
+          "sku": "103311465",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/175/111/DV005-ppic_blum_Montageplatte_Kreuz_173L6100HU_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-clip-podlo-na-plo-ica-duga-rupa-elik-vijci-razmak-0-mm/103311465",
+          "shortSpec": "Duga rupa, čelik, vijci"
+        },
+        {
+          "name": "Gornji dio nogice, PVC crna",
+          "sku": "103337075",
+          "brand": "Unknown",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/261/313/DV005-ppic_oberteilgleiter_Serie31_schwarz_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/gornji-dio-nogice-pvc-crna/103337075",
+          "shortSpec": "PVC, crna"
+        },
+        {
+          "name": "CAMAR zidna letvica za ovjes ormara za skraćivanje, duljina 2032, čelik pocin",
+          "sku": "103343210",
+          "brand": "Camar",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/103/107/DV005-ppic_Schrankaufhaenger_Wandleiste_002_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/camar-zidna-letvica-za-ovjes-ormara-za-skra-ivanje-duljina-2032-elik-pocin/103343210",
+          "shortSpec": "Duljina 2032, čelik pocin"
+        },
+        {
+          "name": "CAMAR ovjes ormara 806, nosivost 50 kg,desni, plastika/čelik pocinčani",
+          "sku": "103343172",
+          "brand": "Camar",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/106/507/DV005-ppic_Schrankaufhaenger_806_rechts_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/camar-ovjes-ormara-806-nosivost-50-kg-desni-plastika-elik-pocin-ani/103343172",
+          "shortSpec": "Nosivost 50 kg, desni"
+        },
+        {
+          "name": "CAMAR ovjes ormara 806, nosivost 50 kg, lijevi, plastika/čelik pocinčani",
+          "sku": "103343171",
+          "brand": "Camar",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/106/507/DV005-ppic_Schrankaufhaenger_806_links_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/camar-ovjes-ormara-806-nosivost-50-kg-lijevi-plastika-elik-pocin-ani/103343171",
+          "shortSpec": "Nosivost 50 kg, lijevi"
+        },
+        {
+          "name": "BLUM CLIP ekscentar podložna pločica ravna, čelik, vijci, razmak 0 mm",
+          "sku": "103311524",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/175/895/DV005-ppic_BLUM_CLIP_MPL_0_Exzenter_gerade_SpaxStahl_175H3100_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-clip-ekscentar-podlo-na-plo-ica-ravna-elik-vijci-razmak-0-mm/103311524",
+          "shortSpec": "Ravna, čelik, vijci"
+        },
+        {
+          "name": "BLUM AVENTOS HS/HL/HK-top pričvrsnik fronte-set",
+          "sku": "103318310",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/103/380/DV005-ppic_AVENTOS_HS_Frontbefestigung_HOLZ_Alu_breit_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-aventos-hs-hl-hk-top-pri-vrsnik-fronte-set/103318310",
+          "shortSpec": "Pričvrstnik fronte-set"
+        },
+        {
+          "name": "BLUM CLIP top širokokutna spojnica 170°, ravna, s oprugom, vijci",
+          "sku": "103311445",
+          "brand": "Blum",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/175/979/DV005-ppic_BLUM_WEITWINKELECKBZA170GRAD_71T6550_MFE_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blum-clip-top-irokokutna-spojnica-170-ravna-s-oprugom-vijci/103311445",
+          "shortSpec": "Širokokutna spojnica 170°, ravna"
+        },
+        {
+          "name": "Volpato podesiva noga sokla serija 31, 100 mm, cijev Ø 30 mm plastika crna",
+          "sku": "103337073",
+          "brand": "Volpato",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/133/174/DV005-ppic_Sockelverstellfuss_Kunststoff_schwarz_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/volpato-podesiva-noga-sokla-serija-31-100-mm-cijev-oe-30-mm-plastika-crna/103337073",
+          "shortSpec": "Podesiva noga sokla 100 mm"
+        },
+        {
+          "name": "CAMAR pokrivne kapice za model 806, lijeve, 43x26x67, bijela plastika",
+          "sku": "103343173",
+          "brand": "Camar",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/268/239/DV005-ppic_Abdeckkappe_Schrankaufhaenger_806_Links_weiss_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/camar-pokrivne-kapice-za-model-806-lijeve-43x26x67-bijela-plastika/103343173",
+          "shortSpec": "Lijeve, 43x26x67, bijela plastika"
+        },
+        {
+          "name": "CAMAR pokrivne kapice za model 806, desne, 43x26x67, bijela plastika",
+          "sku": "103343174",
+          "brand": "Camar",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/131/733/DV005-ppic_Abdeckkappe_Schrankaufhaenger_806_weiss_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/camar-pokrivne-kapice-za-model-806-desne-43x26x67-bijela-plastika/103343174",
+          "shortSpec": "Desne, 43x26x67, bijela plastika"
+        }
+      ],
+      "error": "Error: Firecrawl failed (408): {\"success\":false,\"code\":\"SCRAPE_TIMEOUT\",\"error\":\"The scrape operation timed out before completing. This happens when a page takes too long to load, render, or process. Possible causes: (1) The website is slow or unresponsive, (2) The page has heavy JavaScript that takes time to execute, (3) The pag"
+    },
+    "sink_tap": {
+      "sourceUrl": "https://webshop.schachermayer.com/cat/hr-HR/products/sudoperi-slavine-sanitarije-sauna-infracrvena-oprema/10000_494_1",
+      "products": [
+        {
+          "name": "GRANMASTER sudoper QUBE 60 sa slavinom i dispenzerom, granit crna metalik",
+          "sku": "Br.art.113541892",
+          "brand": "GRANMASTER",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/267/018/DV005-ppic_Granmaster_Qube_Spuele_schwarz_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/granmaster-sudoper-qube-60-sa-slavinom-i-dispenzerom-granit-crna-metalik/113541892",
+          "shortSpec": "Granit crna metalik"
+        },
+        {
+          "name": "REHAU podna brtva s perom 135° 6-8 mm, 2010 mm, plastika prozirna",
+          "sku": "Br.art.102232359",
+          "brand": "REHAU",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/127/103/DV005-ppic_Rehau_Wasserabweisprofil_mit_Lippe_135Grad_6-8mm_2010mm_1652320_102232359_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/rehau-podna-brtva-s-perom-135-6-8-mm-2010-mm-plastika-prozirna/102232359",
+          "shortSpec": "Plastika prozirna"
+        },
+        {
+          "name": "REHAU Podna brtva 6-8 mm, plastika prozirna",
+          "sku": "Br.art.102232358",
+          "brand": "REHAU",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/127/103/DV005-ppic_Rehau_Wasserabweisprofil_mit_Streifdichtung_6-8mm_2010mm_1652360_102232358_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/rehau-podna-brtva-6-8-mm-plastika-prozirna/102232358",
+          "shortSpec": "Plastika prozirna"
+        },
+        {
+          "name": "RODI sudoper Okio Line 80 Flat, 800 x 500 mm univerzalan, neh. čelik",
+          "sku": "Br.art.113548553",
+          "brand": "RODI",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/180/878/DV005-ppic_Rodi_Einbauspuele_Okio_Line_80_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/rodi-sudoper-okio-line-80-flat-800-x-500-mm-univerzalan-neh-elik/113548553",
+          "shortSpec": "Neh. čelik"
+        },
+        {
+          "name": "RODI ugradbeni sudoper Okio Line 65 Flat, 650 x 500 mm univerzalan, neh. čelik",
+          "sku": "Br.art.113548523",
+          "brand": "RODI",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/180/870/DV005-ppic_Okio_Line_65_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/rodi-ugradbeni-sudoper-okio-line-65-flat-650-x-500-mm-univerzalan-neh-elik/113548523",
+          "shortSpec": "Neh. čelik"
+        },
+        {
+          "name": "GRANMASTER ugradbeni sudoper Horizon 780x500 mm univerzalan granit crni metalik",
+          "sku": "Br.art.113548637",
+          "brand": "GRANMASTER",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/252/576/DV005-ppic_Granmaster_Einbauspuele_Horizon_ZVH_G71A_113548572_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/granmaster-ugradbeni-sudoper-horizon-780x500-mm-univerzalan-granit-crni-metalik/113548637",
+          "shortSpec": "Granit crni metalik"
+        },
+        {
+          "name": "RODI sudoper Okio Plus 103, 860 x 500 x 200 mm univerzalan, neh. čelik",
+          "sku": "Br.art.113548515",
+          "brand": "RODI",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/180/870/DV005-ppic_Rodi_Kuechenspuele_Okio_Plus_103_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/rodi-sudoper-okio-plus-103-860-x-500-x-200-mm-univerzalan-neh-elik/113548515",
+          "shortSpec": "Neh. čelik"
+        },
+        {
+          "name": "GRANMASTER kuhinjska slavina Granit BMO visokotlačna, metal, dekor grafit",
+          "sku": "Br.art.113548568",
+          "brand": "GRANMASTER",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/180/900/DV005-ppic_Armatur_Granit_grafit_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/granmaster-kuhinjska-slavina-granit-bmo-visokotla-na-metal-dekor-grafit/113548568",
+          "shortSpec": "Metal, dekor grafit"
+        },
+        {
+          "name": "GRANMASTER sudoper Luka granit crna metal, 590 x 500 mm univerzalan",
+          "sku": "Br.art.113548588",
+          "brand": "GRANMASTER",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/169/240/DV005-ppic_Granmaster_Einbauspuele_Luka_schwarz_metall_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/granmaster-sudoper-luka-granit-crna-metal-590-x-500-mm-univerzalan/113548588",
+          "shortSpec": "Granit crna metal"
+        },
+        {
+          "name": "GRANMASTER ugradbeni sudoper Riva 860 x 500 mm, granit crna metalik",
+          "sku": "Br.art.113548592",
+          "brand": "GRANMASTER",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/180/442/DV005-ppic_Spuele_Riva_50_Metallic_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/granmaster-ugradbeni-sudoper-riva-860-x-500-mm-granit-crna-metalik/113548592",
+          "shortSpec": "Granit crna metalik"
+        },
+        {
+          "name": "Pričvrsna kopča (8 komada), odgovara za ugradbene sudopere",
+          "sku": "Br.art.113505970",
+          "brand": "N/A",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/170/143/DV005-ppic_befest.klamm.f.einbausp__270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/pri-vrsna-kop-a-8-komada-odgovara-za-ugradbene-sudopere/113505970",
+          "shortSpec": "Odgovara za ugradbene sudopere"
+        },
+        {
+          "name": "HAAS sifon s fleksibilnim priključnim crijevom, i dva priključka za 40/50 mm",
+          "sku": "Br.art.113515045",
+          "brand": "HAAS",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/272/162/DV005-ppic_Haas_Siphon_2820_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/haas-sifon-s-fleksibilnim-priklju-nim-crijevom-i-dva-priklju-ka-za-40-50-mm/113515045",
+          "shortSpec": "Dva priključka za 40/50 mm"
+        },
+        {
+          "name": "TEKA brtva za ugradbene sudopere, 2,65 m duljine",
+          "sku": "Br.art.113505999",
+          "brand": "TEKA",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/109/100/DV005-ppic_Teka_Dichtung_fuer_Einbauspuelbecken_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/teka-brtva-za-ugradbene-sudopere-2-65-m-duljine/113505999",
+          "shortSpec": "2,65 m duljine"
+        },
+        {
+          "name": "RODI sudoper New Manaus, 480 x 480 x 160 mm, neh. čelik",
+          "sku": "Br.art.113548522",
+          "brand": "RODI",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/180/868/DV005-ppic_New_Manaus_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/rodi-sudoper-new-manaus-480-x-480-x-160-mm-neh-elik/113548522",
+          "shortSpec": "Neh. čelik"
+        },
+        {
+          "name": "SOLIDO kuhinjska slavina CABL002ED visokotlačna, nehrđajući čelik",
+          "sku": "Br.art.113520618",
+          "brand": "SOLIDO",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/295/217/DV005-ppic_Caressi_Armatur_CABL002_01_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/solido-kuhinjska-slavina-cabl002ed-visokotla-na-nehr-aju-i-elik/113520618",
+          "shortSpec": "Nehrđajući čelik"
+        },
+        {
+          "name": "REHAU podna brtva za 6 - 8 mm, 2010 mm, plastika prozirna",
+          "sku": "Br.art.102232353",
+          "brand": "REHAU",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/127/103/DV005-ppic_Rehau_Streifdichtung_6-8mm_Glas_2010_1652300_102232353_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/rehau-podna-brtva-za-6-8-mm-2010-mm-plastika-prozirna/102232353",
+          "shortSpec": "Plastika prozirna"
+        },
+        {
+          "name": "BLANCO kuhinjska slavina Mila visokotlačna, krom",
+          "sku": "Br.art.113502512",
+          "brand": "BLANCO",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/169/852/DV005-ppic_Blanco_Kuechenarmatur_Mila_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blanco-kuhinjska-slavina-mila-visokotla-na-krom/113502512",
+          "shortSpec": "Visokotlačna, krom"
+        },
+        {
+          "name": "BLANCO ugradbeni sudoper Legra XL 6 S, antracit, univerzalan",
+          "sku": "Br.art.113506636",
+          "brand": "BLANCO",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/181/130/DV005-ppic_Blanco_Spuele_Legra_XL_6_S_anthrazit_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blanco-ugradbeni-sudoper-legra-xl-6-s-antracit-univerzalan/113506636",
+          "shortSpec": "Antracit, univerzalan"
+        },
+        {
+          "name": "BLANCO ugradbeni sudoper Elon XL 6 S, InFino odvod, antracit, univerzalan",
+          "sku": "Br.art.113508177",
+          "brand": "BLANCO",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/169/139/DV005-ppic_Blanco_Spuele_Elon_XL_6S_anthrazit_ohne_Ablauffernbedienung_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blanco-ugradbeni-sudoper-elon-xl-6-s-infino-odvod-antracit-univerzalan/113508177",
+          "shortSpec": "InFino odvod, antracit"
+        },
+        {
+          "name": "BLANCO dispenzer za sapun i deterdžent Lato crni, 300 ml",
+          "sku": "Br.art.113508690",
+          "brand": "BLANCO",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/169/212/DV005-ppic_Blanco_Seifenspender_Lato_schwarz_525789_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/blanco-dispenzer-za-sapun-i-deterd-ent-lato-crni-300-ml/113508690",
+          "shortSpec": "300 ml crni"
+        },
+        {
+          "name": "RODI ugradbeni sudoper Okio Line 78 Flat, 780 x 435 mm univerzalan, neh. čelik",
+          "sku": "Br.art.113548528",
+          "brand": "RODI",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/180/870/DV005-ppic_Okio_Line_78_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/rodi-ugradbeni-sudoper-okio-line-78-flat-780-x-435-mm-univerzalan-neh-elik/113548528",
+          "shortSpec": "Neh. čelik"
+        },
+        {
+          "name": "REHAU srednja brtva s perom, za 6 - 8 mm, 2010 mm, plastika prozirna",
+          "sku": "Br.art.102232355",
+          "brand": "REHAU",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/127/103/DV005-ppic_Rehau_Mitteldichtprofil_mit_Lippe_6-8mm_Glas_2010_1652330_102232355_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/rehau-srednja-brtva-s-perom-za-6-8-mm-2010-mm-plastika-prozirna/102232355",
+          "shortSpec": "Plastika prozirna"
+        }
+      ],
+      "note": "Products from the kitchen and cabinet hardware category."
+    },
+    "appliance": {
+      "sourceUrl": "https://webshop.schachermayer.com/cat/hr-HR/products/kuhinjski-ure-aji/10000_1858_1",
+      "products": [
+        {
+          "name": "ELECTROLUX ugradbena pećnica EOF3H50BK crna",
+          "sku": "Br.art.112592976",
+          "brand": "ELECTROLUX",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/274/917/DV005-ppic_Electrolux_Einbaubackofen_EOF3H50BK_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/electrolux-ugradbena-pe-nica-eof3h50bk-crna/112592976",
+          "shortSpec": "Ugradbena pećnica, crna"
+        },
+        {
+          "name": "ELECTROLUX ugradbena pećnica EOF3H50BK crna",
+          "sku": "112592976",
+          "brand": "ELECTROLUX",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/274/917/DV005-ppic_Electrolux_Einbaubackofen_EOF3H50BK_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/electrolux-ugradbena-pe-nica-eof3h50bk-crna/112592976",
+          "shortSpec": "Br.art.112592976"
+        },
+        {
+          "name": "ELECTROLUX indukcijska ploča za kuhanje LIB60420CK, staklokeramika, 600 mm",
+          "sku": "112592926",
+          "brand": "ELECTROLUX",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/268/295/DV005-ppic_Electrolux_Induktionskochfeld_LIB60420CK.tif_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/electrolux-indukcijska-plo-a-za-kuhanje-lib60420ck-staklokeramika-600-mm/112592926",
+          "shortSpec": "Br.art.112592926"
+        },
+        {
+          "name": "ELECTROLUX perilica posuđa EEA12100L, potpuno integrirana, širina 450 mm",
+          "sku": "112592794",
+          "brand": "ELECTROLUX",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/169/240/DV005-ppic_Electrolux_EinbauGeschirspueler_EEA12100L_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/electrolux-perilica-posu-a-eea12100l-potpuno-integrirana-irina-450-mm/112592794",
+          "shortSpec": "Br.art.112592794"
+        },
+        {
+          "name": "ELECTROLUX indukcijska ploča za kuhanje LIV63431BK, staklokeramika, 600 mm",
+          "sku": "112592886",
+          "brand": "ELECTROLUX",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/258/916/DV005-ppic_Induktionskochfeld_LIV63431BK_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/electrolux-indukcijska-plo-a-za-kuhanje-liv63431bk-staklokeramika-600-mm/112592886",
+          "shortSpec": "Br.art.112592886"
+        },
+        {
+          "name": "ELICA ugradbena napa Era C, crna, 600 mm",
+          "sku": "112592971",
+          "brand": "ELICA",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/269/652/DV005-ppic_Elica_Unterbauhaube_Era_C_52_schwarz_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/elica-ugradbena-napa-era-c-crna-600-mm/112592971",
+          "shortSpec": "Br.art.112592971"
+        },
+        {
+          "name": "ELECTROLUX ugradbena domino ploča LHR3233CK 290 mm",
+          "sku": "112592825",
+          "brand": "ELECTROLUX",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/254/027/DV005-ppic_Electrolux_Kochfeld_LHR3233CK_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/electrolux-ugradbena-domino-plo-a-lhr3233ck-290-mm/112592825",
+          "shortSpec": "Br.art.112592825"
+        },
+        {
+          "name": "ELECTROLUX perilica posuđa EES48200L, potpuno integrirana, 600 mm",
+          "sku": "112592925",
+          "brand": "ELECTROLUX",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/268/295/DV005-ppic_Electrolux_Geschirrspueler_EES48200L.tif_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/electrolux-perilica-posu-a-ees48200l-potpuno-integrirana-600-mm/112592925",
+          "shortSpec": "Br.art.112592925"
+        },
+        {
+          "name": "ELICA ugradbena napa Era, srebrna, 600 mm",
+          "sku": "112592730",
+          "brand": "ELICA",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/180/426/DV005-ppic_Unterbauhaube_ERA_01_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/elica-ugradbena-napa-era-srebrna-600-mm/112592730",
+          "shortSpec": "Br.art.112592730"
+        },
+        {
+          "name": "ELICA ugradbena napa Era C, srebrna, 600 mm",
+          "sku": "112592792",
+          "brand": "ELICA",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/169/240/DV005-ppic_Elica_Unterbauhaube_Era_C52_weiss_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/elica-ugradbena-napa-era-c-srebrna-600-mm/112592792",
+          "shortSpec": "Br.art.112592792"
+        },
+        {
+          "name": "ELECTROLUX staklokeramička ploča EHF 6346 XOK, 60 cm",
+          "sku": "112592564",
+          "brand": "ELECTROLUX",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/169/131/DV005-ppic_Electrolux_Kochfeld_EHF_6346XOK_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/electrolux-staklokerami-ka-plo-a-ehf-6346-xok-60-cm/112592564",
+          "shortSpec": "Br.art.112592564"
+        },
+        {
+          "name": "ELECTROLUX ugradbena mikrovalna pećnica LMS2203EMX crna",
+          "sku": "112592714",
+          "brand": "ELECTROLUX",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/180/390/DV005-ppic_Einbaumikrowelle_Electrolux_LMS2203EMX_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/electrolux-ugradbena-mikrovalna-pe-nica-lms2203emx-crna/112592714",
+          "shortSpec": "Br.art.112592714"
+        },
+        {
+          "name": "DOMETIC spojnica za hladnjak 70487+70488",
+          "sku": "103350885",
+          "brand": "DOMETIC",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/134/918/DV005-ppic_schleppscharnier_103350885_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/dometic-spojnica-za-hladnjak-70487-70488/103350885",
+          "shortSpec": "Br.art.103350885"
+        },
+        {
+          "name": "GORENJE ugradbena teleskopska napa TH62E4BG",
+          "sku": "112592920",
+          "brand": "GORENJE",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/262/516/DV005-ppic_Gorenje_Flachschirmhaube_TH62E4BG_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/gorenje-ugradbena-teleskopska-napa-th62e4bg/112592920",
+          "shortSpec": "Br.art.112592920"
+        },
+        {
+          "name": "OPTIMAIRO redukcija NW 125/NW 100 plastika bijela",
+          "sku": "112589350",
+          "brand": "OPTIMAIRO",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/270/223/DV005-ppic_Oezpolat_N35006_Reduzierstueck_NW125_auf_NW100_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/optimairo-redukcija-nw-125-nw-100-plastika-bijela/112589350",
+          "shortSpec": "Br.art.112589350"
+        },
+        {
+          "name": "Electrolux kombinirana staklokeramička plinska ploča, EGE 6182 NOK 60cm",
+          "sku": "112592280",
+          "brand": "ELECTROLUX",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/169/154/DV005-ppic_gaskochfeld_elektro_Ceranfeld_EGE6182NOK_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/electrolux-kombinirana-staklokerami-ka-plinska-plo-a-ege-6182-nok-60cm/112592280",
+          "shortSpec": "Br.art.112592280"
+        },
+        {
+          "name": "FABER ugradbena napa INCA SMART HC X A52, nehr. čelik, 52 cm širine",
+          "sku": "112592565",
+          "brand": "FABER",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/266/643/DV005-ppic_Dunsthaube_Inka_Smart_HC_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/faber-ugradbena-napa-inca-smart-hc-x-a52-nehr-elik-52-cm-irine/112592565",
+          "shortSpec": "Br.art.112592565"
+        },
+        {
+          "name": "ELICA izvlačna napa Elite 14, nehrđajući čelik/ staklo, 900 mm",
+          "sku": "112592906",
+          "brand": "ELICA",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/180/423/DV005-ppic_Flachschirmhaube_Elite_14_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/elica-izvla-na-napa-elite-14-nehr-aju-i-elik-staklo-900-mm/112592906",
+          "shortSpec": "Br.art.112592906"
+        },
+        {
+          "name": "GORENJE ugradbeni podpultni hladnjak/zamrzivač RBIU609EA1, 820 mm",
+          "sku": "112567921",
+          "brand": "GORENJE",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/272/896/DV005-ppic_Gorenje_Unterbau-Kuehlschrank_rbiu609ea1-front-open_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/gorenje-ugradbeni-podpultni-hladnjak-zamrziva-rbiu609ea1-820-mm/112567921",
+          "shortSpec": "Br.art.112567921"
+        },
+        {
+          "name": "ELECTROLUX pećnica EOF3H70X neh. čelik",
+          "sku": "112592772",
+          "brand": "ELECTROLUX",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/180/832/DV005-ppic_Electrolux_Backofen_EOF3H70X_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/electrolux-pe-nica-eof3h70x-neh-elik/112592772",
+          "shortSpec": "Br.art.112592772"
+        },
+        {
+          "name": "ELICA ugradbena napa Lane, nehrđajući čelik, 600 mm",
+          "sku": "112592777",
+          "brand": "ELICA",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/169/240/DV005-ppic_Elica_Unterbauhaube_Lane_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/elica-ugradbena-napa-lane-nehr-aju-i-elik-600-mm/112592777",
+          "shortSpec": "Br.art.112592777"
+        },
+        {
+          "name": "MIELE perilica posuđa G 7191 SCVi XXL potpuno integrirana, 600 mm - 125 Edition",
+          "sku": "112559397",
+          "brand": "MIELE",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/272/880/DV005-ppic_Miele_Geschirrspueler_G7197SCVi_XXL_125_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/miele-perilica-posu-a-g-7191-scvi-xxl-potpuno-integrirana-600-mm-125-edition/112559397",
+          "shortSpec": "Br.art.112559397"
+        },
+        {
+          "name": "MIELE ugradbena pećnica H 2455 B opsidijan crna",
+          "sku": "112559634",
+          "brand": "MIELE",
+          "imageUrl": "https://webshop.schachermayer.com/cdn/derivates/5/274/992/DV005-ppic_Miele_Backofen_H_2455_B_270.jpg",
+          "productUrl": "https://webshop.schachermayer.com/cat/hr-HR/product/miele-ugradbena-pe-nica-h-2455-b-opsidijan-crna/112559634",
+          "shortSpec": "Br.art.112559634"
+        }
+      ],
+      "note": "This page lists various kitchen appliances and accessories available for purchase."
+    }
+  }
+}

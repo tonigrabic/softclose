@@ -1,0 +1,37 @@
+{
+  "schema": { "version": "1.0", "currency": "EUR" },
+  "source": {
+    "supplier": "Elgrad d.o.o.",
+    "pdfFile": "data/elgrad-cjenik-2026-03-30.pdf",
+    "pdfPage": 12,
+    "validFrom": "2026-03-26",
+    "extractedAt": "2026-05-02"
+  },
+  "cutting": {
+    "iverica10_18mm_pricePerM": 0.78,
+    "iverica25mm_pricePerM": 1.27,
+    "iverica38mm_pricePerM": 1.78,
+    "worktop38mm_pricePerM": 5.36,
+    "compactPanel_pricePerM": 3.21,
+    "laminate_pricePerM": 0.76,
+    "highGloss_pricePerM": 1.35
+  },
+  "edgeBanding": {
+    "abs_05mm_under20mmThick_pricePerM": 0.66,
+    "abs_08mm_under20mmThick_pricePerM": 1.02,
+    "abs_1mm_under20mmThick_pricePerM": 1.02,
+    "abs_2mm_under20mmThick_pricePerM": 1.21,
+    "abs_2mm_25_28mmThick_pricePerM": 1.49,
+    "abs_2mm_38mmThick_pricePerM": 2.05
+  },
+  "cncMachining": {
+    "underMm20_pricePerM": 8.56,
+    "mm21_28_pricePerM": 8.56,
+    "mm29_40_pricePerM": 10.71,
+    "compactSinkOrOvenCutout_perCutout": 7.78
+  },
+  "pressing": {
+    "singleSide_underMm20_perPress": 24.07,
+    "doubleSide_underMm20_perPress": 30.10
+  }
+}

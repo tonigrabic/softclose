@@ -22,6 +22,9 @@ import {
   prevStepId,
   type FlowStepId,
 } from '@/lib/flow'
+import { BuilderShell } from '@/components/builder/BuilderShell'
+import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
+import type { BuilderState } from '@/lib/builder/inventory'
 import { derivePrefills } from '@/lib/derive-prefills'
 import { DESIGNER_NAME } from '@/lib/system-prompt'
 import type { UploadedReference } from './ImageSelect'
@@ -126,6 +129,11 @@ export function KitchenIntake() {
   const [dealBreakersText, setDealBreakersText] = useState('')
   const [isTranslating, setIsTranslating] = useState(false)
   const [translateError, setTranslateError] = useState<string | null>(null)
+
+  // Phase-2 Builder state — populated lazily on entry to the builder step.
+  const [builderHypothesis, setBuilderHypothesis] = useState<BuilderHypothesis | null>(null)
+  const [isLoadingHypothesis, setIsLoadingHypothesis] = useState(false)
+  const [hypothesisError, setHypothesisError] = useState<string | null>(null)
 
   /** Patch the central LeadProfile (replace strategy at top-level keys). */
   function patchProfile(patch: Partial<LeadProfile>) {
@@ -425,6 +433,56 @@ export function KitchenIntake() {
     )
   }
 
+  // ── Phase 2: Builder step takes over the full screen with its own chrome.
+  if (state.currentStepId === 'builder') {
+    const chosenRender = chosenRenderId
+      ? conceptRenders.find((r) => r.id === chosenRenderId)
+      : conceptRenders[conceptRenders.length - 1]
+    return (
+      <BuilderStepView
+        renderImageDataUrl={chosenRender?.imageDataUrl}
+        anchorPhotoDataUrl={spacePhotos[0]}
+        layoutSummary={summariseLayoutFromProfile(profile)}
+        profile={profile}
+        hypothesis={builderHypothesis}
+        isLoadingHypothesis={isLoadingHypothesis}
+        hypothesisError={hypothesisError}
+        onLoadHypothesis={async () => {
+          if (!chosenRender?.imageDataUrl) return
+          setIsLoadingHypothesis(true)
+          setHypothesisError(null)
+          try {
+            const res = await fetch('/api/builder-hypothesis', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ renderImage: chosenRender.imageDataUrl, profile }),
+            })
+            const data = await res.json()
+            if (!res.ok || data.error) throw new Error(data.error ?? `Hypothesis failed (${res.status})`)
+            setBuilderHypothesis(data.hypothesis as BuilderHypothesis)
+          } catch (err) {
+            setHypothesisError(err instanceof Error ? err.message : 'Builder hypothesis failed')
+          } finally {
+            setIsLoadingHypothesis(false)
+          }
+        }}
+        onComplete={(builderState) => {
+          patchProfile({ builderState })
+          logTurn(
+            'user',
+            `Builder complete — doors: ${builderState.doors.decorCode}, worktop: ${builderState.worktop.decorCode}`
+          )
+          goNext()
+        }}
+        onSkip={() => {
+          logTurn('user', 'Skipped the builder — sending minimal brief.')
+          goNext()
+        }}
+        onBack={goBack}
+      />
+    )
+  }
+
   return (
     <div className="min-h-[100dvh] bg-background text-foreground">
       <ProgressBar percent={progress} />
@@ -555,6 +613,12 @@ export function KitchenIntake() {
         break
       case 'confirm_look':
         commitConfirmLook()
+        break
+      case 'builder':
+        // The Builder owns its own continue/back; the footer Continue here
+        // is a "skip the builder" affordance and just advances the outer flow.
+        logTurn('user', 'Skipped the detailed builder — using minimal brief.')
+        goNext()
         break
       case 'project_basics':
         commitProjectBasics()
@@ -1082,6 +1146,153 @@ function FooterNav({
       </button>
     </div>
   )
+}
+
+/**
+ * Phase-2 entry screen. Three states:
+ *  - Idle: introduce the builder + a "Start building" CTA that fires the
+ *    /api/builder-hypothesis call.
+ *  - Loading: dots while we wait for the vision pass.
+ *  - Ready: full BuilderShell takeover.
+ *
+ * The user can also skip the builder entirely (sends a minimal brief).
+ */
+function BuilderStepView({
+  renderImageDataUrl,
+  anchorPhotoDataUrl,
+  layoutSummary,
+  profile,
+  hypothesis,
+  isLoadingHypothesis,
+  hypothesisError,
+  onLoadHypothesis,
+  onComplete,
+  onSkip,
+  onBack,
+}: {
+  renderImageDataUrl?: string
+  anchorPhotoDataUrl?: string
+  layoutSummary?: string
+  profile: LeadProfile
+  hypothesis: BuilderHypothesis | null
+  isLoadingHypothesis: boolean
+  hypothesisError: string | null
+  onLoadHypothesis: () => void
+  onComplete: (state: BuilderState) => void
+  onSkip: () => void
+  onBack: () => void
+}) {
+  // Once we have a hypothesis (or the user explicitly clicked "Start without
+  // hypothesis"), mount the BuilderShell. Otherwise show the entry screen.
+  const [skippedHypothesis, setSkippedHypothesis] = useState(false)
+
+  if (hypothesis || skippedHypothesis) {
+    return (
+      <BuilderShell
+        hypothesis={hypothesis}
+        renderImageDataUrl={renderImageDataUrl}
+        anchorPhotoDataUrl={anchorPhotoDataUrl}
+        layoutSummary={layoutSummary}
+        locale="hr-HR"
+        onComplete={onComplete}
+      />
+    )
+  }
+
+  return (
+    <div className="min-h-[100dvh] bg-background text-foreground">
+      <div className="mx-auto flex min-h-[100dvh] max-w-2xl flex-col items-center justify-center gap-6 px-6 py-16 text-center">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/80">
+          Phase 2 — {DESIGNER_NAME}
+        </p>
+        <h1 className="text-balance text-3xl font-semibold leading-tight md:text-4xl">
+          Sastavi svoju kuhinju, dio po dio.
+        </h1>
+        <p className="max-w-prose text-[14.5px] leading-relaxed text-muted-foreground">
+          Prošli ćemo kroz svaki dio kuhinje — od dimenzija i vrata do okova, sudopera i rasvjete. Procjena cijene se ažurira uživo dok mijenjaš odabire.
+          {profile.builderState !== undefined && ' Već si započeo — nastavi gdje si stao.'}
+        </p>
+
+        {hypothesisError && (
+          <p className="max-w-prose rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
+            {hypothesisError}
+          </p>
+        )}
+
+        <div className="flex flex-col items-center gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={renderImageDataUrl ? onLoadHypothesis : () => setSkippedHypothesis(true)}
+            disabled={isLoadingHypothesis}
+            className={cn(
+              'inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md transition-all',
+              isLoadingHypothesis ? 'opacity-70' : 'hover:brightness-[1.06]'
+            )}
+          >
+            {isLoadingHypothesis ? (
+              <>
+                <span className="inline-block size-1.5 animate-pulse rounded-full bg-background/80" />
+                Čitam tvoj render…
+              </>
+            ) : renderImageDataUrl ? (
+              <>Započni gradnju (s AI prijedlogom)</>
+            ) : (
+              <>Započni gradnju</>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setSkippedHypothesis(true)}
+            disabled={isLoadingHypothesis || !renderImageDataUrl}
+            className={cn(
+              'rounded-2xl border border-border bg-card px-5 py-3 text-sm font-medium text-muted-foreground transition-colors',
+              !isLoadingHypothesis && renderImageDataUrl && 'hover:text-foreground'
+            )}
+          >
+            Bez AI prijedloga
+          </button>
+        </div>
+
+        <div className="flex gap-3 pt-4 text-xs">
+          <button type="button" onClick={onBack} className="text-muted-foreground hover:text-foreground">
+            ← Natrag
+          </button>
+          <span className="text-muted-foreground/40">·</span>
+          <button type="button" onClick={onSkip} className="text-muted-foreground hover:text-foreground">
+            Preskoči — pošalji samo osnovni brief
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Render a one-line summary of the room (shape + key dimensions) using only
+ * Phase-1 captures. Surfaced under the Builder's persistent preview so the
+ * user always sees the room context without needing to re-edit it.
+ */
+function summariseLayoutFromProfile(p: LeadProfile): string | undefined {
+  const shape = p.layoutShape ?? p.spaceVisionResult?.layoutShape
+  const length = p.spaceLengthCm ?? p.spaceVisionResult?.lengthCm
+  const width = p.spaceWidthCm ?? p.spaceVisionResult?.widthCm
+  const parts: string[] = []
+  if (shape) {
+    const labels: Record<string, string> = {
+      galley: 'Paralelne klupe',
+      l_shape: 'L-oblik',
+      u_shape: 'U-oblik',
+      island: 'S otokom',
+      peninsula: 'S poluotokom',
+      open: 'Otvoreni prostor',
+      unsure: 'Oblik tbd',
+    }
+    parts.push(labels[shape] ?? shape.replace(/_/g, ' '))
+  }
+  if (length && width) parts.push(`${length} × ${width} cm`)
+  else if (length) parts.push(`${length} cm`)
+  if (p.hasIsland) parts.push('+ otok')
+  return parts.length > 0 ? parts.join(' · ') : undefined
 }
 
 function buildFallbackSummary(profile: LeadProfile): string[] {
