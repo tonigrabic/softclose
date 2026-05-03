@@ -20,6 +20,12 @@ export const enUS: Record<TranslationKey, string> = {
   'builder.shell.preview.enlarge': 'Enlarge',
   'builder.shell.preview.close': 'Close',
   'builder.shell.preview.lightboxLabel': 'Render preview, full size',
+  'builder.shell.renders.original': 'Original render',
+  'builder.shell.renders.originalBadge': 'Original',
+  'builder.shell.renders.setCurrent': 'Use this',
+  'builder.shell.renders.resetToOriginal': 'Reset to original',
+  'builder.shell.renders.current': 'Current',
+  'builder.shell.renders.viewing': "Previewing a different render — set it as current to anchor your changes against it.",
 
   'builder.groups.layout.label': 'Layout & dimensions',
   'builder.groups.layout.why': 'Room shape and exact wall lengths.',

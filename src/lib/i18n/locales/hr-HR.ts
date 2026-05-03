@@ -20,6 +20,12 @@ export const hrHR = {
   'builder.shell.preview.enlarge': 'Povećaj',
   'builder.shell.preview.close': 'Zatvori',
   'builder.shell.preview.lightboxLabel': 'Pregled rendera u punoj veličini',
+  'builder.shell.renders.original': 'Originalni render',
+  'builder.shell.renders.originalBadge': 'Original',
+  'builder.shell.renders.setCurrent': 'Koristi ovaj',
+  'builder.shell.renders.resetToOriginal': 'Vrati na original',
+  'builder.shell.renders.current': 'Trenutni',
+  'builder.shell.renders.viewing': 'Pregledavaš drugi render — postavi ga kao trenutni da se izmjene odnose na njega.',
 
   // ---- Group labels & "why" copy ----------------------------------------
   'builder.groups.layout.label': 'Tlocrt i dimenzije',

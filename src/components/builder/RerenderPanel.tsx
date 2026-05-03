@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Sparkles, RefreshCw, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { findDecor } from '@/lib/catalog'
@@ -17,7 +17,7 @@ import type { BuilderState } from '@/lib/builder/inventory'
  * Cap: hard-stop at MAX_RERENDERS_PER_SESSION so we don't spam the renderer.
  */
 
-const MAX_RERENDERS_PER_SESSION = 3
+const MAX_RERENDERS_PER_SESSION = 5
 
 interface RerenderPanelProps {
   state: BuilderState
@@ -70,6 +70,17 @@ export function RerenderPanel({
   const [renderCount, setRenderCount] = useState(0)
   const [isRendering, setIsRendering] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // When the active render changes (carousel switch / promote-to-original),
+  // re-anchor the diff: the active thumb is now "the render you're looking at".
+  const activeRenderId = state.activeRenderId
+  const lastActiveIdRef = useRef(activeRenderId)
+  useEffect(() => {
+    if (lastActiveIdRef.current !== activeRenderId) {
+      lastActiveIdRef.current = activeRenderId
+      setBaseline(visualSignature(state))
+    }
+  }, [activeRenderId, state])
 
   const current = visualSignature(state)
   const changes = whatChanged(baseline, current)

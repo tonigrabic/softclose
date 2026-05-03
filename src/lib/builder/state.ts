@@ -78,6 +78,8 @@ export function hydrateFromHypothesis(
     lastUpdatedAt: now,
     leadProfileRef: context.leadProfileRef,
     renderId: context.renderId,
+    activeRenderId: null,
+    originalRenderRef: context.renderId,
 
     layout: {
       shape: (layoutHy?.shape?.value ?? 'l_shape') as LayoutShape,
@@ -231,6 +233,7 @@ export type BuilderAction =
   | { type: 'patch_finishing'; patch: Partial<BuilderState['finishing']> }
   | { type: 'patch_cabinetBoxes'; patch: Partial<BuilderState['cabinetBoxes']> }
   | { type: 'push_rerender'; trigger: string; imageDataUrl: string }
+  | { type: 'set_active_render'; id: string | null }
   | { type: 'replace'; state: BuilderState }
 
 function reducer(state: BuilderState, action: BuilderAction): BuilderState {
@@ -244,8 +247,12 @@ function reducer(state: BuilderState, action: BuilderAction): BuilderState {
         ...(state.rerenders ?? []),
         { id, trigger: action.trigger, imageDataUrl: action.imageDataUrl, createdAt: now },
       ],
+      activeRenderId: id,
       lastUpdatedAt: now,
     }
+  }
+  if (action.type === 'set_active_render') {
+    return { ...state, activeRenderId: action.id, lastUpdatedAt: now }
   }
   if (action.type.startsWith('patch_')) {
     const groupKey = action.type.replace('patch_', '') as BuilderGroupId

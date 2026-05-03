@@ -16,6 +16,7 @@ import { hydrateFromHypothesis, useBuilderState } from '@/lib/builder/state'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import { LiveBOMPanel } from './LiveBOMPanel'
 import { RerenderPanel } from './RerenderPanel'
+import { RenderCarousel } from './RenderCarousel'
 import { DoorsGroup } from './groups/DoorsGroup'
 import { WorktopGroup } from './groups/WorktopGroup'
 import { CabinetBoxesGroup } from './groups/CabinetBoxesGroup'
@@ -97,10 +98,15 @@ function Shell({
   onComplete?: (state: BuilderState) => void
 }) {
   const { t, locale } = useTranslations()
-  // Live preview comes from the most recent re-render in state, falling back
-  // to the initial render passed from Phase 1, then the anchor photo.
-  const lastRerender = state.rerenders?.[state.rerenders.length - 1]
-  const previewSrc = lastRerender?.imageDataUrl ?? renderImageDataUrl ?? anchorPhotoDataUrl ?? null
+  // The big preview always reads from `activeRenderId`: null = Phase-1
+  // Original (renderImageDataUrl), otherwise the matching entry in rerenders[].
+  // The Original is structurally protected — it lives outside rerenders[] so
+  // the cap can't evict it.
+  const originalSrc = renderImageDataUrl ?? anchorPhotoDataUrl
+  const activeRerender = state.activeRenderId
+    ? state.rerenders?.find((r) => r.id === state.activeRenderId)
+    : undefined
+  const previewSrc = activeRerender?.imageDataUrl ?? originalSrc ?? null
   const [lightboxOpen, setLightboxOpen] = useState(false)
 
   // Close the lightbox on Escape.
@@ -189,6 +195,13 @@ function Shell({
               </div>
             </div>
           )}
+
+          <RenderCarousel
+            state={state}
+            originalImageDataUrl={renderImageDataUrl}
+            anchorPhotoDataUrl={anchorPhotoDataUrl}
+            onSetActive={(id) => dispatch({ type: 'set_active_render', id })}
+          />
 
           <RerenderPanel
             state={state}

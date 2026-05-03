@@ -320,11 +320,19 @@ export interface BuilderState {
   finishing: FinishingGroup
 
   /**
-   * If the user requested a re-render after substantial material changes,
-   * the rendered concept(s) live here. The first render usually comes from
-   * Phase 1; subsequent ones are driven by builder edits.
+   * Re-renders triggered from builder edits. The Phase-1 Original is *not*
+   * stored here — it lives outside the array so it can never be evicted by
+   * the cap or accidentally promoted away. Hard cap: MAX_RERENDERS_PER_SESSION.
    */
   rerenders?: { id: string; trigger: string; imageDataUrl: string; createdAt: string }[]
+  /**
+   * Pointer to the render currently shown in the big preview and used as the
+   * RerenderPanel baseline. `null` means the Phase-1 Original; any other value
+   * is an id from `rerenders[]`.
+   */
+  activeRenderId: string | null
+  /** Canonical id for the Phase-1 render, for the brief / maker dashboard. */
+  originalRenderRef?: string
 }
 
 /** Group identifiers — for the stepper / current-step state. */
