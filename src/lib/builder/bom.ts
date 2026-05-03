@@ -12,6 +12,7 @@
  */
 
 import { decors as catalogDecors, services, doorPricePerM2, worktopPricePerM, findDecor } from '@/lib/catalog'
+import { PATTERN_SPECS } from './cabinet-patterns'
 import type { BuilderState, CabinetUnit, DrawerSystemTier } from './inventory'
 
 export interface BomLineItem {
@@ -23,6 +24,7 @@ export interface BomLineItem {
     | 'edgeBanding'
     | 'services'
     | 'hardware'
+    | 'accessories'
     | 'appliances'
     | 'sinkTaps'
     | 'lighting'
@@ -241,22 +243,37 @@ export function computeBom(state: BuilderState): BomEstimate {
     : state.layout.runs.filter((r) => r.hasTall).reduce((s, r) => s + r.lengthCm / 100, 0)
 
   const tierRRP = HARDWARE_TIER_RRP[state.hardware.drawerSystemTier]
-  let unitEquivalents = 0
+  const hingeMultiplier =
+    state.hardware.hingeType === 'soft_close' ? 1.0 : state.hardware.hingeType === 'push_to_open' ? 1.15 : 0.85
+
+  let hwLow = 0
+  let hwHigh = 0
   let drawerCount = 0
+  let unitEquivalents = 0
+  let accessoryLow = 0
+  let accessoryHigh = 0
   if (usingUnitModel) {
-    // Each unit gets one "hardware kit"; tall units cost ~1.4× a base.
     for (const u of units) {
-      unitEquivalents += u.type === 'tall' ? 1.4 : u.type === 'wall' ? 0.6 : 1.0
-      drawerCount += u.drawers
+      const spec = PATTERN_SPECS[u.pattern]
+      const typeFactor = u.type === 'tall' ? 1.4 : u.type === 'wall' ? 0.6 : 1.0
+      const unitEq = typeFactor * spec.hardwareMultiplier
+      unitEquivalents += unitEq
+      drawerCount += spec.defaultDrawers
+      hwLow += unitEq * tierRRP.perBaseUnit.low + spec.defaultDrawers * tierRRP.perDrawer.low
+      hwHigh += unitEq * tierRRP.perBaseUnit.high + spec.defaultDrawers * tierRRP.perDrawer.high
+      if (spec.accessoryCost) {
+        accessoryLow += spec.accessoryCost.low
+        accessoryHigh += spec.accessoryCost.high
+      }
     }
+    hwLow *= hingeMultiplier
+    hwHigh *= hingeMultiplier
   } else {
     unitEquivalents =
       Math.ceil(baseM / 0.6) + Math.ceil(wallM / 0.6) * 0.6 + Math.ceil(tallM / 0.6) * 1.4
+    hwLow = unitEquivalents * tierRRP.perBaseUnit.low * hingeMultiplier
+    hwHigh = unitEquivalents * tierRRP.perBaseUnit.high * hingeMultiplier
   }
-  const hingeMultiplier =
-    state.hardware.hingeType === 'soft_close' ? 1.0 : state.hardware.hingeType === 'push_to_open' ? 1.15 : 0.85
-  const hwLow = (unitEquivalents * tierRRP.perBaseUnit.low + drawerCount * tierRRP.perDrawer.low) * hingeMultiplier
-  const hwHigh = (unitEquivalents * tierRRP.perBaseUnit.high + drawerCount * tierRRP.perDrawer.high) * hingeMultiplier
   const hwQuantity = drawerCount > 0
     ? `${unitEquivalents.toFixed(1)} unit eq. · ${drawerCount} drawers`
     : `${unitEquivalents.toFixed(1)} unit eq.`
@@ -267,6 +284,17 @@ export function computeBom(state: BuilderState): BomEstimate {
     low: round(hwLow),
     high: round(hwHigh),
   })
+
+  if (accessoryLow > 0 || accessoryHigh > 0) {
+    const accessoryUnitCount = units.filter((u) => PATTERN_SPECS[u.pattern].accessoryCost).length
+    lineItems.push({
+      key: 'accessories',
+      detail: 'Magic corner, larder mech, trash pullout & similar mechanisms',
+      quantity: `${accessoryUnitCount} mechanism${accessoryUnitCount === 1 ? '' : 's'}`,
+      low: round(accessoryLow),
+      high: round(accessoryHigh),
+    })
+  }
 
   /* 6. Sink + tap ──────────────────────────────────────────────────────── */
   const sinkBaseLow =

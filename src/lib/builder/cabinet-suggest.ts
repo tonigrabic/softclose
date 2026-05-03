@@ -9,7 +9,7 @@
  * unit reserved at one end if the run is the *first* run of an L/U layout.
  */
 
-import type { CabinetUnit, WallRunDimensions } from './inventory'
+import type { CabinetPattern, CabinetUnit, WallRunDimensions } from './inventory'
 
 const STANDARD_WIDTHS_BASE = [800, 600, 600, 600, 450] as const
 const STANDARD_WIDTHS_WALL = [800, 600, 600, 600, 450] as const
@@ -81,8 +81,16 @@ export function suggestCabinetsForRun(
 
   if (run.hasBase) {
     const widths = fillRunWithWidths(totalMm, STANDARD_WIDTHS_BASE, cornerReservedMm)
+    const lastIdx = widths.length - 1
     let positionMm = 0
     widths.forEach((w, i) => {
+      const isCornerUnit = i === 0 && Boolean(opts.hasCorner)
+      const pattern = pickBasePattern({
+        index: i,
+        lastIndex: lastIdx,
+        widthMm: w,
+        isCorner: isCornerUnit,
+      })
       out.push({
         id: newId(),
         type: 'base',
@@ -91,8 +99,7 @@ export function suggestCabinetsForRun(
         depthMm: baseDepth,
         runId: run.id,
         positionPctAlongRun: totalMm > 0 ? (positionMm / totalMm) * 100 : 0,
-        drawers: i === 0 && opts.hasCorner ? 0 : i === 1 ? 4 : 0,
-        isCorner: Boolean(i === 0 && opts.hasCorner),
+        pattern,
       })
       positionMm += w
     })
@@ -101,7 +108,7 @@ export function suggestCabinetsForRun(
   if (run.hasWall) {
     const widths = fillRunWithWidths(totalMm, STANDARD_WIDTHS_WALL, cornerReservedMm)
     let positionMm = 0
-    widths.forEach((w, i) => {
+    widths.forEach((w) => {
       out.push({
         id: newId(),
         type: 'wall',
@@ -110,8 +117,7 @@ export function suggestCabinetsForRun(
         depthMm: wallDepth,
         runId: run.id,
         positionPctAlongRun: totalMm > 0 ? (positionMm / totalMm) * 100 : 0,
-        drawers: 0,
-        isCorner: Boolean(i === 0 && opts.hasCorner),
+        pattern: 'doors_shelf',
       })
       positionMm += w
     })
@@ -127,12 +133,25 @@ export function suggestCabinetsForRun(
       depthMm: baseDepth,
       runId: run.id,
       positionPctAlongRun: 80,
-      drawers: 0,
-      isCorner: false,
+      pattern: 'oven_housing',
     })
   }
 
   return out
+}
+
+function pickBasePattern(args: {
+  index: number
+  lastIndex: number
+  widthMm: number
+  isCorner: boolean
+}): CabinetPattern {
+  if (args.isCorner) return 'corner_magic'
+  // Second slot tends to be the prime drawer bank under the worktop edge.
+  if (args.index === 1 && args.widthMm >= 400) return 'drawer_bank'
+  // Narrow unit at run end → trash pullout if it fits the slot.
+  if (args.index === args.lastIndex && args.widthMm <= 600) return 'trash_pullout'
+  return 'doors_shelf'
 }
 
 function clampWidth(mm: number): CabinetUnit['widthMm'] {

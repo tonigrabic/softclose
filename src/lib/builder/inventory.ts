@@ -78,6 +78,25 @@ export type CornerSolution =
   | 'dead_corner'
   | 'none'
 
+/**
+ * Trade-language pattern for a cabinet unit. Replaces the old
+ * `drawers` count + `isCorner` flag — door/drawer counts and corner
+ * status are derived from the pattern (see PATTERN_SPECS).
+ */
+export type CabinetPattern =
+  | 'doors_shelf'
+  | 'drawer_bank'
+  | 'pullouts_inside_doors'
+  | 'drawer_door_combo'
+  | 'sink_unit'
+  | 'trash_pullout'
+  | 'corner_magic'
+  | 'corner_lazy'
+  | 'oven_housing'
+  | 'pullout_larder'
+  | 'wine_pullout'
+  | 'open_shelves'
+
 export interface CabinetUnit {
   id: string
   /** "base", "wall", "tall" — drives module presets. */
@@ -88,10 +107,8 @@ export interface CabinetUnit {
   /** Which run + position-along-run this lives on. */
   runId: string
   positionPctAlongRun: number
-  /** Number of internal drawers (0 = doors only). */
-  drawers: number
-  /** True if this is the corner unit on this run. */
-  isCorner: boolean
+  /** Maker-trade pattern. Drives drawer count, corner flag, accessories, BOM. */
+  pattern: CabinetPattern
 }
 
 export interface CabinetBoxesGroup {

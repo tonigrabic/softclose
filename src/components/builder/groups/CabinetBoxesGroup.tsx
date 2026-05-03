@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { Plus, Wand2, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Plus, Wand2, X, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from '@/lib/i18n'
 import { PickerSlot } from '../PickerSlot'
@@ -15,8 +15,15 @@ import {
   unitsForRun,
   unitsForRunByType,
 } from '@/lib/builder/cabinet-suggest'
+import {
+  PATTERN_SPECS,
+  defaultPatternForType,
+  patternsForType,
+  unitIsCorner,
+} from '@/lib/builder/cabinet-patterns'
 import type {
   BuilderState,
+  CabinetPattern,
   CabinetUnit,
   CarcassMaterial,
   CornerSolution,
@@ -91,8 +98,7 @@ export function CabinetBoxesGroup({ state, onPatch }: CabinetBoxesGroupProps) {
           depthMm,
           runId,
           positionPctAlongRun: 100,
-          drawers: 0,
-          isCorner: false,
+          pattern: defaultPatternForType(type),
         },
       ],
     })
@@ -221,7 +227,6 @@ function RunSection({
           onAdd={() => onAdd(runId, 'base')}
           onUpdate={onUpdate}
           onRemove={onRemove}
-          showDrawers
         />
       )}
       {run.hasWall && (
@@ -256,7 +261,6 @@ function CabinetRow({
   onAdd,
   onUpdate,
   onRemove,
-  showDrawers,
 }: {
   label: string
   rowMm: number
@@ -265,7 +269,6 @@ function CabinetRow({
   onAdd: () => void
   onUpdate: (id: string, patch: Partial<CabinetUnit>) => void
   onRemove: (id: string) => void
-  showDrawers?: boolean
 }) {
   const { t } = useTranslations()
   const widths = allowedWidths()
@@ -331,24 +334,14 @@ function CabinetRow({
                 </option>
               ))}
             </select>
-            {showDrawers && (
-              <label className="flex items-center gap-1 text-[10.5px] text-muted-foreground">
-                {t('cabinetBoxes.drawersLabel')}
-                <input
-                  type="number"
-                  min={0}
-                  max={6}
-                  value={u.drawers}
-                  onChange={(e) =>
-                    onUpdate(u.id, { drawers: Math.max(0, Math.min(6, parseInt(e.target.value || '0', 10))) })
-                  }
-                  className="w-12 rounded-md border border-border bg-background px-1.5 py-0.5 text-right text-[12px] tabular-nums focus:border-primary/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
-                />
-              </label>
-            )}
-            {u.isCorner && (
+            <PatternPicker
+              type={u.type}
+              pattern={u.pattern}
+              onChange={(p) => onUpdate(u.id, { pattern: p })}
+            />
+            {unitIsCorner(u) && (
               <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
-                Kut
+                {t('cabinetBoxes.cornerBadge')}
               </span>
             )}
             <button
@@ -379,7 +372,7 @@ function CornerSection({
   onPatch: (patch: Partial<BuilderState['cabinetBoxes']>) => void
 }) {
   const { t } = useTranslations()
-  const cornerCount = state.cabinetBoxes.units.filter((u) => u.isCorner).length
+  const cornerCount = state.cabinetBoxes.units.filter((u) => unitIsCorner(u)).length
   return (
     <div className="space-y-3 rounded-2xl border border-border bg-card/40 px-4 py-4">
       <p className="text-[11px] text-muted-foreground">
@@ -405,5 +398,110 @@ function CornerSection({
       </PickerSlot>
     </div>
   )
+}
+
+/* ───────────── PatternPicker ───────────── */
+
+function PatternPicker({
+  type,
+  pattern,
+  onChange,
+}: {
+  type: CabinetUnit['type']
+  pattern: CabinetPattern
+  onChange: (p: CabinetPattern) => void
+}) {
+  const { tDynamic } = useTranslations()
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  const options = patternsForType(type)
+  const spec = PATTERN_SPECS[pattern]
+
+  useEffect(() => {
+    if (!open) return
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-1 text-[11px] font-medium text-foreground hover:border-primary/40"
+      >
+        <PatternIconGlyph icon={spec.iconKey} />
+        <span>{tDynamic(spec.labelKey)}</span>
+        <ChevronDown className="size-3 stroke-[2] text-muted-foreground" aria-hidden />
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-20 mt-1 w-56 overflow-hidden rounded-xl border border-border bg-popover shadow-lg">
+          <ul className="max-h-72 overflow-y-auto py-1">
+            {options.map((p) => {
+              const s = PATTERN_SPECS[p]
+              const active = p === pattern
+              return (
+                <li key={p}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange(p)
+                      setOpen(false)
+                    }}
+                    className={cn(
+                      'flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px]',
+                      active
+                        ? 'bg-primary/10 font-semibold text-foreground'
+                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                    )}
+                  >
+                    <PatternIconGlyph icon={s.iconKey} />
+                    <span className="flex-1">{tDynamic(s.labelKey)}</span>
+                    {s.defaultDrawers > 0 && (
+                      <span className="text-[9.5px] tabular-nums text-muted-foreground/80">
+                        {s.defaultDrawers}×
+                      </span>
+                    )}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PatternIconGlyph({ icon }: { icon: string }) {
+  const ch =
+    icon === 'drawers'
+      ? '▤'
+      : icon === 'doors'
+        ? '▢'
+        : icon === 'mixed'
+          ? '▥'
+          : icon === 'sink'
+            ? '◔'
+            : icon === 'trash'
+              ? '⌫'
+              : icon === 'corner'
+                ? '◣'
+                : icon === 'tall'
+                  ? '▯'
+                  : icon === 'wine'
+                    ? '◇'
+                    : '☰'
+  return <span className="font-mono text-[12px] leading-none">{ch}</span>
 }
 
