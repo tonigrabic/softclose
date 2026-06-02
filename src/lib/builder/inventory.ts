@@ -14,6 +14,12 @@
  * the maker knows what to verify on the call.
  */
 
+// LayoutShape is owned by the floor-plan module (Part 1) — the single source of
+// truth for layout geometry (see context/layout-contract.md). Imported locally for
+// use in this file and re-exported so builder code keeps importing it from here.
+import type { LayoutShape } from '@/lib/floor-plan'
+export type { LayoutShape }
+
 export type ConfidenceLevel = 'H' | 'M' | 'L'
 export type Provenance =
   | 'ai-vision' // inferred from render or photos
@@ -28,14 +34,6 @@ export interface FieldMeta {
 
 /* ─────────────────────────── 1. Layout & dimensions ─────────────────────── */
 
-export type LayoutShape =
-  | 'galley'
-  | 'l_shape'
-  | 'u_shape'
-  | 'island'
-  | 'peninsula'
-  | 'open'
-  | 'unsure'
 
 export interface WallRunDimensions {
   /** Identifier within the layout (e.g. "main", "return", "island_left"). */
