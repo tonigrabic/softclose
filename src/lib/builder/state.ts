@@ -182,7 +182,7 @@ export function hydrateFromHypothesis(
 
     appliances: {
       supply: 'maker_supplies',
-      selections: seedApplianceSelections(hypothesis),
+      selections: seedApplianceSelections(hypothesis, contract),
       meta: {
         supply: { ...META_DEFAULT, provenance: 'ai-default' },
         hob: metaFromHint(hypothesis?.appliances?.hob),
@@ -247,10 +247,12 @@ export function hydrateFromHypothesis(
   }
 }
 
-function seedApplianceSelections(hy: BuilderHypothesis | null): ApplianceSelection[] {
-  if (!hy?.appliances) return []
+function seedApplianceSelections(
+  hy: BuilderHypothesis | null,
+  contract?: LayoutContract
+): ApplianceSelection[] {
   const out: ApplianceSelection[] = []
-  const ap = hy.appliances
+  const ap = hy?.appliances
 
   // Hob / oven / extractor: legacy hint-shaped fields. Seed only when
   // confidence isn't 'L' AND the value isn't 'unknown'.
@@ -261,46 +263,68 @@ function seedApplianceSelections(hy: BuilderHypothesis | null): ApplianceSelecti
     if (!raw || raw.value === 'unknown' || raw.confidence === 'L') return
     out.push({ type, config: raw.value, integrated: false })
   }
-  pushTyped('hob', ap.hob)
-  pushTyped('oven', ap.oven)
-  pushTyped('extractor', ap.extractor)
+  if (ap) {
+    pushTyped('hob', ap.hob)
+    pushTyped('oven', ap.oven)
+    pushTyped('extractor', ap.extractor)
 
-  // Presence-flagged appliances: only seed when present === true.
-  if (ap.fridge?.present?.value) {
-    out.push({
-      type: 'fridge',
-      config: 'standard',
-      integrated: ap.fridge.integrated?.value ?? false,
-    })
-  } else if (ap.fridgeIntegrated?.value !== undefined) {
-    // Back-compat: older payloads only had `fridgeIntegrated`. Treat the
-    // flag itself as a presence signal.
-    out.push({ type: 'fridge', config: 'standard', integrated: ap.fridgeIntegrated.value })
+    // Presence-flagged appliances: only seed when present === true.
+    if (ap.fridge?.present?.value) {
+      out.push({
+        type: 'fridge',
+        config: 'standard',
+        integrated: ap.fridge.integrated?.value ?? false,
+      })
+    } else if (ap.fridgeIntegrated?.value !== undefined) {
+      // Back-compat: older payloads only had `fridgeIntegrated`. Treat the
+      // flag itself as a presence signal.
+      out.push({ type: 'fridge', config: 'standard', integrated: ap.fridgeIntegrated.value })
+    }
+
+    if (ap.dishwasher?.present?.value) {
+      out.push({
+        type: 'dishwasher',
+        config: 'standard',
+        integrated: ap.dishwasher.integrated?.value ?? false,
+      })
+    } else if (ap.dishwasherIntegrated?.value !== undefined) {
+      out.push({
+        type: 'dishwasher',
+        config: 'standard',
+        integrated: ap.dishwasherIntegrated.value,
+      })
+    }
+
+    if (ap.microwave?.value?.present) {
+      out.push({
+        type: 'microwave',
+        config: 'standard',
+        integrated: ap.microwave.value.integrated ?? false,
+      })
+    }
+    if (ap.wineFridge?.value) out.push({ type: 'wine_fridge', config: 'standard', integrated: true })
+    if (ap.coffeeStation?.value) out.push({ type: 'coffee', config: 'standard', integrated: true })
   }
 
-  if (ap.dishwasher?.present?.value) {
+  // Floor-plan-known appliances: Part 1 geometry is authoritative for *presence*,
+  // so guarantee hob/fridge/dishwasher exist and backfill the measured width. The
+  // AI's richer config (induction/gas, integrated) wins when it already seeded one.
+  // Sink lives in the sink/taps group, so it's excluded here.
+  for (const a of contract?.appliances ?? []) {
+    if (a.kind === 'sink') continue
+    const widthMm = Math.round(a.widthCm * 10)
+    const existing = out.find((s) => s.type === a.kind)
+    if (existing) {
+      if (existing.widthMm === undefined) existing.widthMm = widthMm
+      continue
+    }
     out.push({
-      type: 'dishwasher',
-      config: 'standard',
-      integrated: ap.dishwasher.integrated?.value ?? false,
-    })
-  } else if (ap.dishwasherIntegrated?.value !== undefined) {
-    out.push({
-      type: 'dishwasher',
-      config: 'standard',
-      integrated: ap.dishwasherIntegrated.value,
-    })
-  }
-
-  if (ap.microwave?.value?.present) {
-    out.push({
-      type: 'microwave',
-      config: 'standard',
-      integrated: ap.microwave.value.integrated ?? false,
+      type: a.kind,
+      config: a.kind === 'hob' ? 'induction' : 'standard',
+      integrated: a.kind === 'dishwasher',
+      widthMm,
     })
   }
-  if (ap.wineFridge?.value) out.push({ type: 'wine_fridge', config: 'standard', integrated: true })
-  if (ap.coffeeStation?.value) out.push({ type: 'coffee', config: 'standard', integrated: true })
 
   return out
 }
