@@ -45,6 +45,12 @@ export interface WallRunDimensions {
   hasBase: boolean
   hasWall: boolean
   hasTall: boolean
+  /**
+   * Whether this run owns an inner corner (reserves a corner cabinet at its
+   * start). Set from the layout contract's corners; undefined when no contract
+   * is available, in which case consumers fall back to a positional heuristic.
+   */
+  hasCorner?: boolean
 }
 
 export interface LayoutGroup {

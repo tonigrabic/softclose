@@ -74,7 +74,10 @@ export function CabinetBoxesGroup({ state, hypothesis, onPatch }: CabinetBoxesGr
     const overrides = hypothesis?.cabinetBoxes?.unitPatterns ?? []
     const seeded: CabinetUnit[] = []
     runs.forEach((run, i) => {
-      const runUnits = suggestCabinetsForRun(run, { hasCorner: i === 0 && runs.length > 1 })
+      // Prefer the contract-derived corner ownership; fall back to the positional
+      // heuristic only when no layout contract stamped run.hasCorner.
+      const hasCorner = run.hasCorner ?? (i === 0 && runs.length > 1)
+      const runUnits = suggestCabinetsForRun(run, { hasCorner })
       const runOverrides = overrides.filter((o) => o.runId === run.id)
       runUnits.forEach((u) => {
         const match = runOverrides.find(
@@ -121,7 +124,7 @@ export function CabinetBoxesGroup({ state, hypothesis, onPatch }: CabinetBoxesGr
     if (!run) return
     const others = state.cabinetBoxes.units.filter((u) => u.runId !== runId)
     const seeded = suggestCabinetsForRun(run, {
-      hasCorner: runs.findIndex((r) => r.id === runId) === 0 && runs.length > 1,
+      hasCorner: run.hasCorner ?? (runs.findIndex((r) => r.id === runId) === 0 && runs.length > 1),
     })
     onPatch({ units: [...others, ...seeded] })
   }

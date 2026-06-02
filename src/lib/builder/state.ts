@@ -55,6 +55,15 @@ export function hydrateFromHypothesis(
   const contract = context.layoutContract
   const hyRunById = new Map((layoutHy?.runs ?? []).map((r) => [r.id, r]))
 
+  // Assign each contract corner to exactly one of its two runs, preferring a run
+  // that doesn't already own one. So a U-shape (two corners) reserves a corner
+  // unit on two different runs, while galley/island (no corners) reserve none.
+  const cornerOwners = new Set<string>()
+  for (const c of contract?.corners ?? []) {
+    const owner = [c.runA, c.runB].find((r) => !cornerOwners.has(r)) ?? c.runA
+    cornerOwners.add(owner)
+  }
+
   const runs: WallRunDimensions[] = contract
     ? contract.runs.map((r) => {
         const hy = hyRunById.get(r.id)
@@ -65,6 +74,7 @@ export function hydrateFromHypothesis(
           hasBase: r.hasBase,
           hasWall: hy?.hasWall?.value ?? true, // render — AI fills
           hasTall: hy?.hasTall?.value ?? false, // render — AI fills
+          hasCorner: cornerOwners.has(r.id), // geometry — authoritative
         }
       })
     : (layoutHy?.runs?.map((r) => ({
@@ -118,7 +128,10 @@ export function hydrateFromHypothesis(
 
     cabinetBoxes: {
       carcassMaterial: hypothesis?.cabinetBoxes?.carcassMaterial?.value ?? 'white_melamine_standard',
-      cornerSolution: (hypothesis?.cabinetBoxes?.cornerSolution?.value ?? 'magic_corner') as CornerSolution,
+      // No inner corner (galley, single wall, island) → no corner solution needed.
+      cornerSolution: (contract && contract.corners.length === 0
+        ? 'none'
+        : (hypothesis?.cabinetBoxes?.cornerSolution?.value ?? 'magic_corner')) as CornerSolution,
       units: [],
       meta: {
         carcassMaterial: metaFromHint(hypothesis?.cabinetBoxes?.carcassMaterial),
