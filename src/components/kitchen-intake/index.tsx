@@ -29,6 +29,8 @@ import { derivePrefills } from '@/lib/derive-prefills'
 import { DESIGNER_NAME } from '@/lib/system-prompt'
 import type { UploadedReference } from './ImageSelect'
 import type { FloorPlan } from '@/lib/floor-plan'
+import { planFromProfile, validate } from '@/lib/floor-plan'
+import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import type {
   ClientMessage,
   ConceptRender,
@@ -1228,10 +1230,18 @@ function BuilderStepView({
   // hypothesis"), mount the BuilderShell. Otherwise show the entry screen.
   const [skippedHypothesis, setSkippedHypothesis] = useState(false)
 
+  // Freeze the Part-1 FloorPlan and project it into the layout contract — the
+  // authoritative geometry the builder seeds from (context/layout-contract.md).
+  const layoutContract = useMemo(() => {
+    const plan = planFromProfile(profile)
+    return plan ? floorPlanToLayout(validate(plan)) : null
+  }, [profile])
+
   if (hypothesis || skippedHypothesis) {
     return (
       <BuilderShell
         hypothesis={hypothesis}
+        layoutContract={layoutContract}
         renderImageDataUrl={renderImageDataUrl}
         anchorPhotoDataUrl={anchorPhotoDataUrl}
         layoutSummary={layoutSummary}
