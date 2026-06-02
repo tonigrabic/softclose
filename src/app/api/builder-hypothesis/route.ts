@@ -15,6 +15,7 @@ import { z } from 'zod'
 import { rateLimit } from '@/lib/rate-limit'
 import { decors } from '@/lib/catalog'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
+import type { LayoutContract } from '@/lib/contract/layout-contract'
 
 const MAX_BYTES_PER_PHOTO = 6 * 1024 * 1024
 const MAX_CALLS_PER_SESSION_WINDOW = 4
@@ -233,6 +234,36 @@ const hypothesisSchema = z.object({
   features: featuresSchema.optional(),
 })
 
+/**
+ * Render the measured layout contract (Part 1 geometry) as prompt text so the
+ * vision model treats runs / appliances / corners as FIXED and reuses the run
+ * ids — instead of inventing its own. Returns '' when no contract is supplied.
+ */
+function describeLayoutContract(lc: LayoutContract | undefined): string {
+  if (!lc || lc.runs.length === 0) return ''
+  const runLines = lc.runs
+    .map((r) => `  - run "${r.id}" (${r.label}): ${r.lengthCm} cm of base cabinets`)
+    .join('\n')
+  const applianceLines = lc.appliances.length
+    ? lc.appliances
+        .map(
+          (a) =>
+            `  - ${a.kind} on run "${a.runId}", ~${Math.round(a.positionPctAlongRun)}% along, ${a.widthCm} cm wide`
+        )
+        .join('\n')
+    : '  (none placed)'
+  const cornerLines = lc.corners.length
+    ? lc.corners.map((c) => `  - runs "${c.runA}" and "${c.runB}" meet at a corner`).join('\n')
+    : '  (none)'
+  return (
+    `MEASURED LAYOUT (confirmed by the homeowner in Part 1 — treat as FIXED FACTS; do not re-estimate run count or lengths):\n` +
+    `- shape: ${lc.shape}; island: ${lc.hasIsland ? 'yes' : 'no'}\n` +
+    `- runs (reuse these exact ids in runs[], hasWall/hasTall and unitPatterns):\n${runLines}\n` +
+    `- fixed appliances already placed:\n${applianceLines}\n` +
+    `- corners:\n${cornerLines}`
+  )
+}
+
 function approxBytesOfDataUrl(dataUrl: string): number {
   const base64 = dataUrl.split(',')[1] ?? ''
   return Math.ceil((base64.length * 3) / 4)
@@ -257,7 +288,7 @@ Rules:
 - Confidence is per-field. 'H' only when the visual evidence is unambiguous; 'L' liberally — better empty than wrong.
 - For each field include a short \`reason\` (≤ 12 words) referencing the visual evidence ("matte black slab fronts visible", "concrete-textured worktop").
 - For decorCode suggestions: pick the closest match from the catalog below. Match family + tone + finish. If nothing close, leave decorCode empty and provide a colorDescription on the doors field.
-- For runs: if the render shows an L-shape, return TWO runs (e.g. "main", "return") with separate lengthCm. For galley, return up to TWO runs facing each other. For straight, return ONE.
+- For runs: a MEASURED LAYOUT is usually provided in the user message (runs already measured + confirmed by the homeowner). When it is, DO NOT invent runs or lengths — reuse the given run ids EXACTLY (e.g. "top", "left", "island") in your runs[], hasWall/hasTall, and unitPatterns so they line up. Per given run, only infer hasWall (wall/upper cabinets present on this run?) and hasTall (a full-height tower present?). If NO measured layout is provided, fall back to: L-shape → two runs, galley → two facing, straight → one.
 - Hardware is mostly invisible in renders — set drawerSystemTier confidence 'L' unless handles are clearly visible.
 - Appliances: identify integrated vs. freestanding by visible seams. Hob type from cooktop appearance.
   - For fridge / dishwasher: return \`{ present, integrated }\` only if you can actually see them (or a clear integrated front). Skip rather than fabricate. The homeowner may not have either appliance — do not assume presence.
@@ -283,7 +314,11 @@ export async function POST(req: Request) {
     )
   }
 
-  let body: { renderImage?: string; profile?: Record<string, unknown> }
+  let body: {
+    renderImage?: string
+    profile?: Record<string, unknown>
+    layoutContract?: LayoutContract
+  }
   try {
     body = await req.json()
   } catch {
@@ -302,6 +337,7 @@ export async function POST(req: Request) {
   }
 
   const profileSummary = JSON.stringify(body.profile ?? {}, null, 2).slice(0, 2000)
+  const layoutFacts = describeLayoutContract(body.layoutContract)
 
   try {
     const result = await generateText({
@@ -314,6 +350,7 @@ export async function POST(req: Request) {
             {
               type: 'text',
               text:
+                (layoutFacts ? layoutFacts + '\n\n' : '') +
                 "Phase-1 profile (homeowner-stated; treat as soft hints, render takes precedence visually):\n" +
                 profileSummary +
                 "\n\nThe rendered concept image follows. Call inferBuilderHypothesis with structured fields covering every group you can read.",

@@ -477,10 +477,14 @@ export function KitchenIntake() {
           setIsLoadingHypothesis(true)
           setHypothesisError(null)
           try {
+            // Hand the measured layout to the vision call so it reuses our run
+            // ids / lengths instead of inventing its own (context/layout-contract.md).
+            const plan = planFromProfile(profile)
+            const layoutContract = plan ? floorPlanToLayout(validate(plan)) : undefined
             const res = await fetch('/api/builder-hypothesis', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ renderImage: chosenRender.imageDataUrl, profile }),
+              body: JSON.stringify({ renderImage: chosenRender.imageDataUrl, profile, layoutContract }),
             })
             const data = await res.json()
             if (!res.ok || data.error) throw new Error(data.error ?? `Hypothesis failed (${res.status})`)
