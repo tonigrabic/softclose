@@ -11,8 +11,8 @@ import type {
   WrapUpData,
 } from '@/lib/types'
 import { DESIGNER_NAME, STUDIO_NAME } from '@/lib/system-prompt'
-import { hasFloorPlanInput, planInputFromProfile } from '@/lib/floor-plan'
-import { FloorPlanSchematic } from './FloorPlanSchematic'
+import { hasPlan, planFromProfile } from '@/lib/floor-plan'
+import { FloorPlanStatic } from './FloorPlanStatic'
 import { MakerDashboardPreview } from './MakerDashboardPreview'
 
 interface WrapUpScreenProps {
@@ -39,8 +39,8 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
   const [exportError, setExportError] = useState<string | null>(null)
   const [showMakerView, setShowMakerView] = useState(false)
 
-  const planInput = planInputFromProfile(profile)
-  const showPlan = hasFloorPlanInput(planInput)
+  const plan = planFromProfile(profile)
+  const showPlan = hasPlan(profile) && plan !== null
   const moodBoard = profile.moodBoardItems ?? []
   const chosenRender = profile.conceptRenders?.find((r) => r.id === profile.conceptRenderChosenId)
 
@@ -180,9 +180,9 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
       )}
 
       {/* Floor plan */}
-      {showPlan && (
+      {showPlan && plan && (
         <SectionWithFix title="Your space" onFix={null}>
-          <FloorPlanSchematic input={planInput} />
+          <FloorPlanStatic plan={plan} mode="homeowner" />
         </SectionWithFix>
       )}
 

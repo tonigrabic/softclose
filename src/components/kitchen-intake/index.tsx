@@ -7,7 +7,7 @@ import { ProgressBar } from './ProgressBar'
 import { StepsOverview } from './StepsOverview'
 import { SpaceCapture } from './SpaceCapture'
 import { Inspiration } from './Inspiration'
-import { ConceptRender as ConceptRenderUI } from './ConceptRender'
+import { ConceptRender as ConceptRenderUI, type ProductReference } from './ConceptRender'
 import { ConfirmLook } from './ConfirmLook'
 import { ChipMulti } from './ChipMulti'
 import { VisualScale } from './VisualScale'
@@ -28,6 +28,7 @@ import type { BuilderState } from '@/lib/builder/inventory'
 import { derivePrefills } from '@/lib/derive-prefills'
 import { DESIGNER_NAME } from '@/lib/system-prompt'
 import type { UploadedReference } from './ImageSelect'
+import type { FloorPlan } from '@/lib/floor-plan'
 import type {
   ClientMessage,
   ConceptRender,
@@ -109,11 +110,13 @@ export function KitchenIntake() {
   // Per-step transient state lifted to the parent so Back navigation preserves work.
   const [spacePhotos, setSpacePhotos] = useState<string[]>([])
   const [spaceVision, setSpaceVision] = useState<SpaceVisionResult | null>(null)
+  const [floorPlan, setFloorPlan] = useState<FloorPlan | null>(null)
   const [inspirationStyles, setInspirationStyles] = useState<string[]>([])
   const [inspirationRefs, setInspirationRefs] = useState<UploadedReference[]>([])
   const [inspirationVision, setInspirationVision] = useState<InspirationVisionResult | null>(null)
   const [conceptRenders, setConceptRenders] = useState<ConceptRender[]>([])
   const [chosenRenderId, setChosenRenderId] = useState<string | null>(null)
+  const [productReferences, setProductReferences] = useState<ProductReference[]>([])
   const [scopeSelected, setScopeSelected] = useState<string[]>([])
   const [siteAccess, setSiteAccess] = useState<string | null>(null)
   const [livingPlan, setLivingPlan] = useState<string | null>(null)
@@ -170,12 +173,26 @@ export function KitchenIntake() {
   }
 
   /**
-   * Apply space-vision results to the profile. Called when SpaceCapture confirms.
+   * Apply space-vision + editor results to the profile. Called when SpaceCapture confirms.
+   *
+   * Persists three things to LeadProfile:
+   *   - the raw photos and the raw vision result (provenance for the maker),
+   *   - top-level layoutShape / hasIsland / dims (for back-compat with legacy
+   *     consumers that haven't migrated to `floorPlan` yet),
+   *   - the confirmed `floorPlan` object — the new source of truth.
    */
   function commitSpacePhotos() {
     const inferred: Partial<LeadProfile> = { spacePhotos }
     if (spaceVision) {
       inferred.spaceVisionResult = spaceVision
+    }
+    if (floorPlan) {
+      inferred.floorPlan = floorPlan
+      inferred.layoutShape = floorPlan.layoutShape
+      inferred.hasIsland = floorPlan.hasIsland
+      inferred.spaceLengthCm = floorPlan.room.lengthCm
+      inferred.spaceWidthCm = floorPlan.room.widthCm
+    } else if (spaceVision) {
       if (spaceVision.layoutShape && spaceVision.layoutShape !== 'unsure') {
         inferred.layoutShape = spaceVision.layoutShape
       }
@@ -186,13 +203,17 @@ export function KitchenIntake() {
       if (spaceVision.widthCm) inferred.spaceWidthCm = spaceVision.widthCm
     }
     patchProfile(inferred)
-    logTurn(
-      'user',
-      spaceVision?.summary
-        ? `Uploaded ${spacePhotos.length} space photo${spacePhotos.length === 1 ? '' : 's'}. AI read: ${spaceVision.summary}`
-        : `Uploaded ${spacePhotos.length} space photo${spacePhotos.length === 1 ? '' : 's'}.`,
-      spacePhotos
-    )
+    const summary = floorPlan
+      ? floorPlan.measurementMethod === 'deferred_to_designer'
+        ? 'Plan deferred to designer for on-site measurement.'
+        : `Confirmed plan (${Math.round(floorPlan.room.lengthCm)} × ${Math.round(floorPlan.room.widthCm)} cm).`
+      : spaceVision?.summary
+        ? `AI read: ${spaceVision.summary}`
+        : null
+    const photoNote = spacePhotos.length
+      ? `Uploaded ${spacePhotos.length} space photo${spacePhotos.length === 1 ? '' : 's'}.`
+      : 'No photos uploaded.'
+    logTurn('user', [photoNote, summary].filter(Boolean).join(' '), spacePhotos)
     goNext()
   }
 
@@ -393,11 +414,13 @@ export function KitchenIntake() {
     setFinaliseError(null)
     setSpacePhotos([])
     setSpaceVision(null)
+    setFloorPlan(null)
     setInspirationStyles([])
     setInspirationRefs([])
     setInspirationVision(null)
     setConceptRenders([])
     setChosenRenderId(null)
+    setProductReferences([])
     setScopeSelected([])
     setSiteAccess(null)
     setLivingPlan(null)
@@ -486,32 +509,35 @@ export function KitchenIntake() {
   return (
     <div className="min-h-[100dvh] bg-background text-foreground">
       <ProgressBar percent={progress} />
-      <div className="flex w-full flex-row">
-        <aside className="sticky top-0 h-dvh w-64 shrink-0 overflow-y-auto border-r border-border/60 bg-card/40 px-5 py-10 lg:w-72 lg:px-6">
-          <header className="mb-5 flex items-center justify-between gap-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              {DESIGNER_NAME}
-            </p>
-            {Object.keys(profile).length > 0 && (
-              <button
-                type="button"
-                onClick={resetAll}
-                className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-[10px] font-semibold text-muted-foreground hover:text-foreground"
-                title="Start over"
-              >
-                <RotateCcw className="size-3 stroke-[2]" aria-hidden />
-                Start over
-              </button>
-            )}
-          </header>
-          <StepsOverview
-            currentStepId={state.currentStepId}
-            visitedSteps={state.visitedSteps}
-            profile={profile}
-          />
-        </aside>
+      {/* The sidebar is fixed-positioned so it floats over the layout instead
+          of stealing horizontal space — that way <main> can center on the
+          full viewport via mx-auto, with the sidebar parked on the left
+          regardless of where the centered content lands. */}
+      <aside className="fixed left-0 top-0 z-30 hidden h-dvh w-64 shrink-0 overflow-y-auto px-5 py-10 lg:flex lg:w-72 lg:flex-col lg:px-6">
+        <header className="mb-5 flex items-center justify-between gap-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+            {DESIGNER_NAME}
+          </p>
+          {Object.keys(profile).length > 0 && (
+            <button
+              type="button"
+              onClick={resetAll}
+              className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+              title="Start over"
+            >
+              <RotateCcw className="size-3 stroke-[2]" aria-hidden />
+              Start over
+            </button>
+          )}
+        </header>
+        <StepsOverview
+          currentStepId={state.currentStepId}
+          visitedSteps={state.visitedSteps}
+          profile={profile}
+        />
+      </aside>
 
-        <main className="mx-auto w-full max-w-3xl flex-1 px-8 py-14 lg:px-14 lg:py-16">
+      <main className="mx-auto w-full max-w-3xl px-8 py-14 lg:px-14 lg:py-16">
           <AnimatePresence mode="wait">
             <motion.section
               key={state.currentStepId}
@@ -529,6 +555,8 @@ export function KitchenIntake() {
                 onSpacePhotosChange={setSpacePhotos}
                 spaceVision={spaceVision}
                 onSpaceVisionChange={setSpaceVision}
+                floorPlan={floorPlan}
+                onFloorPlanChange={setFloorPlan}
                 inspirationStyles={inspirationStyles}
                 onInspirationStylesChange={setInspirationStyles}
                 inspirationRefs={inspirationRefs}
@@ -539,6 +567,8 @@ export function KitchenIntake() {
                 onConceptRenderAdded={(r) => setConceptRenders((prev) => [...prev, r])}
                 chosenRenderId={chosenRenderId}
                 onChooseRender={chooseRender}
+                productReferences={productReferences}
+                onProductReferencesChange={setProductReferences}
                 scopeSelected={scopeSelected}
                 onScopeChange={setScopeSelected}
                 siteAccess={siteAccess}
@@ -593,7 +623,6 @@ export function KitchenIntake() {
             </motion.section>
           </AnimatePresence>
         </main>
-      </div>
     </div>
   )
 
@@ -647,6 +676,8 @@ interface StepBodyProps {
   onSpacePhotosChange: (photos: string[]) => void
   spaceVision: SpaceVisionResult | null
   onSpaceVisionChange: (v: SpaceVisionResult | null) => void
+  floorPlan: FloorPlan | null
+  onFloorPlanChange: (p: FloorPlan | null) => void
   inspirationStyles: string[]
   onInspirationStylesChange: (s: string[]) => void
   inspirationRefs: UploadedReference[]
@@ -657,6 +688,8 @@ interface StepBodyProps {
   onConceptRenderAdded: (r: ConceptRender) => void
   chosenRenderId: string | null
   onChooseRender: (id: string) => void
+  productReferences: ProductReference[]
+  onProductReferencesChange: (refs: ProductReference[]) => void
   scopeSelected: string[]
   onScopeChange: (s: string[]) => void
   siteAccess: string | null
@@ -685,6 +718,8 @@ function StepBody(props: StepBodyProps) {
     onSpacePhotosChange,
     spaceVision,
     onSpaceVisionChange,
+    floorPlan,
+    onFloorPlanChange,
     inspirationStyles,
     onInspirationStylesChange,
     inspirationRefs,
@@ -695,6 +730,8 @@ function StepBody(props: StepBodyProps) {
     onConceptRenderAdded,
     chosenRenderId,
     onChooseRender,
+    productReferences,
+    onProductReferencesChange,
     scopeSelected,
     onScopeChange,
     siteAccess,
@@ -727,6 +764,8 @@ function StepBody(props: StepBodyProps) {
             onPhotosChange={onSpacePhotosChange}
             visionResult={spaceVision}
             onVisionResult={onSpaceVisionChange}
+            floorPlan={floorPlan}
+            onFloorPlanChange={onFloorPlanChange}
             onSkip={onSpacePhotosSkip}
             onConfirm={onSpacePhotosCommit}
           />
@@ -761,6 +800,9 @@ function StepBody(props: StepBodyProps) {
         >
           <ConceptRenderUI
             anchorPhotos={spacePhotos}
+            styleReferences={inspirationRefs.map((r) => r.imageUrl)}
+            productReferences={productReferences}
+            onProductReferencesChange={onProductReferencesChange}
             renders={conceptRenders}
             chosenId={chosenRenderId}
             profile={profile}

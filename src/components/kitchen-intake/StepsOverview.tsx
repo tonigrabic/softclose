@@ -49,18 +49,10 @@ export function StepsOverview({ currentStepId, visitedSteps, profile }: StepsOve
                 const wasVisited = visitedSteps.has(step.id)
                 const readback = isPast || isCurrent ? readbackFor(step.id, profile) : null
                 return (
-                  <li key={step.id} className="relative">
-                    {isCurrent && (
-                      <span
-                        className="absolute -left-2 top-2 inline-block size-1.5 rounded-full bg-primary"
-                        aria-hidden
-                      />
-                    )}
+                  <li key={step.id}>
                     <div
                       className={cn(
-                        'flex items-start gap-2 rounded-lg px-2 py-1.5 transition-colors',
-                        isCurrent && 'bg-primary/8 ring-1 ring-primary/15',
-                        !isCurrent && isPast && 'opacity-90',
+                        'flex items-start gap-2 px-2 py-1.5 transition-colors',
                         !isCurrent && !isPast && !wasVisited && 'opacity-55'
                       )}
                     >
@@ -74,21 +66,16 @@ export function StepsOverview({ currentStepId, visitedSteps, profile }: StepsOve
                         )}
                       </span>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-baseline justify-between gap-2">
-                          <span
-                            className={cn(
-                              'text-[12.5px] font-medium leading-tight',
-                              isCurrent ? 'text-foreground' : 'text-foreground/85'
-                            )}
-                          >
-                            {step.label}
-                          </span>
-                          {isCurrent && (
-                            <span className="rounded-full bg-primary/15 px-1.5 py-px text-[9px] font-bold uppercase tracking-wider text-primary">
-                              Now
-                            </span>
+                        <span
+                          className={cn(
+                            'block text-[12.5px] leading-tight',
+                            isCurrent
+                              ? 'font-semibold text-foreground'
+                              : 'font-medium text-foreground/85'
                           )}
-                        </div>
+                        >
+                          {step.label}
+                        </span>
                         {readback && (
                           <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
                             {readback}
