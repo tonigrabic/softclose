@@ -11,6 +11,7 @@
 
 import { useReducer } from 'react'
 import type { BuilderHypothesis } from './hypothesis'
+import type { LayoutContract } from '@/lib/contract/layout-contract'
 import type {
   ApplianceSelection,
   BuilderGroupId,
@@ -42,23 +43,40 @@ function metaFromHint(
  */
 export function hydrateFromHypothesis(
   hypothesis: BuilderHypothesis | null,
-  context: { renderId?: string; leadProfileRef?: string } = {}
+  context: { renderId?: string; leadProfileRef?: string; layoutContract?: LayoutContract } = {}
 ): BuilderState {
   const now = new Date().toISOString()
 
-  // Layout
+  // Layout — geometry (runs, shape, island) is owned by Part 1 through the
+  // layout contract when present; the AI hypothesis only fills the qualitative
+  // gaps it can see in the render (hasWall / hasTall per run). See
+  // context/layout-contract.md.
   const layoutHy = hypothesis?.layout
-  const runs: WallRunDimensions[] =
-    layoutHy?.runs?.map((r) => ({
-      id: r.id,
-      label: r.label,
-      lengthCm: r.lengthCm.value,
-      hasBase: r.hasBase?.value ?? true,
-      hasWall: r.hasWall?.value ?? true,
-      hasTall: r.hasTall?.value ?? false,
-    })) ??
-    // Single run fallback so the UI always has at least one row to edit.
-    [{ id: 'main', label: 'Glavni zid', lengthCm: 300, hasBase: true, hasWall: true, hasTall: false }]
+  const contract = context.layoutContract
+  const hyRunById = new Map((layoutHy?.runs ?? []).map((r) => [r.id, r]))
+
+  const runs: WallRunDimensions[] = contract
+    ? contract.runs.map((r) => {
+        const hy = hyRunById.get(r.id)
+        return {
+          id: r.id,
+          label: r.label,
+          lengthCm: r.lengthCm, // geometry — authoritative
+          hasBase: r.hasBase,
+          hasWall: hy?.hasWall?.value ?? true, // render — AI fills
+          hasTall: hy?.hasTall?.value ?? false, // render — AI fills
+        }
+      })
+    : (layoutHy?.runs?.map((r) => ({
+        id: r.id,
+        label: r.label,
+        lengthCm: r.lengthCm.value,
+        hasBase: r.hasBase?.value ?? true,
+        hasWall: r.hasWall?.value ?? true,
+        hasTall: r.hasTall?.value ?? false,
+      })) ??
+      // Single run fallback so the UI always has at least one row to edit.
+      [{ id: 'main', label: 'Glavni zid', lengthCm: 300, hasBase: true, hasWall: true, hasTall: false }])
 
   // Doors
   const doorsHy = hypothesis?.doors
@@ -83,13 +101,18 @@ export function hydrateFromHypothesis(
     originalRenderRef: context.renderId,
 
     layout: {
-      shape: (layoutHy?.shape?.value ?? 'l_shape') as LayoutShape,
-      hasIsland: layoutHy?.hasIsland?.value ?? false,
+      shape: (contract?.shape ?? layoutHy?.shape?.value ?? 'l_shape') as LayoutShape,
+      hasIsland: contract?.hasIsland ?? layoutHy?.hasIsland?.value ?? false,
       runs,
-      ceilingHeightCm: layoutHy?.ceilingHeightCm?.value ?? 270,
+      ceilingHeightCm: contract?.ceilingHeightCm ?? layoutHy?.ceilingHeightCm?.value ?? 270,
       meta: {
-        runs: metaFromHint(layoutHy?.runs?.[0]?.lengthCm),
-        shape: metaFromHint(layoutHy?.shape),
+        // Contract-sourced layout reflects Part 1, where the homeowner confirmed it.
+        runs: contract
+          ? { confidence: contract.runs[0]?.confidence ?? 'M', provenance: 'homeowner-confirmed' }
+          : metaFromHint(layoutHy?.runs?.[0]?.lengthCm),
+        shape: contract
+          ? { confidence: 'H', provenance: 'homeowner-confirmed' }
+          : metaFromHint(layoutHy?.shape),
       },
     },
 

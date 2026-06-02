@@ -14,6 +14,7 @@ import {
 } from '@/lib/builder/inventory'
 import { hydrateFromHypothesis, useBuilderState } from '@/lib/builder/state'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
+import type { LayoutContract } from '@/lib/contract/layout-contract'
 import { LiveBOMPanel } from './LiveBOMPanel'
 import { RerenderPanel } from './RerenderPanel'
 import { RenderCarousel } from './RenderCarousel'
@@ -34,6 +35,12 @@ export interface BuilderShellProps {
    * defaults (e.g. user skipped the render).
    */
   hypothesis: BuilderHypothesis | null
+  /**
+   * Layout contract derived from the frozen Part-1 FloorPlan. When present it is
+   * the authoritative source for runs / shape / island; the AI hypothesis only
+   * fills qualitative gaps. See context/layout-contract.md.
+   */
+  layoutContract?: LayoutContract | null
   /** The render the hypothesis was derived from, if any. Shown in the left preview pane. */
   renderImageDataUrl?: string
   /** Anchor photo (Phase-1 space upload) shown when no render is available. */
@@ -52,13 +59,17 @@ export interface BuilderShellProps {
 
 export function BuilderShell({
   hypothesis,
+  layoutContract,
   renderImageDataUrl,
   anchorPhotoDataUrl,
   layoutSummary,
   locale = DEFAULT_LOCALE,
   onComplete,
 }: BuilderShellProps) {
-  const initial = useMemo(() => hydrateFromHypothesis(hypothesis), [hypothesis])
+  const initial = useMemo(
+    () => hydrateFromHypothesis(hypothesis, { layoutContract: layoutContract ?? undefined }),
+    [hypothesis, layoutContract]
+  )
   const [state, dispatch] = useBuilderState(initial)
   // Builder now opens on Cabinet Boxes — Layout/dimensions are owned by Phase 1.
   const [currentId, setCurrentId] = useState<BuilderGroupId>('cabinetBoxes')
