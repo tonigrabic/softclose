@@ -18,6 +18,8 @@
 import { useEffect, useState } from 'react'
 import { BuilderShell } from '@/components/builder/BuilderShell'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
+import { fromShapePreset, makeFeature, validate } from '@/lib/floor-plan'
+import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 
 // We try multiple paths because the file's name was originally typo'd
 // in /public on the main repo ("sample-renderers/matte-black-1-kitchen").
@@ -83,6 +85,17 @@ const DEMO_HYPOTHESIS: BuilderHypothesis = {
   },
 }
 
+// Simulated Part-1 hand-off: an L-shape plan with a sink + hob on the main run.
+// In production the contract comes from the homeowner's confirmed FloorPlan.
+const DEMO_CONTRACT = floorPlanToLayout(
+  (() => {
+    const p = fromShapePreset('l_shape')
+    p.features.push(makeFeature('sink', 'top', p.room))
+    p.features.push(makeFeature('hob', 'top', p.room))
+    return validate(p)
+  })()
+)
+
 export default function BuilderPage() {
   // Convert the static image to a data URL so the BuilderShell + downstream
   // BOM/render code can treat it like a Phase-1 render output (which is
@@ -128,6 +141,7 @@ export default function BuilderPage() {
       )}
       <BuilderShell
         hypothesis={DEMO_HYPOTHESIS}
+        layoutContract={DEMO_CONTRACT}
         renderImageDataUrl={renderDataUrl}
         layoutSummary="L-oblik · 380 cm × 240 cm"
         locale="hr-HR"

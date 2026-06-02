@@ -29,7 +29,7 @@ import { derivePrefills } from '@/lib/derive-prefills'
 import { DESIGNER_NAME } from '@/lib/system-prompt'
 import type { UploadedReference } from './ImageSelect'
 import type { FloorPlan } from '@/lib/floor-plan'
-import { planFromProfile, validate } from '@/lib/floor-plan'
+import { planFromProfile, validate, fromShapePreset } from '@/lib/floor-plan'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import type {
   ClientMessage,
@@ -1234,11 +1234,13 @@ function BuilderStepView({
   // hypothesis"), mount the BuilderShell. Otherwise show the entry screen.
   const [skippedHypothesis, setSkippedHypothesis] = useState(false)
 
-  // Freeze the Part-1 FloorPlan and project it into the layout contract — the
-  // authoritative geometry the builder seeds from (context/layout-contract.md).
+  // Freeze the Part-1 FloorPlan and project it into the COMPLETE layout contract
+  // the builder seeds from. Always produced (an 'unsure' single-wall preset when
+  // the homeowner somehow reached the builder without a plan) so the builder
+  // never lacks a contract. See context/layout-contract.md.
   const layoutContract = useMemo(() => {
-    const plan = planFromProfile(profile)
-    return plan ? floorPlanToLayout(validate(plan)) : null
+    const plan = planFromProfile(profile) ?? fromShapePreset('unsure')
+    return floorPlanToLayout(validate(plan))
   }, [profile])
 
   if (hypothesis || skippedHypothesis) {

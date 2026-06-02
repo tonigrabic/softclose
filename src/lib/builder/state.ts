@@ -19,7 +19,6 @@ import type {
   CornerSolution,
   DoorStyle,
   FieldMeta,
-  LayoutShape,
   Provenance,
   WallRunDimensions,
   WorktopFamily,
@@ -43,50 +42,26 @@ function metaFromHint(
  */
 export function hydrateFromHypothesis(
   hypothesis: BuilderHypothesis | null,
-  context: { renderId?: string; leadProfileRef?: string; layoutContract?: LayoutContract } = {}
+  context: { renderId?: string; leadProfileRef?: string; layoutContract: LayoutContract }
 ): BuilderState {
   const now = new Date().toISOString()
 
-  // Layout — geometry (runs, shape, island) is owned by Part 1 through the
-  // layout contract when present; the AI hypothesis only fills the qualitative
-  // gaps it can see in the render (hasWall / hasTall per run). See
-  // context/layout-contract.md.
-  const layoutHy = hypothesis?.layout
+  // Layout comes ENTIRELY from the contract (Part 1). The contract is complete —
+  // it delivers runs, shape, island, ceiling height, hasWall/hasTall and corner
+  // ownership — so the builder never falls back to the AI hypothesis or its own
+  // defaults for layout. The render hypothesis only drives decor/material/etc.
+  // See context/layout-contract.md.
   const contract = context.layoutContract
-  const hyRunById = new Map((layoutHy?.runs ?? []).map((r) => [r.id, r]))
 
-  // Assign each contract corner to exactly one of its two runs, preferring a run
-  // that doesn't already own one. So a U-shape (two corners) reserves a corner
-  // unit on two different runs, while galley/island (no corners) reserve none.
-  const cornerOwners = new Set<string>()
-  for (const c of contract?.corners ?? []) {
-    const owner = [c.runA, c.runB].find((r) => !cornerOwners.has(r)) ?? c.runA
-    cornerOwners.add(owner)
-  }
-
-  const runs: WallRunDimensions[] = contract
-    ? contract.runs.map((r) => {
-        const hy = hyRunById.get(r.id)
-        return {
-          id: r.id,
-          label: r.label,
-          lengthCm: r.lengthCm, // geometry — authoritative
-          hasBase: r.hasBase,
-          hasWall: hy?.hasWall?.value ?? true, // render — AI fills
-          hasTall: hy?.hasTall?.value ?? false, // render — AI fills
-          hasCorner: cornerOwners.has(r.id), // geometry — authoritative
-        }
-      })
-    : (layoutHy?.runs?.map((r) => ({
-        id: r.id,
-        label: r.label,
-        lengthCm: r.lengthCm.value,
-        hasBase: r.hasBase?.value ?? true,
-        hasWall: r.hasWall?.value ?? true,
-        hasTall: r.hasTall?.value ?? false,
-      })) ??
-      // Single run fallback so the UI always has at least one row to edit.
-      [{ id: 'main', label: 'Glavni zid', lengthCm: 300, hasBase: true, hasWall: true, hasTall: false }])
+  const runs: WallRunDimensions[] = contract.runs.map((r) => ({
+    id: r.id,
+    label: r.label,
+    lengthCm: r.lengthCm,
+    hasBase: r.hasBase,
+    hasWall: r.hasWall,
+    hasTall: r.hasTall,
+    hasCorner: r.hasCorner,
+  }))
 
   // Doors
   const doorsHy = hypothesis?.doors
@@ -111,27 +86,22 @@ export function hydrateFromHypothesis(
     originalRenderRef: context.renderId,
 
     layout: {
-      shape: (contract?.shape ?? layoutHy?.shape?.value ?? 'l_shape') as LayoutShape,
-      hasIsland: contract?.hasIsland ?? layoutHy?.hasIsland?.value ?? false,
+      shape: contract.shape,
+      hasIsland: contract.hasIsland,
       runs,
-      ceilingHeightCm: contract?.ceilingHeightCm ?? layoutHy?.ceilingHeightCm?.value ?? 270,
+      ceilingHeightCm: contract.ceilingHeightCm,
       meta: {
-        // Contract-sourced layout reflects Part 1, where the homeowner confirmed it.
-        runs: contract
-          ? { confidence: contract.runs[0]?.confidence ?? 'M', provenance: 'homeowner-confirmed' }
-          : metaFromHint(layoutHy?.runs?.[0]?.lengthCm),
-        shape: contract
-          ? { confidence: 'H', provenance: 'homeowner-confirmed' }
-          : metaFromHint(layoutHy?.shape),
+        // Layout came from Part 1, where the homeowner confirmed it.
+        runs: { confidence: contract.runs[0]?.confidence ?? 'M', provenance: 'homeowner-confirmed' },
+        shape: { confidence: 'H', provenance: 'homeowner-confirmed' },
       },
     },
 
     cabinetBoxes: {
       carcassMaterial: hypothesis?.cabinetBoxes?.carcassMaterial?.value ?? 'white_melamine_standard',
-      // No inner corner (galley, single wall, island) → no corner solution needed.
-      cornerSolution: (contract && contract.corners.length === 0
-        ? 'none'
-        : (hypothesis?.cabinetBoxes?.cornerSolution?.value ?? 'magic_corner')) as CornerSolution,
+      // Corner solution follows the contract: none when the layout has no inner
+      // corner (galley / single wall / island), otherwise a sensible default.
+      cornerSolution: (contract.corners.length === 0 ? 'none' : 'magic_corner') as CornerSolution,
       units: [],
       meta: {
         carcassMaterial: metaFromHint(hypothesis?.cabinetBoxes?.carcassMaterial),

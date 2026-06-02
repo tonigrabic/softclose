@@ -36,11 +36,12 @@ export interface BuilderShellProps {
    */
   hypothesis: BuilderHypothesis | null
   /**
-   * Layout contract derived from the frozen Part-1 FloorPlan. When present it is
-   * the authoritative source for runs / shape / island; the AI hypothesis only
-   * fills qualitative gaps. See context/layout-contract.md.
+   * Layout contract derived from the frozen Part-1 FloorPlan — the COMPLETE,
+   * authoritative source for the builder's layout (runs, shape, island, ceiling,
+   * hasWall/hasTall, corners). Required: the builder never guesses layout.
+   * See context/layout-contract.md.
    */
-  layoutContract?: LayoutContract | null
+  layoutContract: LayoutContract
   /** The render the hypothesis was derived from, if any. Shown in the left preview pane. */
   renderImageDataUrl?: string
   /** Anchor photo (Phase-1 space upload) shown when no render is available. */
@@ -67,7 +68,7 @@ export function BuilderShell({
   onComplete,
 }: BuilderShellProps) {
   const initial = useMemo(
-    () => hydrateFromHypothesis(hypothesis, { layoutContract: layoutContract ?? undefined }),
+    () => hydrateFromHypothesis(hypothesis, { layoutContract }),
     [hypothesis, layoutContract]
   )
   const [state, dispatch] = useBuilderState(initial)

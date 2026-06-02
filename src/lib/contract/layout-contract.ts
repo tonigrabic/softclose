@@ -38,6 +38,17 @@ export interface ContractRun {
   lengthCm: number
   /** Always true — a run exists *because* it bears a base/counter. */
   hasBase: true
+  /**
+   * Whether the run carries wall (upper) cabinets and a full-height tower. The
+   * floor plan can't see these, so the contract supplies sensible geometry
+   * defaults (wall units yes on perimeter runs / no over an island; no tower)
+   * which the homeowner refines in the builder. The contract still *delivers*
+   * a value for every field — the builder never falls back to its own guess.
+   */
+  hasWall: boolean
+  hasTall: boolean
+  /** True if this run owns an inner corner (reserves a corner cabinet). */
+  hasCorner: boolean
   confidence: ConfidenceLevel
 }
 
@@ -61,8 +72,8 @@ export interface LayoutContract {
   source: 'floor_plan'
   shape: LayoutShape
   hasIsland: boolean
-  /** FloorPlan has no ceiling height yet → undefined; builder fills a default. */
-  ceilingHeightCm?: number
+  /** FloorPlan has no ceiling height; the contract supplies a standard default. */
+  ceilingHeightCm: number
   units: DisplayUnit
   runs: ContractRun[]
   appliances: ContractAppliance[]
@@ -87,13 +98,19 @@ function clampPct(n: number): number {
   return Math.max(0, Math.min(100, n))
 }
 
+/** Standard ceiling height (cm) — the floor plan doesn't capture it. */
+export const DEFAULT_CEILING_CM = 280
+
 /**
  * Project a frozen FloorPlan into the layout contract consumed by the builder.
- * Deterministic — same plan in, same contract out.
+ * Deterministic — same plan in, same contract out. The contract is COMPLETE:
+ * every field the builder needs is supplied here (geometry where the plan knows
+ * it, sensible defaults where it can't), so the builder never falls back to the
+ * AI hypothesis or its own heuristics for layout.
  */
 export function floorPlanToLayout(plan: FloorPlan): LayoutContract {
-  const runs: ContractRun[] = []
-
+  // 1. Base-bearing walls + their cabinet lengths (doors/passages cut out).
+  const baseWalls: Array<{ wall: WallSide; lengthCm: number }> = []
   for (const wall of WALLS) {
     if (!effectiveHasCounter(plan, wall)) continue
     const lengthCm = counterSegmentsForWall(plan, wall).reduce(
@@ -101,14 +118,34 @@ export function floorPlanToLayout(plan: FloorPlan): LayoutContract {
       0
     )
     if (lengthCm <= 0) continue
-    runs.push({
-      id: wall,
-      label: plan.room.sides[wall].label ?? capitalize(wall),
-      lengthCm: Math.round(lengthCm),
-      hasBase: true,
-      confidence: plan.room.confidence,
-    })
+    baseWalls.push({ wall, lengthCm: Math.round(lengthCm) })
   }
+  const baseWallSet = new Set<WallSide>(baseWalls.map((b) => b.wall))
+
+  // 2. Corners = adjacent base-bearing walls that share a corner.
+  const corners: ContractCorner[] = CORNER_PAIRS.filter(
+    ([a, b]) => baseWallSet.has(a) && baseWallSet.has(b)
+  ).map(([runA, runB]) => ({ runA, runB }))
+
+  // 3. Assign each corner to exactly one owning run (prefer an un-owned run) so
+  //    a U-shape reserves two corner units while galley/island reserve none.
+  const cornerOwners = new Set<RunId>()
+  for (const c of corners) {
+    const owner = [c.runA, c.runB].find((r) => !cornerOwners.has(r)) ?? c.runA
+    cornerOwners.add(owner)
+  }
+
+  // 4. Complete runs — geometry + defaults for render-silent fields.
+  const runs: ContractRun[] = baseWalls.map(({ wall, lengthCm }) => ({
+    id: wall,
+    label: plan.room.sides[wall].label ?? capitalize(wall),
+    lengthCm,
+    hasBase: true,
+    hasWall: true, // perimeter runs carry uppers by default; user refines
+    hasTall: false,
+    hasCorner: cornerOwners.has(wall),
+    confidence: plan.room.confidence,
+  }))
 
   if (plan.island) {
     runs.push({
@@ -116,6 +153,9 @@ export function floorPlanToLayout(plan: FloorPlan): LayoutContract {
       label: 'Island',
       lengthCm: Math.round(plan.island.lengthCm),
       hasBase: true,
+      hasWall: false, // no upper cabinets over an island
+      hasTall: false,
+      hasCorner: false,
       confidence: plan.island.confidence,
     })
   }
@@ -128,16 +168,12 @@ export function floorPlanToLayout(plan: FloorPlan): LayoutContract {
     confidence: f.confidence,
   }))
 
-  const runWalls = new Set<RunId>(runs.map((r) => r.id))
-  const corners: ContractCorner[] = CORNER_PAIRS.filter(
-    ([a, b]) => runWalls.has(a) && runWalls.has(b)
-  ).map(([runA, runB]) => ({ runA, runB }))
-
   return {
     schemaVersion: 1,
     source: 'floor_plan',
     shape: plan.layoutShape,
     hasIsland: plan.hasIsland,
+    ceilingHeightCm: DEFAULT_CEILING_CM,
     units: plan.units,
     runs,
     appliances,
