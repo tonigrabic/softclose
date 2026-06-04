@@ -13,7 +13,7 @@ import type { BuilderState } from '@/lib/builder/inventory'
  */
 export function LiveBOMPanel({ state }: { state: BuilderState }) {
   const { t, locale } = useTranslations()
-  const bom = useMemo(() => computeBom(state), [state])
+  const bom = useMemo(() => computeBom(state, locale), [state, locale])
 
   return (
     <aside className="sticky top-6 flex h-fit w-80 shrink-0 flex-col gap-4 rounded-3xl border border-border bg-card/70 p-5 shadow-sm backdrop-blur">

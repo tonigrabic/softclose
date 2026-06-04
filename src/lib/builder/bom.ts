@@ -14,6 +14,7 @@
 import { decors as catalogDecors, services, doorPricePerM2, worktopPricePerM, findDecor } from '@/lib/catalog'
 import { PATTERN_SPECS } from './cabinet-patterns'
 import type { BuilderState, CabinetUnit, DrawerSystemTier } from './inventory'
+import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n'
 
 export interface BomLineItem {
   /** Stable id usable as React key + i18n routing. */
@@ -111,8 +112,28 @@ const HARDWARE_TIER_RRP: Record<
 
 /* ───────────────────────── Main calculator ───────────────────────── */
 
-export function computeBom(state: BuilderState): BomEstimate {
+export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE): BomEstimate {
   const lineItems: BomLineItem[] = []
+
+  // Localisation helpers — line-item detail/quantity are built localized so the
+  // always-visible BOM panel isn't half English. Enum values reuse the existing
+  // chip i18n keys; `tr` handles connective words.
+  const tr = (en: string, hr: string) => (locale === 'hr-HR' ? hr : en)
+  const label = (prefix: string, v: string) => tDynamic(`${prefix}.${v}`, locale)
+  const applName = (type: string): string => {
+    const m: Record<string, [string, string]> = {
+      hob: ['hob', 'ploča za kuhanje'],
+      oven: ['oven', 'pećnica'],
+      extractor: ['extractor', 'napa'],
+      fridge: ['fridge', 'hladnjak'],
+      dishwasher: ['dishwasher', 'perilica posuđa'],
+      microwave: ['microwave', 'mikrovalna'],
+      wine_fridge: ['wine fridge', 'vinski hladnjak'],
+      coffee: ['coffee machine', 'aparat za kavu'],
+    }
+    const a = m[type]
+    return a ? tr(a[0], a[1]) : type
+  }
 
   /* 1. Boards (carcass + door panels) ─────────────────────────────────── */
   const units = state.cabinetBoxes.units
@@ -151,10 +172,10 @@ export function computeBom(state: BuilderState): BomEstimate {
   const boardLow = doorAreaM2 * doorPriceM2 + carcassAreaM2 * carcassPriceM2
   const boardHigh = boardLow * 1.18 // waste factor
   const boardsRange = widenByConfidence(boardLow, boardHigh, !doorDecor)
-  const unitCountSuffix = usingUnitModel ? ` · ${units.length} cabinets` : ''
+  const unitCountSuffix = usingUnitModel ? ` · ${units.length} ${tr('cabinets', 'ormarića')}` : ''
   lineItems.push({
     key: 'boards',
-    detail: `${doorDecor?.name ?? state.doors.decorCode} (${state.doors.decorCode}/${state.doors.decorStructure}) door + ${state.cabinetBoxes.carcassMaterial.replace(/_/g, ' ')} carcass${unitCountSuffix}`,
+    detail: `${doorDecor?.name ?? state.doors.decorCode} (${state.doors.decorCode}/${state.doors.decorStructure}) ${tr('door', 'vrata')} + ${label('cabinetBoxes.carcass', state.cabinetBoxes.carcassMaterial)} ${tr('carcass', 'korpus')}${unitCountSuffix}`,
     quantity: `${totalBoardM2.toFixed(1)} m²`,
     low: round(boardsRange.low),
     high: round(boardsRange.high),
@@ -174,7 +195,7 @@ export function computeBom(state: BuilderState): BomEstimate {
   const wtRange = widenByConfidence(wtLow, wtHigh, !wtDecor)
   lineItems.push({
     key: 'worktop',
-    detail: `${wtDecor?.name ?? state.worktop.family} ${state.worktop.thicknessMm} mm, edge: ${state.worktop.edge}`,
+    detail: `${wtDecor?.name ?? label('worktop.family', state.worktop.family)} ${state.worktop.thicknessMm} mm`,
     quantity: `${state.worktop.totalLengthM.toFixed(2)} m`,
     low: round(wtRange.low),
     high: round(wtRange.high),
@@ -195,7 +216,7 @@ export function computeBom(state: BuilderState): BomEstimate {
     const bsHigh = bsLow * 1.25
     lineItems.push({
       key: 'backsplash',
-      detail: `${state.backsplash.kind.replace('_', ' ')}, ${state.backsplash.heightCm} cm tall`,
+      detail: `${label('backsplash.kind', state.backsplash.kind)}, ${state.backsplash.heightCm} cm`,
       quantity: `${state.worktop.totalLengthM.toFixed(2)} m`,
       low: round(bsLow),
       high: round(bsHigh),
@@ -210,7 +231,7 @@ export function computeBom(state: BuilderState): BomEstimate {
   const edgeHigh = edgeLow * 1.15
   lineItems.push({
     key: 'edgeBanding',
-    detail: 'Matching ABS edge banding 0,8 mm × 23 mm',
+    detail: tr('ABS edge banding 0.8 mm × 23 mm', 'ABS kantiranje 0,8 mm × 23 mm'),
     quantity: `${edgeM.toFixed(0)} m`,
     low: round(edgeLow),
     high: round(edgeHigh),
@@ -222,7 +243,7 @@ export function computeBom(state: BuilderState): BomEstimate {
   const cutLow = cutM * cutPerM + state.worktop.totalLengthM * (services.cutting.worktop38mm_pricePerM ?? 5.36)
   lineItems.push({
     key: 'services',
-    detail: 'Rezanje + CNC obrada',
+    detail: tr('Cutting + CNC machining', 'Rezanje + CNC obrada'),
     quantity: `${cutM.toFixed(0)} m`,
     low: round(cutLow * 0.9),
     high: round(cutLow * 1.25),
@@ -275,13 +296,13 @@ export function computeBom(state: BuilderState): BomEstimate {
     hwHigh = unitEquivalents * tierRRP.perBaseUnit.high * hingeMultiplier
   }
   const hwQuantity = drawerCount > 0
-    ? `${unitEquivalents.toFixed(1)} unit eq. · ${drawerCount} drawers`
-    : `${unitEquivalents.toFixed(1)} unit eq.`
+    ? `${unitEquivalents.toFixed(1)} ${tr('unit eq.', 'jed. ekv.')} · ${drawerCount} ${tr('drawers', 'ladica')}`
+    : `${unitEquivalents.toFixed(1)} ${tr('unit eq.', 'jed. ekv.')}`
   const hwPicked = state.hardware.drawerSystemSku ? state.hardware.drawerSystemPickedName : null
   lineItems.push({
     key: 'hardware',
     detail:
-      `Drawer + hinges, tier: ${state.hardware.drawerSystemTier}; ${state.hardware.hingeType}` +
+      `${tr('Drawers + hinges', 'Ladice + šarke')}, ${tr('tier', 'klasa')}: ${label('hardware.tier', state.hardware.drawerSystemTier)}; ${label('hardware.hinge', state.hardware.hingeType)}` +
       (hwPicked ? ` · ${hwPicked}` : ''),
     quantity: hwQuantity,
     low: round(hwLow),
@@ -292,8 +313,11 @@ export function computeBom(state: BuilderState): BomEstimate {
     const accessoryUnitCount = units.filter((u) => PATTERN_SPECS[u.pattern].accessoryCost).length
     lineItems.push({
       key: 'accessories',
-      detail: 'Magic corner, larder mech, trash pullout & similar mechanisms',
-      quantity: `${accessoryUnitCount} mechanism${accessoryUnitCount === 1 ? '' : 's'}`,
+      detail: tr(
+        'Magic corner, larder, trash pullout & similar mechanisms',
+        'Magični kut, smočnica, izvlačni koš i slični mehanizmi'
+      ),
+      quantity: `${accessoryUnitCount} ${accessoryUnitCount === 1 ? tr('mechanism', 'mehanizam') : tr('mechanisms', 'mehanizama')}`,
       low: round(accessoryLow),
       high: round(accessoryHigh),
     })
@@ -339,10 +363,10 @@ export function computeBom(state: BuilderState): BomEstimate {
   lineItems.push({
     key: 'sinkTaps',
     detail:
-      `${state.sinkTaps.sink.bowls} bowl ${state.sinkTaps.sink.material} sink, ${state.sinkTaps.tap.type} tap` +
-      (sinkPicked ? ` · sink: ${sinkPicked}` : '') +
-      (tapPicked ? ` · tap: ${tapPicked}` : ''),
-    quantity: '1 set',
+      `${label('sinkTaps.bowls', state.sinkTaps.sink.bowls)} · ${label('sinkTaps.material', state.sinkTaps.sink.material)} ${tr('sink', 'sudoper')}, ${label('sinkTaps.tap', state.sinkTaps.tap.type)} ${tr('tap', 'slavina')}` +
+      (sinkPicked ? ` · ${tr('sink', 'sudoper')}: ${sinkPicked}` : '') +
+      (tapPicked ? ` · ${tr('tap', 'slavina')}: ${tapPicked}` : ''),
+    quantity: tr('1 set', '1 komplet'),
     low: round(sinkLow + tapLow),
     high: round(sinkHigh + tapHigh),
   })
@@ -373,7 +397,7 @@ export function computeBom(state: BuilderState): BomEstimate {
       apLow += p.low
       apHigh += p.high
       const picked = sel.pickedBrand && sel.pickedName ? `${sel.pickedBrand} ${sel.pickedName}` : null
-      detailNames.push(picked ? `${sel.type}: ${picked}` : sel.type)
+      detailNames.push(picked ? `${applName(sel.type)}: ${picked}` : applName(sel.type))
     }
     if (state.appliances.supply === 'mixed') {
       apLow *= 0.5
@@ -381,8 +405,8 @@ export function computeBom(state: BuilderState): BomEstimate {
     }
     lineItems.push({
       key: 'appliances',
-      detail: detailNames.length > 0 ? detailNames.join(' · ') : `${selectedTypes.size} appliances`,
-      quantity: `${selectedTypes.size} pcs`,
+      detail: detailNames.length > 0 ? detailNames.join(' · ') : `${selectedTypes.size} ${tr('appliances', 'uređaja')}`,
+      quantity: `${selectedTypes.size} ${tr('pcs', 'kom')}`,
       low: round(apLow),
       high: round(apHigh),
     })
@@ -406,8 +430,8 @@ export function computeBom(state: BuilderState): BomEstimate {
   if (lightLow > 0) {
     lineItems.push({
       key: 'lighting',
-      detail: 'LED + pendants',
-      quantity: 'Layered',
+      detail: tr('LED + pendants', 'LED + viseće'),
+      quantity: tr('Layered', 'Slojevito'),
       low: round(lightLow),
       high: round(lightHigh),
     })
@@ -420,8 +444,8 @@ export function computeBom(state: BuilderState): BomEstimate {
   const labourHigh = materialsTotal * 0.6
   lineItems.push({
     key: 'installLabour',
-    detail: 'Maker labour, delivery, install',
-    quantity: 'Project',
+    detail: tr('Maker labour, delivery, install', 'Rad majstora, dostava, montaža'),
+    quantity: tr('Project', 'Projekt'),
     low: round(labourLow),
     high: round(labourHigh),
   })
