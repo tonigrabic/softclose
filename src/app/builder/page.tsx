@@ -20,7 +20,12 @@ export default function BuilderHarness() {
 
   const { contract, svg } = useMemo(() => {
     const plan = fixture.build()
-    return { contract: floorPlanToLayout(plan), svg: renderFloorPlanSvg(plan, { mode: 'maker' }) }
+    return {
+      contract: floorPlanToLayout(plan),
+      // includeDataAttrs:false → no random element ids in the markup, so the SSR
+      // and client renders match (the ids come from Math.random in makeFeature).
+      svg: renderFloorPlanSvg(plan, { mode: 'maker', includeDataAttrs: false }),
+    }
   }, [fixture])
 
   return (
