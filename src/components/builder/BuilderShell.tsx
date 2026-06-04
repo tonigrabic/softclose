@@ -311,6 +311,7 @@ function Shell({
                   <CabinetBoxesGroup
                     state={state}
                     hypothesis={hypothesis}
+                    layoutContract={layoutContract}
                     onPatch={(patch) => dispatch({ type: 'patch_cabinetBoxes', patch })}
                   />
                 </>
