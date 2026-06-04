@@ -27,6 +27,8 @@ export function FinishingGroup({
   onPatch: (patch: Partial<BuilderState['finishing']>) => void
 }) {
   const { t } = useTranslations()
+  // A cornice is top trim on wall units — only offer it if any run has them.
+  const hasWall = state.layout.runs.some((r) => r.hasWall)
 
   return (
     <div className="space-y-5">
@@ -75,22 +77,24 @@ export function FinishingGroup({
         />
       </PickerSlot>
 
-      <PickerSlot label={t('finishing.corniceLabel')} meta={state.finishing.meta.corniceStyle}>
-        <ChipRow
-          keyPrefix="finishing.cornice"
-          values={CORNICE_OPTIONS}
-          selected={state.finishing.corniceStyle}
-          onChange={(v) =>
-            onPatch({
-              corniceStyle: v,
-              meta: {
-                ...state.finishing.meta,
-                corniceStyle: { confidence: 'H', provenance: 'homeowner-edited' },
-              },
-            })
-          }
-        />
-      </PickerSlot>
+      {hasWall && (
+        <PickerSlot label={t('finishing.corniceLabel')} meta={state.finishing.meta.corniceStyle}>
+          <ChipRow
+            keyPrefix="finishing.cornice"
+            values={CORNICE_OPTIONS}
+            selected={state.finishing.corniceStyle}
+            onChange={(v) =>
+              onPatch({
+                corniceStyle: v,
+                meta: {
+                  ...state.finishing.meta,
+                  corniceStyle: { confidence: 'H', provenance: 'homeowner-edited' },
+                },
+              })
+            }
+          />
+        </PickerSlot>
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <PickerSlot label={t('finishing.endPanelsLabel')} meta={state.finishing.meta.endPanelsCount}>

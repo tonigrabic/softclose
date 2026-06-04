@@ -36,6 +36,9 @@ export const hrHR = {
   'builder.browse.taps': 'Slavine',
   'builder.browse.picked': 'Odabrano:',
   'builder.browse.clearPick': 'Ukloni odabir',
+  'appliances.included': 'Uključeno',
+  'appliances.notIncluded': 'Nije u ovoj kuhinji',
+  'appliances.fromLayout': 'Iz tlocrta',
 
   // Layout-counts confirmation gate
   'builder.confirm.eyebrow': 'Prije nego krenemo',

@@ -36,6 +36,9 @@ export const enUS: Record<TranslationKey, string> = {
   'builder.browse.taps': 'Taps',
   'builder.browse.picked': 'Picked:',
   'builder.browse.clearPick': 'Clear pick',
+  'appliances.included': 'Included',
+  'appliances.notIncluded': 'Not in this kitchen',
+  'appliances.fromLayout': 'From your layout',
 
   // Layout-counts confirmation gate
   'builder.confirm.eyebrow': 'Before we begin',

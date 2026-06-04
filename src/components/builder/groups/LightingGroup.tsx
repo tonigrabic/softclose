@@ -13,24 +13,30 @@ export function LightingGroup({
   onPatch: (patch: Partial<BuilderState['lighting']>) => void
 }) {
   const { t } = useTranslations()
+  // Only offer options the layout supports: pendants need an island; under-
+  // cabinet LED needs wall cabinets.
+  const hasIsland = state.layout.hasIsland
+  const hasWall = state.layout.runs.some((r) => r.hasWall)
 
   return (
     <div className="space-y-5">
       <PickerSlot label={t('builder.groups.lighting.label')} meta={state.lighting.meta.underCabinetLed}>
         <div className="space-y-2">
-          <ToggleRow
-            label={t('lighting.underCabinetLabel')}
-            on={state.lighting.underCabinetLed}
-            onChange={(on) =>
-              onPatch({
-                underCabinetLed: on,
-                meta: {
-                  ...state.lighting.meta,
-                  underCabinetLed: { confidence: 'H', provenance: 'homeowner-edited' },
-                },
-              })
-            }
-          />
+          {hasWall && (
+            <ToggleRow
+              label={t('lighting.underCabinetLabel')}
+              on={state.lighting.underCabinetLed}
+              onChange={(on) =>
+                onPatch({
+                  underCabinetLed: on,
+                  meta: {
+                    ...state.lighting.meta,
+                    underCabinetLed: { confidence: 'H', provenance: 'homeowner-edited' },
+                  },
+                })
+              }
+            />
+          )}
           <ToggleRow
             label={t('lighting.plinthLabel')}
             on={state.lighting.plinthLed}
@@ -44,20 +50,22 @@ export function LightingGroup({
               })
             }
           />
-          <ToggleRow
-            label={t('lighting.pendantLabel')}
-            on={state.lighting.pendantOverIsland}
-            onChange={(on) =>
-              onPatch({
-                pendantOverIsland: on,
-                pendantCount: on && state.lighting.pendantCount === 0 ? 2 : state.lighting.pendantCount,
-                meta: {
-                  ...state.lighting.meta,
-                  pendantOverIsland: { confidence: 'H', provenance: 'homeowner-edited' },
-                },
-              })
-            }
-          />
+          {hasIsland && (
+            <ToggleRow
+              label={t('lighting.pendantLabel')}
+              on={state.lighting.pendantOverIsland}
+              onChange={(on) =>
+                onPatch({
+                  pendantOverIsland: on,
+                  pendantCount: on && state.lighting.pendantCount === 0 ? 2 : state.lighting.pendantCount,
+                  meta: {
+                    ...state.lighting.meta,
+                    pendantOverIsland: { confidence: 'H', provenance: 'homeowner-edited' },
+                  },
+                })
+              }
+            />
+          )}
           <ToggleRow
             label={t('lighting.smartControlsLabel')}
             on={state.lighting.smartControls}
@@ -73,7 +81,7 @@ export function LightingGroup({
           />
         </div>
 
-        {state.lighting.pendantOverIsland && (
+        {hasIsland && state.lighting.pendantOverIsland && (
           <div className="mt-3 flex items-center gap-2 rounded-xl border border-border bg-card/50 px-3 py-2">
             <span className="flex-1 text-[13px] font-medium text-foreground">
               {t('lighting.pendantCountLabel')}

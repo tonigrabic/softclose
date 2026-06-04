@@ -343,6 +343,7 @@ function Shell({
               {currentId === 'appliances' && (
                 <AppliancesGroup
                   state={state}
+                  layoutContract={layoutContract}
                   onPatch={(patch) => dispatch({ type: 'patch_appliances', patch })}
                 />
               )}

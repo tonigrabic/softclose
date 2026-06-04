@@ -1,6 +1,6 @@
 'use client'
 
-import { X } from 'lucide-react'
+import { Lock, X } from 'lucide-react'
 import { useTranslations } from '@/lib/i18n'
 import { PickerSlot } from '../PickerSlot'
 import { ChipRow, ToggleRow } from '../ChipRow'
@@ -8,6 +8,7 @@ import { SchachermayerBrowse } from '../SchachermayerBrowse'
 import { appliancesForType } from '@/lib/catalog/hardware'
 import { inferApplianceFields } from '@/lib/builder/pick-inference'
 import type { ApplianceSelection, ApplianceSupply, BuilderState } from '@/lib/builder/inventory'
+import type { LayoutContract } from '@/lib/contract/layout-contract'
 
 const SUPPLY_OPTIONS = [
   'homeowner_supplies',
@@ -78,12 +79,21 @@ function setIncluded(
 
 export function AppliancesGroup({
   state,
+  layoutContract,
   onPatch,
 }: {
   state: BuilderState
+  layoutContract?: LayoutContract | null
   onPatch: (patch: Partial<BuilderState['appliances']>) => void
 }) {
   const { t } = useTranslations()
+  // Appliances the contract placed in Part 1 (hob/fridge/dishwasher) are fixed
+  // present — Phase 2 only chooses their type, never toggles them off. Sink is
+  // its own screen; extras (oven/extractor/…) stay optional.
+  const placed = new Set((layoutContract?.appliances ?? []).map((a) => a.kind))
+  const hobLocked = placed.has('hob')
+  const fridgeLocked = placed.has('fridge')
+  const dishwasherLocked = placed.has('dishwasher')
 
   return (
     <div className="space-y-5">
@@ -106,10 +116,11 @@ export function AppliancesGroup({
 
       <PickerSlot label={t('appliances.hobLabel')} meta={state.appliances.meta.hob}>
         <IncludeToggle
-          on={isIncluded(state, 'hob')}
+          on={hobLocked || isIncluded(state, 'hob')}
+          locked={hobLocked}
           onChange={(on) => onPatch({ selections: setIncluded(state, 'hob', on, 'unknown') })}
         />
-        {isIncluded(state, 'hob') && (
+        {(hobLocked || isIncluded(state, 'hob')) && (
           <ChipRow
             keyPrefix="appliances.hob"
             values={HOB_OPTIONS}
@@ -177,10 +188,11 @@ export function AppliancesGroup({
 
       <PickerSlot label={t('appliances.fridgeLabel')} meta={state.appliances.meta.fridge}>
         <IncludeToggle
-          on={isIncluded(state, 'fridge')}
+          on={fridgeLocked || isIncluded(state, 'fridge')}
+          locked={fridgeLocked}
           onChange={(on) => onPatch({ selections: setIncluded(state, 'fridge', on) })}
         />
-        {isIncluded(state, 'fridge') && (
+        {(fridgeLocked || isIncluded(state, 'fridge')) && (
           <ToggleRow
             label={
               getIntegrated(state, 'fridge')
@@ -203,10 +215,11 @@ export function AppliancesGroup({
 
       <PickerSlot label={t('appliances.dishwasherLabel')} meta={state.appliances.meta.dishwasher}>
         <IncludeToggle
-          on={isIncluded(state, 'dishwasher')}
+          on={dishwasherLocked || isIncluded(state, 'dishwasher')}
+          locked={dishwasherLocked}
           onChange={(on) => onPatch({ selections: setIncluded(state, 'dishwasher', on) })}
         />
-        {isIncluded(state, 'dishwasher') && (
+        {(dishwasherLocked || isIncluded(state, 'dishwasher')) && (
           <ToggleRow
             label={
               getIntegrated(state, 'dishwasher')
@@ -314,7 +327,24 @@ function ApplianceBrowsePanel({
   )
 }
 
-function IncludeToggle({ on, onChange }: { on: boolean; onChange: (on: boolean) => void }) {
+function IncludeToggle({
+  on,
+  locked,
+  onChange,
+}: {
+  on: boolean
+  locked?: boolean
+  onChange: (on: boolean) => void
+}) {
+  const { t } = useTranslations()
+  if (locked) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-semibold text-primary">
+        <Lock className="size-3 stroke-[2.5]" aria-hidden />
+        {t('appliances.fromLayout')}
+      </span>
+    )
+  }
   return (
     <button
       type="button"
@@ -326,7 +356,7 @@ function IncludeToggle({ on, onChange }: { on: boolean; onChange: (on: boolean) 
       }
     >
       <span className={on ? '' : 'opacity-60'}>{on ? '✓' : '+'}</span>
-      <span>{on ? 'Included' : 'Not in this kitchen'}</span>
+      <span>{on ? t('appliances.included') : t('appliances.notIncluded')}</span>
     </button>
   )
 }
