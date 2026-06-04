@@ -1,163 +1,108 @@
 /**
- * Standalone Builder route — for development & demo.
+ * Builder test harness (dev route).
  *
- * Phase-1 outputs are simulated here:
- *  - Rendered concept image (loaded from /public/sample-renders/...). The user
- *    can drop any JPG named matte-black-l-kitchen.jpg into that directory and
- *    refresh; the builder auto-uses it.
- *  - L-shape layout with hard-coded run dimensions (380 × 240 cm).
- *  - BuilderHypothesis representative of the matte-black L-shape kitchen
- *    image (slab fronts, concrete-look worktop, integrated lighting).
- *
- * In production this route is replaced by the Phase-1 → Phase-2 hand-off
- * inside KitchenIntake (BuilderStepView).
+ * Pick a contract fixture; the builder is rendered **purely from that contract**
+ * (hypothesis = null), so we can see exactly what each layout produces — runs,
+ * corners, appliances, cabinet sections, price range — and catch screens that
+ * aren't yet contract-driven. Add a case in `src/lib/builder/fixtures.ts`.
  */
-
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { BuilderShell } from '@/components/builder/BuilderShell'
-import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
-import { fromShapePreset, makeFeature, validate } from '@/lib/floor-plan'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
+import { renderFloorPlanSvg } from '@/lib/floor-plan'
+import { CONTRACT_FIXTURES, fixtureById } from '@/lib/builder/fixtures'
 
-// We try multiple paths because the file's name was originally typo'd
-// in /public on the main repo ("sample-renderers/matte-black-1-kitchen").
-// Either folder, either filename works.
-const SAMPLE_RENDER_PATHS = [
-  '/sample-renders/matte-black-l-kitchen.jpg',
-  '/sample-renderers/matte-black-1-kitchen.jpg',
-  '/sample-renderers/matte-black-l-kitchen.jpg',
-  '/sample-renders/matte-black-1-kitchen.jpg',
-]
+export default function BuilderHarness() {
+  const [fixtureId, setFixtureId] = useState(CONTRACT_FIXTURES[0].id)
+  const fixture = fixtureById(fixtureId)
 
-const DEMO_HYPOTHESIS: BuilderHypothesis = {
-  usable: true,
-  summary:
-    'L-shaped kitchen with matte black slab fronts, light concrete worktop, no upper cabinets on the window wall.',
-  layout: {
-    shape: { value: 'l_shape', confidence: 'H', reason: 'two perpendicular runs visible' },
-    hasIsland: { value: false, confidence: 'H' },
-    ceilingHeightCm: { value: 270, confidence: 'L' },
-    runs: [
-      {
-        id: 'main',
-        label: 'Glavni zid',
-        lengthCm: { value: 380, confidence: 'M', reason: 'window run with sink + hob' },
-        hasBase: { value: true, confidence: 'H' },
-        hasWall: { value: false, confidence: 'H', reason: 'window occupies the wall' },
-      },
-      {
-        id: 'return',
-        label: 'Povratni zid',
-        lengthCm: { value: 240, confidence: 'M' },
-        hasBase: { value: true, confidence: 'H' },
-        hasWall: { value: true, confidence: 'H' },
-      },
-    ],
-  },
-  doors: {
-    style: { value: 'slab', confidence: 'H', reason: 'flat handleless fronts' },
-    decorCode: { value: 'U899', confidence: 'M', reason: 'matte black surface, no grain' },
-    decorStructure: { value: 'ST9', confidence: 'M' },
-    overlay: { value: 'full', confidence: 'H' },
-    edgeProfile: { value: 'square', confidence: 'M' },
-  },
-  worktop: {
-    family: { value: 'laminate', confidence: 'M', reason: 'concrete-textured surface' },
-    decorCode: { value: 'F186', confidence: 'M' },
-    decorStructure: { value: 'ST9', confidence: 'M' },
-    thicknessMm: { value: 38, confidence: 'L' },
-    edge: { value: 'square', confidence: 'M' },
-  },
-  backsplash: {
-    kind: { value: 'matching_slab', confidence: 'M', reason: 'continuous concrete-look on splash' },
-    decorCode: { value: 'F186', confidence: 'M' },
-    decorStructure: { value: 'ST9', confidence: 'M' },
-    heightCm: { value: 60, confidence: 'L' },
-  },
-  hardware: {
-    handleStyle: { value: 'integrated_jpull', confidence: 'H', reason: 'no visible handles, J-profile shadow line' },
-    handleFinish: { value: 'matched_to_door', confidence: 'M' },
-  },
-  lighting: {
-    underCabinetLed: { value: true, confidence: 'H', reason: 'glow visible under the wall units' },
-  },
-}
-
-// Simulated Part-1 hand-off: an L-shape plan with a sink + hob on the main run.
-// In production the contract comes from the homeowner's confirmed FloorPlan.
-const DEMO_CONTRACT = floorPlanToLayout(
-  (() => {
-    const p = fromShapePreset('l_shape')
-    p.features.push(makeFeature('sink', 'top', p.room))
-    p.features.push(makeFeature('hob', 'top', p.room))
-    return validate(p)
-  })()
-)
-
-export default function BuilderPage() {
-  // Convert the static image to a data URL so the BuilderShell + downstream
-  // BOM/render code can treat it like a Phase-1 render output (which is
-  // normally a data URL from the OpenAI image API).
-  const [renderDataUrl, setRenderDataUrl] = useState<string | undefined>()
-  const [loadFailed, setLoadFailed] = useState(false)
-
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      for (const path of SAMPLE_RENDER_PATHS) {
-        try {
-          const res = await fetch(path)
-          if (!res.ok) continue
-          const blob = await res.blob()
-          if (!blob.type.startsWith('image/')) continue
-          const dataUrl = await blobToDataUrl(blob)
-          if (!cancelled) setRenderDataUrl(dataUrl)
-          return
-        } catch {
-          // try next candidate
-        }
-      }
-      if (!cancelled) setLoadFailed(true)
-    })()
-    return () => {
-      cancelled = true
-    }
-  }, [])
+  const { contract, svg } = useMemo(() => {
+    const plan = fixture.build()
+    return { contract: floorPlanToLayout(plan), svg: renderFloorPlanSvg(plan, { mode: 'maker' }) }
+  }, [fixture])
 
   return (
-    <>
-      {loadFailed && (
-        <div className="border-b border-amber-300 bg-amber-50 px-6 py-2 text-[12px] text-amber-900 dark:bg-amber-500/10 dark:text-amber-100">
-          No sample render found. Tried:{' '}
-          {SAMPLE_RENDER_PATHS.map((p, i) => (
-            <code key={p} className="ml-1 rounded bg-background/60 px-1.5 py-0.5">
-              {p}
-              {i < SAMPLE_RENDER_PATHS.length - 1 && ','}
-            </code>
-          ))}
-        </div>
-      )}
-      <BuilderShell
-        hypothesis={DEMO_HYPOTHESIS}
-        layoutContract={DEMO_CONTRACT}
-        renderImageDataUrl={renderDataUrl}
-        layoutSummary="L-oblik · 380 cm × 240 cm"
-        locale="hr-HR"
-        onComplete={(state) => {
-          console.log('Builder complete', state)
-        }}
-      />
-    </>
-  )
-}
+    <div className="min-h-[100dvh] bg-background text-foreground">
+      {/* ── Harness bar ───────────────────────────────────────────────── */}
+      <div className="sticky top-0 z-40 border-b border-border bg-card/90 backdrop-blur">
+        <div className="mx-auto flex max-w-[88rem] flex-col gap-3 px-6 py-3">
+          <div className="flex items-center gap-3">
+            <span className="rounded-md bg-primary/10 px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-primary">
+              Builder harness
+            </span>
+            <div className="flex flex-wrap gap-1.5">
+              {CONTRACT_FIXTURES.map((f) => (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setFixtureId(f.id)}
+                  title={f.description}
+                  className={
+                    'rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors ' +
+                    (f.id === fixtureId
+                      ? 'border-primary bg-primary/10 text-foreground'
+                      : 'border-border bg-card text-muted-foreground hover:text-foreground')
+                  }
+                >
+                  {f.label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-function blobToDataUrl(blob: Blob): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(reader.result as string)
-    reader.onerror = reject
-    reader.readAsDataURL(blob)
-  })
+          {/* Derived-contract readout */}
+          <div className="flex flex-wrap items-start gap-4 text-[11px] text-muted-foreground">
+            <div
+              className="h-20 w-28 shrink-0 overflow-hidden rounded-md border border-border bg-background"
+              dangerouslySetInnerHTML={{ __html: svg }}
+            />
+            <dl className="flex flex-wrap gap-x-6 gap-y-1">
+              <div>
+                <dt className="font-semibold uppercase tracking-wider text-muted-foreground/70">Shape</dt>
+                <dd className="text-foreground">{contract.shape}{contract.hasIsland ? ' · island' : ''}</dd>
+              </div>
+              <div>
+                <dt className="font-semibold uppercase tracking-wider text-muted-foreground/70">Runs</dt>
+                <dd className="text-foreground">
+                  {contract.runs
+                    .map((r) => `${r.id} ${r.lengthCm}cm${r.hasCorner ? ' ⌐' : ''}`)
+                    .join(' · ')}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold uppercase tracking-wider text-muted-foreground/70">Corners</dt>
+                <dd className="text-foreground">
+                  {contract.corners.length
+                    ? contract.corners.map((c) => `${c.runA}+${c.runB}`).join(', ')
+                    : 'none'}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold uppercase tracking-wider text-muted-foreground/70">Appliances</dt>
+                <dd className="text-foreground">
+                  {contract.appliances.length
+                    ? contract.appliances
+                        .map((a) => `${a.kind}@${a.runId} ${Math.round(a.positionPctAlongRun)}%`)
+                        .join(' · ')
+                    : 'none'}
+                </dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Builder, rendered purely from the contract ────────────────── */}
+      <BuilderShell
+        key={fixture.id}
+        layoutContract={contract}
+        hypothesis={null}
+        layoutSummary={fixture.label}
+        locale="hr-HR"
+        onComplete={(state) => console.log('Builder complete', state)}
+      />
+    </div>
+  )
 }
