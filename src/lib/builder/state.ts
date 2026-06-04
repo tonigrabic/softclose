@@ -84,6 +84,7 @@ export function hydrateFromHypothesis(
     renderId: context.renderId,
     activeRenderId: null,
     originalRenderRef: context.renderId,
+    layoutConfirmed: false,
 
     layout: {
       shape: contract.shape,
@@ -327,6 +328,7 @@ export type BuilderAction =
   | { type: 'patch_cabinetBoxes'; patch: Partial<BuilderState['cabinetBoxes']> }
   | { type: 'push_rerender'; trigger: string; imageDataUrl: string }
   | { type: 'set_active_render'; id: string | null }
+  | { type: 'confirm_layout' }
   | { type: 'replace'; state: BuilderState }
 
 function reducer(state: BuilderState, action: BuilderAction): BuilderState {
@@ -346,6 +348,9 @@ function reducer(state: BuilderState, action: BuilderAction): BuilderState {
   }
   if (action.type === 'set_active_render') {
     return { ...state, activeRenderId: action.id, lastUpdatedAt: now }
+  }
+  if (action.type === 'confirm_layout') {
+    return { ...state, layoutConfirmed: true, lastUpdatedAt: now }
   }
   if (action.type.startsWith('patch_')) {
     const groupKey = action.type.replace('patch_', '') as BuilderGroupId

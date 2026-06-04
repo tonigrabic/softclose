@@ -340,6 +340,14 @@ export interface BuilderState {
   /** Reference to the chosen ConceptRender (id) the hypothesis was derived from. */
   renderId?: string
 
+  /**
+   * Whether the homeowner has confirmed the counted layout (runs, lengths,
+   * appliances, corners, cabinet totals) derived from the Part-1 contract. The
+   * builder gates the detailed groups behind this so nothing is priced off
+   * counts the homeowner hasn't signed off on.
+   */
+  layoutConfirmed: boolean
+
   layout: LayoutGroup
   cabinetBoxes: CabinetBoxesGroup
   doors: DoorsGroup

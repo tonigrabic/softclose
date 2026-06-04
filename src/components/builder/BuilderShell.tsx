@@ -19,6 +19,7 @@ import { LiveBOMPanel } from './LiveBOMPanel'
 import { RerenderPanel } from './RerenderPanel'
 import { RenderCarousel } from './RenderCarousel'
 import { FactsRecap } from './FactsRecap'
+import { LayoutConfirm } from './LayoutConfirm'
 import { DoorsGroup } from './groups/DoorsGroup'
 import { WorktopGroup } from './groups/WorktopGroup'
 import { CabinetBoxesGroup } from './groups/CabinetBoxesGroup'
@@ -80,6 +81,7 @@ export function BuilderShell({
       <Shell
         state={state}
         dispatch={dispatch}
+        layoutContract={layoutContract}
         currentId={currentId}
         onCurrentChange={setCurrentId}
         hypothesis={hypothesis}
@@ -95,6 +97,7 @@ export function BuilderShell({
 function Shell({
   state,
   dispatch,
+  layoutContract,
   currentId,
   onCurrentChange,
   hypothesis,
@@ -105,6 +108,7 @@ function Shell({
 }: {
   state: BuilderState
   dispatch: React.Dispatch<Parameters<ReturnType<typeof useBuilderState>[1]>[0]>
+  layoutContract: LayoutContract
   currentId: BuilderGroupId
   onCurrentChange: (id: BuilderGroupId) => void
   hypothesis: BuilderHypothesis | null
@@ -266,6 +270,21 @@ function Shell({
         {/* MIDDLE — current group body */}
         <main className="min-w-0 flex-1">
           <AnimatePresence mode="wait">
+            {!state.layoutConfirmed ? (
+              <motion.section
+                key="layout-confirm"
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <LayoutConfirm
+                  contract={layoutContract}
+                  state={state}
+                  onConfirm={() => dispatch({ type: 'confirm_layout' })}
+                />
+              </motion.section>
+            ) : (
             <motion.section
               key={currentId}
               initial={{ opacity: 0, y: 14 }}
@@ -347,6 +366,7 @@ function Shell({
 
               <FooterNav currentId={currentId} onBack={goBack} onNext={goNext} />
             </motion.section>
+            )}
           </AnimatePresence>
         </main>
 

@@ -28,6 +28,21 @@ export const hrHR = {
   'builder.shell.renders.viewing': 'Pregledavaš drugi render — postavi ga kao trenutni da se izmjene odnose na njega.',
   'builder.shell.factsRecap.title': 'AI je već vidio',
 
+  // Layout-counts confirmation gate
+  'builder.confirm.eyebrow': 'Prije nego krenemo',
+  'builder.confirm.title': 'Provjeri što smo izmjerili',
+  'builder.confirm.subtitle':
+    'Ovo smo iščitali iz tvog tlocrta. Potvrdi da je točno — svaki detalj biraš u sljedećim koracima.',
+  'builder.confirm.runsHeading': 'Zidovi i dužine',
+  'builder.confirm.cabinetsUnit': 'ormarića',
+  'builder.confirm.totalPrefix': 'Ukupno:',
+  'builder.confirm.cornersHeading': 'kutna elementa',
+  'builder.confirm.appliancesHeading': 'Uređaji',
+  'builder.confirm.none': 'nema',
+  'builder.confirm.cta': 'Točno — nastavi',
+  'builder.confirm.editHint':
+    'Nešto nije u redu? Možeš urediti svaki dio — broj ormarića, dužine i uređaje — u koracima koji slijede.',
+
   // ---- Group labels & "why" copy ----------------------------------------
   'builder.groups.layout.label': 'Tlocrt i dimenzije',
   'builder.groups.layout.why': 'Oblik prostora i točne dužine zidova.',

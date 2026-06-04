@@ -28,6 +28,21 @@ export const enUS: Record<TranslationKey, string> = {
   'builder.shell.renders.viewing': "Previewing a different render — set it as current to anchor your changes against it.",
   'builder.shell.factsRecap.title': 'AI already saw',
 
+  // Layout-counts confirmation gate
+  'builder.confirm.eyebrow': 'Before we begin',
+  'builder.confirm.title': 'Check what we counted',
+  'builder.confirm.subtitle':
+    "This is what we read from your floor plan. Confirm it's right — you'll choose every detail in the steps that follow.",
+  'builder.confirm.runsHeading': 'Runs & lengths',
+  'builder.confirm.cabinetsUnit': 'cabinets',
+  'builder.confirm.totalPrefix': 'Total:',
+  'builder.confirm.cornersHeading': 'corner units',
+  'builder.confirm.appliancesHeading': 'Appliances',
+  'builder.confirm.none': 'none',
+  'builder.confirm.cta': 'Looks right — continue',
+  'builder.confirm.editHint':
+    'Something off? You can edit every part — cabinet counts, lengths and appliances — in the steps that follow.',
+
   'builder.groups.layout.label': 'Layout & dimensions',
   'builder.groups.layout.why': 'Room shape and exact wall lengths.',
   'builder.groups.cabinetBoxes.label': 'Cabinet boxes',
