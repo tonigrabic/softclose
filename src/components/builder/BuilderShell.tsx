@@ -20,6 +20,7 @@ import { RerenderPanel } from './RerenderPanel'
 import { RenderCarousel } from './RenderCarousel'
 import { FactsRecap } from './FactsRecap'
 import { LayoutConfirm } from './LayoutConfirm'
+import { AppShell } from '@/components/AppShell'
 import { DoorsGroup } from './groups/DoorsGroup'
 import { WorktopGroup } from './groups/WorktopGroup'
 import { CabinetBoxesGroup } from './groups/CabinetBoxesGroup'
@@ -189,126 +190,102 @@ function Shell({
     if (p) onCurrentChange(p)
   }
 
-  return (
-    <div className="min-h-[100dvh] bg-background text-foreground">
-      {/* Mobile / narrow viewport: render preview pinned to the top so it's
-          always visible even when the desktop sidebar is hidden. */}
+  const currentOrder = BUILDER_GROUPS.find((g) => g.id === currentId)?.order ?? 0
+  const progressPercent = Math.round((currentOrder / BUILDER_GROUPS.length) * 100)
+
+  // Left nav: the builder's component-group stepper (PR2 merges this with the
+  // funnel's "Your brief" nav into one act/step rail).
+  const nav = (
+    <>
+      <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        {t('builder.shell.title')}
+      </p>
+      <ol className="flex flex-col gap-1">
+        {BUILDER_GROUPS.map((g) => {
+          const active = g.id === currentId
+          return (
+            <li key={g.id}>
+              <button
+                type="button"
+                onClick={() => onCurrentChange(g.id)}
+                className={cn(
+                  'flex w-full items-baseline gap-2 rounded-xl px-3 py-2 text-left transition-colors',
+                  active
+                    ? 'bg-primary/10 text-foreground'
+                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+                )}
+              >
+                <span className="w-5 shrink-0 text-[10px] font-mono text-muted-foreground/70">
+                  {String(g.order).padStart(2, '0')}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-medium">{tDynamic(g.labelKey, locale)}</p>
+                  {active && (
+                    <p className="text-[11px] leading-snug text-muted-foreground">{tDynamic(g.whyKey, locale)}</p>
+                  )}
+                </div>
+              </button>
+            </li>
+          )
+        })}
+      </ol>
+    </>
+  )
+
+  // Right rail: the persistent render anchor + live price range.
+  const rightRail = (
+    <div className="flex flex-col gap-5">
       {previewSrc && (
-        <div className="sticky top-0 z-30 border-b border-border/60 bg-background/85 backdrop-blur lg:hidden">
-          <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2">
-            <button
-              type="button"
-              onClick={() => setLightboxOpen(true)}
-              className="shrink-0"
-              aria-label={t('builder.shell.preview.enlarge')}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={previewSrc}
-                alt=""
-                className="h-12 w-16 rounded-md object-cover ring-1 ring-border/60"
-              />
-            </button>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[12px] font-semibold text-foreground">{t('builder.shell.title')}</p>
-              {layoutSummary && (
-                <p className="truncate text-[10.5px] text-muted-foreground">{layoutSummary}</p>
-              )}
-            </div>
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-md">
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(true)}
+            className="group relative block w-full"
+            aria-label={t('builder.shell.preview.enlarge')}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={previewSrc}
+              alt=""
+              className="aspect-[4/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+            />
+            <span className="pointer-events-none absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-background/85 px-2 py-1 text-[10px] font-semibold text-foreground opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100">
+              <Maximize2 className="size-3 stroke-[2]" aria-hidden />
+              {t('builder.shell.preview.enlarge')}
+            </span>
+          </button>
+          <div className="border-t border-border/60 bg-card/80 px-3 py-2.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
+              {t('builder.shell.title')}
+            </p>
+            {layoutSummary && (
+              <p className="mt-0.5 text-[12px] font-medium leading-snug text-foreground">{layoutSummary}</p>
+            )}
           </div>
         </div>
       )}
 
-      <div className="mx-auto flex w-full max-w-[88rem] gap-6 px-6 py-8 lg:gap-8 lg:px-10 lg:py-10">
-        {/* LEFT — sticky preview + stepper. Wider so the render is readable. */}
-        <aside className="sticky top-6 hidden h-fit w-80 shrink-0 flex-col gap-5 xl:w-96 lg:flex">
-          {/* Persistent render preview — large, sticky, with layout caption.
-              This is the user's "anchor" — they should always see what they're
-              detailing. Click to open in a full-screen lightbox. Layout is
-              established in Phase 1 and surfaced here as a read-only caption. */}
-          {previewSrc && (
-            <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-md">
-              <button
-                type="button"
-                onClick={() => setLightboxOpen(true)}
-                className="group relative block w-full"
-                aria-label={t('builder.shell.preview.enlarge')}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={previewSrc}
-                  alt=""
-                  className="aspect-[4/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-                />
-                <span className="pointer-events-none absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-background/85 px-2 py-1 text-[10px] font-semibold text-foreground opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100">
-                  <Maximize2 className="size-3 stroke-[2]" aria-hidden />
-                  {t('builder.shell.preview.enlarge')}
-                </span>
-              </button>
-              <div className="border-t border-border/60 bg-card/80 px-3 py-2.5">
-                <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-                  {t('builder.shell.title')}
-                </p>
-                {layoutSummary && (
-                  <p className="mt-0.5 text-[12px] font-medium leading-snug text-foreground">{layoutSummary}</p>
-                )}
-              </div>
-            </div>
-          )}
+      <RenderCarousel
+        state={state}
+        originalImageDataUrl={renderImageDataUrl}
+        anchorPhotoDataUrl={anchorPhotoDataUrl}
+        onSetActive={(id) => dispatch({ type: 'set_active_render', id })}
+      />
 
-          <RenderCarousel
-            state={state}
-            originalImageDataUrl={renderImageDataUrl}
-            anchorPhotoDataUrl={anchorPhotoDataUrl}
-            onSetActive={(id) => dispatch({ type: 'set_active_render', id })}
-          />
+      <RerenderPanel
+        state={state}
+        anchorPhotoDataUrl={anchorPhotoDataUrl}
+        currentRenderDataUrl={previewSrc ?? undefined}
+        onRendered={(imageDataUrl, trigger) => dispatch({ type: 'push_rerender', imageDataUrl, trigger })}
+      />
 
-          <RerenderPanel
-            state={state}
-            anchorPhotoDataUrl={anchorPhotoDataUrl}
-            currentRenderDataUrl={previewSrc ?? undefined}
-            onRendered={(imageDataUrl, trigger) =>
-              dispatch({ type: 'push_rerender', imageDataUrl, trigger })
-            }
-          />
+      <LiveBOMPanel state={state} />
+    </div>
+  )
 
-          <ol className="flex flex-col gap-1">
-            {BUILDER_GROUPS.map((g) => {
-              const active = g.id === currentId
-              return (
-                <li key={g.id}>
-                  <button
-                    type="button"
-                    onClick={() => onCurrentChange(g.id)}
-                    className={cn(
-                      'flex w-full items-baseline gap-2 rounded-xl px-3 py-2 text-left transition-colors',
-                      active
-                        ? 'bg-primary/10 text-foreground'
-                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                    )}
-                  >
-                    <span className="w-5 shrink-0 text-[10px] font-mono text-muted-foreground/70">
-                      {String(g.order).padStart(2, '0')}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium">
-                        {tDynamic(g.labelKey, locale)}
-                      </p>
-                      {active && (
-                        <p className="text-[11px] leading-snug text-muted-foreground">
-                          {tDynamic(g.whyKey, locale)}
-                        </p>
-                      )}
-                    </div>
-                  </button>
-                </li>
-              )
-            })}
-          </ol>
-        </aside>
-
-        {/* MIDDLE — current group body */}
-        <main className="min-w-0 flex-1">
+  return (
+    <>
+      <AppShell progressPercent={progressPercent} nav={nav} rightRail={rightRail}>
           <AnimatePresence mode="wait">
             <motion.section
               key={currentId}
@@ -394,11 +371,7 @@ function Shell({
               <FooterNav currentId={currentId} onBack={goBack} onNext={goNext} />
             </motion.section>
           </AnimatePresence>
-        </main>
-
-        {/* RIGHT — live BOM */}
-        <LiveBOMPanel state={state} />
-      </div>
+      </AppShell>
 
       {/* Click-to-enlarge lightbox over the render preview. */}
       <AnimatePresence>
@@ -443,7 +416,7 @@ function Shell({
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </>
   )
 }
 
