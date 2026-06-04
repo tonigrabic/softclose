@@ -78,19 +78,59 @@ export function BuilderShell({
 
   return (
     <LocaleProvider locale={locale}>
-      <Shell
-        state={state}
-        dispatch={dispatch}
-        layoutContract={layoutContract}
-        currentId={currentId}
-        onCurrentChange={setCurrentId}
-        hypothesis={hypothesis}
-        renderImageDataUrl={renderImageDataUrl}
-        anchorPhotoDataUrl={anchorPhotoDataUrl}
-        layoutSummary={layoutSummary}
-        onComplete={onComplete}
-      />
+      {!state.layoutConfirmed ? (
+        // "What we counted" — the close of capture. A calm, full-width screen
+        // confirming the frozen contract BEFORE any builder chrome appears.
+        <ConfirmScreen
+          contract={layoutContract}
+          state={state}
+          previewSrc={renderImageDataUrl ?? anchorPhotoDataUrl}
+          onConfirm={() => dispatch({ type: 'confirm_layout' })}
+        />
+      ) : (
+        <Shell
+          state={state}
+          dispatch={dispatch}
+          layoutContract={layoutContract}
+          currentId={currentId}
+          onCurrentChange={setCurrentId}
+          hypothesis={hypothesis}
+          renderImageDataUrl={renderImageDataUrl}
+          anchorPhotoDataUrl={anchorPhotoDataUrl}
+          layoutSummary={layoutSummary}
+          onComplete={onComplete}
+        />
+      )}
     </LocaleProvider>
+  )
+}
+
+/** The end-of-capture confirmation — its own screen, no builder chrome. */
+function ConfirmScreen({
+  contract,
+  state,
+  previewSrc,
+  onConfirm,
+}: {
+  contract: LayoutContract
+  state: BuilderState
+  previewSrc?: string
+  onConfirm: () => void
+}) {
+  return (
+    <div className="min-h-[100dvh] bg-background text-foreground">
+      <div className="mx-auto w-full max-w-2xl px-6 py-12 lg:py-16">
+        {previewSrc && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={previewSrc}
+            alt=""
+            className="mb-6 aspect-[4/3] w-full rounded-2xl border border-border object-cover shadow-sm"
+          />
+        )}
+        <LayoutConfirm contract={contract} state={state} onConfirm={onConfirm} />
+      </div>
+    </div>
   )
 }
 
@@ -270,21 +310,6 @@ function Shell({
         {/* MIDDLE — current group body */}
         <main className="min-w-0 flex-1">
           <AnimatePresence mode="wait">
-            {!state.layoutConfirmed ? (
-              <motion.section
-                key="layout-confirm"
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
-              >
-                <LayoutConfirm
-                  contract={layoutContract}
-                  state={state}
-                  onConfirm={() => dispatch({ type: 'confirm_layout' })}
-                />
-              </motion.section>
-            ) : (
             <motion.section
               key={currentId}
               initial={{ opacity: 0, y: 14 }}
@@ -368,7 +393,6 @@ function Shell({
 
               <FooterNav currentId={currentId} onBack={goBack} onNext={goNext} />
             </motion.section>
-            )}
           </AnimatePresence>
         </main>
 

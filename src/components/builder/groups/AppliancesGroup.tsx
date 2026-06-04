@@ -260,26 +260,27 @@ function ApplianceBrowsePanel({
   state: BuilderState
   onPatch: (patch: Partial<BuilderState['appliances']>) => void
 }) {
-  const types: { type: 'hob' | 'oven' | 'extractor' | 'fridge' | 'dishwasher' | 'microwave'; label: string }[] = [
-    { type: 'hob', label: 'Hobs' },
-    { type: 'oven', label: 'Ovens' },
-    { type: 'extractor', label: 'Extractors' },
-    { type: 'fridge', label: 'Fridges' },
-    { type: 'dishwasher', label: 'Dishwashers' },
-  ]
+  const { t } = useTranslations()
+  const types = [
+    { type: 'hob', labelKey: 'appliances.hobLabel' },
+    { type: 'oven', labelKey: 'appliances.ovenLabel' },
+    { type: 'extractor', labelKey: 'appliances.extractorLabel' },
+    { type: 'fridge', labelKey: 'appliances.fridgeLabel' },
+    { type: 'dishwasher', labelKey: 'appliances.dishwasherLabel' },
+  ] as const
 
   return (
     <div className="space-y-4 rounded-2xl border border-dashed border-border/60 bg-card/30 px-4 py-4">
       <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Browse Schachermayer (HR)
+        {t('builder.browse.title')}
       </p>
-      {types.map(({ type, label }) => {
+      {types.map(({ type, labelKey }) => {
         const products = appliancesForType(type)
         if (products.length === 0) return null
         const selected = state.appliances.selections.find((s) => s.type === type)
         return (
           <div key={type} className="space-y-2">
-            <p className="text-[12px] font-medium text-foreground">{label}</p>
+            <p className="text-[12px] font-medium text-foreground">{t(labelKey)}</p>
             {selected?.pickedName && (
               <PickedChip
                 brand={selected.pickedBrand}
