@@ -1,26 +1,19 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Plus, Wand2, X, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from '@/lib/i18n'
 import { PickerSlot } from '../PickerSlot'
 import { ChipRow } from '../ChipRow'
 import {
-  allowedWidths,
-  newCabinetId,
   suggestCabinetsForRun,
   totalBaseWidthMm,
   totalWallWidthMm,
   unitsForRun,
   unitsForRunByType,
 } from '@/lib/builder/cabinet-suggest'
-import {
-  PATTERN_SPECS,
-  defaultPatternForType,
-  patternsForType,
-  unitIsCorner,
-} from '@/lib/builder/cabinet-patterns'
+import { PATTERN_SPECS, unitIsCorner } from '@/lib/builder/cabinet-patterns'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
 import type {
@@ -28,7 +21,6 @@ import type {
   CabinetPattern,
   CabinetUnit,
   CarcassMaterial,
-  CornerSolution,
 } from '@/lib/builder/inventory'
 
 const CARCASS_OPTIONS = [
@@ -38,13 +30,18 @@ const CARCASS_OPTIONS = [
   'matched_to_door',
 ] as const satisfies readonly CarcassMaterial[]
 
-const CORNER_OPTIONS = [
-  'magic_corner',
-  'lazy_susan',
-  'diagonal_corner',
-  'dead_corner',
-  'none',
-] as const satisfies readonly CornerSolution[]
+// Phase 2 lets the homeowner choose drawers vs doors on a normal base cabinet —
+// not add/remove/resize (the maker owns the cabinet layout). Corner patterns are
+// excluded here; corners are edited in the dedicated corner section.
+const DRAWERS_VS_DOORS = [
+  'doors_shelf',
+  'drawer_bank',
+  'drawer_door_combo',
+  'pullouts_inside_doors',
+] as const satisfies readonly CabinetPattern[]
+
+// Corner mechanisms — each carries its own accessory cost in PATTERN_SPECS.
+const CORNER_PATTERNS = ['corner_magic', 'corner_lazy'] as const satisfies readonly CabinetPattern[]
 
 interface CabinetBoxesGroupProps {
   state: BuilderState
@@ -62,11 +59,17 @@ interface CabinetBoxesGroupProps {
 export function CabinetBoxesGroup({ state, hypothesis, layoutContract, onPatch }: CabinetBoxesGroupProps) {
   const { t } = useTranslations()
   const runs = state.layout.runs
+  // Corner section only exists when the contract actually has corners — never an
+  // override that would change the Part-1 layout.
+  const hasCorners = runs.some((r) => r.hasCorner)
   const sections = useMemo(
-    () => [...runs.map((r) => ({ id: r.id, label: r.label })), { id: '__corner', label: t('cabinetBoxes.cornerSection') }],
-    [runs, t]
+    () => [
+      ...runs.map((r) => ({ id: r.id, label: r.label })),
+      ...(hasCorners ? [{ id: '__corner', label: t('cabinetBoxes.cornerSection') }] : []),
+    ],
+    [runs, t, hasCorners]
   )
-  const [activeSectionId, setActiveSectionId] = useState<string>(sections[0]?.id ?? '__corner')
+  const [activeSectionId, setActiveSectionId] = useState<string>(runs[0]?.id ?? '__corner')
 
   // Auto-suggest cabinets the first time the user enters this step. Only fires
   // when state.cabinetBoxes.units is empty so a returning user keeps their work.
@@ -120,39 +123,6 @@ export function CabinetBoxesGroup({ state, hypothesis, layoutContract, onPatch }
       units: state.cabinetBoxes.units.map((u) => (u.id === id ? { ...u, ...patch } : u)),
     })
   }
-  function removeUnit(id: string) {
-    onPatch({ units: state.cabinetBoxes.units.filter((u) => u.id !== id) })
-  }
-  function addUnit(runId: string, type: CabinetUnit['type']) {
-    const run = runs.find((r) => r.id === runId)
-    if (!run) return
-    const heightMm = type === 'tall' ? 2200 : type === 'wall' ? 720 : 720
-    const depthMm = type === 'wall' ? 330 : 600
-    onPatch({
-      units: [
-        ...state.cabinetBoxes.units,
-        {
-          id: newCabinetId(),
-          type,
-          widthMm: 600,
-          heightMm,
-          depthMm,
-          runId,
-          positionPctAlongRun: 100,
-          pattern: defaultPatternForType(type),
-        },
-      ],
-    })
-  }
-  function autoFillRun(runId: string) {
-    const run = runs.find((r) => r.id === runId)
-    if (!run) return
-    const others = state.cabinetBoxes.units.filter((u) => u.runId !== runId)
-    const seeded = suggestCabinetsForRun(run, {
-      hasCorner: run.hasCorner ?? (runs.findIndex((r) => r.id === runId) === 0 && runs.length > 1),
-    })
-    onPatch({ units: [...others, ...seeded] })
-  }
 
   return (
     <div className="space-y-5">
@@ -182,16 +152,9 @@ export function CabinetBoxesGroup({ state, hypothesis, layoutContract, onPatch }
       </div>
 
       {activeSectionId === '__corner' ? (
-        <CornerSection state={state} onPatch={onPatch} />
+        <CornerSection state={state} onUpdate={updateUnit} />
       ) : (
-        <RunSection
-          state={state}
-          runId={activeSectionId}
-          onAdd={addUnit}
-          onUpdate={updateUnit}
-          onRemove={removeUnit}
-          onAutoFill={autoFillRun}
-        />
+        <RunSection state={state} runId={activeSectionId} onUpdate={updateUnit} />
       )}
 
       <PickerSlot label={t('cabinetBoxes.carcassLabel')} meta={state.cabinetBoxes.meta.carcassMaterial}>
@@ -219,17 +182,11 @@ export function CabinetBoxesGroup({ state, hypothesis, layoutContract, onPatch }
 function RunSection({
   state,
   runId,
-  onAdd,
   onUpdate,
-  onRemove,
-  onAutoFill,
 }: {
   state: BuilderState
   runId: string
-  onAdd: (runId: string, type: CabinetUnit['type']) => void
   onUpdate: (id: string, patch: Partial<CabinetUnit>) => void
-  onRemove: (id: string) => void
-  onAutoFill: (runId: string) => void
 }) {
   const { t } = useTranslations()
   const run = state.layout.runs.find((r) => r.id === runId)
@@ -245,51 +202,26 @@ function RunSection({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[12px] text-muted-foreground">
-          {t('cabinetBoxes.runLabel')}: <span className="font-semibold text-foreground">{run.label}</span> ·{' '}
-          <span className="tabular-nums">{run.lengthCm} cm</span>
-        </p>
-        <button
-          type="button"
-          onClick={() => onAutoFill(runId)}
-          className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-3 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-        >
-          <Wand2 className="size-3 stroke-[2]" aria-hidden /> {t('cabinetBoxes.autoSuggest')}
-        </button>
-      </div>
+      <p className="text-[12px] text-muted-foreground">
+        {t('cabinetBoxes.runLabel')}: <span className="font-semibold text-foreground">{run.label}</span> ·{' '}
+        <span className="tabular-nums">{run.lengthCm} cm</span>
+      </p>
 
       {run.hasBase && (
-        <CabinetRow
-          label={t('cabinetBoxes.baseRow')}
-          rowMm={baseMm}
-          totalMm={totalMm}
-          units={baseUnits}
-          onAdd={() => onAdd(runId, 'base')}
-          onUpdate={onUpdate}
-          onRemove={onRemove}
-        />
+        <CabinetRow label={t('cabinetBoxes.baseRow')} rowMm={baseMm} totalMm={totalMm} units={baseUnits} onUpdate={onUpdate} />
       )}
       {run.hasWall && (
+        <CabinetRow label={t('cabinetBoxes.wallRow')} rowMm={wallMm} totalMm={totalMm} units={wallUnits} onUpdate={onUpdate} />
+      )}
+      {tallUnits.length > 0 && (
         <CabinetRow
-          label={t('cabinetBoxes.wallRow')}
-          rowMm={wallMm}
+          label={t('cabinetBoxes.tallRow')}
+          rowMm={tallUnits.reduce((s, u) => s + u.widthMm, 0)}
           totalMm={totalMm}
-          units={wallUnits}
-          onAdd={() => onAdd(runId, 'wall')}
+          units={tallUnits}
           onUpdate={onUpdate}
-          onRemove={onRemove}
         />
       )}
-      <CabinetRow
-        label={t('cabinetBoxes.tallRow')}
-        rowMm={tallUnits.reduce((s, u) => s + u.widthMm, 0)}
-        totalMm={totalMm}
-        units={tallUnits}
-        onAdd={() => onAdd(runId, 'tall')}
-        onUpdate={onUpdate}
-        onRemove={onRemove}
-      />
     </div>
   )
 }
@@ -299,39 +231,24 @@ function CabinetRow({
   rowMm,
   totalMm,
   units,
-  onAdd,
   onUpdate,
-  onRemove,
 }: {
   label: string
   rowMm: number
   totalMm: number
   units: CabinetUnit[]
-  onAdd: () => void
   onUpdate: (id: string, patch: Partial<CabinetUnit>) => void
-  onRemove: (id: string) => void
 }) {
-  const { t } = useTranslations()
-  const widths = allowedWidths()
+  const { t, tDynamic } = useTranslations()
   const fitPct = totalMm > 0 ? Math.min(100, (rowMm / totalMm) * 100) : 0
   const overflow = rowMm > totalMm
   const remainingMm = Math.max(0, totalMm - rowMm)
 
   return (
     <section className="space-y-2 rounded-2xl border border-border bg-card/40 px-4 py-3">
-      <header className="flex items-center justify-between gap-2">
-        <h3 className="text-[12px] font-semibold text-foreground">{label}</h3>
-        <button
-          type="button"
-          onClick={onAdd}
-          className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-semibold text-primary hover:bg-primary/20"
-        >
-          <Plus className="size-3 stroke-[2]" aria-hidden />
-          {t('cabinetBoxes.addUnit')}
-        </button>
-      </header>
+      <h3 className="text-[12px] font-semibold text-foreground">{label}</h3>
 
-      {/* Fitting bar: fitted vs available. Red when over. */}
+      {/* Fitting bar — read-only; the maker owns the cabinet layout. */}
       <div className="space-y-1">
         <div className="relative h-2 overflow-hidden rounded-full bg-muted">
           <div
@@ -354,50 +271,42 @@ function CabinetRow({
         </p>
       </div>
 
-      {/* Units list */}
+      {/* Units — width is fixed (maker's job); only drawers-vs-doors is editable
+          on a normal base cabinet. Corner and sink units are read-only here. */}
       <ul className="space-y-1.5">
-        {units.map((u, i) => (
-          <li
-            key={u.id}
-            className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-background px-2.5 py-1.5"
-          >
-            <span className="min-w-[1.5rem] text-[10px] font-mono text-muted-foreground/70">{i + 1}</span>
-            <select
-              value={u.widthMm}
-              onChange={(e) =>
-                onUpdate(u.id, { widthMm: Number(e.target.value) as CabinetUnit['widthMm'] })
-              }
-              className="rounded-md border border-border bg-card px-2 py-1 text-[12px] tabular-nums focus:border-primary/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
+        {units.map((u, i) => {
+          const isCorner = unitIsCorner(u)
+          const isSink = u.pattern === 'sink_unit'
+          const editable = u.type === 'base' && !isCorner && !isSink
+          return (
+            <li
+              key={u.id}
+              className="flex flex-wrap items-center gap-2 rounded-xl border border-border bg-background px-2.5 py-1.5"
             >
-              {widths.map((w) => (
-                <option key={w} value={w}>
-                  {w} mm
-                </option>
-              ))}
-            </select>
-            <PatternPicker
-              type={u.type}
-              pattern={u.pattern}
-              onChange={(p) => onUpdate(u.id, { pattern: p })}
-            />
-            {unitIsCorner(u) && (
-              <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
-                {t('cabinetBoxes.cornerBadge')}
+              <span className="min-w-[1.5rem] text-[10px] font-mono text-muted-foreground/70">{i + 1}</span>
+              <span className="rounded-md border border-border bg-card px-2 py-1 text-[12px] tabular-nums text-muted-foreground">
+                {u.widthMm} mm
               </span>
-            )}
-            <button
-              type="button"
-              onClick={() => onRemove(u.id)}
-              className="ml-auto inline-flex items-center justify-center rounded-full p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-              aria-label={t('cabinetBoxes.removeUnit')}
-            >
-              <X className="size-3 stroke-[2]" aria-hidden />
-            </button>
-          </li>
-        ))}
-        {units.length === 0 && (
-          <li className="text-[11px] text-muted-foreground/70">— ništa još —</li>
-        )}
+              {editable ? (
+                <PatternPicker
+                  pattern={u.pattern}
+                  options={DRAWERS_VS_DOORS}
+                  onChange={(p) => onUpdate(u.id, { pattern: p })}
+                />
+              ) : (
+                <span className="text-[12px] text-muted-foreground">
+                  {tDynamic(PATTERN_SPECS[u.pattern].labelKey)}
+                </span>
+              )}
+              {isCorner && (
+                <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-300">
+                  {t('cabinetBoxes.cornerBadge')}
+                </span>
+              )}
+            </li>
+          )
+        })}
+        {units.length === 0 && <li className="text-[11px] text-muted-foreground/70">—</li>}
       </ul>
     </section>
   )
@@ -407,36 +316,37 @@ function CabinetRow({
 
 function CornerSection({
   state,
-  onPatch,
+  onUpdate,
 }: {
   state: BuilderState
-  onPatch: (patch: Partial<BuilderState['cabinetBoxes']>) => void
+  onUpdate: (id: string, patch: Partial<CabinetUnit>) => void
 }) {
   const { t } = useTranslations()
-  const cornerCount = state.cabinetBoxes.units.filter((u) => unitIsCorner(u)).length
+  // One subsection per corner the contract gave us (U-shape → two). Each edits
+  // its own corner unit's mechanism, which drives that corner's accessory cost.
+  const cornerRuns = state.layout.runs.filter((r) => r.hasCorner)
   return (
-    <div className="space-y-3 rounded-2xl border border-border bg-card/40 px-4 py-4">
-      <p className="text-[11px] text-muted-foreground">
-        {cornerCount > 0
-          ? `${cornerCount} kutni element${cornerCount === 1 ? '' : 'a'} dodijeljen.`
-          : 'Bez kutnog elementa.'}
-      </p>
-      <PickerSlot label={t('cabinetBoxes.cornerLabel')} meta={state.cabinetBoxes.meta.cornerSolution}>
-        <ChipRow
-          keyPrefix="cabinetBoxes.corner"
-          values={CORNER_OPTIONS}
-          selected={state.cabinetBoxes.cornerSolution}
-          onChange={(v) =>
-            onPatch({
-              cornerSolution: v,
-              meta: {
-                ...state.cabinetBoxes.meta,
-                cornerSolution: { confidence: 'H', provenance: 'homeowner-edited' },
-              },
-            })
-          }
-        />
-      </PickerSlot>
+    <div className="space-y-3">
+      {cornerRuns.map((run) => {
+        const cornerUnit = state.cabinetBoxes.units.find((u) => u.runId === run.id && unitIsCorner(u))
+        return (
+          <div key={run.id} className="space-y-2 rounded-2xl border border-border bg-card/40 px-4 py-4">
+            <p className="text-[12px] text-muted-foreground">
+              {t('cabinetBoxes.cornerLabel')} · <span className="font-semibold text-foreground">{run.label}</span>
+            </p>
+            {cornerUnit ? (
+              <ChipRow
+                keyPrefix="builder.cabinetBoxes.pattern"
+                values={CORNER_PATTERNS as readonly CabinetPattern[]}
+                selected={cornerUnit.pattern}
+                onChange={(p) => onUpdate(cornerUnit.id, { pattern: p })}
+              />
+            ) : (
+              <p className="text-[11px] text-muted-foreground/70">—</p>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }
@@ -444,18 +354,17 @@ function CornerSection({
 /* ───────────── PatternPicker ───────────── */
 
 function PatternPicker({
-  type,
   pattern,
+  options,
   onChange,
 }: {
-  type: CabinetUnit['type']
   pattern: CabinetPattern
+  options: readonly CabinetPattern[]
   onChange: (p: CabinetPattern) => void
 }) {
   const { tDynamic } = useTranslations()
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
-  const options = patternsForType(type)
   const spec = PATTERN_SPECS[pattern]
 
   useEffect(() => {

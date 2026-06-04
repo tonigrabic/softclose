@@ -117,9 +117,13 @@ export interface CabinetUnit {
 
 export interface CabinetBoxesGroup {
   carcassMaterial: CarcassMaterial
-  cornerSolution: CornerSolution
+  /**
+   * Corners are modelled ONCE — as the corner cabinet unit's pattern
+   * (corner_magic / corner_lazy), edited in the dedicated per-corner section and
+   * priced via PATTERN_SPECS. There is no separate cornerSolution field.
+   */
   units: CabinetUnit[]
-  meta: { carcassMaterial: FieldMeta; cornerSolution: FieldMeta }
+  meta: { carcassMaterial: FieldMeta }
 }
 
 /* ─────────────────────────── 3. Doors & fronts ─────────────────────────── */

@@ -16,7 +16,6 @@ import type {
   ApplianceSelection,
   BuilderGroupId,
   BuilderState,
-  CornerSolution,
   DoorStyle,
   FieldMeta,
   Provenance,
@@ -100,13 +99,11 @@ export function hydrateFromHypothesis(
 
     cabinetBoxes: {
       carcassMaterial: hypothesis?.cabinetBoxes?.carcassMaterial?.value ?? 'white_melamine_standard',
-      // Corner solution follows the contract: none when the layout has no inner
-      // corner (galley / single wall / island), otherwise a sensible default.
-      cornerSolution: (contract.corners.length === 0 ? 'none' : 'magic_corner') as CornerSolution,
+      // Corners are modelled as the corner unit's pattern (seeded by
+      // suggestCabinetsForRun on hasCorner runs), edited in the corner section.
       units: [],
       meta: {
         carcassMaterial: metaFromHint(hypothesis?.cabinetBoxes?.carcassMaterial),
-        cornerSolution: metaFromHint(hypothesis?.cabinetBoxes?.cornerSolution),
       },
     },
 
