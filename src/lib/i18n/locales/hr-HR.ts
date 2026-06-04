@@ -39,6 +39,10 @@ export const hrHR = {
   'appliances.included': 'Uključeno',
   'appliances.notIncluded': 'Nije u ovoj kuhinji',
   'appliances.fromLayout': 'Iz tlocrta',
+  'journey.brief': 'Vaš sažetak',
+  'journey.act.space': 'Vaš prostor',
+  'journey.act.build': 'Gradnja',
+  'journey.act.offer': 'Vaša ponuda',
 
   // Layout-counts confirmation gate
   'builder.confirm.eyebrow': 'Prije nego krenemo',

@@ -20,6 +20,7 @@ import { RerenderPanel } from './RerenderPanel'
 import { RenderCarousel } from './RenderCarousel'
 import { FactsRecap } from './FactsRecap'
 import { LayoutConfirm } from './LayoutConfirm'
+import { BuilderNavRail } from './BuilderNavRail'
 import { AppShell } from '@/components/AppShell'
 import { DoorsGroup } from './groups/DoorsGroup'
 import { WorktopGroup } from './groups/WorktopGroup'
@@ -193,44 +194,8 @@ function Shell({
   const currentOrder = BUILDER_GROUPS.find((g) => g.id === currentId)?.order ?? 0
   const progressPercent = Math.round((currentOrder / BUILDER_GROUPS.length) * 100)
 
-  // Left nav: the builder's component-group stepper (PR2 merges this with the
-  // funnel's "Your brief" nav into one act/step rail).
-  const nav = (
-    <>
-      <p className="mb-4 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        {t('builder.shell.title')}
-      </p>
-      <ol className="flex flex-col gap-1">
-        {BUILDER_GROUPS.map((g) => {
-          const active = g.id === currentId
-          return (
-            <li key={g.id}>
-              <button
-                type="button"
-                onClick={() => onCurrentChange(g.id)}
-                className={cn(
-                  'flex w-full items-baseline gap-2 rounded-xl px-3 py-2 text-left transition-colors',
-                  active
-                    ? 'bg-primary/10 text-foreground'
-                    : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-                )}
-              >
-                <span className="w-5 shrink-0 text-[10px] font-mono text-muted-foreground/70">
-                  {String(g.order).padStart(2, '0')}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium">{tDynamic(g.labelKey, locale)}</p>
-                  {active && (
-                    <p className="text-[11px] leading-snug text-muted-foreground">{tDynamic(g.whyKey, locale)}</p>
-                  )}
-                </div>
-              </button>
-            </li>
-          )
-        })}
-      </ol>
-    </>
-  )
+  // Left nav: the design's two-level "Your brief" act/step rail.
+  const nav = <BuilderNavRail currentId={currentId} onNavigate={onCurrentChange} />
 
   // Right rail: the persistent render anchor + live price range.
   const rightRail = (

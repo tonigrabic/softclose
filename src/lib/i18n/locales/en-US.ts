@@ -39,6 +39,10 @@ export const enUS: Record<TranslationKey, string> = {
   'appliances.included': 'Included',
   'appliances.notIncluded': 'Not in this kitchen',
   'appliances.fromLayout': 'From your layout',
+  'journey.brief': 'Your brief',
+  'journey.act.space': 'Your space',
+  'journey.act.build': 'Build it',
+  'journey.act.offer': 'Your offer',
 
   // Layout-counts confirmation gate
   'builder.confirm.eyebrow': 'Before we begin',
