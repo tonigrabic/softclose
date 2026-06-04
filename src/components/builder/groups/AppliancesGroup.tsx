@@ -340,9 +340,10 @@ function PickedChip({
   name: string
   onClear: () => void
 }) {
+  const { t } = useTranslations()
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-[11px]">
-      <span className="font-semibold text-foreground">Picked:</span>
+      <span className="font-semibold text-foreground">{t('builder.browse.picked')}</span>
       <span className="text-foreground">
         {brand ? `${brand} ` : ''}
         {name}
@@ -351,7 +352,7 @@ function PickedChip({
         type="button"
         onClick={onClear}
         className="ml-1 rounded-full p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-        aria-label="Clear pick"
+        aria-label={t('builder.browse.clearPick')}
       >
         <X className="size-3 stroke-[2.5]" aria-hidden />
       </button>

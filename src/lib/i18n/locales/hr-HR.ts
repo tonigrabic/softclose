@@ -28,6 +28,15 @@ export const hrHR = {
   'builder.shell.renders.viewing': 'Pregledavaš drugi render — postavi ga kao trenutni da se izmjene odnose na njega.',
   'builder.shell.factsRecap.title': 'AI je već vidio',
 
+  // Product browse panels (Schachermayer)
+  'builder.browse.title': 'Pregled Schachermayer (HR)',
+  'builder.browse.drawers': 'Sustavi ladica',
+  'builder.browse.hinges': 'Šarke',
+  'builder.browse.sinks': 'Sudoperi',
+  'builder.browse.taps': 'Slavine',
+  'builder.browse.picked': 'Odabrano:',
+  'builder.browse.clearPick': 'Ukloni odabir',
+
   // Layout-counts confirmation gate
   'builder.confirm.eyebrow': 'Prije nego krenemo',
   'builder.confirm.title': 'Provjeri što smo izmjerili',

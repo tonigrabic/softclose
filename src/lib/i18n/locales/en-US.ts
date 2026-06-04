@@ -28,6 +28,15 @@ export const enUS: Record<TranslationKey, string> = {
   'builder.shell.renders.viewing': "Previewing a different render — set it as current to anchor your changes against it.",
   'builder.shell.factsRecap.title': 'AI already saw',
 
+  // Product browse panels (Schachermayer)
+  'builder.browse.title': 'Browse Schachermayer (HR)',
+  'builder.browse.drawers': 'Drawer systems',
+  'builder.browse.hinges': 'Hinges',
+  'builder.browse.sinks': 'Sinks',
+  'builder.browse.taps': 'Taps',
+  'builder.browse.picked': 'Picked:',
+  'builder.browse.clearPick': 'Clear pick',
+
   // Layout-counts confirmation gate
   'builder.confirm.eyebrow': 'Before we begin',
   'builder.confirm.title': 'Check what we counted',

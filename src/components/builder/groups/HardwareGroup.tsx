@@ -123,6 +123,7 @@ function HardwareBrowsePanel({
   state: BuilderState
   onPatch: (patch: Partial<BuilderState['hardware']>) => void
 }) {
+  const { t } = useTranslations()
   const drawers = searchSchachermayer('hardware', {
     anyKeyword: ['ladic', 'tandem', 'legrabox', 'movento', 'nova pro'],
   })
@@ -132,11 +133,11 @@ function HardwareBrowsePanel({
   return (
     <div className="space-y-4 rounded-2xl border border-dashed border-border/60 bg-card/30 px-4 py-4">
       <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        Browse Schachermayer (HR)
+        {t('builder.browse.title')}
       </p>
       {drawers.length > 0 && (
         <div className="space-y-2">
-          <p className="text-[12px] font-medium text-foreground">Drawer systems</p>
+          <p className="text-[12px] font-medium text-foreground">{t('builder.browse.drawers')}</p>
           {state.hardware.drawerSystemPickedName && (
             <PickedChip
               brand={state.hardware.drawerSystemPickedBrand}
@@ -175,7 +176,7 @@ function HardwareBrowsePanel({
       )}
       {hinges.length > 0 && (
         <div className="space-y-2">
-          <p className="text-[12px] font-medium text-foreground">Hinges</p>
+          <p className="text-[12px] font-medium text-foreground">{t('builder.browse.hinges')}</p>
           <SchachermayerBrowse products={hinges} initialLimit={6} />
         </div>
       )}
@@ -192,9 +193,10 @@ function PickedChip({
   name: string
   onClear: () => void
 }) {
+  const { t } = useTranslations()
   return (
     <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-3 py-1 text-[11px]">
-      <span className="font-semibold text-foreground">Picked:</span>
+      <span className="font-semibold text-foreground">{t('builder.browse.picked')}</span>
       <span className="text-foreground">
         {brand ? `${brand} ` : ''}
         {name}
@@ -203,7 +205,7 @@ function PickedChip({
         type="button"
         onClick={onClear}
         className="ml-1 rounded-full p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-        aria-label="Clear pick"
+        aria-label={t('builder.browse.clearPick')}
       >
         <X className="size-3 stroke-[2.5]" aria-hidden />
       </button>
