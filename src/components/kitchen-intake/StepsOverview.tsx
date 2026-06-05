@@ -102,7 +102,7 @@ const GROUP_LABELS: Record<FlowStepMeta['group'], string> = {
   finish: 'Finish',
 }
 
-function readbackFor(stepId: FlowStepId, p: LeadProfile): string | null {
+export function readbackFor(stepId: FlowStepId, p: LeadProfile): string | null {
   switch (stepId) {
     case 'space_photos': {
       const n = p.spacePhotos?.length ?? 0
