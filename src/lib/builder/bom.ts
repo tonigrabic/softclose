@@ -415,8 +415,22 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     for (const sel of state.appliances.selections) {
       const p = APPLIANCE_PRICE[sel.type]
       if (!p) continue
-      apLow += p.low
-      apHigh += p.high
+      // Specifying an appliance narrows its band: pinning a model (SKU) is
+      // tightest; choosing a class (induction / double oven / …) is narrower
+      // than the fully-unspecified default. So picking concrete appliances
+      // *improves* the estimate instead of only adding uncertainty.
+      const mid = (p.low + p.high) / 2
+      let lo = p.low
+      let hi = p.high
+      if (sel.pickedSku) {
+        lo = mid * 0.92
+        hi = mid * 1.08
+      } else if (sel.config && sel.config !== 'unknown' && sel.config !== 'standard') {
+        lo = mid - (mid - p.low) * 0.55
+        hi = mid + (p.high - mid) * 0.55
+      }
+      apLow += lo
+      apHigh += hi
       const picked = sel.pickedBrand && sel.pickedName ? `${sel.pickedBrand} ${sel.pickedName}` : null
       detailNames.push(picked ? `${applName(sel.type)}: ${picked}` : applName(sel.type))
     }
