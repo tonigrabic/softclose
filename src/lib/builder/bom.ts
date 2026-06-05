@@ -23,13 +23,15 @@ export interface BomLineItem {
     | 'worktop'
     | 'backsplash'
     | 'edgeBanding'
-    | 'services'
+    | 'cnc'
     | 'hardware'
     | 'accessories'
     | 'appliances'
     | 'sinkTaps'
     | 'lighting'
-    | 'installLabour'
+    | 'design'
+    | 'assembly'
+    | 'install'
   /** Plain-language explanation suitable for the side panel + maker handoff. */
   detail: string
   /** Quantity + unit (e.g. "8.4 m²", "12 doors"). */
@@ -105,9 +107,23 @@ const HARDWARE_TIER_RRP: Record<
   DrawerSystemTier,
   { perBaseUnit: { low: number; high: number }; perDrawer: { low: number; high: number } }
 > = {
-  budget: { perBaseUnit: { low: 35, high: 60 }, perDrawer: { low: 18, high: 30 } },
-  mid: { perBaseUnit: { low: 70, high: 130 }, perDrawer: { low: 40, high: 75 } }, // Grass Nova Pro
-  premium: { perBaseUnit: { low: 140, high: 240 }, perDrawer: { low: 90, high: 160 } }, // Blum Legrabox
+  budget: { perBaseUnit: { low: 40, high: 55 }, perDrawer: { low: 20, high: 28 } },
+  mid: { perBaseUnit: { low: 80, high: 120 }, perDrawer: { low: 45, high: 70 } }, // Grass Nova Pro
+  premium: { perBaseUnit: { low: 150, high: 220 }, perDrawer: { low: 95, high: 150 } }, // Blum Legrabox
+}
+
+/**
+ * Manual-work rates from the maker's real cost sheet (EUR). Each labour line is
+ * driven by a concrete quantity — design hours, CNC positions, carcasses,
+ * install metres — not a vague % of materials, so the estimate is tight.
+ */
+const LABOUR_RATES = {
+  designPerHour: 30,
+  designHoursPerCarcass: 0.8,
+  cncPerPosition: 1,
+  positionsPerCarcass: 8,
+  assemblyPerCarcass: 15,
+  installPerMetre: 75,
 }
 
 /* ───────────────────────── Main calculator ───────────────────────── */
@@ -237,16 +253,32 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     high: round(edgeHigh),
   })
 
-  // Cutting service: linear m of cuts ~ 4 m per m² of board.
-  const cutM = totalBoardM2 * 4
-  const cutPerM = services.cutting.iverica10_18mm_pricePerM ?? 0.78
-  const cutLow = cutM * cutPerM + state.worktop.totalLengthM * (services.cutting.worktop38mm_pricePerM ?? 5.36)
+  /* Labour drivers — kitchen length + element counts (the maker's real rates). */
+  const carcassCount = usingUnitModel
+    ? units.length
+    : Math.max(
+        1,
+        Math.round(
+          state.layout.runs.reduce(
+            (s, r) => s + ((r.hasBase ? r.lengthCm : 0) + (r.hasWall ? r.lengthCm : 0)) / 60,
+            0
+          )
+        )
+      )
+  const installM = state.layout.runs.reduce(
+    (s, r) => s + ((r.hasBase ? r.lengthCm : 0) + (r.hasWall ? r.lengthCm : 0)) / 100,
+    0
+  )
+
+  // CNC machining — priced per position (~8 positions per carcass).
+  const cncPositions = Math.round(carcassCount * LABOUR_RATES.positionsPerCarcass)
+  const cncCost = cncPositions * LABOUR_RATES.cncPerPosition
   lineItems.push({
-    key: 'services',
-    detail: tr('Cutting + CNC machining', 'Rezanje + CNC obrada'),
-    quantity: `${cutM.toFixed(0)} m`,
-    low: round(cutLow * 0.9),
-    high: round(cutLow * 1.25),
+    key: 'cnc',
+    detail: tr('CNC machining', 'CNC obrada'),
+    quantity: `${cncPositions} ${tr('positions', 'pozicija')}`,
+    low: round(cncCost * 0.95),
+    high: round(cncCost * 1.1),
   })
 
   /* 5. Hardware (RRP reference) ────────────────────────────────────────── */
@@ -378,14 +410,14 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   // oven actually moves the line.
   if (state.appliances.supply !== 'homeowner_supplies' && state.appliances.selections.length > 0) {
     const APPLIANCE_PRICE: Record<string, { low: number; high: number }> = {
-      hob: { low: 250, high: 900 },
-      oven: { low: 350, high: 1500 },
-      extractor: { low: 200, high: 900 },
-      fridge: { low: 500, high: 1800 },
-      dishwasher: { low: 350, high: 1100 },
-      microwave: { low: 150, high: 600 },
-      wine_fridge: { low: 600, high: 1800 },
-      coffee: { low: 800, high: 3200 },
+      hob: { low: 300, high: 600 },
+      oven: { low: 450, high: 950 },
+      extractor: { low: 220, high: 550 },
+      fridge: { low: 600, high: 1200 },
+      dishwasher: { low: 420, high: 800 },
+      microwave: { low: 150, high: 350 },
+      wine_fridge: { low: 600, high: 1300 },
+      coffee: { low: 900, high: 2200 },
     }
     const selectedTypes = new Set<string>(state.appliances.selections.map((s) => s.type))
     let apLow = 0
@@ -437,17 +469,33 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     })
   }
 
-  /* 9. Installation labour ─────────────────────────────────────────────── */
-  // Rough multiplier on materials: 35 % low, 60 % high for Croatian bespoke.
-  const materialsTotal = lineItems.reduce((s, l) => s + l.high, 0)
-  const labourLow = materialsTotal * 0.35
-  const labourHigh = materialsTotal * 0.6
+  /* 9. Manual work — design / assembly / install, by concrete drivers. */
+  const designHours = Math.max(1, Math.round(carcassCount * LABOUR_RATES.designHoursPerCarcass))
+  const designCost = designHours * LABOUR_RATES.designPerHour
   lineItems.push({
-    key: 'installLabour',
-    detail: tr('Maker labour, delivery, install', 'Rad majstora, dostava, montaža'),
-    quantity: tr('Project', 'Projekt'),
-    low: round(labourLow),
-    high: round(labourHigh),
+    key: 'design',
+    detail: tr('Design & specification', 'Razrada i projektiranje'),
+    quantity: `${designHours} h`,
+    low: round(designCost * 0.9),
+    high: round(designCost * 1.15),
+  })
+
+  const assemblyCost = carcassCount * LABOUR_RATES.assemblyPerCarcass
+  lineItems.push({
+    key: 'assembly',
+    detail: tr('Carcass assembly', 'Sklapanje korpusa'),
+    quantity: `${carcassCount} ${tr('carcasses', 'korpusa')}`,
+    low: round(assemblyCost * 0.95),
+    high: round(assemblyCost * 1.1),
+  })
+
+  const installCost = installM * LABOUR_RATES.installPerMetre
+  lineItems.push({
+    key: 'install',
+    detail: tr('On-site installation', 'Montaža na licu mjesta'),
+    quantity: `${installM.toFixed(1)} m`,
+    low: round(installCost * 0.9),
+    high: round(installCost * 1.15),
   })
 
   const total = lineItems.reduce(
