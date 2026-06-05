@@ -1,8 +1,8 @@
 'use client'
 
-import { useTranslations, tDynamic } from '@/lib/i18n'
+import { useTranslations, tDynamic, type Locale } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
-import { BUILDER_GROUPS, type BuilderGroupId } from '@/lib/builder/inventory'
+import { BUILDER_GROUPS, type BuilderGroupId, type BuilderState } from '@/lib/builder/inventory'
 
 /**
  * The design's two-level "Your brief" rail (handoff/prototype Rail treatment).
@@ -24,9 +24,11 @@ const ACTS: { id: string; num: number; labelKey: string; status: Status }[] = [
 export function BuilderNavRail({
   currentId,
   onNavigate,
+  state,
 }: {
   currentId: BuilderGroupId
   onNavigate: (id: BuilderGroupId) => void
+  state: BuilderState
 }) {
   const { t, locale } = useTranslations()
   const currentOrder = BUILDER_GROUPS.find((g) => g.id === currentId)?.order ?? 0
@@ -70,6 +72,7 @@ export function BuilderNavRail({
                 {BUILDER_GROUPS.map((g) => {
                   const st: Status =
                     g.order < currentOrder ? 'done' : g.order === currentOrder ? 'current' : 'todo'
+                  const readback = st === 'done' ? groupReadback(g.id, state, locale) : null
                   return (
                     <li key={g.id}>
                       <button
@@ -85,7 +88,14 @@ export function BuilderNavRail({
                         )}
                       >
                         <StepMarker status={st} />
-                        <span className="flex-1 truncate">{tDynamic(g.labelKey, locale)}</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate">{tDynamic(g.labelKey, locale)}</span>
+                          {readback && (
+                            <span className="block truncate text-[10.5px] font-normal text-muted-foreground/80">
+                              {readback}
+                            </span>
+                          )}
+                        </span>
                       </button>
                     </li>
                   )
@@ -136,4 +146,28 @@ function StepMarker({ status }: { status: Status }) {
       )}
     </span>
   )
+}
+
+/** Short captured-value summary under a completed step (status visibility). */
+function groupReadback(id: BuilderGroupId, state: BuilderState, locale: Locale): string | null {
+  switch (id) {
+    case 'cabinetBoxes':
+      return tDynamic(`cabinetBoxes.carcass.${state.cabinetBoxes.carcassMaterial}`, locale)
+    case 'doors':
+      return tDynamic(`doors.style.${state.doors.style}`, locale)
+    case 'worktop':
+      return tDynamic(`worktop.family.${state.worktop.family}`, locale)
+    case 'backsplash':
+      return state.backsplash.kind === 'none'
+        ? null
+        : tDynamic(`backsplash.kind.${state.backsplash.kind}`, locale)
+    case 'hardware':
+      return tDynamic(`hardware.tier.${state.hardware.drawerSystemTier}`, locale)
+    case 'sinkTaps':
+      return tDynamic(`sinkTaps.material.${state.sinkTaps.sink.material}`, locale)
+    case 'finishing':
+      return tDynamic(`finishing.plinthMaterial.${state.finishing.plinthMaterial}`, locale)
+    default:
+      return null
+  }
 }

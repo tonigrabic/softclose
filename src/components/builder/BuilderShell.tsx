@@ -195,7 +195,7 @@ function Shell({
   const progressPercent = Math.round((currentOrder / BUILDER_GROUPS.length) * 100)
 
   // Left nav: the design's two-level "Your brief" act/step rail.
-  const nav = <BuilderNavRail currentId={currentId} onNavigate={onCurrentChange} />
+  const nav = <BuilderNavRail currentId={currentId} onNavigate={onCurrentChange} state={state} />
 
   // Right rail: the persistent render anchor + live price range.
   const rightRail = (
