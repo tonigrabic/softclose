@@ -142,6 +142,7 @@ export const hrHR = {
   'bom.lineItem.appliances': 'Uređaji',
   'bom.lineItem.sinkTaps': 'Sudoper i slavina',
   'bom.lineItem.lighting': 'Rasvjeta',
+  'bom.lineItem.finishing': 'Završna obrada',
   'bom.lineItem.cnc': 'CNC obrada',
   'bom.lineItem.design': 'Razrada (projektiranje)',
   'bom.lineItem.assembly': 'Sklapanje',

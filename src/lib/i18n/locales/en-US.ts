@@ -136,6 +136,7 @@ export const enUS: Record<TranslationKey, string> = {
   'bom.lineItem.appliances': 'Appliances',
   'bom.lineItem.sinkTaps': 'Sink & taps',
   'bom.lineItem.lighting': 'Lighting',
+  'bom.lineItem.finishing': 'Finishing',
   'bom.lineItem.cnc': 'CNC machining',
   'bom.lineItem.design': 'Design & specification',
   'bom.lineItem.assembly': 'Assembly',

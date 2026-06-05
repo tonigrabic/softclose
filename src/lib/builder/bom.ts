@@ -29,6 +29,7 @@ export interface BomLineItem {
     | 'appliances'
     | 'sinkTaps'
     | 'lighting'
+    | 'finishing'
     | 'design'
     | 'assembly'
     | 'install'
@@ -185,7 +186,18 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
         : state.cabinetBoxes.carcassMaterial === 'colored_melamine'
           ? 16
           : 13 // white_melamine_standard
-  const boardLow = doorAreaM2 * doorPriceM2 + carcassAreaM2 * carcassPriceM2
+  // Door style premium — shaker/glass/beaded need more machining + material.
+  const styleFactor =
+    state.doors.style === 'glass_front'
+      ? 1.5
+      : state.doors.style === 'beaded'
+        ? 1.4
+        : state.doors.style === 'shaker'
+          ? 1.35
+          : state.doors.style === 'handleless_jpull' || state.doors.style === 'handleless_groove'
+            ? 1.05
+            : 1
+  const boardLow = doorAreaM2 * doorPriceM2 * styleFactor + carcassAreaM2 * carcassPriceM2
   const boardHigh = boardLow * 1.18 // waste factor
   const boardsRange = widenByConfidence(boardLow, boardHigh, !doorDecor)
   const unitCountSuffix = usingUnitModel ? ` · ${units.length} ${tr('cabinets', 'ormarića')}` : ''
@@ -206,7 +218,10 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   if (!wtPricePerM) {
     wtPricePerM = state.worktop.family === 'quartz' ? 90 : state.worktop.family === 'sintered_stone' ? 130 : 35
   }
-  const wtLow = state.worktop.totalLengthM * wtPricePerM
+  // Edge profile premium — a mitred waterfall is a major add; radius a small one.
+  const edgeFactor =
+    state.worktop.edge === 'mitred_waterfall' ? 1.25 : state.worktop.edge === 'radius' ? 1.06 : 1
+  const wtLow = state.worktop.totalLengthM * wtPricePerM * edgeFactor
   const wtHigh = wtLow * 1.15 + state.worktop.mitreJoinCount * 25
   const wtRange = widenByConfidence(wtLow, wtHigh, !wtDecor)
   lineItems.push({
@@ -316,6 +331,20 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     hwLow = unitEquivalents * tierRRP.perBaseUnit.low * hingeMultiplier
     hwHigh = unitEquivalents * tierRRP.perBaseUnit.high * hingeMultiplier
   }
+  // Handles — only when not handleless; per-front cost varies by finish.
+  const handleless =
+    state.hardware.handleStyle === 'integrated_jpull' || state.hardware.handleStyle === 'integrated_groove'
+  if (!handleless) {
+    const fronts = usingUnitModel ? units.filter((u) => u.type !== 'tall').length : Math.round(unitEquivalents)
+    const handleRate =
+      state.hardware.handleFinish === 'brass'
+        ? 14
+        : state.hardware.handleFinish === 'chrome' || state.hardware.handleFinish === 'brushed_steel'
+          ? 9
+          : 7
+    hwLow += fronts * handleRate * 0.8
+    hwHigh += fronts * handleRate * 1.3
+  }
   const hwQuantity = drawerCount > 0
     ? `${unitEquivalents.toFixed(1)} ${tr('unit eq.', 'jed. ekv.')} · ${drawerCount} ${tr('drawers', 'ladica')}`
     : `${unitEquivalents.toFixed(1)} ${tr('unit eq.', 'jed. ekv.')}`
@@ -364,7 +393,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
         ? 1.2
         : 1.0
   const sinkLow = sinkBaseLow * bowlMultiplier * mountMultiplier
-  const sinkHigh = sinkLow * 1.5
+  const sinkHigh = sinkLow * (state.sinkTaps.sink.pickedName ? 1.15 : 1.5)
   const tapBaseLow =
     state.sinkTaps.tap.type === 'boiling_water'
       ? 350
@@ -374,7 +403,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
           ? 130
           : 80
   const tapLow = tapBaseLow
-  const tapHigh = tapBaseLow * 1.5
+  const tapHigh = tapBaseLow * (state.sinkTaps.tap.pickedName ? 1.15 : 1.5)
   const sinkPicked = state.sinkTaps.sink.pickedName
     ? `${state.sinkTaps.sink.pickedBrand ?? ''} ${state.sinkTaps.sink.pickedName}`.trim()
     : null
@@ -462,6 +491,10 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     lightLow += state.lighting.pendantCount * 80
     lightHigh += state.lighting.pendantCount * 350
   }
+  if (state.lighting.smartControls) {
+    lightLow += 120
+    lightHigh += 350
+  }
   if (lightLow > 0) {
     lineItems.push({
       key: 'lighting',
@@ -469,6 +502,41 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
       quantity: tr('Layered', 'Slojevito'),
       low: round(lightLow),
       high: round(lightHigh),
+    })
+  }
+
+  /* 8b. Finishing — plinth / cornice / end panels / open shelving. */
+  const plinthRate =
+    state.finishing.plinthMaterial === 'metal_strip'
+      ? 16
+      : state.finishing.plinthMaterial === 'matched_door'
+        ? 14
+        : state.finishing.plinthMaterial === 'black_recessed'
+          ? 12
+          : 9
+  let finLow = baseM * plinthRate * 0.9
+  let finHigh = baseM * plinthRate * 1.15
+  if (state.finishing.corniceStyle !== 'none') {
+    const corniceRate =
+      state.finishing.corniceStyle === 'crown' ? 22 : state.finishing.corniceStyle === 'custom_match_door' ? 18 : 12
+    finLow += wallM * corniceRate * 0.9
+    finHigh += wallM * corniceRate * 1.2
+  }
+  if (state.finishing.endPanelsCount > 0) {
+    finLow += state.finishing.endPanelsCount * 35
+    finHigh += state.finishing.endPanelsCount * 70
+  }
+  if (state.finishing.openShelvingMeters > 0) {
+    finLow += state.finishing.openShelvingMeters * 45
+    finHigh += state.finishing.openShelvingMeters * 90
+  }
+  if (finHigh > 0) {
+    lineItems.push({
+      key: 'finishing',
+      detail: tr('Plinth, cornice & panels', 'Sokl, vijenac i bočni panel'),
+      quantity: `${baseM.toFixed(1)} m`,
+      low: round(finLow),
+      high: round(finHigh),
     })
   }
 
