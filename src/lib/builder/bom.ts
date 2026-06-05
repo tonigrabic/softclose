@@ -107,9 +107,9 @@ const HARDWARE_TIER_RRP: Record<
   DrawerSystemTier,
   { perBaseUnit: { low: number; high: number }; perDrawer: { low: number; high: number } }
 > = {
-  budget: { perBaseUnit: { low: 40, high: 55 }, perDrawer: { low: 20, high: 28 } },
-  mid: { perBaseUnit: { low: 80, high: 120 }, perDrawer: { low: 45, high: 70 } }, // Grass Nova Pro
-  premium: { perBaseUnit: { low: 150, high: 220 }, perDrawer: { low: 95, high: 150 } }, // Blum Legrabox
+  budget: { perBaseUnit: { low: 42, high: 52 }, perDrawer: { low: 21, high: 26 } },
+  mid: { perBaseUnit: { low: 88, high: 112 }, perDrawer: { low: 50, high: 64 } }, // Grass Nova Pro
+  premium: { perBaseUnit: { low: 160, high: 205 }, perDrawer: { low: 105, high: 138 } }, // Blum Legrabox
 }
 
 /**
@@ -270,17 +270,6 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     0
   )
 
-  // CNC machining — priced per position (~8 positions per carcass).
-  const cncPositions = Math.round(carcassCount * LABOUR_RATES.positionsPerCarcass)
-  const cncCost = cncPositions * LABOUR_RATES.cncPerPosition
-  lineItems.push({
-    key: 'cnc',
-    detail: tr('CNC machining', 'CNC obrada'),
-    quantity: `${cncPositions} ${tr('positions', 'pozicija')}`,
-    low: round(cncCost * 0.95),
-    high: round(cncCost * 1.1),
-  })
-
   /* 5. Hardware (RRP reference) ────────────────────────────────────────── */
   // Linear-metre proxies — used both as a hardware fallback (no units yet)
   // and as the input to the lighting calc below. Derived from cabinet units
@@ -375,7 +364,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
         ? 1.2
         : 1.0
   const sinkLow = sinkBaseLow * bowlMultiplier * mountMultiplier
-  const sinkHigh = sinkLow * 2.2
+  const sinkHigh = sinkLow * 1.5
   const tapBaseLow =
     state.sinkTaps.tap.type === 'boiling_water'
       ? 350
@@ -385,7 +374,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
           ? 130
           : 80
   const tapLow = tapBaseLow
-  const tapHigh = tapBaseLow * 2.0
+  const tapHigh = tapBaseLow * 1.5
   const sinkPicked = state.sinkTaps.sink.pickedName
     ? `${state.sinkTaps.sink.pickedBrand ?? ''} ${state.sinkTaps.sink.pickedName}`.trim()
     : null
@@ -410,14 +399,14 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   // oven actually moves the line.
   if (state.appliances.supply !== 'homeowner_supplies' && state.appliances.selections.length > 0) {
     const APPLIANCE_PRICE: Record<string, { low: number; high: number }> = {
-      hob: { low: 300, high: 600 },
-      oven: { low: 450, high: 950 },
-      extractor: { low: 220, high: 550 },
-      fridge: { low: 600, high: 1200 },
-      dishwasher: { low: 420, high: 800 },
-      microwave: { low: 150, high: 350 },
-      wine_fridge: { low: 600, high: 1300 },
-      coffee: { low: 900, high: 2200 },
+      hob: { low: 350, high: 550 },
+      oven: { low: 500, high: 850 },
+      extractor: { low: 250, high: 480 },
+      fridge: { low: 700, high: 1100 },
+      dishwasher: { low: 450, high: 720 },
+      microwave: { low: 180, high: 320 },
+      wine_fridge: { low: 750, high: 1200 },
+      coffee: { low: 1100, high: 2000 },
     }
     const selectedTypes = new Set<string>(state.appliances.selections.map((s) => s.type))
     let apLow = 0
@@ -469,7 +458,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     })
   }
 
-  /* 9. Manual work — design / assembly / install, by concrete drivers. */
+  /* 9. Manual work — design / CNC / assembly / install, grouped, by drivers. */
   const designHours = Math.max(1, Math.round(carcassCount * LABOUR_RATES.designHoursPerCarcass))
   const designCost = designHours * LABOUR_RATES.designPerHour
   lineItems.push({
@@ -478,6 +467,16 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     quantity: `${designHours} h`,
     low: round(designCost * 0.9),
     high: round(designCost * 1.15),
+  })
+
+  const cncPositions = Math.round(carcassCount * LABOUR_RATES.positionsPerCarcass)
+  const cncCost = cncPositions * LABOUR_RATES.cncPerPosition
+  lineItems.push({
+    key: 'cnc',
+    detail: tr('CNC machining', 'CNC obrada'),
+    quantity: `${cncPositions} ${tr('positions', 'pozicija')}`,
+    low: round(cncCost * 0.95),
+    high: round(cncCost * 1.1),
   })
 
   const assemblyCost = carcassCount * LABOUR_RATES.assemblyPerCarcass
