@@ -197,9 +197,10 @@ function Shell({
   // Left nav: the design's two-level "Your brief" act/step rail.
   const nav = <BuilderNavRail currentId={currentId} onNavigate={onCurrentChange} state={state} />
 
-  // Right rail: the persistent render anchor + live price range.
+  // Right rail: live price range first (always visible), then render anchor.
   const rightRail = (
     <div className="flex flex-col gap-5">
+      <LiveBOMPanel state={state} />
       {previewSrc && (
         <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-md">
           <button
@@ -243,8 +244,6 @@ function Shell({
         currentRenderDataUrl={previewSrc ?? undefined}
         onRendered={(imageDataUrl, trigger) => dispatch({ type: 'push_rerender', imageDataUrl, trigger })}
       />
-
-      <LiveBOMPanel state={state} />
     </div>
   )
 

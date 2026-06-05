@@ -47,7 +47,11 @@ export function AppShell({
         <div className="lg:pl-72">
           <div className="mx-auto flex w-full max-w-[88rem] gap-6 px-6 py-10 lg:gap-8 lg:px-10 lg:py-12">
             <main className="min-w-0 flex-1">{children}</main>
-            <div className="hidden h-fit w-80 shrink-0 lg:block xl:w-96">{rightRail}</div>
+            {/* Sticky, independently-scrolling right rail so the live estimate
+                stays visible while the center content scrolls. */}
+            <div className="sticky top-6 hidden max-h-[calc(100dvh-3rem)] w-80 shrink-0 self-start overflow-y-auto pb-2 lg:block xl:w-96">
+              {rightRail}
+            </div>
           </div>
         </div>
       ) : (
