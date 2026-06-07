@@ -23,7 +23,7 @@ interface WrapUpScreenProps {
 }
 
 function fmtMoney(n: number): string {
-  return n >= 1000 ? `$${Math.round(n / 1000).toLocaleString()}k` : `$${n.toLocaleString()}`
+  return `${Math.round(n).toLocaleString('hr-HR')} €`
 }
 
 function listSummary(items: { trade: string }[] | undefined): string | null {

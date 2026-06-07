@@ -381,7 +381,8 @@ export interface StubEstimate {
   low: number
   high: number
   basis: string
-  placeholder: true
+  /** True for the budget-band stub; false when derived from the real builder BOM. */
+  placeholder: boolean
 }
 
 /** Shape returned by /api/handoff for the designer-facing pack. */
