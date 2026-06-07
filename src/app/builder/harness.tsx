@@ -44,7 +44,6 @@ export function BuilderHarness() {
         layoutContract={contract}
         hypothesis={null}
         layoutSummary={fixture.label}
-        locale="hr-HR"
         onComplete={(state) => console.log('Builder complete', state)}
       />
 

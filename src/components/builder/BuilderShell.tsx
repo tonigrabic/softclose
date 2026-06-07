@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { LocaleProvider, useTranslations, tDynamic, type Locale, DEFAULT_LOCALE } from '@/lib/i18n'
+import { useTranslations, tDynamic } from '@/lib/i18n'
 import {
   BUILDER_GROUPS,
   nextBuilderGroup,
@@ -57,8 +57,6 @@ export interface BuilderShellProps {
    * has the room context, without re-asking.
    */
   layoutSummary?: string
-  /** Locale override. Defaults to hr-HR. */
-  locale?: Locale
   /**
    * Funnel profile, so the shared "Your brief" rail can show the capture
    * read-backs (Act 1) and the close steps (Act 3) while in the builder. Omitted
@@ -81,7 +79,6 @@ export function BuilderShell({
   renderImageDataUrl,
   anchorPhotoDataUrl,
   layoutSummary,
-  locale = DEFAULT_LOCALE,
   profile,
   layoutPreconfirmed,
   onComplete,
@@ -95,32 +92,30 @@ export function BuilderShell({
   // Builder now opens on Cabinet Boxes — Layout/dimensions are owned by Phase 1.
   const [currentId, setCurrentId] = useState<BuilderGroupId>('cabinetBoxes')
 
-  return (
-    <LocaleProvider locale={locale}>
-      {!state.layoutConfirmed ? (
-        // "What we counted" — the close of capture. A calm, full-width screen
-        // confirming the frozen contract BEFORE any builder chrome appears.
-        <ConfirmScreen
-          contract={layoutContract}
-          previewSrc={renderImageDataUrl ?? anchorPhotoDataUrl}
-          onConfirm={() => dispatch({ type: 'confirm_layout' })}
-        />
-      ) : (
-        <Shell
-          state={state}
-          dispatch={dispatch}
-          layoutContract={layoutContract}
-          currentId={currentId}
-          onCurrentChange={setCurrentId}
-          hypothesis={hypothesis}
-          renderImageDataUrl={renderImageDataUrl}
-          anchorPhotoDataUrl={anchorPhotoDataUrl}
-          layoutSummary={layoutSummary}
-          profile={profile}
-          onComplete={onComplete}
-        />
-      )}
-    </LocaleProvider>
+  // Locale comes from the root LocaleProvider (and the language switcher) — the
+  // builder no longer forces its own; it inherits whatever the homeowner chose.
+  return !state.layoutConfirmed ? (
+    // "What we counted" — the close of capture. A calm, full-width screen
+    // confirming the frozen contract BEFORE any builder chrome appears.
+    <ConfirmScreen
+      contract={layoutContract}
+      previewSrc={renderImageDataUrl ?? anchorPhotoDataUrl}
+      onConfirm={() => dispatch({ type: 'confirm_layout' })}
+    />
+  ) : (
+    <Shell
+      state={state}
+      dispatch={dispatch}
+      layoutContract={layoutContract}
+      currentId={currentId}
+      onCurrentChange={setCurrentId}
+      hypothesis={hypothesis}
+      renderImageDataUrl={renderImageDataUrl}
+      anchorPhotoDataUrl={anchorPhotoDataUrl}
+      layoutSummary={layoutSummary}
+      profile={profile}
+      onComplete={onComplete}
+    />
   )
 }
 

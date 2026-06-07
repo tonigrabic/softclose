@@ -12,7 +12,7 @@
 
 'use client'
 
-import { createContext, useContext } from 'react'
+import { createContext, useContext, useSyncExternalStore } from 'react'
 import { hrHR, type TranslationKey } from './locales/hr-HR'
 import { enUS } from './locales/en-US'
 
@@ -43,27 +43,93 @@ export function tDynamic(key: string, locale: Locale = DEFAULT_LOCALE): string {
 /* ───────────────────────── React context ────────────────────────────── */
 
 const LocaleContext = createContext<Locale>(DEFAULT_LOCALE)
+const SetLocaleContext = createContext<(locale: Locale) => void>(() => {})
 
-export function LocaleProvider({
-  locale,
-  children,
-}: {
-  locale: Locale
-  children: React.ReactNode
-}) {
-  return <LocaleContext.Provider value={locale}>{children}</LocaleContext.Provider>
+const STORAGE_KEY = 'softclose.locale'
+
+function isLocale(value: unknown): value is Locale {
+  return value === 'hr-HR' || value === 'en-US'
+}
+
+/* ── Tiny external store for the active locale ──────────────────────────────
+ * Backed by localStorage so the homeowner's choice survives reloads, read via
+ * useSyncExternalStore so the server render stays deterministic at the default
+ * (hr-HR — Croatian is the priority market) and the client reconciles after
+ * hydration without a setState-in-effect. A module singleton: there is exactly
+ * one app-wide locale. */
+const localeListeners = new Set<() => void>()
+let localeSnapshot: Locale | null = null
+
+function readStoredLocale(): Locale {
+  try {
+    const saved = window.localStorage.getItem(STORAGE_KEY)
+    if (isLocale(saved)) return saved
+  } catch {
+    /* localStorage unavailable */
+  }
+  return DEFAULT_LOCALE
+}
+
+function subscribeLocale(callback: () => void): () => void {
+  localeListeners.add(callback)
+  return () => localeListeners.delete(callback)
+}
+
+function getLocaleSnapshot(): Locale {
+  // Memoize so useSyncExternalStore sees a stable reference between renders.
+  if (localeSnapshot === null) localeSnapshot = readStoredLocale()
+  return localeSnapshot
+}
+
+function getServerLocaleSnapshot(): Locale {
+  return DEFAULT_LOCALE
+}
+
+function setLocaleGlobal(next: Locale): void {
+  localeSnapshot = next
+  try {
+    window.localStorage.setItem(STORAGE_KEY, next)
+    document.documentElement.lang = next.slice(0, 2)
+  } catch {
+    /* non-fatal */
+  }
+  localeListeners.forEach((l) => l())
+}
+
+/**
+ * Root provider — surfaces the active locale (and the switcher) to the whole
+ * journey. Mount ONCE near the app root; funnel + builder read from it, and the
+ * language switcher writes to it.
+ */
+export function LocaleProvider({ children }: { children: React.ReactNode }) {
+  const locale = useSyncExternalStore(
+    subscribeLocale,
+    getLocaleSnapshot,
+    getServerLocaleSnapshot
+  )
+  return (
+    <LocaleContext.Provider value={locale}>
+      <SetLocaleContext.Provider value={setLocaleGlobal}>{children}</SetLocaleContext.Provider>
+    </LocaleContext.Provider>
+  )
 }
 
 export function useLocale(): Locale {
   return useContext(LocaleContext)
 }
 
-/** Hook returning a `t(key)` bound to the active locale. */
+export function useSetLocale(): (locale: Locale) => void {
+  return useContext(SetLocaleContext)
+}
+
+/** Hook returning a `t(key)` bound to the active locale, plus the locale switcher. */
 export function useTranslations() {
   const locale = useLocale()
+  const setLocale = useSetLocale()
   return {
     t: (key: TranslationKey) => t(key, locale),
     tDynamic: (key: string) => tDynamic(key, locale),
     locale,
+    setLocale,
   }
 }

@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { ProgressBar } from '@/components/kitchen-intake/ProgressBar'
+import { LanguageSwitcher } from '@/components/LanguageSwitcher'
 
 /**
  * The one app shell for the whole journey — funnel steps AND the builder render
@@ -35,6 +36,10 @@ export function AppShell({
   return (
     <div className="min-h-[100dvh] bg-background text-foreground">
       <ProgressBar percent={progressPercent} />
+
+      {/* Language toggle — fixed top-right so it's reachable on every step of the
+          journey (funnel + builder both render through this shell). */}
+      <LanguageSwitcher className="fixed right-4 top-3 z-40" />
 
       {/* Fixed left nav — floats over the layout so the centered column doesn't
           shift. Desktop only; mobile nav is handled separately. */}

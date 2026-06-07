@@ -1247,7 +1247,6 @@ function BuilderStepView({
         anchorPhotoDataUrl={anchorPhotoDataUrl}
         layoutSummary={layoutSummary}
         profile={profile}
-        locale="hr-HR"
         layoutPreconfirmed
         onComplete={onComplete}
       />
