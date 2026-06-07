@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react'
-import { FunnelNavRail } from './FunnelNavRail'
+import { JourneyNavRail } from '@/components/JourneyNavRail'
 import { AppShell } from '@/components/AppShell'
 import { SpaceCapture } from './SpaceCapture'
 import { Inspiration } from './Inspiration'
@@ -521,7 +521,7 @@ export function KitchenIntake() {
               </button>
             )}
           </header>
-          <FunnelNavRail currentStepId={state.currentStepId} profile={profile} />
+          <JourneyNavRail funnelStepId={state.currentStepId} profile={profile} />
         </>
       }
     >
@@ -1211,6 +1211,7 @@ function BuilderStepView({
         renderImageDataUrl={renderImageDataUrl}
         anchorPhotoDataUrl={anchorPhotoDataUrl}
         layoutSummary={layoutSummary}
+        profile={profile}
         locale="hr-HR"
         onComplete={onComplete}
       />

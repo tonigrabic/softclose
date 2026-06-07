@@ -20,8 +20,9 @@ import { RerenderPanel } from './RerenderPanel'
 import { RenderCarousel } from './RenderCarousel'
 import { FactsRecap } from './FactsRecap'
 import { LayoutConfirm } from './LayoutConfirm'
-import { BuilderNavRail } from './BuilderNavRail'
+import { JourneyNavRail } from '@/components/JourneyNavRail'
 import { AppShell } from '@/components/AppShell'
+import type { LeadProfile } from '@/lib/types'
 import { DoorsGroup } from './groups/DoorsGroup'
 import { WorktopGroup } from './groups/WorktopGroup'
 import { CabinetBoxesGroup } from './groups/CabinetBoxesGroup'
@@ -57,6 +58,12 @@ export interface BuilderShellProps {
   layoutSummary?: string
   /** Locale override. Defaults to hr-HR. */
   locale?: Locale
+  /**
+   * Funnel profile, so the shared "Your brief" rail can show the capture
+   * read-backs (Act 1) and the close steps (Act 3) while in the builder. Omitted
+   * by the standalone /builder dev harness, which has no funnel context.
+   */
+  profile?: LeadProfile
   /** Callback fired when the user finishes the builder. */
   onComplete?: (state: BuilderState) => void
 }
@@ -68,6 +75,7 @@ export function BuilderShell({
   anchorPhotoDataUrl,
   layoutSummary,
   locale = DEFAULT_LOCALE,
+  profile,
   onComplete,
 }: BuilderShellProps) {
   const initial = useMemo(
@@ -100,6 +108,7 @@ export function BuilderShell({
           renderImageDataUrl={renderImageDataUrl}
           anchorPhotoDataUrl={anchorPhotoDataUrl}
           layoutSummary={layoutSummary}
+          profile={profile}
           onComplete={onComplete}
         />
       )}
@@ -146,6 +155,7 @@ function Shell({
   renderImageDataUrl,
   anchorPhotoDataUrl,
   layoutSummary,
+  profile,
   onComplete,
 }: {
   state: BuilderState
@@ -157,6 +167,7 @@ function Shell({
   renderImageDataUrl?: string
   anchorPhotoDataUrl?: string
   layoutSummary?: string
+  profile?: LeadProfile
   onComplete?: (state: BuilderState) => void
 }) {
   const { t, locale } = useTranslations()
@@ -194,8 +205,19 @@ function Shell({
   const currentOrder = BUILDER_GROUPS.find((g) => g.id === currentId)?.order ?? 0
   const progressPercent = Math.round((currentOrder / BUILDER_GROUPS.length) * 100)
 
-  // Left nav: the design's two-level "Your brief" act/step rail.
-  const nav = <BuilderNavRail currentId={currentId} onNavigate={onCurrentChange} state={state} />
+  // Left nav: the ONE "Your brief" act/step rail, spanning the whole journey.
+  // While in the builder we feed it the live builder position; the funnel
+  // profile (if present) keeps Act 1 read-backs and Act 3 steps visible.
+  const nav = (
+    <JourneyNavRail
+      funnelStepId="builder"
+      profile={profile ?? {}}
+      builderState={state}
+      builderGroupId={currentId}
+      onBuilderNavigate={onCurrentChange}
+      locale={locale}
+    />
+  )
 
   // Right rail: live price range first (always visible), then render anchor.
   const rightRail = (
