@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, RotateCcw, Check, AlertCircle, Camera, ImagePlus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslations } from '@/lib/i18n'
 import type {
   ConceptRender as ConceptRenderRecord,
   ConceptRenderInput,
@@ -13,27 +14,29 @@ import type {
 const MAX_RENDERS_PER_SESSION = 5
 const MAX_PRODUCT_REFS = 4
 
-const NUDGE_PRESETS: { label: string; value: string }[] = [
-  { label: 'Warmer', value: 'warmer overall palette' },
-  { label: 'Cooler', value: 'cooler overall palette' },
-  { label: 'Darker cabinets', value: 'darker cabinet finish' },
-  { label: 'Lighter cabinets', value: 'lighter cabinet finish' },
-  { label: 'Lighter floor', value: 'lighter floor tone' },
-  { label: 'Darker floor', value: 'darker floor tone' },
-  { label: 'No upper cabinets', value: 'remove upper wall cabinets' },
-  { label: 'Open shelving', value: 'add open shelving instead of upper cabinets' },
-  { label: 'Bolder hardware', value: 'bolder cabinet hardware' },
-  { label: 'Subtler hardware', value: 'subtler, more minimal hardware' },
+// `value` is the English instruction sent to the renderer (keep stable for the
+// model); `labelKey` is the localized chip text the homeowner sees.
+const NUDGE_PRESETS: { labelKey: string; value: string }[] = [
+  { labelKey: 'nudge.warmer', value: 'warmer overall palette' },
+  { labelKey: 'nudge.cooler', value: 'cooler overall palette' },
+  { labelKey: 'nudge.darker_cabinets', value: 'darker cabinet finish' },
+  { labelKey: 'nudge.lighter_cabinets', value: 'lighter cabinet finish' },
+  { labelKey: 'nudge.lighter_floor', value: 'lighter floor tone' },
+  { labelKey: 'nudge.darker_floor', value: 'darker floor tone' },
+  { labelKey: 'nudge.no_uppers', value: 'remove upper wall cabinets' },
+  { labelKey: 'nudge.open_shelving', value: 'add open shelving instead of upper cabinets' },
+  { labelKey: 'nudge.bolder_hardware', value: 'bolder cabinet hardware' },
+  { labelKey: 'nudge.subtler_hardware', value: 'subtler, more minimal hardware' },
 ]
 
 const PRODUCT_LABEL_SUGGESTIONS = [
-  'stove',
-  'microwave',
-  'fridge',
-  'cabinet sample',
-  'tile sample',
-  'sink',
-  'pendant light',
+  'product.stove',
+  'product.microwave',
+  'product.fridge',
+  'product.cabinet_sample',
+  'product.tile_sample',
+  'product.sink',
+  'product.pendant_light',
 ] as const
 
 export interface ProductReference {
@@ -88,6 +91,7 @@ export function ConceptRender({
   onSkip,
   autoStart = false,
 }: ConceptRenderProps) {
+  const { t } = useTranslations()
   const [anchorIndex, setAnchorIndex] = useState(0)
   const [activeNudges, setActiveNudges] = useState<string[]>([])
   const [freeTextNudge, setFreeTextNudge] = useState('')
@@ -107,7 +111,7 @@ export function ConceptRender({
     reader.onload = () => {
       const url = typeof reader.result === 'string' ? reader.result : ''
       if (!url.startsWith('data:image/')) return
-      const label = (pendingLabel || 'reference item').trim().slice(0, 60)
+      const label = (pendingLabel || t('concept.refItemFallback')).trim().slice(0, 60)
       onProductReferencesChange([
         ...productReferences,
         {
@@ -183,7 +187,7 @@ export function ConceptRender({
       setActiveNudges([])
       setFreeTextNudge('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not generate render')
+      setError(err instanceof Error ? err.message : t('concept.error.renderFailed'))
     } finally {
       setIsGenerating(false)
     }
@@ -220,16 +224,14 @@ export function ConceptRender({
       <div className="space-y-3 rounded-2xl border border-amber-300/50 bg-amber-50/60 px-4 py-4 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
         <div className="flex items-start gap-2">
           <AlertCircle className="mt-0.5 size-4 shrink-0 stroke-[1.75]" aria-hidden />
-          <p className="text-sm leading-relaxed">
-            We need a photo of your kitchen to anchor the concept render. We&apos;ll skip this step and use the catalog references in your wrap-up brief instead.
-          </p>
+          <p className="text-sm leading-relaxed">{t('concept.noAnchor')}</p>
         </div>
         <button
           type="button"
           onClick={onSkip}
           className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent/40"
         >
-          Skip render
+          {t('concept.skipRender')}
         </button>
       </div>
     )
@@ -247,7 +249,7 @@ export function ConceptRender({
       <div className="flex items-start gap-2 rounded-xl border border-amber-300/50 bg-amber-50/60 px-3 py-2.5 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
         <AlertCircle className="mt-0.5 size-4 shrink-0 stroke-[1.75]" aria-hidden />
         <p className="text-xs leading-relaxed">
-          <strong className="font-semibold">AI concept</strong> — a render anchored to your space photo, based on your style + material picks. Use it to react: what feels right, what feels off. It is not a literal commitment of what you&apos;ll receive.
+          <strong className="font-semibold">{t('concept.disclosure.tag')}</strong> {t('concept.disclosure.body')}
         </p>
       </div>
 
@@ -272,23 +274,23 @@ export function ConceptRender({
                 <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-white">
                   <div className="flex items-center gap-2 rounded-full bg-black/70 px-4 py-2 text-xs font-semibold">
                     <span className="inline-block size-2 animate-pulse rounded-full bg-white" />
-                    Generating new version…
+                    {t('concept.generatingNew')}
                   </div>
                 </div>
               )}
               <span className="absolute left-2 top-2 rounded-full bg-amber-500/90 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow">
-                AI Concept
+                {t('concept.badge')}
               </span>
               {chosenId === currentRender.id && (
                 <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/95 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow">
                   <Check className="size-3 stroke-[3]" aria-hidden />
-                  Chosen
+                  {t('concept.chosen')}
                 </span>
               )}
             </div>
             {currentRender.nudges.length > 0 && (
               <p className="border-t border-border/70 px-3 py-2 text-[11px] text-muted-foreground">
-                Iteration: {currentRender.nudges.join(' · ')}
+                {t('concept.iteration')} {currentRender.nudges.join(' · ')}
               </p>
             )}
           </motion.div>
@@ -316,14 +318,14 @@ export function ConceptRender({
                     />
                   ))}
                 </span>
-                <span>Rendering your concept (this can take 20–40s)…</span>
+                <span>{t('concept.rendering')}</span>
               </>
             ) : (
               <>
                 <Sparkles className="size-5 stroke-[1.5]" aria-hidden />
-                <span>Generate concept render</span>
+                <span>{t('concept.generate')}</span>
                 <span className="text-[11px] font-normal text-muted-foreground">
-                  Anchored to your space photo + your style picks
+                  {t('concept.generateHint')}
                 </span>
               </>
             )}
@@ -335,18 +337,20 @@ export function ConceptRender({
       <div className="space-y-3 rounded-2xl border border-border/70 bg-card/40 p-3">
         <div className="flex items-center justify-between">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            What we&apos;re sending the renderer
+            {t('concept.sending')}
           </p>
           <span className="text-[10px] font-medium text-muted-foreground">
-            {1 + forwardableStyleRefs.length + productReferences.length} image
-            {1 + forwardableStyleRefs.length + productReferences.length === 1 ? '' : 's'}
+            {1 + forwardableStyleRefs.length + productReferences.length}{' '}
+            {1 + forwardableStyleRefs.length + productReferences.length === 1
+              ? t('concept.imageWord')
+              : t('concept.imagesWord')}
           </span>
         </div>
 
         {/* Anchor row */}
         <div className="space-y-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
-            Anchor — your existing kitchen
+            {t('concept.anchorRow')}
           </p>
           <div className="flex flex-wrap gap-2">
             {anchorPhotos.map((photo, i) => (
@@ -377,7 +381,7 @@ export function ConceptRender({
         {forwardableStyleRefs.length > 0 && (
           <div className="space-y-1.5">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
-              Style references — borrowed from your inspiration
+              {t('concept.styleRefsRow')}
             </p>
             <div className="flex flex-wrap gap-2">
               {forwardableStyleRefs.slice(0, 3).map((src, i) => (
@@ -402,7 +406,7 @@ export function ConceptRender({
         {/* Product refs row */}
         <div className="space-y-1.5">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
-            Specific items to incorporate (optional)
+            {t('concept.productRow')}
           </p>
           {productReferences.length > 0 && (
             <div className="flex flex-wrap gap-2">
@@ -438,7 +442,7 @@ export function ConceptRender({
               <input
                 value={pendingLabel}
                 onChange={(e) => setPendingLabel(e.target.value.slice(0, 60))}
-                placeholder="Label first (e.g. 'stove')"
+                placeholder={t('concept.labelFirst')}
                 className="flex-1 min-w-[10rem] rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
                 aria-label="Label for the next product reference"
               />
@@ -448,7 +452,7 @@ export function ConceptRender({
                 className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent/40"
               >
                 <ImagePlus className="size-3.5 stroke-[1.75]" aria-hidden />
-                Add photo
+                {t('concept.addPhoto')}
               </button>
               <input
                 ref={fileInputRef}
@@ -466,17 +470,20 @@ export function ConceptRender({
 
           {productReferences.length === 0 && (
             <p className="flex flex-wrap gap-1 text-[10px] text-muted-foreground">
-              Try:
-              {PRODUCT_LABEL_SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  type="button"
-                  onClick={() => setPendingLabel(s)}
-                  className="rounded-full bg-muted/50 px-2 py-0.5 text-[10px] text-foreground/80 hover:bg-muted"
-                >
-                  {s}
-                </button>
-              ))}
+              {t('concept.try')}
+              {PRODUCT_LABEL_SUGGESTIONS.map((key) => {
+                const label = t(key)
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setPendingLabel(label)}
+                    className="rounded-full bg-muted/50 px-2 py-0.5 text-[10px] text-foreground/80 hover:bg-muted"
+                  >
+                    {label}
+                  </button>
+                )
+              })}
             </p>
           )}
         </div>
@@ -486,7 +493,7 @@ export function ConceptRender({
       {currentRender && !capped && (
         <div className="space-y-2">
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground">
-            Try a tweak (optional, multi-select)
+            {t('concept.tweakRow')}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {NUDGE_PRESETS.map((n) => {
@@ -503,7 +510,7 @@ export function ConceptRender({
                       : 'border-border bg-card text-muted-foreground hover:text-foreground'
                   )}
                 >
-                  {n.label}
+                  {t(n.labelKey as Parameters<typeof t>[0])}
                 </button>
               )
             })}
@@ -518,19 +525,19 @@ export function ConceptRender({
             htmlFor="render-free-text"
             className="text-[11px] font-semibold uppercase tracking-[0.16em] text-muted-foreground"
           >
-            Or describe the change in your own words
+            {t('concept.freeText.label')}
           </label>
           <textarea
             id="render-free-text"
             value={freeTextNudge}
             onChange={(e) => setFreeTextNudge(e.target.value.slice(0, 240))}
             rows={2}
-            placeholder="e.g. swap the upper cabinets for floating wood shelves and add a brass faucet"
+            placeholder={t('concept.freeText.placeholder')}
             className="block w-full resize-none rounded-lg border border-border bg-card px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
             maxLength={240}
           />
           <div className="flex items-center justify-between text-[10px] text-muted-foreground">
-            <span>Anything chip presets don&apos;t cover.</span>
+            <span>{t('concept.freeText.hint')}</span>
             <span>{freeTextNudge.length}/240</span>
           </div>
         </div>
@@ -551,11 +558,12 @@ export function ConceptRender({
           >
             <RotateCcw className="size-4 stroke-[1.75]" aria-hidden />
             {capped
-              ? 'No more iterations'
+              ? t('concept.noMore')
               : (() => {
                   const tweakCount = activeNudges.length + (freeTextNudge.trim() ? 1 : 0)
-                  if (tweakCount === 0) return 'Regenerate from this version'
-                  return `Regenerate with ${tweakCount} tweak${tweakCount > 1 ? 's' : ''}`
+                  if (tweakCount === 0) return t('concept.regenerate')
+                  const word = tweakCount > 1 ? t('concept.tweaksPlural') : t('concept.tweakSingular')
+                  return `${t('concept.regenerateWith')} ${tweakCount} ${word}`
                 })()}
           </button>
           <button
@@ -570,7 +578,7 @@ export function ConceptRender({
             )}
           >
             <Check className="size-4 stroke-[2]" aria-hidden />
-            {chosenId === currentRender.id ? 'Chosen — continue ↓' : 'Looks good — choose this'}
+            {chosenId === currentRender.id ? t('concept.chosenContinue') : t('concept.chooseThis')}
           </button>
         </div>
       )}
@@ -578,8 +586,8 @@ export function ConceptRender({
       {/* Counter + skip */}
       <div className="flex items-center justify-between text-[11px] text-muted-foreground">
         <span>
-          {used} / {MAX_RENDERS_PER_SESSION} renders used
-          {capped && ' — your designer can keep iterating with you'}
+          {used} / {MAX_RENDERS_PER_SESSION} {t('concept.rendersUsed')}
+          {capped && t('concept.cappedNote')}
         </span>
         {!chosenId && (
           <button
@@ -587,7 +595,7 @@ export function ConceptRender({
             onClick={onSkip}
             className="font-medium text-muted-foreground hover:text-foreground"
           >
-            Skip the render
+            {t('concept.skipTheRender')}
           </button>
         )}
       </div>
@@ -596,7 +604,7 @@ export function ConceptRender({
       {anchorPhotos.length === 1 && currentRender && (
         <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
           <Camera className="mt-0.5 size-3 stroke-[1.75]" aria-hidden />
-          To try a different angle, add another photo earlier in the flow and re-run this step.
+          {t('concept.anotherAngle')}
         </p>
       )}
 
