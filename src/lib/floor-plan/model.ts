@@ -160,6 +160,8 @@ export interface FloorPlan {
   units: DisplayUnit
   layoutShape: LayoutShape
   hasIsland: boolean
+  /** Ceiling height in cm (AI estimate / homeowner-confirmed). Undefined → standard default. */
+  ceilingHeightCm?: number
   room: RoomSpec
   openings: Opening[]
   features: Feature[]
@@ -558,6 +560,7 @@ export function fromVision(
     units: opts.units ?? 'cm',
     layoutShape,
     hasIsland,
+    ceilingHeightCm: vision?.ceilingHeightCm,
     room,
     openings,
     features,

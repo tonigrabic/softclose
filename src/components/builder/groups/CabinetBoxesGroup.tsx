@@ -79,12 +79,15 @@ export function CabinetBoxesGroup({ state, hypothesis, layoutContract, onPatch }
     if (state.cabinetBoxes.units.length > 0) return
     const overrides = hypothesis?.cabinetBoxes?.unitPatterns ?? []
     const appliances = layoutContract?.appliances ?? []
+    // Tall units run floor-to-ceiling, so their height (and thus board area)
+    // follows the contract's ceiling height (minus a plinth).
+    const tallHeightMm = Math.max(1800, (layoutContract?.ceilingHeightCm ?? 280) * 10 - 120)
     const seeded: CabinetUnit[] = []
     runs.forEach((run, i) => {
       // Prefer the contract-derived corner ownership; fall back to the positional
       // heuristic only when no layout contract stamped run.hasCorner.
       const hasCorner = run.hasCorner ?? (i === 0 && runs.length > 1)
-      const runUnits = suggestCabinetsForRun(run, { hasCorner })
+      const runUnits = suggestCabinetsForRun(run, { hasCorner, tallHeightMm })
       // AI-suggested patterns override the heuristic at matching positions (15% tol).
       const runOverrides = overrides.filter((o) => o.runId === run.id)
       runUnits.forEach((u) => {

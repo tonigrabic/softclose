@@ -73,6 +73,8 @@ export interface SpaceVisionResult {
   hasIsland?: boolean
   lengthCm?: number
   widthCm?: number
+  /** AI estimate of ceiling height (cm); homeowner confirms. Defaults ~270. */
+  ceilingHeightCm?: number
   wallRuns?: WallRun[]
   windows?: OpeningPosition[]
   doors?: OpeningPosition[]

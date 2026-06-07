@@ -173,7 +173,7 @@ export function floorPlanToLayout(plan: FloorPlan): LayoutContract {
     source: 'floor_plan',
     shape: plan.layoutShape,
     hasIsland: plan.hasIsland,
-    ceilingHeightCm: DEFAULT_CEILING_CM,
+    ceilingHeightCm: plan.ceilingHeightCm ?? DEFAULT_CEILING_CM,
     units: plan.units,
     runs,
     appliances,
