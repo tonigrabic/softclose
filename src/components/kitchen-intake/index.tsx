@@ -4,6 +4,8 @@ import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react'
 import { JourneyNavRail } from '@/components/JourneyNavRail'
+import { RenderAnchorCard } from '@/components/RenderAnchorCard'
+import { LiveBOMPanel } from '@/components/builder/LiveBOMPanel'
 import { AppShell } from '@/components/AppShell'
 import { SpaceCapture } from './SpaceCapture'
 import { Inspiration } from './Inspiration'
@@ -500,9 +502,37 @@ export function KitchenIntake() {
     )
   }
 
+  // ── Persistent right rail (render anchor + live range), present from the
+  // confirm-look step onward so the right column never appears/disappears as the
+  // homeowner crosses into and back out of the builder. The live range only
+  // shows once the builder has produced a BOM (profile.builderState).
+  const funnelRenderSrc =
+    (chosenRenderId
+      ? conceptRenders.find((r) => r.id === chosenRenderId)?.imageDataUrl
+      : undefined) ??
+    conceptRenders[conceptRenders.length - 1]?.imageDataUrl ??
+    spacePhotos[0]
+  const funnelBuilderState = profile.builderState as BuilderState | undefined
+  const rightRailSteps: FlowStepId[] = [
+    'confirm_look',
+    'scope',
+    'wishlist',
+    'project_basics',
+    'logistics',
+    'contact',
+  ]
+  const funnelRightRail =
+    rightRailSteps.includes(state.currentStepId) && funnelRenderSrc ? (
+      <div className="flex flex-col gap-5">
+        {funnelBuilderState && <LiveBOMPanel state={funnelBuilderState} />}
+        <RenderAnchorCard src={funnelRenderSrc} summary={summariseLayoutFromProfile(profile)} />
+      </div>
+    ) : undefined
+
   return (
     <AppShell
       progressPercent={progress}
+      rightRail={funnelRightRail}
       nav={
         <>
           <header className="mb-5 flex items-center justify-between gap-3">

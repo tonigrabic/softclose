@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, ArrowRight, Maximize2, X } from 'lucide-react'
+import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { LocaleProvider, useTranslations, tDynamic, type Locale, DEFAULT_LOCALE } from '@/lib/i18n'
 import {
@@ -21,6 +21,7 @@ import { RenderCarousel } from './RenderCarousel'
 import { FactsRecap } from './FactsRecap'
 import { LayoutConfirm } from './LayoutConfirm'
 import { JourneyNavRail } from '@/components/JourneyNavRail'
+import { RenderAnchorCard } from '@/components/RenderAnchorCard'
 import { AppShell } from '@/components/AppShell'
 import type { LeadProfile } from '@/lib/types'
 import { DoorsGroup } from './groups/DoorsGroup'
@@ -170,7 +171,7 @@ function Shell({
   profile?: LeadProfile
   onComplete?: (state: BuilderState) => void
 }) {
-  const { t, locale } = useTranslations()
+  const { locale } = useTranslations()
   // The big preview always reads from `activeRenderId`: null = Phase-1
   // Original (renderImageDataUrl), otherwise the matching entry in rerenders[].
   // The Original is structurally protected — it lives outside rerenders[] so
@@ -180,17 +181,6 @@ function Shell({
     ? state.rerenders?.find((r) => r.id === state.activeRenderId)
     : undefined
   const previewSrc = activeRerender?.imageDataUrl ?? originalSrc ?? null
-  const [lightboxOpen, setLightboxOpen] = useState(false)
-
-  // Close the lightbox on Escape.
-  useEffect(() => {
-    if (!lightboxOpen) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setLightboxOpen(false)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [lightboxOpen])
 
   function goNext() {
     const n = nextBuilderGroup(currentId)
@@ -223,35 +213,7 @@ function Shell({
   const rightRail = (
     <div className="flex flex-col gap-5">
       <LiveBOMPanel state={state} />
-      {previewSrc && (
-        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-md">
-          <button
-            type="button"
-            onClick={() => setLightboxOpen(true)}
-            className="group relative block w-full"
-            aria-label={t('builder.shell.preview.enlarge')}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewSrc}
-              alt=""
-              className="aspect-[4/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-            />
-            <span className="pointer-events-none absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-background/85 px-2 py-1 text-[10px] font-semibold text-foreground opacity-0 shadow-sm backdrop-blur transition-opacity group-hover:opacity-100">
-              <Maximize2 className="size-3 stroke-[2]" aria-hidden />
-              {t('builder.shell.preview.enlarge')}
-            </span>
-          </button>
-          <div className="border-t border-border/60 bg-card/80 px-3 py-2.5">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground/70">
-              {t('builder.shell.title')}
-            </p>
-            {layoutSummary && (
-              <p className="mt-0.5 text-[12px] font-medium leading-snug text-foreground">{layoutSummary}</p>
-            )}
-          </div>
-        </div>
-      )}
+      {previewSrc && <RenderAnchorCard src={previewSrc} summary={layoutSummary} locale={locale} />}
 
       <RenderCarousel
         state={state}
@@ -270,7 +232,6 @@ function Shell({
   )
 
   return (
-    <>
       <AppShell progressPercent={progressPercent} nav={nav} rightRail={rightRail}>
           <AnimatePresence mode="wait">
             <motion.section
@@ -358,51 +319,6 @@ function Shell({
             </motion.section>
           </AnimatePresence>
       </AppShell>
-
-      {/* Click-to-enlarge lightbox over the render preview. */}
-      <AnimatePresence>
-        {lightboxOpen && previewSrc && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.18 }}
-            className="fixed inset-0 z-50 flex items-center justify-center bg-background/90 p-4 backdrop-blur-md sm:p-8"
-            onClick={() => setLightboxOpen(false)}
-            role="dialog"
-            aria-modal="true"
-            aria-label={t('builder.shell.preview.lightboxLabel')}
-          >
-            <button
-              type="button"
-              onClick={() => setLightboxOpen(false)}
-              className="absolute right-4 top-4 inline-flex size-9 items-center justify-center rounded-full bg-card/90 text-foreground shadow-md transition-colors hover:bg-card"
-              aria-label={t('builder.shell.preview.close')}
-            >
-              <X className="size-4 stroke-[2]" aria-hidden />
-            </button>
-            <motion.div
-              initial={{ scale: 0.96, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.96, opacity: 0 }}
-              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="flex max-h-full max-w-6xl flex-col gap-3"
-              onClick={(e) => e.stopPropagation()}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={previewSrc}
-                alt=""
-                className="max-h-[80vh] w-auto rounded-2xl object-contain shadow-2xl"
-              />
-              {layoutSummary && (
-                <p className="text-center text-[12px] text-muted-foreground">{layoutSummary}</p>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </>
   )
 }
 
