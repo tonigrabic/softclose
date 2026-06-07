@@ -768,7 +768,7 @@ function StepBody(props: StepBodyProps) {
     onSpacePhotosSkip,
     onConceptRenderSkip,
   } = props
-  const { t } = useTranslations()
+  const { t, tDynamic } = useTranslations()
 
   switch (stepId) {
     case 'space_photos':
@@ -864,7 +864,7 @@ function StepBody(props: StepBodyProps) {
           <div className="space-y-7">
             <div>
               <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Project type
+                {t('funnel.field.projectType')}
               </p>
               <div className="flex flex-wrap gap-2">
                 {PROJECT_TYPE_OPTIONS.map((opt) => (
@@ -879,20 +879,24 @@ function StepBody(props: StepBodyProps) {
                         : 'border-border bg-card hover:border-primary/40'
                     )}
                   >
-                    {opt.label}
+                    {tDynamic(`option.projectType.${opt.value}`)}
                   </button>
                 ))}
               </div>
             </div>
             <div>
               <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Timeline
+                {t('funnel.field.timeline')}
               </p>
               <VisualScale
-                bands={TIMELINE_BANDS}
+                bands={TIMELINE_BANDS.map((b) => ({
+                  ...b,
+                  label: tDynamic(`option.timeline.${b.value}`),
+                  caption: tDynamic(`option.timeline.${b.value}.caption`),
+                }))}
                 selected={profile.timeline ?? null}
                 onSelect={(v) => onPatchProfile({ timeline: v })}
-                axisCaption="Roughly when?"
+                axisCaption={t('funnel.field.timelineAxis')}
               />
             </div>
           </div>
@@ -907,7 +911,7 @@ function StepBody(props: StepBodyProps) {
           subtitle={t('funnel.scope.subtitle')}
         >
           <ChipMulti
-            options={SCOPE_OPTIONS}
+            options={SCOPE_OPTIONS.map((o) => ({ ...o, label: tDynamic(`option.scope.${o.value}`) }))}
             selected={scopeSelected}
             onToggle={(v) =>
               onScopeChange(
@@ -929,23 +933,23 @@ function StepBody(props: StepBodyProps) {
         >
           <div className="space-y-5">
             <FreeTextField
-              label="Must-haves"
-              hint="Things this kitchen has to do for you."
-              placeholder="e.g. Easy-to-grab pots and pans, big drawers near the stove…"
+              label={t('funnel.wishlist.mustHaves.label')}
+              hint={t('funnel.wishlist.mustHaves.hint')}
+              placeholder={t('funnel.wishlist.mustHaves.placeholder')}
               value={mustHavesText}
               onChange={onMustHavesTextChange}
             />
             <FreeTextField
-              label="Nice-to-haves"
-              hint="Bonus points if we can fit it."
-              placeholder="e.g. A coffee station, more outlets along the counter…"
+              label={t('funnel.wishlist.niceToHaves.label')}
+              hint={t('funnel.wishlist.niceToHaves.hint')}
+              placeholder={t('funnel.wishlist.niceToHaves.placeholder')}
               value={niceToHavesText}
               onChange={onNiceToHavesTextChange}
             />
             <FreeTextField
-              label="Deal-breakers"
-              hint="Anything you do NOT want."
-              placeholder="e.g. Open shelving, dark countertops…"
+              label={t('funnel.wishlist.dealBreakers.label')}
+              hint={t('funnel.wishlist.dealBreakers.hint')}
+              placeholder={t('funnel.wishlist.dealBreakers.placeholder')}
               value={dealBreakersText}
               onChange={onDealBreakersTextChange}
             />
@@ -963,7 +967,7 @@ function StepBody(props: StepBodyProps) {
           <div className="space-y-7">
             <div>
               <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Site access
+                {t('funnel.field.siteAccess')}
               </p>
               <div className="flex flex-wrap gap-2">
                 {SITE_ACCESS_OPTIONS.map((opt) => (
@@ -980,14 +984,14 @@ function StepBody(props: StepBodyProps) {
                         : 'border-border bg-card hover:border-primary/40'
                     )}
                   >
-                    {opt.label}
+                    {tDynamic(`option.siteAccess.${opt.value}`)}
                   </button>
                 ))}
               </div>
             </div>
             <div>
               <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Where will you live during the build?
+                {t('funnel.field.living')}
               </p>
               <div className="flex flex-wrap gap-2">
                 {LIVING_OPTIONS.map((opt) => (
@@ -1004,7 +1008,7 @@ function StepBody(props: StepBodyProps) {
                         : 'border-border bg-card hover:border-primary/40'
                     )}
                   >
-                    {opt.label}
+                    {tDynamic(`option.living.${opt.value}`)}
                   </button>
                 ))}
               </div>
@@ -1110,11 +1114,9 @@ function FooterNav({
   hasContactDraft: boolean
   scopeCount: number
 }) {
+  const { t } = useTranslations()
   // Per-step continue gating + label.
-  const ctaLabel = (() => {
-    if (stepId === 'contact') return 'Send to designer'
-    return 'Continue'
-  })()
+  const ctaLabel = stepId === 'contact' ? t('nav.send') : t('nav.continue')
 
   const canContinue = (() => {
     switch (stepId) {
@@ -1164,7 +1166,7 @@ function FooterNav({
         )}
       >
         <ArrowLeft className="size-3.5 stroke-[2]" aria-hidden />
-        Back
+        {t('nav.back')}
       </button>
       <button
         type="button"
@@ -1180,11 +1182,11 @@ function FooterNav({
         {isBusy ? (
           <>
             <span className="inline-block size-1.5 animate-pulse rounded-full bg-background/80" />
-            Working…
+            {t('nav.working')}
           </>
         ) : (
           <>
-            {isSpaceStep ? 'Skip' : ctaLabel}
+            {isSpaceStep ? t('nav.skip') : ctaLabel}
             <ArrowRight className="size-3.5 stroke-[2]" aria-hidden />
           </>
         )}

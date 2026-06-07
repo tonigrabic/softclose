@@ -332,4 +332,75 @@ export const enUS: Record<TranslationKey, string> = {
   'funnel.contact.eyebrow': 'Last step',
   'funnel.contact.title': 'Where should the designer reach you?',
   'funnel.contact.subtitle': "We'll only use this for your project conversation.",
+
+  // ---- Funnel field headings ---------------------------------------------
+  'funnel.field.projectType': 'Project type',
+  'funnel.field.timeline': 'Timeline',
+  'funnel.field.timelineAxis': 'Roughly when?',
+  'funnel.field.siteAccess': 'Site access',
+  'funnel.field.living': 'Where will you live during the build?',
+
+  // ---- Wishlist free-text fields -----------------------------------------
+  'funnel.wishlist.mustHaves.label': 'Must-haves',
+  'funnel.wishlist.mustHaves.hint': 'Things this kitchen has to do for you.',
+  'funnel.wishlist.mustHaves.placeholder':
+    'e.g. Easy-to-grab pots and pans, big drawers near the stove…',
+  'funnel.wishlist.niceToHaves.label': 'Nice-to-haves',
+  'funnel.wishlist.niceToHaves.hint': 'Bonus points if we can fit it.',
+  'funnel.wishlist.niceToHaves.placeholder': 'e.g. A coffee station, more outlets along the counter…',
+  'funnel.wishlist.dealBreakers.label': 'Deal-breakers',
+  'funnel.wishlist.dealBreakers.hint': 'Anything you do NOT want.',
+  'funnel.wishlist.dealBreakers.placeholder': 'e.g. Open shelving, dark countertops…',
+
+  // ---- Footer navigation -------------------------------------------------
+  'nav.continue': 'Continue',
+  'nav.back': 'Back',
+  'nav.skip': 'Skip',
+  'nav.send': 'Send to designer',
+  'nav.working': 'Working…',
+
+  // ---- Project-type options ----------------------------------------------
+  'option.projectType.full_remodel': 'Full remodel',
+  'option.projectType.cabinet_replace': 'Cabinets only',
+  'option.projectType.refresh': 'Light refresh',
+  'option.projectType.addition': 'Addition / extension',
+  'option.projectType.repair': 'Repair / fix',
+
+  // ---- Timeline options (label + caption) --------------------------------
+  'option.timeline.asap': 'ASAP',
+  'option.timeline.asap.caption': 'Within 4 weeks',
+  'option.timeline.1_3_months': '1–3 months',
+  'option.timeline.1_3_months.caption': 'Soonish',
+  'option.timeline.3_6_months': '3–6 months',
+  'option.timeline.3_6_months.caption': 'Planning',
+  'option.timeline.6_12_months': '6–12 months',
+  'option.timeline.6_12_months.caption': 'Researching',
+  'option.timeline.no_rush': 'No rush',
+  'option.timeline.no_rush.caption': 'Just exploring',
+
+  // ---- Scope options -----------------------------------------------------
+  'option.scope.cabinets': 'Cabinets',
+  'option.scope.worktops': 'Worktops',
+  'option.scope.sinkTaps': 'Sink + taps',
+  'option.scope.appliancesSupply': 'Appliances',
+  'option.scope.flooring': 'Flooring',
+  'option.scope.walls': 'Walls',
+  'option.scope.lighting': 'Lighting',
+  'option.scope.plumbingRelocation': 'Move plumbing',
+  'option.scope.electricalWork': 'New electrical',
+  'option.scope.structural': 'Move walls',
+  'option.scope.demolitionDisposal': 'Demo + disposal',
+  'option.scope.installation': 'Installation',
+
+  // ---- Site-access options -----------------------------------------------
+  'option.siteAccess.street_level': 'Street level',
+  'option.siteAccess.one_flight': 'One flight up',
+  'option.siteAccess.multi_flight': 'Multiple flights',
+  'option.siteAccess.lift': 'Lift / elevator',
+  'option.siteAccess.restricted': 'Restricted access',
+
+  // ---- Living-arrangement options ----------------------------------------
+  'option.living.in_place': 'Stay in place',
+  'option.living.partial_move': 'Partial move-out',
+  'option.living.fully_relocate': 'Fully relocate',
 }

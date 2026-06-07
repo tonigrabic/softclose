@@ -345,6 +345,77 @@ export const hrHR = {
   'funnel.contact.eyebrow': 'Zadnji korak',
   'funnel.contact.title': 'Gdje te dizajner može kontaktirati?',
   'funnel.contact.subtitle': 'Koristimo to samo za razgovor o tvom projektu.',
+
+  // ---- Funnel field headings ---------------------------------------------
+  'funnel.field.projectType': 'Vrsta projekta',
+  'funnel.field.timeline': 'Vremenski okvir',
+  'funnel.field.timelineAxis': 'Otprilike kada?',
+  'funnel.field.siteAccess': 'Pristup gradilištu',
+  'funnel.field.living': 'Gdje ćeš živjeti tijekom radova?',
+
+  // ---- Wishlist free-text fields -----------------------------------------
+  'funnel.wishlist.mustHaves.label': 'Obavezno',
+  'funnel.wishlist.mustHaves.hint': 'Stvari koje ova kuhinja mora imati.',
+  'funnel.wishlist.mustHaves.placeholder':
+    'npr. Lako dohvatljive posude, velike ladice uz štednjak…',
+  'funnel.wishlist.niceToHaves.label': 'Poželjno',
+  'funnel.wishlist.niceToHaves.hint': 'Bonus ako uspijemo uklopiti.',
+  'funnel.wishlist.niceToHaves.placeholder': 'npr. Kutak za kavu, više utičnica uz radnu plohu…',
+  'funnel.wishlist.dealBreakers.label': 'Ne dolazi u obzir',
+  'funnel.wishlist.dealBreakers.hint': 'Sve što NE želiš.',
+  'funnel.wishlist.dealBreakers.placeholder': 'npr. Otvorene police, tamne radne plohe…',
+
+  // ---- Footer navigation -------------------------------------------------
+  'nav.continue': 'Nastavi',
+  'nav.back': 'Natrag',
+  'nav.skip': 'Preskoči',
+  'nav.send': 'Pošalji dizajneru',
+  'nav.working': 'Radim…',
+
+  // ---- Project-type options ----------------------------------------------
+  'option.projectType.full_remodel': 'Potpuna obnova',
+  'option.projectType.cabinet_replace': 'Samo ormarići',
+  'option.projectType.refresh': 'Lagano osvježenje',
+  'option.projectType.addition': 'Dogradnja / proširenje',
+  'option.projectType.repair': 'Popravak',
+
+  // ---- Timeline options (label + caption) --------------------------------
+  'option.timeline.asap': 'ODMAH',
+  'option.timeline.asap.caption': 'Unutar 4 tjedna',
+  'option.timeline.1_3_months': '1–3 mjeseca',
+  'option.timeline.1_3_months.caption': 'Uskoro',
+  'option.timeline.3_6_months': '3–6 mjeseci',
+  'option.timeline.3_6_months.caption': 'Planiranje',
+  'option.timeline.6_12_months': '6–12 mjeseci',
+  'option.timeline.6_12_months.caption': 'Istražujem',
+  'option.timeline.no_rush': 'Bez žurbe',
+  'option.timeline.no_rush.caption': 'Samo razgledavam',
+
+  // ---- Scope options -----------------------------------------------------
+  'option.scope.cabinets': 'Ormarići',
+  'option.scope.worktops': 'Radne plohe',
+  'option.scope.sinkTaps': 'Sudoper i slavine',
+  'option.scope.appliancesSupply': 'Uređaji',
+  'option.scope.flooring': 'Podovi',
+  'option.scope.walls': 'Zidovi',
+  'option.scope.lighting': 'Rasvjeta',
+  'option.scope.plumbingRelocation': 'Premještanje vodovoda',
+  'option.scope.electricalWork': 'Nova elektroinstalacija',
+  'option.scope.structural': 'Rušenje zidova',
+  'option.scope.demolitionDisposal': 'Rušenje i odvoz',
+  'option.scope.installation': 'Montaža',
+
+  // ---- Site-access options -----------------------------------------------
+  'option.siteAccess.street_level': 'U prizemlju',
+  'option.siteAccess.one_flight': 'Jedan kat',
+  'option.siteAccess.multi_flight': 'Više katova',
+  'option.siteAccess.lift': 'Dizalo',
+  'option.siteAccess.restricted': 'Otežan pristup',
+
+  // ---- Living-arrangement options ----------------------------------------
+  'option.living.in_place': 'Ostajem u stanu',
+  'option.living.partial_move': 'Djelomično iseljenje',
+  'option.living.fully_relocate': 'Potpuno iseljenje',
 } as const
 
 export type TranslationKey = keyof typeof hrHR
