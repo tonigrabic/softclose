@@ -382,6 +382,35 @@ export function SpaceCapture({
             anchorPhotoUrl={photos[0]}
             onChange={onFloorPlanChange}
           />
+          {/* Ceiling height — AI estimate or homeowner-set; drives tall-unit material. */}
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/60 px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">Ceiling height</p>
+              <p className="text-[11px] text-muted-foreground">
+                {floorPlan.ceilingHeightCm ? 'AI estimate — adjust if off' : 'Roughly how tall is the room?'}
+              </p>
+            </div>
+            <div className="flex items-center overflow-hidden rounded-lg border border-border bg-background focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/20">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={220}
+                max={360}
+                placeholder="280"
+                value={floorPlan.ceilingHeightCm ?? ''}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10)
+                  onFloorPlanChange({
+                    ...floorPlan,
+                    ceilingHeightCm:
+                      Number.isFinite(n) && n > 0 ? Math.max(220, Math.min(360, n)) : undefined,
+                  })
+                }}
+                className="w-20 bg-transparent px-2.5 py-1.5 text-right text-[13px] tabular-nums text-foreground placeholder:text-muted-foreground/40 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+              <span className="shrink-0 pr-2.5 text-[11px] text-muted-foreground/60">cm</span>
+            </div>
+          </div>
           <button
             type="button"
             onClick={onConfirm}
