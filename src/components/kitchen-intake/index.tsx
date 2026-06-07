@@ -7,6 +7,7 @@ import { JourneyNavRail } from '@/components/JourneyNavRail'
 import { RenderAnchorCard } from '@/components/RenderAnchorCard'
 import { LiveBOMPanel } from '@/components/builder/LiveBOMPanel'
 import { AppShell } from '@/components/AppShell'
+import { useTranslations } from '@/lib/i18n'
 import { SpaceCapture } from './SpaceCapture'
 import { Inspiration } from './Inspiration'
 import { ConceptRender as ConceptRenderUI, type ProductReference } from './ConceptRender'
@@ -767,14 +768,15 @@ function StepBody(props: StepBodyProps) {
     onSpacePhotosSkip,
     onConceptRenderSkip,
   } = props
+  const { t } = useTranslations()
 
   switch (stepId) {
     case 'space_photos':
       return (
         <StepFrame
-          eyebrow="Step 1"
-          title="Snap your kitchen — we&apos;ll read the layout."
-          subtitle="A few wide shots are perfect. We use them to anchor the AI render and pre-fill the floor plan."
+          eyebrow={t('funnel.space_photos.eyebrow')}
+          title={t('funnel.space_photos.title')}
+          subtitle={t('funnel.space_photos.subtitle')}
         >
           <SpaceCapture
             photos={spacePhotos}
@@ -792,9 +794,9 @@ function StepBody(props: StepBodyProps) {
     case 'inspiration':
       return (
         <StepFrame
-          eyebrow="Step 2"
-          title="What feels right?"
-          subtitle="Pick a direction or upload a few inspiration shots. We&apos;ll read what you&apos;re drawn to and pre-fill the rest."
+          eyebrow={t('funnel.inspiration.eyebrow')}
+          title={t('funnel.inspiration.title')}
+          subtitle={t('funnel.inspiration.subtitle')}
         >
           <Inspiration
             selectedStyles={inspirationStyles}
@@ -811,9 +813,9 @@ function StepBody(props: StepBodyProps) {
     case 'concept_render':
       return (
         <StepFrame
-          eyebrow="Step 3"
-          title="A first AI sketch of your space."
-          subtitle="Anchored to your photo. Tap a tweak chip and re-render, or pick this one and move on."
+          eyebrow={t('funnel.concept_render.eyebrow')}
+          title={t('funnel.concept_render.title')}
+          subtitle={t('funnel.concept_render.subtitle')}
         >
           <ConceptRenderUI
             anchorPhotos={spacePhotos}
@@ -836,9 +838,9 @@ function StepBody(props: StepBodyProps) {
       const confirmContract = confirmPlan ? floorPlanToLayout(validate(confirmPlan)) : null
       return (
         <StepFrame
-          eyebrow="Step 4"
-          title="Confirm &amp; lock it in."
-          subtitle="This is what we&apos;ll build on — your space and the look. Confirm to lock it; you can fine-tune every part next."
+          eyebrow={t('funnel.confirm_look.eyebrow')}
+          title={t('funnel.confirm_look.title')}
+          subtitle={t('funnel.confirm_look.subtitle')}
         >
           {confirmContract && <LayoutConfirm contract={confirmContract} />}
           <ConfirmLook
@@ -855,9 +857,9 @@ function StepBody(props: StepBodyProps) {
     case 'project_basics':
       return (
         <StepFrame
-          eyebrow="Step 5"
-          title="Project basics."
-          subtitle="What you're after, when, and roughly how much."
+          eyebrow={t('funnel.project_basics.eyebrow')}
+          title={t('funnel.project_basics.title')}
+          subtitle={t('funnel.project_basics.subtitle')}
         >
           <div className="space-y-7">
             <div>
@@ -900,9 +902,9 @@ function StepBody(props: StepBodyProps) {
     case 'scope':
       return (
         <StepFrame
-          eyebrow="Step 6"
-          title="What's actually being touched?"
-          subtitle="Tap everything in scope. We won't ask about anything you skip."
+          eyebrow={t('funnel.scope.eyebrow')}
+          title={t('funnel.scope.title')}
+          subtitle={t('funnel.scope.subtitle')}
         >
           <ChipMulti
             options={SCOPE_OPTIONS}
@@ -921,9 +923,9 @@ function StepBody(props: StepBodyProps) {
     case 'wishlist':
       return (
         <StepFrame
-          eyebrow="Step 7"
-          title="In your own words."
-          subtitle="No need to be precise — write the way you think. We'll translate to trade-grade and keep your phrasing for the designer."
+          eyebrow={t('funnel.wishlist.eyebrow')}
+          title={t('funnel.wishlist.title')}
+          subtitle={t('funnel.wishlist.subtitle')}
         >
           <div className="space-y-5">
             <FreeTextField
@@ -954,9 +956,9 @@ function StepBody(props: StepBodyProps) {
     case 'logistics':
       return (
         <StepFrame
-          eyebrow="Step 8"
-          title="Logistics."
-          subtitle="A couple of practical things so the maker can plan around your life."
+          eyebrow={t('funnel.logistics.eyebrow')}
+          title={t('funnel.logistics.title')}
+          subtitle={t('funnel.logistics.subtitle')}
         >
           <div className="space-y-7">
             <div>
@@ -1014,9 +1016,9 @@ function StepBody(props: StepBodyProps) {
     case 'contact':
       return (
         <StepFrame
-          eyebrow="Last step"
-          title="Where should the designer reach you?"
-          subtitle="We&apos;ll only use this for your project conversation."
+          eyebrow={t('funnel.contact.eyebrow')}
+          title={t('funnel.contact.title')}
+          subtitle={t('funnel.contact.subtitle')}
         >
           <ContactForm value={contactDraft} onChange={onContactDraftChange} />
         </StepFrame>

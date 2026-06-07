@@ -93,7 +93,7 @@ export function JourneyNavRail({
     linear.push({
       kind: 'funnel',
       id: step.id,
-      label: step.label,
+      label: tDynamic(`flow.${step.id}.label`, locale),
       readback: readbackFor(step.id, profile),
     })
   }

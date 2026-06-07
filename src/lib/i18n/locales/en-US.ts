@@ -285,4 +285,51 @@ export const enUS: Record<TranslationKey, string> = {
   'finishing.cornice.custom_match_door': 'Custom match',
   'finishing.endPanelsLabel': 'End panels',
   'finishing.openShelvingLabel': 'Open shelving (m)',
+
+  // ---- Funnel flow: nav rail step labels ---------------------------------
+  'flow.space_photos.label': 'Your space',
+  'flow.inspiration.label': 'Inspiration',
+  'flow.concept_render.label': 'AI concept',
+  'flow.confirm_look.label': 'Confirm the look',
+  'flow.builder.label': 'Build it out',
+  'flow.scope.label': 'Scope of work',
+  'flow.wishlist.label': 'Wishlist',
+  'flow.project_basics.label': 'Project basics',
+  'flow.logistics.label': 'Logistics',
+  'flow.contact.label': 'Contact',
+
+  // ---- Funnel step headers (eyebrow / title / subtitle) ------------------
+  'funnel.space_photos.eyebrow': 'Step 1',
+  'funnel.space_photos.title': "Snap your kitchen — we'll read the layout.",
+  'funnel.space_photos.subtitle':
+    'A few wide shots are perfect. We use them to anchor the AI render and pre-fill the floor plan.',
+  'funnel.inspiration.eyebrow': 'Step 2',
+  'funnel.inspiration.title': 'What feels right?',
+  'funnel.inspiration.subtitle':
+    "Pick a direction or upload a few inspiration shots. We'll read what you're drawn to and pre-fill the rest.",
+  'funnel.concept_render.eyebrow': 'Step 3',
+  'funnel.concept_render.title': 'A first AI sketch of your space.',
+  'funnel.concept_render.subtitle':
+    'Anchored to your photo. Tap a tweak chip and re-render, or pick this one and move on.',
+  'funnel.confirm_look.eyebrow': 'Step 4',
+  'funnel.confirm_look.title': 'Confirm & lock it in.',
+  'funnel.confirm_look.subtitle':
+    "This is what we'll build on — your space and the look. Confirm to lock it; you can fine-tune every part next.",
+  'funnel.project_basics.eyebrow': 'Step 5',
+  'funnel.project_basics.title': 'Project basics.',
+  'funnel.project_basics.subtitle': "What you're after, and when.",
+  'funnel.scope.eyebrow': 'Step 6',
+  'funnel.scope.title': "What's actually being touched?",
+  'funnel.scope.subtitle': "Tap everything in scope. We won't ask about anything you skip.",
+  'funnel.wishlist.eyebrow': 'Step 7',
+  'funnel.wishlist.title': 'In your own words.',
+  'funnel.wishlist.subtitle':
+    "No need to be precise — write the way you think. We'll translate to trade-grade and keep your phrasing for the designer.",
+  'funnel.logistics.eyebrow': 'Step 8',
+  'funnel.logistics.title': 'Logistics.',
+  'funnel.logistics.subtitle':
+    'A couple of practical things so the maker can plan around your life.',
+  'funnel.contact.eyebrow': 'Last step',
+  'funnel.contact.title': 'Where should the designer reach you?',
+  'funnel.contact.subtitle': "We'll only use this for your project conversation.",
 }
