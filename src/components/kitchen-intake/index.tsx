@@ -56,14 +56,6 @@ const TIMELINE_BANDS = [
   { value: 'no_rush', label: 'No rush', caption: 'Just exploring' },
 ]
 
-const BUDGET_BANDS = [
-  { value: 'under_15k', label: 'Under $15k' },
-  { value: '15k_30k', label: '$15–30k' },
-  { value: '30k_60k', label: '$30–60k' },
-  { value: '60k_plus', label: '$60k+' },
-  { value: 'unsure', label: 'Not sure yet' },
-]
-
 const SCOPE_OPTIONS = [
   { value: 'cabinets', label: 'Cabinets', icon: 'palette' },
   { value: 'worktops', label: 'Worktops', icon: 'gem' },
@@ -258,11 +250,7 @@ export function KitchenIntake() {
 
   function commitProjectBasics() {
     if (!profile.projectType || !profile.timeline) return
-    if (!profile.budgetRange && profile.budgetShared !== false) return
-    logTurn(
-      'user',
-      `Project basics: ${profile.projectType} · ${profile.timeline} · ${profile.budgetRange ?? 'budget tbd'}`
-    )
+    logTurn('user', `Project basics: ${profile.projectType} · ${profile.timeline}`)
     goNext()
   }
 
@@ -870,22 +858,6 @@ function StepBody(props: StepBodyProps) {
                 axisCaption="Roughly when?"
               />
             </div>
-            <div>
-              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Budget
-              </p>
-              <VisualScale
-                bands={BUDGET_BANDS}
-                selected={profile.budgetRange ?? null}
-                onSelect={(v) =>
-                  onPatchProfile({
-                    budgetRange: v === 'unsure' ? undefined : v,
-                    budgetShared: v !== 'unsure',
-                  })
-                }
-                axisCaption="Roughly how much?"
-              />
-            </div>
           </div>
         </StepFrame>
       )
@@ -1126,11 +1098,7 @@ function FooterNav({
             profile.hardwareTier
         )
       case 'project_basics':
-        return Boolean(
-          profile.projectType &&
-            profile.timeline &&
-            (profile.budgetRange || profile.budgetShared === false)
-        )
+        return Boolean(profile.projectType && profile.timeline)
       case 'scope':
         return scopeCount > 0
       case 'wishlist':

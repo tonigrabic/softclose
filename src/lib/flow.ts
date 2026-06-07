@@ -64,22 +64,26 @@ export const FLOW: FlowStepMeta[] = [
     why: 'Pick every component and see a live cost range.',
     group: 'build',
   },
-  {
-    id: 'project_basics',
-    label: 'Project basics',
-    why: 'Type, timeline, budget.',
-    group: 'details',
-  },
+  // scope + wishlist live INSIDE the Build act — they shape the kitchen and
+  // move the price, so they belong with the live range, not after it.
   {
     id: 'scope',
     label: 'Scope of work',
     why: "What's actually being touched in this project.",
-    group: 'details',
+    group: 'build',
   },
   {
     id: 'wishlist',
     label: 'Wishlist',
-    why: "Must-haves and deal-breakers in your own words.",
+    why: 'Must-haves and deal-breakers in your own words.',
+    group: 'build',
+  },
+  // Close: a few practicalities, then contact. No up-front budget — the live
+  // range is the budget conversation.
+  {
+    id: 'project_basics',
+    label: 'Project basics',
+    why: 'Project type and timeline.',
     group: 'details',
   },
   {
