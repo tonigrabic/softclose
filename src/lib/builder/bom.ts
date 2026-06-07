@@ -12,7 +12,7 @@
  */
 
 import { decors as catalogDecors, services, doorPricePerM2, worktopPricePerM, findDecor } from '@/lib/catalog'
-import { PATTERN_SPECS } from './cabinet-patterns'
+import { PATTERN_SPECS, unitDrawerCount } from './cabinet-patterns'
 import type { BuilderState, CabinetUnit, DrawerSystemTier } from './inventory'
 import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n'
 
@@ -91,6 +91,23 @@ function unitCarcassAreaM2(u: CabinetUnit): number {
   return 2 * hM * dM + 2 * wM * dM + wM * hM
 }
 
+/**
+ * Drawer-box board area — the real wood *inside* a drawer cabinet that the
+ * carcass + front areas miss. Each drawer is a box (2 sides + back + bottom);
+ * its box height is derived from the cabinet height ÷ drawer count (the drawer
+ * "height"). Derived, not user input — it reacts as drawer counts change, and
+ * is the gap that made drawer-heavy kitchens under-estimate material.
+ */
+function unitDrawerBoxAreaM2(u: CabinetUnit): number {
+  const drawers = unitDrawerCount(u)
+  if (drawers <= 0) return 0
+  const wM = u.widthMm / 1000
+  const dM = (u.depthMm / 1000) * 0.85 // box ~15% shallower than the carcass
+  const boxH = ((u.heightMm / 1000) / drawers) * 0.8 // front height minus reveals
+  const perBox = 2 * dM * boxH + wM * boxH + wM * dM // 2 sides + back + bottom
+  return perBox * drawers
+}
+
 function widenByConfidence(low: number, high: number, missingSource: boolean): { low: number; high: number } {
   if (missingSource) {
     return { low: low * 0.7, high: high * 1.4 }
@@ -161,7 +178,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   if (usingUnitModel) {
     for (const u of units) {
       doorAreaM2 += unitDoorAreaM2(u)
-      carcassAreaM2 += unitCarcassAreaM2(u)
+      carcassAreaM2 += unitCarcassAreaM2(u) + unitDrawerBoxAreaM2(u)
     }
   } else {
     // Layout-only fallback (Builder just opened, no units seeded yet).
