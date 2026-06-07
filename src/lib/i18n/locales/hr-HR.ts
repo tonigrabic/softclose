@@ -416,6 +416,65 @@ export const hrHR = {
   'option.living.in_place': 'Ostajem u stanu',
   'option.living.partial_move': 'Djelomično iseljenje',
   'option.living.fully_relocate': 'Potpuno iseljenje',
+
+  // ---- Space capture -----------------------------------------------------
+  'space.intro':
+    'Tri-četiri široka kadra tvoje trenutne kuhinje — od kuta do kuta je idealno. Slikaj ih sad ili učitaj iz galerije.',
+  'space.dropTitle': 'Dodaj fotografije svog prostora',
+  'space.dropHint': 'Dodirni ili povuci — JPG, PNG, HEIC do 5MB po slici',
+  'space.upTo': 'Do 4 fotografije',
+  'space.takePhoto': 'Slikaj',
+  'space.describeInstead': 'Opiši umjesto toga',
+  'space.read': 'Pročitaj moj prostor',
+  'space.analyzing.title': 'Čitam tvoju kuhinju…',
+  'space.analyzing.detail':
+    'Izvlačim raspored, otvore, položaj sudopera i ploče te naznake stila i materijala.',
+  'space.rejected.message':
+    'Hmm — ovo ne izgleda kao kuhinja. Učitaj ponovno, opiši oblik ručno ili preskoči pa će dizajner izmjeriti na licu mjesta.',
+  'space.reupload': 'Učitaj ponovno',
+  'space.skipForNow': 'Preskoči zasad',
+  'space.backToUpload': '← Natrag na učitavanje',
+  'space.editor.title': 'Tvoj prostor — povuci, upiši, popravi što ne valja',
+  'space.startOver': 'Počni ispočetka',
+  'space.aiRead': 'AI čita:',
+  'space.ceiling.title': 'Visina stropa',
+  'space.ceiling.aiEstimate': 'AI procjena — ispravi ako treba',
+  'space.ceiling.prompt': 'Otprilike koliko je visok prostor?',
+  'space.looksRight': 'Izgleda dobro — nastavi',
+  'space.tryAgain': 'Pokušaj ponovno',
+  'space.error.tooLarge': 'je veći od 5MB — odaberi manju fotografiju.',
+  'space.error.analyzeFailed': 'Nije moguće analizirati fotografije',
+  'space.removePhoto': 'Ukloni fotografiju',
+
+  // ---- Confirm the look (chip rows) --------------------------------------
+  'confirmLook.prefillBanner':
+    'Unaprijed smo odabrali ono što smo iščitali iz tvoje inspiracije. Dodirni bilo koju oznaku da promijeniš.',
+  'confirmLook.style.label': 'Smjer stila',
+  'confirmLook.style.help': 'Kakav ukupni ugođaj želiš? Možeš odabrati više.',
+  'confirmLook.door.label': 'Vrata / fronte ladica',
+  'confirmLook.door.help': 'Stil prednje plohe ormarića.',
+  'confirmLook.worktop.label': 'Radna ploča',
+  'confirmLook.worktop.help': 'Radna površina.',
+  'confirmLook.backsplash.label': 'Zid iza radne plohe',
+  'confirmLook.backsplash.help': 'Ono što stoji iza radne plohe.',
+  'confirmLook.hardware.label': 'Okovi / metali',
+  'confirmLook.hardware.help': 'Ručke, gumbi i završetak slavine.',
+  'confirmLook.selected': 'odabrano',
+  'confirmLook.pickAny': 'Odaberi više',
+  'confirmLook.pickOne': 'Odaberi jedno',
+  'confirmLook.moreOptions': 'Više opcija',
+
+  // ---- Contact form ------------------------------------------------------
+  'contact.name.label': 'Tvoje ime',
+  'contact.name.placeholder': 'Dovoljno je ime',
+  'contact.bestWay': 'Najbolji način da te kontaktiramo',
+  'contact.method': 'Način kontakta',
+  'contact.phone': 'Telefon',
+  'contact.email': 'E-mail',
+  'contact.emailLabel': 'E-mail adresa',
+  'contact.phoneLabel': 'Broj telefona',
+  'contact.email.placeholder': 'ti@email.com',
+  'contact.phone.placeholder': '+385 91 000 0000',
 } as const
 
 export type TranslationKey = keyof typeof hrHR

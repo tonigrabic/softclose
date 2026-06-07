@@ -403,4 +403,63 @@ export const enUS: Record<TranslationKey, string> = {
   'option.living.in_place': 'Stay in place',
   'option.living.partial_move': 'Partial move-out',
   'option.living.fully_relocate': 'Fully relocate',
+
+  // ---- Space capture -----------------------------------------------------
+  'space.intro':
+    'Three or four wide shots of your current kitchen — corner-to-corner is ideal. Snap them now or upload from your camera roll.',
+  'space.dropTitle': 'Add photos of your space',
+  'space.dropHint': 'Tap or drag in — JPG, PNG, HEIC up to 5MB each',
+  'space.upTo': 'Up to 4 photos',
+  'space.takePhoto': 'Take photo',
+  'space.describeInstead': 'Describe instead',
+  'space.read': 'Read my space',
+  'space.analyzing.title': 'Reading your kitchen…',
+  'space.analyzing.detail':
+    'Pulling out layout, openings, sink and hob positions, style and material hints.',
+  'space.rejected.message':
+    "Hmm — these don't look like a kitchen. Re-upload, describe the shape instead, or skip and your designer will measure on site.",
+  'space.reupload': 'Re-upload',
+  'space.skipForNow': 'Skip for now',
+  'space.backToUpload': '← Back to upload',
+  'space.editor.title': "Your space — drag, type, fix what's off",
+  'space.startOver': 'Start over',
+  'space.aiRead': 'AI read:',
+  'space.ceiling.title': 'Ceiling height',
+  'space.ceiling.aiEstimate': 'AI estimate — adjust if off',
+  'space.ceiling.prompt': 'Roughly how tall is the room?',
+  'space.looksRight': 'Looks right — continue',
+  'space.tryAgain': 'Try again',
+  'space.error.tooLarge': 'is over 5MB — please pick a smaller photo.',
+  'space.error.analyzeFailed': 'Could not analyze photos',
+  'space.removePhoto': 'Remove photo',
+
+  // ---- Confirm the look (chip rows) --------------------------------------
+  'confirmLook.prefillBanner':
+    'We pre-selected what we read from your inspiration. Tap any chip to change it.',
+  'confirmLook.style.label': 'Style direction',
+  'confirmLook.style.help': 'What overall feel are you after? You can pick more than one.',
+  'confirmLook.door.label': 'Door / drawer fronts',
+  'confirmLook.door.help': 'The cabinet face style.',
+  'confirmLook.worktop.label': 'Worktop / countertop',
+  'confirmLook.worktop.help': 'The work surface.',
+  'confirmLook.backsplash.label': 'Backsplash',
+  'confirmLook.backsplash.help': 'What sits behind the worktop.',
+  'confirmLook.hardware.label': 'Hardware / metals',
+  'confirmLook.hardware.help': 'The pulls, knobs, and tap finish.',
+  'confirmLook.selected': 'selected',
+  'confirmLook.pickAny': 'Pick any',
+  'confirmLook.pickOne': 'Pick one',
+  'confirmLook.moreOptions': 'More options',
+
+  // ---- Contact form ------------------------------------------------------
+  'contact.name.label': 'Your name',
+  'contact.name.placeholder': 'First name is fine',
+  'contact.bestWay': 'Best way to reach you',
+  'contact.method': 'Contact method',
+  'contact.phone': 'Phone',
+  'contact.email': 'Email',
+  'contact.emailLabel': 'Email address',
+  'contact.phoneLabel': 'Phone number',
+  'contact.email.placeholder': 'you@email.com',
+  'contact.phone.placeholder': '+1 (555) 000-0000',
 }
