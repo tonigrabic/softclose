@@ -11,6 +11,7 @@ import { SpaceCapture } from './SpaceCapture'
 import { Inspiration } from './Inspiration'
 import { ConceptRender as ConceptRenderUI, type ProductReference } from './ConceptRender'
 import { ConfirmLook } from './ConfirmLook'
+import { LayoutConfirm } from '@/components/builder/LayoutConfirm'
 import { ChipMulti } from './ChipMulti'
 import { VisualScale } from './VisualScale'
 import { ContactForm, type ContactValue } from './ContactForm'
@@ -830,13 +831,16 @@ function StepBody(props: StepBodyProps) {
         </StepFrame>
       )
 
-    case 'confirm_look':
+    case 'confirm_look': {
+      const confirmPlan = planFromProfile(profile)
+      const confirmContract = confirmPlan ? floorPlanToLayout(validate(confirmPlan)) : null
       return (
         <StepFrame
           eyebrow="Step 4"
-          title="Confirm the look."
-          subtitle="We&apos;ve pre-filled what we read from your render. Adjust anything that&apos;s off."
+          title="Confirm &amp; lock it in."
+          subtitle="This is what we&apos;ll build on — your space and the look. Confirm to lock it; you can fine-tune every part next."
         >
+          {confirmContract && <LayoutConfirm contract={confirmContract} />}
           <ConfirmLook
             profile={profile}
             onChange={onPatchProfile}
@@ -846,6 +850,7 @@ function StepBody(props: StepBodyProps) {
           />
         </StepFrame>
       )
+    }
 
     case 'project_basics':
       return (
@@ -1243,6 +1248,7 @@ function BuilderStepView({
         layoutSummary={layoutSummary}
         profile={profile}
         locale="hr-HR"
+        layoutPreconfirmed
         onComplete={onComplete}
       />
     )

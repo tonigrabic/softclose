@@ -65,6 +65,12 @@ export interface BuilderShellProps {
    * by the standalone /builder dev harness, which has no funnel context.
    */
   profile?: LeadProfile
+  /**
+   * True when the contract was already confirmed at the end of Part 1 (the
+   * capture "confirm everything" step). The builder then skips its own confirm
+   * gate. The dev harness omits this, so it still shows the gate.
+   */
+  layoutPreconfirmed?: boolean
   /** Callback fired when the user finishes the builder. */
   onComplete?: (state: BuilderState) => void
 }
@@ -77,12 +83,14 @@ export function BuilderShell({
   layoutSummary,
   locale = DEFAULT_LOCALE,
   profile,
+  layoutPreconfirmed,
   onComplete,
 }: BuilderShellProps) {
-  const initial = useMemo(
-    () => hydrateFromHypothesis(hypothesis, { layoutContract }),
-    [hypothesis, layoutContract]
-  )
+  const initial = useMemo(() => {
+    const s = hydrateFromHypothesis(hypothesis, { layoutContract })
+    if (layoutPreconfirmed) s.layoutConfirmed = true
+    return s
+  }, [hypothesis, layoutContract, layoutPreconfirmed])
   const [state, dispatch] = useBuilderState(initial)
   // Builder now opens on Cabinet Boxes — Layout/dimensions are owned by Phase 1.
   const [currentId, setCurrentId] = useState<BuilderGroupId>('cabinetBoxes')
@@ -94,7 +102,6 @@ export function BuilderShell({
         // confirming the frozen contract BEFORE any builder chrome appears.
         <ConfirmScreen
           contract={layoutContract}
-          state={state}
           previewSrc={renderImageDataUrl ?? anchorPhotoDataUrl}
           onConfirm={() => dispatch({ type: 'confirm_layout' })}
         />
@@ -120,12 +127,10 @@ export function BuilderShell({
 /** The end-of-capture confirmation — its own screen, no builder chrome. */
 function ConfirmScreen({
   contract,
-  state,
   previewSrc,
   onConfirm,
 }: {
   contract: LayoutContract
-  state: BuilderState
   previewSrc?: string
   onConfirm: () => void
 }) {
@@ -140,7 +145,7 @@ function ConfirmScreen({
             className="mb-6 aspect-[4/3] w-full rounded-2xl border border-border object-cover shadow-sm"
           />
         )}
-        <LayoutConfirm contract={contract} state={state} onConfirm={onConfirm} />
+        <LayoutConfirm contract={contract} onConfirm={onConfirm} />
       </div>
     </div>
   )

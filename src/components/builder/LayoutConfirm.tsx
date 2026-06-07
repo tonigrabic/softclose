@@ -4,7 +4,6 @@ import { useMemo } from 'react'
 import { Check, Ruler, CornerUpRight } from 'lucide-react'
 import { useTranslations, type Locale } from '@/lib/i18n'
 import { formatLength } from '@/lib/floor-plan'
-import type { BuilderState } from '@/lib/builder/inventory'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
 import { suggestCabinetsForRun } from '@/lib/builder/cabinet-suggest'
 
@@ -27,19 +26,18 @@ const ROW_LABEL: Record<Locale, { base: string; wall: string; tall: string }> = 
 
 export function LayoutConfirm({
   contract,
-  state,
   onConfirm,
 }: {
   contract: LayoutContract
-  state: BuilderState
-  onConfirm: () => void
+  /** When provided, renders a confirm CTA; omit to render a read-only summary. */
+  onConfirm?: () => void
 }) {
   const { t, locale } = useTranslations()
 
   const rows = useMemo(
     () =>
-      state.layout.runs.map((run) => {
-        const units = suggestCabinetsForRun(run, { hasCorner: run.hasCorner ?? false })
+      contract.runs.map((run) => {
+        const units = suggestCabinetsForRun(run, { hasCorner: run.hasCorner })
         return {
           id: run.id,
           label: run.label,
@@ -49,7 +47,7 @@ export function LayoutConfirm({
           tall: units.filter((u) => u.type === 'tall').length,
         }
       }),
-    [state.layout.runs]
+    [contract.runs]
   )
 
   const totalCabinets = rows.reduce((s, r) => s + r.base + r.wall + r.tall, 0)
@@ -135,18 +133,21 @@ export function LayoutConfirm({
         )}
       </div>
 
-      {/* Confirm */}
-      <div className="space-y-2 pt-1">
-        <button
-          type="button"
-          onClick={onConfirm}
-          className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:brightness-[1.06]"
-        >
-          <Check className="size-4 stroke-[2.5]" aria-hidden />
-          {t('builder.confirm.cta')}
-        </button>
-        <p className="text-[12px] leading-relaxed text-muted-foreground">{t('builder.confirm.editHint')}</p>
-      </div>
+      {/* Confirm CTA — only when used as a standalone gate; omitted when embedded
+          in the capture "confirm everything" step (the step's own button locks it). */}
+      {onConfirm && (
+        <div className="space-y-2 pt-1">
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:brightness-[1.06]"
+          >
+            <Check className="size-4 stroke-[2.5]" aria-hidden />
+            {t('builder.confirm.cta')}
+          </button>
+          <p className="text-[12px] leading-relaxed text-muted-foreground">{t('builder.confirm.editHint')}</p>
+        </div>
+      )}
     </section>
   )
 }
