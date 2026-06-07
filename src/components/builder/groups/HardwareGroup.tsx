@@ -177,7 +177,31 @@ function HardwareBrowsePanel({
       {hinges.length > 0 && (
         <div className="space-y-2">
           <p className="text-[12px] font-medium text-foreground">{t('builder.browse.hinges')}</p>
-          <SchachermayerBrowse products={hinges} initialLimit={6} />
+          {state.hardware.hingePickedName && (
+            <PickedChip
+              brand={state.hardware.hingePickedBrand}
+              name={state.hardware.hingePickedName}
+              onClear={() =>
+                onPatch({
+                  hingeSku: undefined,
+                  hingePickedName: undefined,
+                  hingePickedBrand: undefined,
+                })
+              }
+            />
+          )}
+          <SchachermayerBrowse
+            products={hinges}
+            selectedSku={state.hardware.hingeSku}
+            onPick={(p) =>
+              onPatch({
+                hingeSku: p.sku,
+                hingePickedName: p.name,
+                hingePickedBrand: p.brand,
+              })
+            }
+            initialLimit={6}
+          />
         </div>
       )}
     </div>

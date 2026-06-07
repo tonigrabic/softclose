@@ -216,6 +216,10 @@ export interface HardwareGroup {
   drawerSystemPickedName?: string
   drawerSystemPickedBrand?: string
   hingeType: HingeType
+  /** Specific Schachermayer hinge SKU once the homeowner pins a model. */
+  hingeSku?: string
+  hingePickedName?: string
+  hingePickedBrand?: string
   handleStyle: HandleStyle
   handleFinish: HandleFinish
   /** Internal organisers selected (cutlery insert, magic corner, pull-out larder, etc). */
@@ -408,9 +412,9 @@ export const BUILDER_GROUPS: BuilderGroupMeta[] = [
   // already-defined room.
   { id: 'cabinetBoxes', labelKey: 'builder.groups.cabinetBoxes.label', whyKey: 'builder.groups.cabinetBoxes.why', order: 1 },
   { id: 'doors', labelKey: 'builder.groups.doors.label', whyKey: 'builder.groups.doors.why', order: 2 },
-  { id: 'worktop', labelKey: 'builder.groups.worktop.label', whyKey: 'builder.groups.worktop.why', order: 3 },
-  { id: 'backsplash', labelKey: 'builder.groups.backsplash.label', whyKey: 'builder.groups.backsplash.why', order: 4 },
-  { id: 'hardware', labelKey: 'builder.groups.hardware.label', whyKey: 'builder.groups.hardware.why', order: 5 },
+  { id: 'hardware', labelKey: 'builder.groups.hardware.label', whyKey: 'builder.groups.hardware.why', order: 3 },
+  { id: 'worktop', labelKey: 'builder.groups.worktop.label', whyKey: 'builder.groups.worktop.why', order: 4 },
+  { id: 'backsplash', labelKey: 'builder.groups.backsplash.label', whyKey: 'builder.groups.backsplash.why', order: 5 },
   { id: 'appliances', labelKey: 'builder.groups.appliances.label', whyKey: 'builder.groups.appliances.why', order: 6 },
   { id: 'sinkTaps', labelKey: 'builder.groups.sinkTaps.label', whyKey: 'builder.groups.sinkTaps.why', order: 7 },
   { id: 'lighting', labelKey: 'builder.groups.lighting.label', whyKey: 'builder.groups.lighting.why', order: 8 },
