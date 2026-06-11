@@ -17,14 +17,16 @@
 ## Backlog (loop's own queue, reordered as priorities emerge)
 
 - [x] **W1 — Finish the merge** (= PLAN.md T6 bookkeeping + T7 verification sweep) ✓ iter 1
-- [ ] **W2 — Contract analysis**: read `src/lib/contract/layout-contract.ts` +
-      `context/layout-contract.md`; map every field → who produces it, who consumes
-      it (builder seed, BOM, render); find fields that are dead, ambiguous, or
-      missing; write findings here.
-- [ ] **W3 — Better estimate**: audit `src/lib/builder/bom.ts` drivers; find the
-      widest bands and what concrete homeowner input would narrow them; check the
-      contract carries everything the BOM needs (it must not guess what part 1
-      already measured).
+- [x] **W2 — Contract analysis** ✓ iter 2 — full audit in `context/contract-analysis.md`
+- [ ] **W3 — Better estimate** (scoped by W2's findings, in build order):
+      - [ ] W3a — appliance footprints: contract gains `applianceSpans` per run;
+            seeding skips fridge span / converts dishwasher slot; worktop length
+            subtracts fridge; island out of mitre count (Finding 1)
+      - [ ] W3b — confidence → band: BOM reads state meta + contract confidence
+            flows into meta at hydration; band tightens H→L (Finding 2)
+      - [ ] W3c — hob/fridge/dishwasher measured positions drive seeded patterns
+            (Finding 3)
+      - [ ] W3d — window-aware `hasWall` default (Finding 4)
 - [ ] **W4 — Plug-in/plug-out builder screens**: define one step-module interface
       (id, nav node, body, gating, readback, BOM contribution) so adding/removing
       a builder group is a registry entry, not an `index.tsx` surgery.
@@ -56,3 +58,23 @@
 - Next iteration: **W2 — contract analysis** (layout-contract.ts field-by-field:
   producer → consumers → confidence; find dead/ambiguous/missing fields), feeding
   directly into W3 (better estimate) and W5's architecture pass.
+
+### 2026-06-11 — Iteration 2
+
+- **W2 done — contract audited field-by-field.** Full writeup:
+  `context/contract-analysis.md`. Headline: the contract IS the single source
+  of layout truth for the builder (hydration requires it, no fallbacks — spec
+  honored), but it is NOT yet the driver of the estimate. Four findings:
+  1. **Appliance footprints double-counted** (HIGH): counter segments cut out
+     doors but not appliances → fridge/dishwasher spans get seeded cabinets AND
+     the appliance; worktop length includes the fridge span. Systematic
+     overestimate on appliance walls.
+  2. **Confidence never reaches the band** (HIGH): bom.ts claims ±10%/±25% by
+     confidence in its header but reads no meta at all; contract per-run/per-
+     appliance confidence is dropped at hydration. The range can't tighten as
+     the homeowner confirms — breaking foundations principle 6.
+  3. Measured hob/fridge/dishwasher positions unused in seeding (only sink is).
+  4. `hasWall` default could be window-aware, deterministically (no AI needed).
+- Backlog updated: W3 now split into W3a–W3d in build order.
+- Next iteration: **build W3a** (appliance footprints) — biggest systematic
+  estimate error, pure logic, easiest to verify.
