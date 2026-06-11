@@ -173,3 +173,39 @@
 - tsc + eslint + production build green.
 - Next iteration: **W5 — whole-app analysis** (architecture + UX pass over the
   full journey; propose improvements, queue them here, build them).
+
+---
+
+## Loop restart — 2026-06-12, under the LOOP.md charter
+
+> Toni found the displayed band regressed ±20% → ±30% after W3b. Root cause
+> analysis (see LOOP.md B1): widenByMeta double-counts uncertainty, and the
+> real `/builder` route hydrates with `hypothesis = null` → every material
+> field L → max widening. W3b's "numeric check" ran on a hand-built fixture
+> state with M/H hints that the product never reaches. The charter (LOOP.md)
+> now governs: executable gate before any commit, verify on real paths only,
+> escalate product calls. Backlog lives in LOOP.md (B0–B10), not here.
+
+### 2026-06-12 — Iteration 1 (B0 — executable gate)
+
+- **B0 done — the gate exists and it caught the regression.**
+  - `vitest` added (devDep) + `vitest.config.ts` (`@/` alias, node env) +
+    `tests/band-invariant.test.ts`. `npm run gate` chains
+    `vitest run && tsc --noEmit && eslint . && next build`.
+  - The test reproduces the REAL builder entry: every fixture in
+    `src/lib/builder/fixtures.ts` → `floorPlanToLayout` →
+    `hydrateFromHypothesis(null, …)` → `computeBom`, asserting displayed band
+    (`round(bandWidthPct/2)`, same formula as the UI) ≤ ±20%.
+  - **Measured today, all six fixtures: ±27–29%** (l-shape 28, galley 28,
+    u-shape 28, island 27, peninsula 28, single 29). Confirms Toni's "~30%"
+    report on the real path — vs. the ±23% W3b claimed from its hand-built
+    state.
+  - Band tests are `test.fails` (KNOWN RED, documented in-file): suite stays
+    green so the commit-only-on-green rule holds, and when B1 lands vitest
+    will flag them as unexpectedly passing, forcing the flip to plain `test`
+    in the same commit. Totals per fixture are snapshot-locked so silent
+    estimate drift fails the gate.
+- Gate: vitest 6 pass + 6 expected-fail · tsc clean · eslint clean ·
+  build 12/12 green.
+- Next iteration: **B1 — band recalibration** (fix the double-counting, cap
+  the unconfirmed band at ±20%, keep the confirm-to-tighten loop).

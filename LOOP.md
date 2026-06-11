@@ -36,7 +36,7 @@ Companion files: `WORKLOG.md` (append-only iteration log),
 
 ## Backlog (strict order)
 
-- [ ] **B0 — Executable gate.** Add a minimal test runner (vitest, or a plain
+- [x] **B0 — Executable gate.** ✓ 2026-06-12 Add a minimal test runner (vitest, or a plain
   `node --experimental-strip-types` script if deps are unwelcome) with one
   test that matters: every contract fixture × `hydrateFromHypothesis(null)` ×
   `computeBom` → assert displayed band ≤ 20 and snapshot total low/high per
