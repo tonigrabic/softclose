@@ -32,10 +32,8 @@ The merge is incomplete wherever the journey still swaps chrome or language:
 ## Task list
 
 - [x] **T0 — Audit + this plan**
-- [ ] **T1 — Builder entry screen into the shell + localized**
-      Render the idle/loading/error hypothesis screen inside `AppShell` (nav + right rail stay);
-      move every string into the locale files; retire "Phase 2" wording.
-- [ ] **T2 — Localize the room summary line** (`summariseLayoutFromProfile`)
+- [x] **T1 — Builder entry screen into the shell + localized** ✓ `54a634f`
+- [x] **T2 — Localize the room summary line** ✓ `54a634f`
 - [ ] **T3 — Offer screen into the shell + localized + honest badge**
       `WrapUpScreen` renders inside `AppShell` with the rail showing everything done;
       hr/en strings; "Placeholder" badge only when the estimate is the budget stub;
@@ -62,6 +60,17 @@ The merge is incomplete wherever the journey still swaps chrome or language:
 - **2026-06-11 · T0** — Audited branch vs. blueprint; wrote this plan. Found PR1/PR2/PR4
   genuinely landed; PR3 partial; three chrome swaps left (builder entry, offer screen,
   mobile-no-nav); two hard-coded-language surfaces. `tsc`/`eslint` clean before any changes.
+- **2026-06-11 · T1+T2 · `54a634f`** — Builder entry screen now renders inside `AppShell`
+  as a normal step body: same `JourneyNavRail`, same progress bar, and the right rail
+  (render anchor) now includes the builder step. All entry copy moved to
+  `funnel.builderEntry.*` (hr + en); the "Phase 2 — Ana" eyebrow became the localized
+  Act-2 label. Bonus fix found while in there: re-entering the builder used to re-hydrate
+  from the AI hypothesis and silently discard every pick — `BuilderShell` now takes a
+  `savedState` prop and resumes `profile.builderState`, so "pick up where you left off"
+  is actually true. Room summary line (`summariseLayoutFromProfile`) localized through
+  `layout.shape.*` + new `layout.suffix.island` key. The footer Continue is hidden on
+  the entry step (its own CTAs own forward motion; footer Back still works). `tsc` +
+  `eslint` clean.
 
 ## Open questions / decisions taken without asking
 

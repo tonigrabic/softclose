@@ -478,14 +478,39 @@ export function KitchenIntake() {
     ? conceptRenders.find((r) => r.id === chosenRenderId)
     : conceptRenders[conceptRenders.length - 1]
 
+  // ── Wrap-up / offer — still inside the one shell: the journey rail stays,
+  // with every act marked done (status visibility to the very last screen).
   if (isDone && wrapUpData) {
     return (
-      <WrapUpScreen
-        data={wrapUpData}
-        profile={profile}
-        explorationRefs={[]}
-        transcript={transcript}
-      />
+      <AppShell
+        progressPercent={100}
+        nav={
+          <>
+            <header className="mb-5 flex items-center justify-between gap-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                {DESIGNER_NAME}
+              </p>
+              <button
+                type="button"
+                onClick={resetAll}
+                className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                title="Start over"
+              >
+                <RotateCcw className="size-3 stroke-[2]" aria-hidden />
+                Start over
+              </button>
+            </header>
+            <JourneyNavRail funnelStepId="contact" profile={profile} journeyDone locale={locale} />
+          </>
+        }
+      >
+        <WrapUpScreen
+          data={wrapUpData}
+          profile={profile}
+          explorationRefs={[]}
+          transcript={transcript}
+        />
+      </AppShell>
     )
   }
 
@@ -581,7 +606,7 @@ export function KitchenIntake() {
               </button>
             )}
           </header>
-          <JourneyNavRail funnelStepId={state.currentStepId} profile={profile} />
+          <JourneyNavRail funnelStepId={state.currentStepId} profile={profile} locale={locale} />
         </>
       }
     >

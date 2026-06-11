@@ -12,6 +12,7 @@ import type {
 } from '@/lib/types'
 import { DESIGNER_NAME, STUDIO_NAME } from '@/lib/system-prompt'
 import { hasPlan, planFromProfile } from '@/lib/floor-plan'
+import { useTranslations } from '@/lib/i18n'
 import { FloorPlanStatic } from './FloorPlanStatic'
 import { MakerDashboardPreview } from './MakerDashboardPreview'
 
@@ -22,8 +23,8 @@ interface WrapUpScreenProps {
   transcript: ClientMessage[]
 }
 
-function fmtMoney(n: number): string {
-  return `${Math.round(n).toLocaleString('hr-HR')} €`
+function humanize(v: string): string {
+  return v.replace(/_/g, ' ')
 }
 
 function listSummary(items: { trade: string }[] | undefined): string | null {
@@ -32,6 +33,7 @@ function listSummary(items: { trade: string }[] | undefined): string | null {
 }
 
 export function WrapUpScreen({ data, profile, explorationRefs, transcript }: WrapUpScreenProps) {
+  const { t, tDynamic: td, locale } = useTranslations()
   const [bundle, setBundle] = useState<HandoffBundle | null>(null)
   const [bundleError, setBundleError] = useState<string | null>(null)
   const [isLoadingBundle, setIsLoadingBundle] = useState(true)
@@ -43,6 +45,18 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
   const showPlan = hasPlan(profile) && plan !== null
   const moodBoard = profile.moodBoardItems ?? []
   const chosenRender = profile.conceptRenders?.find((r) => r.id === profile.conceptRenderChosenId)
+
+  function fmtMoney(n: number): string {
+    return `${Math.round(n).toLocaleString(locale)} €`
+  }
+
+  /** Translate an option value via its `option.*` family, humanized fallback. */
+  function optionLabel(family: string, value: string | null | undefined): string | null {
+    if (!value) return null
+    const key = `option.${family}.${value}`
+    const label = td(key)
+    return label === key ? humanize(value) : label
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -106,6 +120,11 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
   }
 
   const estimate = bundle?.estimate
+  const estimateBasis = estimate
+    ? estimate.placeholder
+      ? t('wrapup.estimate.basisStub')
+      : t('wrapup.estimate.basisBom').replace('{pct}', String(estimate.bandPct ?? 20))
+    : null
 
   return (
     <motion.div
@@ -118,61 +137,76 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
         <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-2xl text-primary-foreground">
           ✓
         </div>
-        <h2 className="text-2xl font-semibold text-foreground">Here&apos;s your brief</h2>
+        <h2 className="text-2xl font-semibold text-foreground">{t('wrapup.title')}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{data.thankYouMessage}</p>
-        <p className="text-xs text-muted-foreground/70">
-          Review what we&apos;re sending — fix anything that&apos;s off.
-        </p>
+        <p className="text-xs text-muted-foreground/70">{t('wrapup.review')}</p>
         <p className="mt-1 text-[11px] text-muted-foreground/60">
           — {DESIGNER_NAME}, {STUDIO_NAME}
         </p>
       </div>
 
-      {/* Stub estimate — homeowner-facing preview */}
+      {/* Estimate — always a range, never a quote. The badge is honest about
+          provenance: amber placeholder for the budget stub, neutral tag when
+          the range comes from the homeowner's real build. */}
       <section className="rounded-2xl border border-border bg-card p-5 text-left shadow-sm">
         <div className="mb-2 flex items-baseline justify-between">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Rough estimate range
+            {t('wrapup.estimate.title')}
           </p>
-          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">
-            Placeholder
-          </span>
+          {estimate &&
+            (estimate.placeholder ? (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">
+                {t('wrapup.estimate.placeholderBadge')}
+              </span>
+            ) : (
+              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+                {t('wrapup.estimate.bomBadge')}
+              </span>
+            ))}
         </div>
         {isLoadingBundle ? (
-          <p className="text-sm text-muted-foreground">Crunching a rough range…</p>
+          <p className="text-sm text-muted-foreground">{t('wrapup.estimate.loading')}</p>
         ) : estimate ? (
           <>
-            <p className="text-3xl font-bold text-foreground">
+            <p className="text-3xl font-bold tabular-nums text-foreground">
               {fmtMoney(estimate.low)} <span className="text-muted-foreground">–</span> {fmtMoney(estimate.high)}
             </p>
-            <p className="mt-2 text-xs text-muted-foreground">{estimate.basis}</p>
+            {estimateBasis && (
+              <p className="mt-2 text-xs text-muted-foreground">{estimateBasis}</p>
+            )}
             <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
               <AlertCircle className="mt-0.5 size-3 shrink-0 stroke-[1.75]" aria-hidden />
-              Your designer will refine this into a real quote on follow-up. We never send a single number to you without a human on the other side.
+              {t('wrapup.estimate.makerConfirms')}
             </p>
           </>
         ) : (
-          <p className="text-sm text-muted-foreground">Estimate not available yet.</p>
+          <p className="text-sm text-muted-foreground">{t('wrapup.estimate.unavailable')}</p>
         )}
       </section>
 
       {/* Chosen concept render */}
       {chosenRender && (
-        <SectionWithFix title="Your concept render" badge="AI Concept" onFix={null}>
+        <SectionWithFix
+          title={t('wrapup.section.render')}
+          badge={t('wrapup.section.renderBadge')}
+          onFix={null}
+        >
           <div className="overflow-hidden rounded-xl border border-border bg-background">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={chosenRender.imageDataUrl}
-              alt="AI concept render"
+              alt={t('wrapup.section.render')}
               className="h-auto w-full"
             />
             <div className="border-t border-border/70 px-3 py-2 text-[11px] text-muted-foreground">
               <p className="flex items-center gap-1.5">
                 <Sparkles className="size-3 stroke-[1.75]" aria-hidden />
-                AI-generated concept anchored to your space photo. Discussion only — your designer is the source of truth.
+                {t('wrapup.render.note')}
               </p>
               {chosenRender.nudges.length > 0 && (
-                <p className="mt-1">Tweaks applied: {chosenRender.nudges.join(' · ')}</p>
+                <p className="mt-1">
+                  {t('wrapup.render.tweaks')} {chosenRender.nudges.join(' · ')}
+                </p>
               )}
             </div>
           </div>
@@ -181,77 +215,127 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
 
       {/* Floor plan */}
       {showPlan && plan && (
-        <SectionWithFix title="Your space" onFix={null}>
+        <SectionWithFix title={t('wrapup.section.space')} onFix={null}>
           <FloorPlanStatic plan={plan} mode="homeowner" />
         </SectionWithFix>
       )}
 
       {/* Project basics */}
-      <BriefSection title="Project basics" onFix={null}>
-        <SummaryRow label="Project type" value={profile.projectType} />
-        <SummaryRow label="Timeline" value={profile.timeline} />
-        <SummaryRow label="Budget band" value={profile.budgetRange ?? (profile.budgetShared === false ? 'Prefer not to say' : null)} />
+      <BriefSection title={t('wrapup.section.basics')} onFix={null}>
+        <SummaryRow label={t('wrapup.row.projectType')} value={optionLabel('projectType', profile.projectType)} />
+        <SummaryRow label={t('wrapup.row.timeline')} value={optionLabel('timeline', profile.timeline)} />
+        <SummaryRow
+          label={t('wrapup.row.budget')}
+          value={
+            profile.budgetRange
+              ? humanize(profile.budgetRange)
+              : profile.budgetShared === false
+                ? t('wrapup.row.budgetPrivate')
+                : null
+          }
+        />
       </BriefSection>
 
       {/* Scope */}
       {profile.scope && (
-        <BriefSection title="Scope of work" onFix={null}>
+        <BriefSection title={t('wrapup.section.scope')} onFix={null}>
           <SummaryRow
-            label="Items in scope"
-            value={Object.entries(profile.scope)
-              .filter(([, v]) => v === true)
-              .map(([k]) => k)
-              .join(', ') || null}
+            label={t('wrapup.row.scopeItems')}
+            value={
+              Object.entries(profile.scope)
+                .filter(([, v]) => v === true)
+                .map(([k]) => optionLabel('scope', k))
+                .filter(Boolean)
+                .join(', ') || null
+            }
           />
         </BriefSection>
       )}
 
       {/* Style + materials */}
-      <BriefSection title="Style + materials" onFix={null}>
-        <SummaryRow label="Style" value={profile.stylePreferences?.join(', ')} />
-        <SummaryRow label="Cabinet door" value={profile.doorMaterial} />
-        <SummaryRow label="Construction" value={profile.cabinetConstruction} />
-        <SummaryRow label="Worktop" value={profile.worktopPreference} />
-        <SummaryRow label="Backsplash" value={profile.backsplashPreference} />
-        <SummaryRow label="Hardware tier" value={profile.hardwareTier} />
-        <SummaryRow label="Hardware brand" value={profile.hardwareBrand} />
-        <SummaryRow label="Specialty cabinets" value={profile.specialtyCabinets?.join(', ')} />
-        <SummaryRow label="Appliances" value={profile.appliancesIntegrated} />
+      <BriefSection title={t('wrapup.section.style')} onFix={null}>
+        <SummaryRow
+          label={t('wrapup.row.style')}
+          value={profile.stylePreferences?.map(humanize).join(', ')}
+        />
+        <SummaryRow label={t('wrapup.row.door')} value={profile.doorMaterial && humanize(profile.doorMaterial)} />
+        <SummaryRow
+          label={t('wrapup.row.construction')}
+          value={profile.cabinetConstruction && humanize(profile.cabinetConstruction)}
+        />
+        <SummaryRow
+          label={t('wrapup.row.worktop')}
+          value={profile.worktopPreference && humanize(profile.worktopPreference)}
+        />
+        <SummaryRow
+          label={t('wrapup.row.backsplash')}
+          value={profile.backsplashPreference && humanize(profile.backsplashPreference)}
+        />
+        <SummaryRow
+          label={t('wrapup.row.hardwareTier')}
+          value={profile.hardwareTier && humanize(profile.hardwareTier)}
+        />
+        <SummaryRow
+          label={t('wrapup.row.hardwareBrand')}
+          value={profile.hardwareBrand && humanize(profile.hardwareBrand)}
+        />
+        <SummaryRow
+          label={t('wrapup.row.specialty')}
+          value={profile.specialtyCabinets?.map(humanize).join(', ')}
+        />
+        <SummaryRow
+          label={t('wrapup.row.appliances')}
+          value={profile.appliancesIntegrated && humanize(profile.appliancesIntegrated)}
+        />
       </BriefSection>
 
       {/* Trades */}
       {profile.trades && Object.keys(profile.trades).length > 0 && (
-        <BriefSection title="Trades & utilities" onFix={null}>
-          <SummaryRow label="Sink position" value={profile.trades.plumbing?.sinkPosition} />
-          <SummaryRow label="Cooker type" value={profile.trades.electrical?.cookerType} />
-          <SummaryRow label="Gas available" value={profile.trades.gas?.available} />
-          <SummaryRow label="Vent path desired" value={profile.trades.ventilation?.desiredPath} />
+        <BriefSection title={t('wrapup.section.trades')} onFix={null}>
+          <SummaryRow
+            label={t('wrapup.row.sinkPosition')}
+            value={profile.trades.plumbing?.sinkPosition && humanize(profile.trades.plumbing.sinkPosition)}
+          />
+          <SummaryRow
+            label={t('wrapup.row.cookerType')}
+            value={profile.trades.electrical?.cookerType && humanize(profile.trades.electrical.cookerType)}
+          />
+          <SummaryRow
+            label={t('wrapup.row.gas')}
+            value={profile.trades.gas?.available && humanize(profile.trades.gas.available)}
+          />
+          <SummaryRow
+            label={t('wrapup.row.ventPath')}
+            value={
+              profile.trades.ventilation?.desiredPath && humanize(profile.trades.ventilation.desiredPath)
+            }
+          />
         </BriefSection>
       )}
 
       {/* Lighting */}
       {profile.lighting && Object.keys(profile.lighting).length > 0 && (
-        <BriefSection title="Lighting" onFix={null}>
+        <BriefSection title={t('wrapup.section.lighting')} onFix={null}>
           <SummaryRow
-            label="Layers"
+            label={t('wrapup.row.lightLayers')}
             value={
               [
-                profile.lighting.taskLayer && 'task',
-                profile.lighting.ambientLayer && 'ambient',
-                profile.lighting.accentLayer && 'accent',
+                profile.lighting.taskLayer && t('wrapup.light.task'),
+                profile.lighting.ambientLayer && t('wrapup.light.ambient'),
+                profile.lighting.accentLayer && t('wrapup.light.accent'),
               ]
                 .filter(Boolean)
                 .join(', ') || null
             }
           />
           <SummaryRow
-            label="Smart controls"
+            label={t('wrapup.row.smartControls')}
             value={
               profile.lighting.smartControls === undefined
                 ? null
                 : profile.lighting.smartControls
-                  ? 'Yes'
-                  : 'No'
+                  ? t('wrapup.yes')
+                  : t('wrapup.no')
             }
           />
         </BriefSection>
@@ -259,35 +343,51 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
 
       {/* Wishlist */}
       {(profile.mustHaves?.length || profile.niceToHaves?.length || profile.dealBreakers?.length) && (
-        <BriefSection title="Wishlist" onFix={null}>
-          <SummaryRow label="Must-haves" value={listSummary(profile.mustHaves)} />
-          <SummaryRow label="Nice-to-haves" value={listSummary(profile.niceToHaves)} />
-          <SummaryRow label="Deal-breakers" value={listSummary(profile.dealBreakers)} />
+        <BriefSection title={t('wrapup.section.wishlist')} onFix={null}>
+          <SummaryRow label={t('wrapup.row.mustHaves')} value={listSummary(profile.mustHaves)} />
+          <SummaryRow label={t('wrapup.row.niceToHaves')} value={listSummary(profile.niceToHaves)} />
+          <SummaryRow label={t('wrapup.row.dealBreakers')} value={listSummary(profile.dealBreakers)} />
         </BriefSection>
       )}
 
       {/* Logistics */}
       {profile.logistics && Object.keys(profile.logistics).length > 0 && (
-        <BriefSection title="Logistics" onFix={null}>
-          <SummaryRow label="Site access" value={profile.logistics.siteAccess} />
-          <SummaryRow label="Living during build" value={profile.logistics.livingDuringBuild} />
-          <SummaryRow label="Phasing" value={profile.logistics.phasing} />
-          <SummaryRow label="Permits" value={profile.logistics.permits} />
+        <BriefSection title={t('wrapup.section.logistics')} onFix={null}>
+          <SummaryRow
+            label={t('wrapup.row.siteAccess')}
+            value={optionLabel('siteAccess', profile.logistics.siteAccess)}
+          />
+          <SummaryRow
+            label={t('wrapup.row.living')}
+            value={optionLabel('living', profile.logistics.livingDuringBuild)}
+          />
+          <SummaryRow
+            label={t('wrapup.row.phasing')}
+            value={profile.logistics.phasing && humanize(profile.logistics.phasing)}
+          />
+          <SummaryRow
+            label={t('wrapup.row.permits')}
+            value={profile.logistics.permits && humanize(profile.logistics.permits)}
+          />
         </BriefSection>
       )}
 
       {/* Decisions */}
       {profile.decisionConfidence && Object.keys(profile.decisionConfidence).length > 0 && (
-        <BriefSection title="Decision confidence" onFix={null}>
+        <BriefSection title={t('wrapup.section.confidence')} onFix={null}>
           {Object.entries(profile.decisionConfidence).map(([cat, val]) => (
-            <SummaryRow key={cat} label={cat[0].toUpperCase() + cat.slice(1)} value={val ?? null} />
+            <SummaryRow
+              key={cat}
+              label={cat[0].toUpperCase() + cat.slice(1)}
+              value={val ? humanize(val) : null}
+            />
           ))}
         </BriefSection>
       )}
 
       {/* Mood board */}
       {moodBoard.length > 0 && (
-        <SectionWithFix title={`Mood board (${moodBoard.length})`} onFix={null}>
+        <SectionWithFix title={`${t('wrapup.section.moodboard')} (${moodBoard.length})`} onFix={null}>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {moodBoard.slice(0, 8).map((item) => (
               <div
@@ -305,7 +405,7 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
             ))}
             {moodBoard.length > 8 && (
               <div className="flex aspect-square items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 text-xs font-medium text-muted-foreground">
-                +{moodBoard.length - 8} more
+                {t('wrapup.moodboard.more').replace('{n}', String(moodBoard.length - 8))}
               </div>
             )}
           </div>
@@ -316,7 +416,7 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
       {data.summaryLines.length > 0 && (
         <section className="rounded-2xl border border-border bg-card/60 p-5 text-left shadow-sm">
           <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Designer&apos;s TL;DR
+            {t('wrapup.section.tldr')}
           </p>
           <ul className="space-y-2">
             {data.summaryLines.map((line, i) => (
@@ -338,7 +438,7 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
           className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-accent/40 disabled:opacity-60"
         >
           <Download className="size-4 stroke-[1.75]" aria-hidden />
-          {isExporting ? 'Preparing…' : 'Download brief (JSON)'}
+          {isExporting ? t('wrapup.actions.preparing') : t('wrapup.actions.download')}
         </button>
         {exportError && <p className="text-xs font-medium text-destructive">{exportError}</p>}
         {bundleError && <p className="text-xs font-medium text-destructive">{bundleError}</p>}
@@ -351,7 +451,7 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
           className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
         >
           <ExternalLink className="size-3 stroke-[1.75]" aria-hidden />
-          Demo: see what the maker sees
+          {t('wrapup.actions.makerDemo')}
         </button>
       </div>
     </motion.div>

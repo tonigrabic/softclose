@@ -383,6 +383,8 @@ export interface StubEstimate {
   basis: string
   /** True for the budget-band stub; false when derived from the real builder BOM. */
   placeholder: boolean
+  /** Half-width of the range in percent (e.g. 20 for ±20%), for localized display. */
+  bandPct?: number
 }
 
 /** Shape returned by /api/handoff for the designer-facing pack. */

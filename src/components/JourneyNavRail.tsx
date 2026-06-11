@@ -54,6 +54,7 @@ export function JourneyNavRail({
   builderState,
   builderGroupId,
   onBuilderNavigate,
+  journeyDone,
   locale = DEFAULT_LOCALE,
 }: {
   funnelStepId: FlowStepId
@@ -64,6 +65,8 @@ export function JourneyNavRail({
   builderGroupId?: BuilderGroupId | null
   /** Jump between builder groups — only wired while actually in the builder. */
   onBuilderNavigate?: (id: BuilderGroupId) => void
+  /** True on the wrap-up screen: every act and step renders as done. */
+  journeyDone?: boolean
   locale?: Locale
 }) {
   const inBuilder = funnelStepId === 'builder'
@@ -98,11 +101,13 @@ export function JourneyNavRail({
     })
   }
 
-  const currentIndex = inBuilder
-    ? linear.findIndex(
-        (e) => e.kind === 'builder' && e.id === (builderGroupId ?? BUILDER_GROUPS[0].id)
-      )
-    : linear.findIndex((e) => e.kind === 'funnel' && e.id === funnelStepId)
+  const currentIndex = journeyDone
+    ? linear.length
+    : inBuilder
+      ? linear.findIndex(
+          (e) => e.kind === 'builder' && e.id === (builderGroupId ?? BUILDER_GROUPS[0].id)
+        )
+      : linear.findIndex((e) => e.kind === 'funnel' && e.id === funnelStepId)
 
   const entryAct = (e: Entry): 'space' | 'build' | 'offer' =>
     e.kind === 'builder' ? 'build' : ACT_OF_GROUP[FLOW[flowIndex(e.id)].group]

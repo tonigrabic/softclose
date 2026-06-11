@@ -57,6 +57,7 @@ export async function POST(req: Request) {
     // Prefer the real BOM the homeowner built in Phase 2; fall back to the
     // budget-band stub only if they never opened the builder.
     let estimate = buildStubEstimate(brief)
+    if (estimate) estimate.bandPct = 20
     if (brief.builderState) {
       const bom = computeBom(brief.builderState as BuilderState)
       estimate = {
@@ -64,6 +65,7 @@ export async function POST(req: Request) {
         high: bom.total.high,
         basis: `Estimated from your build — ±${Math.round(bom.bandWidthPct / 2)}%. An estimate your maker confirms, never a final quote.`,
         placeholder: false,
+        bandPct: Math.round(bom.bandWidthPct / 2),
       }
     }
 
