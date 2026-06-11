@@ -7,13 +7,15 @@
  *
  * Output is always a *range* (low/high), never a single number — see
  * Principle 6 of product-foundations.md. The width of the range reflects
- * uncertainty: ±10 % when most fields are H confidence, ±25 % otherwise,
- * widened further for any missing source price.
+ * uncertainty in two ways: a line whose catalog source is missing widens
+ * hard (`widenByConfidence`), and every line widens by the WORST confidence
+ * among its driving fields (`widenByMeta` — H/homeowner = no widening,
+ * M = ±6 %, L = ±15 %). Confirming choices is what tightens the band.
  */
 
 import { decors as catalogDecors, services, doorPricePerM2, worktopPricePerM, findDecor } from '@/lib/catalog'
 import { PATTERN_SPECS, unitDrawerCount } from './cabinet-patterns'
-import type { BuilderState, CabinetUnit, DrawerSystemTier } from './inventory'
+import type { BuilderState, CabinetUnit, DrawerSystemTier, FieldMeta } from './inventory'
 import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n'
 
 export interface BomLineItem {
@@ -139,6 +141,30 @@ function widenByConfidence(low: number, high: number, missingSource: boolean): {
   return { low, high }
 }
 
+/* Confidence-graded widening (foundations principle 6). A homeowner who
+ * confirmed or edited a field has answered the question — that's H regardless
+ * of what the AI originally guessed. AI-seeded fields widen the line by their
+ * stored confidence. A line is as uncertain as its WORST driving field. */
+const CONFIDENCE_RANK: Record<'H' | 'M' | 'L', number> = { H: 0, M: 1, L: 2 }
+const CONFIDENCE_WIDEN = [0, 0.06, 0.15] as const
+
+function effectiveConfidence(m: FieldMeta | undefined): 'H' | 'M' | 'L' {
+  if (!m) return 'L'
+  if (m.provenance === 'homeowner-confirmed' || m.provenance === 'homeowner-edited') return 'H'
+  return m.confidence
+}
+
+function widenByMeta(
+  low: number,
+  high: number,
+  metas: Array<FieldMeta | undefined>
+): { low: number; high: number } {
+  if (metas.length === 0) return { low, high }
+  const worst = Math.max(...metas.map((m) => CONFIDENCE_RANK[effectiveConfidence(m)]))
+  const f = CONFIDENCE_WIDEN[worst]
+  return { low: low * (1 - f), high: high * (1 + f) }
+}
+
 /**
  * Hardware reference RRP fallback by tier — generic drawer + 2 hinges +
  * handles per "cabinet equivalent". `perDrawer` is the marginal cost added
@@ -237,7 +263,13 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
             : 1
   const boardLow = doorAreaM2 * doorPriceM2 * styleFactor + carcassAreaM2 * carcassPriceM2
   const boardHigh = boardLow * 1.18 // waste factor
-  const boardsRange = widenByConfidence(boardLow, boardHigh, !doorDecor)
+  const boardMetas = [
+    state.doors.meta.style,
+    state.doors.meta.decorCode,
+    state.cabinetBoxes.meta.carcassMaterial,
+  ]
+  const boardsSource = widenByConfidence(boardLow, boardHigh, !doorDecor)
+  const boardsRange = widenByMeta(boardsSource.low, boardsSource.high, boardMetas)
   const unitCountSuffix = usingUnitModel ? ` · ${units.length} ${tr('cabinets', 'ormarića')}` : ''
   lineItems.push({
     key: 'boards',
@@ -261,7 +293,11 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     state.worktop.edge === 'mitred_waterfall' ? 1.25 : state.worktop.edge === 'radius' ? 1.06 : 1
   const wtLow = state.worktop.totalLengthM * wtPricePerM * edgeFactor
   const wtHigh = wtLow * 1.15 + state.worktop.mitreJoinCount * 25
-  const wtRange = widenByConfidence(wtLow, wtHigh, !wtDecor)
+  const wtSource = widenByConfidence(wtLow, wtHigh, !wtDecor)
+  const wtRange = widenByMeta(wtSource.low, wtSource.high, [
+    state.worktop.meta.family,
+    state.worktop.meta.decorCode,
+  ])
   lineItems.push({
     key: 'worktop',
     detail: `${wtDecor?.name ?? label('worktop.family', state.worktop.family)} ${state.worktop.thicknessMm} mm`,
@@ -283,12 +319,16 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
             : 25
     const bsLow = state.backsplash.kind === 'matching_slab' ? state.worktop.totalLengthM * wtPricePerM * 0.6 : bsArea * bsRate
     const bsHigh = bsLow * 1.25
+    const bsRange = widenByMeta(bsLow, bsHigh, [
+      state.backsplash.meta.kind,
+      state.backsplash.meta.heightCm,
+    ])
     lineItems.push({
       key: 'backsplash',
       detail: `${label('backsplash.kind', state.backsplash.kind)}, ${state.backsplash.heightCm} cm`,
       quantity: `${state.worktop.totalLengthM.toFixed(2)} m`,
-      low: round(bsLow),
-      high: round(bsHigh),
+      low: round(bsRange.low),
+      high: round(bsRange.high),
     })
   }
 
@@ -298,12 +338,14 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   const edgePerM = services.edgeBanding.abs_08mm_under20mmThick_pricePerM ?? 1.02
   const edgeLow = edgeM * edgePerM
   const edgeHigh = edgeLow * 1.15
+  // Derived from board area, so it inherits the boards' driving fields.
+  const edgeRange = widenByMeta(edgeLow, edgeHigh, boardMetas)
   lineItems.push({
     key: 'edgeBanding',
     detail: tr('ABS edge banding 0.8 mm × 23 mm', 'ABS kantiranje 0,8 mm × 23 mm'),
     quantity: `${edgeM.toFixed(0)} m`,
-    low: round(edgeLow),
-    high: round(edgeHigh),
+    low: round(edgeRange.low),
+    high: round(edgeRange.high),
   })
 
   /* Labour drivers — kitchen length + element counts (the maker's real rates). */
@@ -387,14 +429,19 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     ? `${unitEquivalents.toFixed(1)} ${tr('unit eq.', 'jed. ekv.')} · ${drawerCount} ${tr('drawers', 'ladica')}`
     : `${unitEquivalents.toFixed(1)} ${tr('unit eq.', 'jed. ekv.')}`
   const hwPicked = state.hardware.drawerSystemSku ? state.hardware.drawerSystemPickedName : null
+  const hwRange = widenByMeta(hwLow, hwHigh, [
+    state.hardware.meta.drawerSystemTier,
+    state.hardware.meta.hingeType,
+    ...(handleless ? [] : [state.hardware.meta.handleStyle, state.hardware.meta.handleFinish]),
+  ])
   lineItems.push({
     key: 'hardware',
     detail:
       `${tr('Drawers + hinges', 'Ladice + šarke')}, ${tr('tier', 'klasa')}: ${label('hardware.tier', state.hardware.drawerSystemTier)}; ${label('hardware.hinge', state.hardware.hingeType)}` +
       (hwPicked ? ` · ${hwPicked}` : ''),
     quantity: hwQuantity,
-    low: round(hwLow),
-    high: round(hwHigh),
+    low: round(hwRange.low),
+    high: round(hwRange.high),
   })
 
   if (accessoryLow > 0 || accessoryHigh > 0) {
@@ -448,6 +495,13 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   const tapPicked = state.sinkTaps.tap.pickedName
     ? `${state.sinkTaps.tap.pickedBrand ?? ''} ${state.sinkTaps.tap.pickedName}`.trim()
     : null
+  const sinkTapsRange = widenByMeta(sinkLow + tapLow, sinkHigh + tapHigh, [
+    state.sinkTaps.meta.sinkBowls,
+    state.sinkTaps.meta.sinkMount,
+    state.sinkTaps.meta.sinkMaterial,
+    state.sinkTaps.meta.tapType,
+    state.sinkTaps.meta.tapFinish,
+  ])
   lineItems.push({
     key: 'sinkTaps',
     detail:
@@ -455,8 +509,8 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
       (sinkPicked ? ` · ${tr('sink', 'sudoper')}: ${sinkPicked}` : '') +
       (tapPicked ? ` · ${tr('tap', 'slavina')}: ${tapPicked}` : ''),
     quantity: tr('1 set', '1 komplet'),
-    low: round(sinkLow + tapLow),
-    high: round(sinkHigh + tapHigh),
+    low: round(sinkTapsRange.low),
+    high: round(sinkTapsRange.high),
   })
 
   /* 7. Appliances ──────────────────────────────────────────────────────── */
@@ -505,12 +559,23 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
       apLow *= 0.5
       apHigh *= 0.5
     }
+    // Line confidence = worst meta among the SELECTED appliance types (types
+    // without tracked meta — microwave, wine fridge, coffee — don't widen;
+    // their per-selection narrowing above already reflects specification).
+    const applianceMetaMap = state.appliances.meta as Partial<Record<string, FieldMeta>>
+    const apRange = widenByMeta(
+      apLow,
+      apHigh,
+      state.appliances.selections
+        .map((sel) => applianceMetaMap[sel.type])
+        .filter((m): m is FieldMeta => m !== undefined)
+    )
     lineItems.push({
       key: 'appliances',
       detail: detailNames.length > 0 ? detailNames.join(' · ') : `${selectedTypes.size} ${tr('appliances', 'uređaja')}`,
       quantity: `${selectedTypes.size} ${tr('pcs', 'kom')}`,
-      low: round(apLow),
-      high: round(apHigh),
+      low: round(apRange.low),
+      high: round(apRange.high),
     })
   }
 
@@ -534,12 +599,17 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     lightHigh += 350
   }
   if (lightLow > 0) {
+    const lightRange = widenByMeta(lightLow, lightHigh, [
+      state.lighting.meta.underCabinetLed,
+      state.lighting.meta.plinthLed,
+      state.lighting.meta.pendantOverIsland,
+    ])
     lineItems.push({
       key: 'lighting',
       detail: tr('LED + pendants', 'LED + viseće'),
       quantity: tr('Layered', 'Slojevito'),
-      low: round(lightLow),
-      high: round(lightHigh),
+      low: round(lightRange.low),
+      high: round(lightRange.high),
     })
   }
 
@@ -569,52 +639,64 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     finHigh += state.finishing.openShelvingMeters * 90
   }
   if (finHigh > 0) {
+    const finRange = widenByMeta(finLow, finHigh, [
+      state.finishing.meta.plinthHeightMm,
+      state.finishing.meta.plinthMaterial,
+      state.finishing.meta.corniceStyle,
+    ])
     lineItems.push({
       key: 'finishing',
       detail: tr('Plinth, cornice & panels', 'Sokl, vijenac i bočni panel'),
       quantity: `${baseM.toFixed(1)} m`,
-      low: round(finLow),
-      high: round(finHigh),
+      low: round(finRange.low),
+      high: round(finRange.high),
     })
   }
 
-  /* 9. Manual work — design / CNC / assembly / install, grouped, by drivers. */
+  /* 9. Manual work — design / CNC / assembly / install, grouped, by drivers.
+     All four scale with the measured layout, so they widen by its confidence
+     (homeowner-confirmed runs from the contract → no widening). */
+  const labourMetas = [state.layout.meta.runs]
   const designHours = Math.max(1, Math.round(carcassCount * LABOUR_RATES.designHoursPerCarcass))
   const designCost = designHours * LABOUR_RATES.designPerHour
+  const designRange = widenByMeta(designCost * 0.9, designCost * 1.15, labourMetas)
   lineItems.push({
     key: 'design',
     detail: tr('Design & specification', 'Razrada i projektiranje'),
     quantity: `${designHours} h`,
-    low: round(designCost * 0.9),
-    high: round(designCost * 1.15),
+    low: round(designRange.low),
+    high: round(designRange.high),
   })
 
   const cncPositions = Math.round(carcassCount * LABOUR_RATES.positionsPerCarcass)
   const cncCost = cncPositions * LABOUR_RATES.cncPerPosition
+  const cncRange = widenByMeta(cncCost * 0.95, cncCost * 1.1, labourMetas)
   lineItems.push({
     key: 'cnc',
     detail: tr('CNC machining', 'CNC obrada'),
     quantity: `${cncPositions} ${tr('positions', 'pozicija')}`,
-    low: round(cncCost * 0.95),
-    high: round(cncCost * 1.1),
+    low: round(cncRange.low),
+    high: round(cncRange.high),
   })
 
   const assemblyCost = carcassCount * LABOUR_RATES.assemblyPerCarcass
+  const assemblyRange = widenByMeta(assemblyCost * 0.95, assemblyCost * 1.1, labourMetas)
   lineItems.push({
     key: 'assembly',
     detail: tr('Carcass assembly', 'Sklapanje korpusa'),
     quantity: `${carcassCount} ${tr('carcasses', 'korpusa')}`,
-    low: round(assemblyCost * 0.95),
-    high: round(assemblyCost * 1.1),
+    low: round(assemblyRange.low),
+    high: round(assemblyRange.high),
   })
 
   const installCost = installM * LABOUR_RATES.installPerMetre
+  const installRange = widenByMeta(installCost * 0.9, installCost * 1.15, labourMetas)
   lineItems.push({
     key: 'install',
     detail: tr('On-site installation', 'Montaža na licu mjesta'),
     quantity: `${installM.toFixed(1)} m`,
-    low: round(installCost * 0.9),
-    high: round(installCost * 1.15),
+    low: round(installRange.low),
+    high: round(installRange.high),
   })
 
   const total = lineItems.reduce(

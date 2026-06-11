@@ -20,8 +20,7 @@
 - [x] **W2 — Contract analysis** ✓ iter 2 — full audit in `context/contract-analysis.md`
 - [ ] **W3 — Better estimate** (scoped by W2's findings, in build order):
       - [x] W3a — appliance footprints stop double-counting ✓ iter 3
-      - [ ] W3b — confidence → band: BOM reads state meta + contract confidence
-            flows into meta at hydration; band tightens H→L (Finding 2)
+      - [x] W3b — confidence → band ✓ iter 4
       - [ ] W3c — hob/fridge/dishwasher measured positions drive seeded patterns
             (Finding 3)
       - [ ] W3d — window-aware `hasWall` default (Finding 4)
@@ -105,3 +104,27 @@
 - Next iteration: **W3b — confidence reaches the band** (BOM reads field meta;
   contract confidence flows into state meta at hydration; band tightens as the
   homeowner confirms).
+
+### 2026-06-11 — Iteration 4
+
+- **W3b built — the band finally reflects confidence** (foundations principle
+  6, the narrowing-range reward loop). Mechanism in `bom.ts`:
+  `widenByMeta(low, high, drivingFieldMetas)` — every line widens by the WORST
+  confidence among its driving fields; H (or any homeowner-confirmed/edited
+  provenance) = no widening, M = ±6%, L = ±15%. Applied per line: boards
+  (doors style/decor + carcass), worktop (family/decor), backsplash, edge
+  banding (inherits boards), hardware (tier/hinge/handles), sink+tap (all 5),
+  appliances (worst meta among SELECTED types), lighting, finishing, and all
+  four labour lines (layout runs meta — homeowner-confirmed from Part 1).
+- Hydration upgrades (`state.ts`): hob/fridge/dishwasher meta now comes from
+  the contract when Part 1 measured them (`homeowner-confirmed` at the
+  feature's confidence) instead of defaulting to L; layout aggregate
+  confidence is the WORST run, not `runs[0]`.
+- **Numeric check** (l-shape fixture): untouched AI-seeded build ±23% →
+  big-5 confirmed ±21% → fully confirmed ±17%, where the fully-confirmed
+  range is exactly the old static range — widening only ever ADDS honest
+  uncertainty, never shrinks below market spread. tsc + eslint + build green.
+- Next iteration: **W3c — measured hob/fridge positions drive seeded patterns**
+  (fridge housing at the measured end when integrated; no trash pullout under
+  the hob), then W3d (window-aware hasWall), then on to W4 (plug-in/out
+  builder screens).

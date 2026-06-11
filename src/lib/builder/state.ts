@@ -17,6 +17,7 @@ import type {
   ApplianceSelection,
   BuilderGroupId,
   BuilderState,
+  ConfidenceLevel,
   DoorStyle,
   FieldMeta,
   Provenance,
@@ -25,6 +26,7 @@ import type {
 } from './inventory'
 
 const META_DEFAULT: FieldMeta = { confidence: 'L', provenance: 'ai-default' }
+const RANK: Record<ConfidenceLevel, number> = { H: 0, M: 1, L: 2 }
 
 function metaFromHint(
   hint: { confidence: 'H' | 'M' | 'L' } | undefined,
@@ -33,6 +35,23 @@ function metaFromHint(
   return hint
     ? { confidence: hint.confidence, provenance: fallback }
     : { ...META_DEFAULT }
+}
+
+/**
+ * Meta for an appliance the contract may know about. Part 1 measured the
+ * appliance's position on the plan and the homeowner confirmed the layout —
+ * that presence is homeowner-confirmed at the feature's own confidence, which
+ * beats an absent or weaker AI hint. A vision hint still wins when stronger.
+ */
+function applianceMeta(
+  kind: 'hob' | 'fridge' | 'dishwasher',
+  contract: LayoutContract,
+  hint: { confidence: 'H' | 'M' | 'L' } | undefined
+): FieldMeta {
+  const fromContract = contract.appliances.find((a) => a.kind === kind)
+  if (!fromContract) return metaFromHint(hint)
+  if (hint && hint.confidence === 'H') return metaFromHint(hint)
+  return { confidence: fromContract.confidence, provenance: 'homeowner-confirmed' }
 }
 
 /**
@@ -101,8 +120,15 @@ export function hydrateFromHypothesis(
       runs,
       ceilingHeightCm: contract.ceilingHeightCm,
       meta: {
-        // Layout came from Part 1, where the homeowner confirmed it.
-        runs: { confidence: contract.runs[0]?.confidence ?? 'M', provenance: 'homeowner-confirmed' },
+        // Layout came from Part 1, where the homeowner confirmed it. The
+        // aggregate confidence is the WORST run (one shaky wall = shaky BOM).
+        runs: {
+          confidence: contract.runs.reduce<ConfidenceLevel>(
+            (worst, r) => (RANK[r.confidence] > RANK[worst] ? r.confidence : worst),
+            'H'
+          ),
+          provenance: 'homeowner-confirmed',
+        },
         shape: { confidence: 'H', provenance: 'homeowner-confirmed' },
       },
     },
@@ -184,13 +210,17 @@ export function hydrateFromHypothesis(
       selections: seedApplianceSelections(hypothesis, contract),
       meta: {
         supply: { ...META_DEFAULT, provenance: 'ai-default' },
-        hob: metaFromHint(hypothesis?.appliances?.hob),
+        hob: applianceMeta('hob', contract, hypothesis?.appliances?.hob),
         oven: metaFromHint(hypothesis?.appliances?.oven),
         extractor: metaFromHint(hypothesis?.appliances?.extractor),
-        fridge: metaFromHint(
+        fridge: applianceMeta(
+          'fridge',
+          contract,
           hypothesis?.appliances?.fridge?.present ?? hypothesis?.appliances?.fridgeIntegrated
         ),
-        dishwasher: metaFromHint(
+        dishwasher: applianceMeta(
+          'dishwasher',
+          contract,
           hypothesis?.appliances?.dishwasher?.present ?? hypothesis?.appliances?.dishwasherIntegrated
         ),
       },
