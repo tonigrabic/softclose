@@ -184,6 +184,7 @@ export const hrHR = {
   'builder.cabinetBoxes.pattern.pullouts_inside_doors': 'Vrata s izvlakama',
   'builder.cabinetBoxes.pattern.drawer_door_combo': 'Ladica + vrata',
   'builder.cabinetBoxes.pattern.sink_unit': 'Sudoperski element',
+  'builder.cabinetBoxes.pattern.appliance_slot': 'Front ugradbenog aparata',
   'builder.cabinetBoxes.pattern.trash_pullout': 'Izvlaka za smeće',
   'builder.cabinetBoxes.pattern.corner_magic': 'Magični kut',
   'builder.cabinetBoxes.pattern.corner_lazy': 'Lazy Susan kut',

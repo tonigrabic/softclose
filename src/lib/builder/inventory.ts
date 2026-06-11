@@ -51,6 +51,14 @@ export interface WallRunDimensions {
    * is available, in which case consumers fall back to a positional heuristic.
    */
   hasCorner?: boolean
+  /**
+   * Cm of this run occupied by footprint appliances, from the layout contract.
+   * A fridge blocks both cabinet rows; a dishwasher occupies a base slot
+   * (priced as an appliance front, not a carcass). Drives the BOM's layout-only
+   * fallback and the fitting bar so neither counts cabinets across appliance
+   * floor space.
+   */
+  applianceFootprintCm?: { fridgeCm: number; dishwasherCm: number }
 }
 
 export interface LayoutGroup {
@@ -93,6 +101,7 @@ export type CabinetPattern =
   | 'pullouts_inside_doors'
   | 'drawer_door_combo'
   | 'sink_unit'
+  | 'appliance_slot'
   | 'trash_pullout'
   | 'corner_magic'
   | 'corner_lazy'

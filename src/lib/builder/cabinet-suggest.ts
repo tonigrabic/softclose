@@ -22,9 +22,25 @@ function newId(): string {
   return `unit-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
 
+/** Appliance footprint along the run (mm) — see applianceSpansForRun(). */
+interface ApplianceSpanInput {
+  kind: string
+  startMm: number
+  endMm: number
+  widthMm: number
+}
+
 interface SuggestOptions {
   /** True if this run owns the inner corner (so we reserve a corner unit). */
   hasCorner?: boolean
+  /**
+   * Measured appliance footprints on this run. A fridge span is cut out of
+   * both the base and wall fill (full-height appliance, no cabinets there);
+   * a dishwasher span becomes an `appliance_slot` base unit (decor front
+   * only — no carcass, no hardware). Sink/hob spans are ignored here: they
+   * sit on ordinary base units (the sink unit is forced by the caller).
+   */
+  applianceSpans?: ApplianceSpanInput[]
   /** Cabinet base depth (mm). 600 = standard. */
   baseDepthMm?: number
   /** Cabinet wall depth (mm). 330 = standard. */
@@ -77,10 +93,24 @@ export function suggestCabinetsForRun(
   const tallHeight = opts.tallHeightMm ?? 2200
   const cornerReservedMm = opts.hasCorner ? 900 : 0
 
+  // Appliance footprints reduce the fillable length: a fridge blocks both
+  // rows; each dishwasher takes a fixed 600 mm base slot seeded explicitly
+  // below (the measured span centres it; 600 is the standard module).
+  const spans = opts.applianceSpans ?? []
+  const fridgeMm = spans
+    .filter((s) => s.kind === 'fridge')
+    .reduce((sum, s) => sum + s.widthMm, 0)
+  const dishwasherSpans = spans.filter((s) => s.kind === 'dishwasher')
+  const DISHWASHER_SLOT_MM = 600
+
   const out: CabinetUnit[] = []
 
   if (run.hasBase) {
-    const widths = fillRunWithWidths(totalMm, STANDARD_WIDTHS_BASE, cornerReservedMm)
+    const fillMm = Math.max(
+      0,
+      totalMm - fridgeMm - dishwasherSpans.length * DISHWASHER_SLOT_MM
+    )
+    const widths = fillRunWithWidths(fillMm, STANDARD_WIDTHS_BASE, cornerReservedMm)
     const lastIdx = widths.length - 1
     let positionMm = 0
     widths.forEach((w, i) => {
@@ -103,10 +133,23 @@ export function suggestCabinetsForRun(
       })
       positionMm += w
     })
+    for (const dw of dishwasherSpans) {
+      out.push({
+        id: newId(),
+        type: 'base',
+        widthMm: DISHWASHER_SLOT_MM,
+        heightMm: baseHeight,
+        depthMm: baseDepth,
+        runId: run.id,
+        positionPctAlongRun: totalMm > 0 ? clampPctNum((dw.startMm / totalMm) * 100) : 0,
+        pattern: 'appliance_slot',
+      })
+    }
   }
 
   if (run.hasWall) {
-    const widths = fillRunWithWidths(totalMm, STANDARD_WIDTHS_WALL, cornerReservedMm)
+    const fillMm = Math.max(0, totalMm - fridgeMm)
+    const widths = fillRunWithWidths(fillMm, STANDARD_WIDTHS_WALL, cornerReservedMm)
     let positionMm = 0
     widths.forEach((w) => {
       out.push({
@@ -152,6 +195,10 @@ function pickBasePattern(args: {
   // Narrow unit at run end → trash pullout if it fits the slot.
   if (args.index === args.lastIndex && args.widthMm <= 600) return 'trash_pullout'
   return 'doors_shelf'
+}
+
+function clampPctNum(n: number): number {
+  return Math.max(0, Math.min(100, n))
 }
 
 function clampWidth(mm: number): CabinetUnit['widthMm'] {

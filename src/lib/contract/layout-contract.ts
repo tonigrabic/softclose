@@ -80,6 +80,57 @@ export interface LayoutContract {
   corners: ContractCorner[]
 }
 
+/** An appliance footprint projected onto a run, in mm from the run start. */
+export interface ApplianceSpan {
+  kind: FeatureKind
+  startMm: number
+  endMm: number
+  widthMm: number
+}
+
+/**
+ * Project a run's appliance footprints into mm along its cabinet-bearing
+ * length. Approximation: `positionPctAlongRun` is measured along the wall,
+ * while the run sums counter segments with doors cut out — identical on walls
+ * without openings, off by at most the opening width otherwise. This is the
+ * same approximation the sink-placement seeding already makes; fine for
+ * seeding and pricing, not for shop drawings.
+ */
+export function applianceSpansForRun(contract: LayoutContract, runId: string): ApplianceSpan[] {
+  const run = contract.runs.find((r) => r.id === runId)
+  if (!run) return []
+  const totalMm = run.lengthCm * 10
+  if (totalMm <= 0) return []
+  return contract.appliances
+    .filter((a) => a.runId === runId)
+    .map((a) => {
+      const widthMm = Math.min(Math.round(a.widthCm * 10), totalMm)
+      const centerMm = (clampPct(a.positionPctAlongRun) / 100) * totalMm
+      const startMm = Math.max(0, Math.min(centerMm - widthMm / 2, totalMm - widthMm))
+      return { kind: a.kind, startMm, endMm: startMm + widthMm, widthMm }
+    })
+}
+
+/**
+ * Cm of a run's length occupied by footprint appliances. A fridge blocks both
+ * cabinet rows (full-height appliance); a dishwasher occupies a base slot (it
+ * gets an appliance front, not a carcass). Sink and hob sit ON base units, so
+ * they contribute nothing here. Consumers derive what they need: base-row cut
+ * = fridge + dishwasher, wall-row cut = fridge only.
+ */
+export function applianceFootprintCm(
+  contract: LayoutContract,
+  runId: string
+): { fridgeCm: number; dishwasherCm: number } {
+  let fridgeCm = 0
+  let dishwasherCm = 0
+  for (const s of applianceSpansForRun(contract, runId)) {
+    if (s.kind === 'fridge') fridgeCm += s.widthMm / 10
+    else if (s.kind === 'dishwasher') dishwasherCm += s.widthMm / 10
+  }
+  return { fridgeCm: Math.round(fridgeCm), dishwasherCm: Math.round(dishwasherCm) }
+}
+
 const WALLS: WallSide[] = ['top', 'bottom', 'left', 'right']
 
 /** Physically adjacent wall pairs that share a corner (opposite walls don't). */

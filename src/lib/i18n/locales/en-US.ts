@@ -177,6 +177,7 @@ export const enUS: Record<TranslationKey, string> = {
   'builder.cabinetBoxes.pattern.pullouts_inside_doors': 'Doors w/ pull-outs',
   'builder.cabinetBoxes.pattern.drawer_door_combo': 'Drawer + door',
   'builder.cabinetBoxes.pattern.sink_unit': 'Sink unit',
+  'builder.cabinetBoxes.pattern.appliance_slot': 'Integrated-appliance front',
   'builder.cabinetBoxes.pattern.trash_pullout': 'Trash pull-out',
   'builder.cabinetBoxes.pattern.corner_magic': 'Magic corner',
   'builder.cabinetBoxes.pattern.corner_lazy': 'Lazy Susan corner',

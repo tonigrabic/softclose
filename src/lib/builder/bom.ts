@@ -61,12 +61,33 @@ const BOARD_AREA_M2_PER_LINEAR_M = {
   tall: 4.5,
 }
 
+/** Cabinet-bearing metres of a run per row — appliance footprints cut out.
+ * Fridge blocks both rows; the dishwasher takes a base slot (front only). */
+function effectiveRowM(r: {
+  lengthCm: number
+  applianceFootprintCm?: { fridgeCm: number; dishwasherCm: number }
+}): { baseM: number; wallM: number } {
+  const fridge = r.applianceFootprintCm?.fridgeCm ?? 0
+  const dishwasher = r.applianceFootprintCm?.dishwasherCm ?? 0
+  return {
+    baseM: Math.max(0, r.lengthCm - fridge - dishwasher) / 100,
+    wallM: Math.max(0, r.lengthCm - fridge) / 100,
+  }
+}
+
 /** Layout-only fallback used when no cabinet units have been seeded yet. */
-function boardAreaForRun(lengthM: number, hasBase: boolean, hasWall: boolean, hasTall: boolean): number {
+function boardAreaForRun(r: {
+  lengthCm: number
+  hasBase: boolean
+  hasWall: boolean
+  hasTall: boolean
+  applianceFootprintCm?: { fridgeCm: number; dishwasherCm: number }
+}): number {
+  const { baseM, wallM } = effectiveRowM(r)
   let m2 = 0
-  if (hasBase) m2 += lengthM * BOARD_AREA_M2_PER_LINEAR_M.base
-  if (hasWall) m2 += lengthM * BOARD_AREA_M2_PER_LINEAR_M.wall
-  if (hasTall) m2 += BOARD_AREA_M2_PER_LINEAR_M.tall // one tall unit per run that has tall = true
+  if (r.hasBase) m2 += baseM * BOARD_AREA_M2_PER_LINEAR_M.base
+  if (r.hasWall) m2 += wallM * BOARD_AREA_M2_PER_LINEAR_M.wall
+  if (r.hasTall) m2 += BOARD_AREA_M2_PER_LINEAR_M.tall // one tall unit per run that has tall = true
   return m2
 }
 
@@ -84,6 +105,9 @@ function unitDoorAreaM2(u: CabinetUnit): number {
 }
 
 function unitCarcassAreaM2(u: CabinetUnit): number {
+  // Appliance front (dishwasher slot): the decor panel mounts on the
+  // appliance's own door — there is no carcass to build.
+  if (u.pattern === 'appliance_slot') return 0
   const wM = u.widthMm / 1000
   const hM = u.heightMm / 1000
   const dM = u.depthMm / 1000
@@ -182,10 +206,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     }
   } else {
     // Layout-only fallback (Builder just opened, no units seeded yet).
-    const totalBoardM2 = state.layout.runs.reduce(
-      (s, r) => s + boardAreaForRun(r.lengthCm / 100, r.hasBase, r.hasWall, r.hasTall),
-      0
-    )
+    const totalBoardM2 = state.layout.runs.reduce((s, r) => s + boardAreaForRun(r), 0)
     doorAreaM2 = totalBoardM2 * 0.4
     carcassAreaM2 = totalBoardM2 * 0.6
   }
@@ -287,20 +308,20 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
 
   /* Labour drivers — kitchen length + element counts (the maker's real rates). */
   const carcassCount = usingUnitModel
-    ? units.length
+    ? units.filter((u) => u.pattern !== 'appliance_slot').length
     : Math.max(
         1,
         Math.round(
-          state.layout.runs.reduce(
-            (s, r) => s + ((r.hasBase ? r.lengthCm : 0) + (r.hasWall ? r.lengthCm : 0)) / 60,
-            0
-          )
+          state.layout.runs.reduce((s, r) => {
+            const { baseM, wallM } = effectiveRowM(r)
+            return s + ((r.hasBase ? baseM : 0) + (r.hasWall ? wallM : 0)) / 0.6
+          }, 0)
         )
       )
-  const installM = state.layout.runs.reduce(
-    (s, r) => s + ((r.hasBase ? r.lengthCm : 0) + (r.hasWall ? r.lengthCm : 0)) / 100,
-    0
-  )
+  const installM = state.layout.runs.reduce((s, r) => {
+    const { baseM, wallM } = effectiveRowM(r)
+    return s + (r.hasBase ? baseM : 0) + (r.hasWall ? wallM : 0)
+  }, 0)
 
   /* 5. Hardware (RRP reference) ────────────────────────────────────────── */
   // Linear-metre proxies — used both as a hardware fallback (no units yet)
@@ -308,10 +329,10 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   // when available so under-cabinet/plinth LED reacts to user edits too.
   const baseM = usingUnitModel
     ? units.filter((u) => u.type === 'base').reduce((s, u) => s + u.widthMm / 1000, 0)
-    : state.layout.runs.filter((r) => r.hasBase).reduce((s, r) => s + r.lengthCm / 100, 0)
+    : state.layout.runs.filter((r) => r.hasBase).reduce((s, r) => s + effectiveRowM(r).baseM, 0)
   const wallM = usingUnitModel
     ? units.filter((u) => u.type === 'wall').reduce((s, u) => s + u.widthMm / 1000, 0)
-    : state.layout.runs.filter((r) => r.hasWall).reduce((s, r) => s + r.lengthCm / 100, 0)
+    : state.layout.runs.filter((r) => r.hasWall).reduce((s, r) => s + effectiveRowM(r).wallM, 0)
   const tallM = usingUnitModel
     ? units.filter((u) => u.type === 'tall').reduce((s, u) => s + u.widthMm / 1000, 0)
     : state.layout.runs.filter((r) => r.hasTall).reduce((s, r) => s + r.lengthCm / 100, 0)

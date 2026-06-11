@@ -75,6 +75,21 @@ export interface ContractCorner {
 }
 ```
 
+### Derived projections (helpers on the contract module)
+
+The contract module also owns the derivations consumers need, so the logic
+lives in one place:
+
+- `applianceSpansForRun(contract, runId)` → appliance footprints in **mm along
+  the run** (approximation: `positionPctAlongRun` is wall-relative; identical
+  to run-relative on walls without openings).
+- `applianceFootprintCm(contract, runId)` → `{ fridgeCm, dishwasherCm }`.
+  A **fridge** blocks both cabinet rows; a **dishwasher** occupies a base slot
+  that is priced as an `appliance_slot` front (no carcass, no hardware); sink
+  and hob sit ON base units. Consumers: cabinet seeding (skips the fridge span,
+  seeds the dishwasher front), worktop length (subtracts fridge), the BOM's
+  layout-only fallback, and the fitting bar's row capacity.
+
 ### Derivation (`floorPlanToLayout(plan): LayoutContract`)
 
 - `shape` ← `plan.layoutShape`; `hasIsland` ← `plan.hasIsland`.

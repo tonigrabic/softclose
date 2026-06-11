@@ -12,6 +12,7 @@
 import { useReducer } from 'react'
 import type { BuilderHypothesis } from './hypothesis'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
+import { applianceFootprintCm } from '@/lib/contract/layout-contract'
 import type {
   ApplianceSelection,
   BuilderGroupId,
@@ -60,7 +61,16 @@ export function hydrateFromHypothesis(
     hasWall: r.hasWall,
     hasTall: r.hasTall,
     hasCorner: r.hasCorner,
+    applianceFootprintCm: applianceFootprintCm(contract, r.id),
   }))
+
+  // Worktop never runs over a fridge (full-height appliance), so its length is
+  // the base-bearing total minus measured fridge footprints. Dishwashers keep
+  // their worktop. Derived from the contract — the single layout truth.
+  const fridgeFootprintM = runs.reduce(
+    (sum, r) => sum + (r.applianceFootprintCm?.fridgeCm ?? 0) / 100,
+    0
+  )
 
   // Doors
   const doorsHy = hypothesis?.doors
@@ -126,9 +136,17 @@ export function hydrateFromHypothesis(
       decorStructure: initialWorktopStructure,
       thicknessMm: (worktopHy?.thicknessMm?.value ?? 38) as 38 | 20 | 12,
       edge: worktopHy?.edge?.value ?? 'square',
-      // Sum of all run lengths that will host base cabinets.
-      totalLengthM: runs.filter((r) => r.hasBase).reduce((s, r) => s + r.lengthCm / 100, 0),
-      mitreJoinCount: runs.filter((r) => r.hasBase).length - 1,
+      // Base-bearing run lengths minus fridge footprints (no worktop there).
+      totalLengthM: Math.max(
+        0,
+        runs.filter((r) => r.hasBase).reduce((s, r) => s + r.lengthCm / 100, 0) -
+          fridgeFootprintM
+      ),
+      // A freestanding island worktop isn't mitre-joined to the wall runs.
+      mitreJoinCount: Math.max(
+        0,
+        runs.filter((r) => r.hasBase && r.id !== 'island').length - 1
+      ),
       meta: {
         family: metaFromHint(worktopHy?.family),
         decorCode: metaFromHint(worktopHy?.decorCode),

@@ -92,6 +92,20 @@ export const PATTERN_SPECS: Record<CabinetPattern, PatternSpec> = {
     iconKey: 'sink',
     isCorner: false,
   },
+  appliance_slot: {
+    // Integrated-appliance front (dishwasher slot): the decor panel mounts on
+    // the appliance's own door — no carcass, no hinges, no runners. The BOM
+    // prices the door face only (carcass area is zeroed for this pattern).
+    defaultDrawers: 0,
+    hardwareMultiplier: 0,
+    minWidthMm: 450,
+    maxWidthMm: 600,
+    accessoryCost: null,
+    allowedTypes: ['base'],
+    labelKey: 'builder.cabinetBoxes.pattern.appliance_slot',
+    iconKey: 'doors',
+    isCorner: false,
+  },
   trash_pullout: {
     defaultDrawers: 1,
     hardwareMultiplier: 1.1,

@@ -19,9 +19,7 @@
 - [x] **W1 — Finish the merge** (= PLAN.md T6 bookkeeping + T7 verification sweep) ✓ iter 1
 - [x] **W2 — Contract analysis** ✓ iter 2 — full audit in `context/contract-analysis.md`
 - [ ] **W3 — Better estimate** (scoped by W2's findings, in build order):
-      - [ ] W3a — appliance footprints: contract gains `applianceSpans` per run;
-            seeding skips fridge span / converts dishwasher slot; worktop length
-            subtracts fridge; island out of mitre count (Finding 1)
+      - [x] W3a — appliance footprints stop double-counting ✓ iter 3
       - [ ] W3b — confidence → band: BOM reads state meta + contract confidence
             flows into meta at hydration; band tightens H→L (Finding 2)
       - [ ] W3c — hob/fridge/dishwasher measured positions drive seeded patterns
@@ -78,3 +76,32 @@
 - Backlog updated: W3 now split into W3a–W3d in build order.
 - Next iteration: **build W3a** (appliance footprints) — biggest systematic
   estimate error, pure logic, easiest to verify.
+
+### 2026-06-11 — Iteration 3
+
+- **W3a built — appliance footprints no longer double-count.** Design decision
+  vs. the analysis doc: no new stored contract field (would duplicate
+  `appliances[]`); instead the contract module owns two pure projections —
+  `applianceSpansForRun()` (mm along the run) and `applianceFootprintCm()`
+  (`{fridgeCm, dishwasherCm}` per run). Changes:
+  - **Seeding** (`cabinet-suggest.ts` + `CabinetBoxesGroup`): fridge span seeds
+    no cabinets in either row; dishwasher span seeds a 600mm `appliance_slot`
+    base unit (new pattern: decor front only — no carcass, no hardware,
+    read-only in the UI, AI overrides can't claim it).
+  - **BOM** (`bom.ts`): `appliance_slot` carcass area = 0; the layout-only
+    fallback + labour/lighting linear-metre proxies cut footprints via
+    `effectiveRowM()`; carcass count excludes appliance slots.
+  - **Hydration** (`state.ts`): worktop `totalLengthM` subtracts fridge spans;
+    island no longer counts toward `mitreJoinCount`; runs carry
+    `applianceFootprintCm` for the fallback paths.
+  - **Fitting bar**: row capacity = run length − fridge span, so a fridge wall
+    can read "fully fitted".
+  - Spec updated (`context/layout-contract.md` — "Derived projections").
+  - **Numeric check** (l-shape fixture, fridge 75cm + dishwasher 60cm): fridge
+    wall fills exactly 2450/2450mm with zero units over the fridge; one 600mm
+    appliance front seeds at the dishwasher's measured position; worktop
+    7.00m → 6.25m; assembly counts 17 of 18 units. tsc + eslint + production
+    build green.
+- Next iteration: **W3b — confidence reaches the band** (BOM reads field meta;
+  contract confidence flows into state meta at hydration; band tightens as the
+  homeowner confirms).

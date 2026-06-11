@@ -15,7 +15,7 @@ import {
 } from '@/lib/builder/cabinet-suggest'
 import { PATTERN_SPECS, unitIsCorner } from '@/lib/builder/cabinet-patterns'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
-import type { LayoutContract } from '@/lib/contract/layout-contract'
+import { applianceSpansForRun, type LayoutContract } from '@/lib/contract/layout-contract'
 import type {
   BuilderState,
   CabinetPattern,
@@ -87,10 +87,18 @@ export function CabinetBoxesGroup({ state, hypothesis, layoutContract, onPatch }
       // Prefer the contract-derived corner ownership; fall back to the positional
       // heuristic only when no layout contract stamped run.hasCorner.
       const hasCorner = run.hasCorner ?? (i === 0 && runs.length > 1)
-      const runUnits = suggestCabinetsForRun(run, { hasCorner, tallHeightMm })
+      // Measured appliance footprints: the fridge span seeds no cabinets, the
+      // dishwasher span seeds an appliance front instead of a carcass.
+      const applianceSpans = layoutContract
+        ? applianceSpansForRun(layoutContract, run.id)
+        : []
+      const runUnits = suggestCabinetsForRun(run, { hasCorner, tallHeightMm, applianceSpans })
       // AI-suggested patterns override the heuristic at matching positions (15% tol).
+      // Contract-driven appliance slots are not up for grabs — measured geometry
+      // beats the render hypothesis.
       const runOverrides = overrides.filter((o) => o.runId === run.id)
       runUnits.forEach((u) => {
+        if (u.pattern === 'appliance_slot') return
         const match = runOverrides.find(
           (o) => Math.abs(o.positionPctAlongRun - u.positionPctAlongRun) <= 15
         )
@@ -101,7 +109,9 @@ export function CabinetBoxesGroup({ state, hypothesis, layoutContract, onPatch }
       const totalMm = run.lengthCm * 10
       for (const a of appliances) {
         if (a.runId !== run.id || a.kind !== 'sink') continue
-        const candidates = runUnits.filter((u) => u.type === 'base' && !unitIsCorner(u))
+        const candidates = runUnits.filter(
+          (u) => u.type === 'base' && !unitIsCorner(u) && u.pattern !== 'appliance_slot'
+        )
         if (candidates.length === 0) continue
         let best = candidates[0]
         let bestDist = Infinity
@@ -200,6 +210,10 @@ function RunSection({
   const tallUnits = unitsForRunByType(state.cabinetBoxes.units, runId, 'tall')
 
   const totalMm = run.lengthCm * 10
+  // The fridge span hosts no cabinets, so it isn't fillable capacity. The
+  // dishwasher slot IS a unit (appliance front), so it stays in the capacity.
+  const fridgeMm = (run.applianceFootprintCm?.fridgeCm ?? 0) * 10
+  const rowCapacityMm = Math.max(0, totalMm - fridgeMm)
   const baseMm = totalBaseWidthMm(allUnits)
   const wallMm = totalWallWidthMm(allUnits)
 
@@ -211,16 +225,16 @@ function RunSection({
       </p>
 
       {run.hasBase && (
-        <CabinetRow label={t('cabinetBoxes.baseRow')} rowMm={baseMm} totalMm={totalMm} units={baseUnits} onUpdate={onUpdate} />
+        <CabinetRow label={t('cabinetBoxes.baseRow')} rowMm={baseMm} totalMm={rowCapacityMm} units={baseUnits} onUpdate={onUpdate} />
       )}
       {run.hasWall && (
-        <CabinetRow label={t('cabinetBoxes.wallRow')} rowMm={wallMm} totalMm={totalMm} units={wallUnits} onUpdate={onUpdate} />
+        <CabinetRow label={t('cabinetBoxes.wallRow')} rowMm={wallMm} totalMm={rowCapacityMm} units={wallUnits} onUpdate={onUpdate} />
       )}
       {tallUnits.length > 0 && (
         <CabinetRow
           label={t('cabinetBoxes.tallRow')}
           rowMm={tallUnits.reduce((s, u) => s + u.widthMm, 0)}
-          totalMm={totalMm}
+          totalMm={rowCapacityMm}
           units={tallUnits}
           onUpdate={onUpdate}
         />
@@ -280,7 +294,10 @@ function CabinetRow({
         {units.map((u, i) => {
           const isCorner = unitIsCorner(u)
           const isSink = u.pattern === 'sink_unit'
-          const editable = u.type === 'base' && !isCorner && !isSink
+          // Appliance fronts come from the contract's measured footprints —
+          // not a homeowner pattern choice.
+          const isApplianceSlot = u.pattern === 'appliance_slot'
+          const editable = u.type === 'base' && !isCorner && !isSink && !isApplianceSlot
           return (
             <li
               key={u.id}
