@@ -3,9 +3,10 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react'
-import { JourneyNavRail } from '@/components/JourneyNavRail'
+import { JourneyNavRail, journeyPillLabel } from '@/components/JourneyNavRail'
 import { RenderAnchorCard } from '@/components/RenderAnchorCard'
 import { LiveBOMPanel } from '@/components/builder/LiveBOMPanel'
+import { MobileRangeDock } from '@/components/builder/MobileRangeDock'
 import { AppShell } from '@/components/AppShell'
 import { useTranslations, tDynamic, type Locale } from '@/lib/i18n'
 import { SpaceCapture } from './SpaceCapture'
@@ -484,6 +485,12 @@ export function KitchenIntake() {
     return (
       <AppShell
         progressPercent={100}
+        mobilePillLabel={journeyPillLabel({
+          funnelStepId: 'contact',
+          profile,
+          journeyDone: true,
+          locale,
+        })}
         nav={
           <>
             <header className="mb-5 flex items-center justify-between gap-3">
@@ -587,6 +594,12 @@ export function KitchenIntake() {
     <AppShell
       progressPercent={progress}
       rightRail={funnelRightRail}
+      mobilePillLabel={journeyPillLabel({ funnelStepId: state.currentStepId, profile, locale })}
+      mobileDock={
+        funnelBuilderState && rightRailSteps.includes(state.currentStepId) ? (
+          <MobileRangeDock state={funnelBuilderState} />
+        ) : undefined
+      }
       nav={
         <>
           <header className="mb-5 flex items-center justify-between gap-3">

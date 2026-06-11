@@ -35,9 +35,7 @@ The merge is incomplete wherever the journey still swaps chrome or language:
 - [x] **T1 — Builder entry screen into the shell + localized** ✓ `54a634f`
 - [x] **T2 — Localize the room summary line** ✓ `54a634f`
 - [x] **T3 — Offer screen into the shell + localized + honest badge** ✓ `98e74db`
-- [ ] **T4 — Finish PR3: `type` opens Act 1, timeline joins logistics**
-      Split `project_basics`; new `type` step first in `FLOW`; timeline picker inside
-      the logistics step; update gating, read-backs, commit handlers, locales.
+- [x] **T4 — Finish PR3: `type` opens Act 1, timeline joins logistics** ✓ `71c8544`
 - [ ] **T5 — Mobile navigation model**
       Progress pill (act · step · n/m) in a mobile header → bottom-sheet with the same
       `JourneyRail`; pinned bottom live-range bar once a BOM exists.
@@ -76,6 +74,14 @@ The merge is incomplete wherever the journey still swaps chrome or language:
   line composed client-side from a new `bandPct` field (so it localizes). Found + fixed
   in passing: the funnel's nav rail never received the active locale, so it stayed
   Croatian in EN mode. `tsc` + `eslint` clean.
+- **2026-06-11 · T4 · `71c8544`** — PR3 finished. `type` (project-type chips) is now the
+  first step of Act 1; the timeline picker lives inside logistics (Act 3), which now
+  gates Continue on a chosen band; `project_basics` is gone from `FlowStepId`, `FLOW`,
+  bodies, gating and locales. Step eyebrows renumbered in both languages. Also localized
+  the rail read-backs while touching `readbackFor` — they were hard-coded English on
+  every screen (project type / timeline / access / living now use `option.*` keys;
+  counts use new `readback.*` keys; the locale flows through from `JourneyNavRail`).
+  `tsc` + `eslint` clean.
 
 ## Open questions / decisions taken without asking
 

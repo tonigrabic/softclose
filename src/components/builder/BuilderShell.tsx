@@ -20,8 +20,9 @@ import { RerenderPanel } from './RerenderPanel'
 import { RenderCarousel } from './RenderCarousel'
 import { FactsRecap } from './FactsRecap'
 import { LayoutConfirm } from './LayoutConfirm'
-import { JourneyNavRail } from '@/components/JourneyNavRail'
+import { JourneyNavRail, journeyPillLabel } from '@/components/JourneyNavRail'
 import { RenderAnchorCard } from '@/components/RenderAnchorCard'
+import { MobileRangeDock } from './MobileRangeDock'
 import { AppShell } from '@/components/AppShell'
 import type { LeadProfile } from '@/lib/types'
 import { DoorsGroup } from './groups/DoorsGroup'
@@ -242,7 +243,18 @@ function Shell({
   )
 
   return (
-      <AppShell progressPercent={progressPercent} nav={nav} rightRail={rightRail}>
+      <AppShell
+        progressPercent={progressPercent}
+        nav={nav}
+        rightRail={rightRail}
+        mobilePillLabel={journeyPillLabel({
+          funnelStepId: 'builder',
+          profile: profile ?? {},
+          builderGroupId: currentId,
+          locale,
+        })}
+        mobileDock={<MobileRangeDock state={state} />}
+      >
           <AnimatePresence mode="wait">
             <motion.section
               key={currentId}

@@ -75,42 +75,10 @@ export function JourneyNavRail({
   const builderStateForReadbacks: BuilderState | null =
     builderState ?? (profile.builderState as BuilderState | undefined) ?? null
 
-  // ── One linear ordering of every rail entry, so done/current/todo is a single
-  // index comparison across the funnel↔builder boundary. The `builder` FLOW step
-  // is replaced in place by the 9 component groups.
-  const linear: Entry[] = []
-  for (const step of FLOW) {
-    if (step.id === 'builder') {
-      for (const g of BUILDER_GROUPS) {
-        linear.push({
-          kind: 'builder',
-          id: g.id,
-          label: tDynamic(g.labelKey, locale),
-          readback: builderStateForReadbacks
-            ? groupReadback(g.id, builderStateForReadbacks, locale)
-            : null,
-        })
-      }
-      continue
-    }
-    linear.push({
-      kind: 'funnel',
-      id: step.id,
-      label: tDynamic(`flow.${step.id}.label`, locale),
-      readback: readbackFor(step.id, profile, locale),
-    })
-  }
-
+  const linear = buildLinear(profile, builderStateForReadbacks, locale)
   const currentIndex = journeyDone
     ? linear.length
-    : inBuilder
-      ? linear.findIndex(
-          (e) => e.kind === 'builder' && e.id === (builderGroupId ?? BUILDER_GROUPS[0].id)
-        )
-      : linear.findIndex((e) => e.kind === 'funnel' && e.id === funnelStepId)
-
-  const entryAct = (e: Entry): 'space' | 'build' | 'offer' =>
-    e.kind === 'builder' ? 'build' : ACT_OF_GROUP[FLOW[flowIndex(e.id)].group]
+    : currentLinearIndex(linear, funnelStepId, builderGroupId)
 
   const acts: RailAct[] = ACTS.map((act) => {
     const indices = linear
@@ -152,6 +120,83 @@ export function JourneyNavRail({
   })
 
   return <JourneyRail brief={tDynamic('journey.brief', locale)} acts={acts} />
+}
+
+/* ── Shared journey-position model ──────────────────────────────────────────
+ * One linear ordering of every rail entry, so done/current/todo is a single
+ * index comparison across the funnel↔builder boundary. The `builder` FLOW step
+ * is replaced in place by the 9 component groups. Used by the rail above and
+ * by the mobile progress pill. */
+
+function buildLinear(
+  profile: LeadProfile,
+  builderStateForReadbacks: BuilderState | null,
+  locale: Locale
+): Entry[] {
+  const linear: Entry[] = []
+  for (const step of FLOW) {
+    if (step.id === 'builder') {
+      for (const g of BUILDER_GROUPS) {
+        linear.push({
+          kind: 'builder',
+          id: g.id,
+          label: tDynamic(g.labelKey, locale),
+          readback: builderStateForReadbacks
+            ? groupReadback(g.id, builderStateForReadbacks, locale)
+            : null,
+        })
+      }
+      continue
+    }
+    linear.push({
+      kind: 'funnel',
+      id: step.id,
+      label: tDynamic(`flow.${step.id}.label`, locale),
+      readback: readbackFor(step.id, profile, locale),
+    })
+  }
+  return linear
+}
+
+function currentLinearIndex(
+  linear: Entry[],
+  funnelStepId: FlowStepId,
+  builderGroupId?: BuilderGroupId | null
+): number {
+  return funnelStepId === 'builder'
+    ? linear.findIndex(
+        (e) => e.kind === 'builder' && e.id === (builderGroupId ?? BUILDER_GROUPS[0].id)
+      )
+    : linear.findIndex((e) => e.kind === 'funnel' && e.id === funnelStepId)
+}
+
+const entryAct = (e: Entry): 'space' | 'build' | 'offer' =>
+  e.kind === 'builder' ? 'build' : ACT_OF_GROUP[FLOW[flowIndex(e.id)].group]
+
+/**
+ * Compact "where am I" label for the mobile progress pill, e.g.
+ * "Gradnja · Korpusi ormarića · 2/12". Mirrors the rail's model exactly so the
+ * pill and the bottom-sheet rail can never disagree.
+ */
+export function journeyPillLabel(opts: {
+  funnelStepId: FlowStepId
+  profile: LeadProfile
+  builderGroupId?: BuilderGroupId | null
+  journeyDone?: boolean
+  locale?: Locale
+}): string {
+  const { funnelStepId, profile, builderGroupId, journeyDone, locale = DEFAULT_LOCALE } = opts
+  if (journeyDone) return `${tDynamic('journey.act.offer', locale)} ✓`
+  const builderStateForReadbacks =
+    (profile.builderState as BuilderState | undefined) ?? null
+  const linear = buildLinear(profile, builderStateForReadbacks, locale)
+  const currentIndex = currentLinearIndex(linear, funnelStepId, builderGroupId)
+  const current = linear[currentIndex]
+  if (!current) return tDynamic('journey.brief', locale)
+  const act = entryAct(current)
+  const actSteps = linear.filter((e) => entryAct(e) === act)
+  const pos = actSteps.findIndex((e) => e === current) + 1
+  return `${tDynamic(`journey.act.${act}`, locale)} · ${current.label} · ${pos}/${actSteps.length}`
 }
 
 /** Short captured-value summary under a completed builder step (status visibility). */
