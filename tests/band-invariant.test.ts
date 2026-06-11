@@ -32,17 +32,38 @@ function estimateForFixture(id: string) {
 
 describe('band invariant — every fixture, hypothesis = null', () => {
   for (const f of CONTRACT_FIXTURES) {
-    // KNOWN RED (LOOP.md B1): W3b's widenByMeta double-counts uncertainty and
-    // the null hypothesis hydrates every material field at L, so the displayed
-    // band currently exceeds the cap. `test.fails` keeps the suite green while
-    // documenting the regression; when B1 lands, vitest will flag these as
-    // unexpectedly passing — flip them to plain `test` in the same commit.
-    test.fails(`${f.id}: displayed band ≤ ±${BAND_CAP_PCT}%`, () => {
+    test(`${f.id}: displayed band ≤ ±${BAND_CAP_PCT}%`, () => {
       const bom = estimateForFixture(f.id)
       const displayed = Math.round(bom.bandWidthPct / 2)
       expect(displayed, `±${displayed}% (low €${bom.total.low}, high €${bom.total.high})`).toBeLessThanOrEqual(
         BAND_CAP_PCT
       )
+    })
+  }
+})
+
+// Foundations principle 6: the narrowing range is the reward for answering
+// questions. Capping at ±20% must not flatten the loop into a constant.
+function confirmEverything(state: ReturnType<typeof hydrateFromHypothesis>) {
+  const s = structuredClone(state)
+  for (const group of Object.values(s)) {
+    if (group && typeof group === 'object' && 'meta' in group) {
+      const meta = (group as { meta: Record<string, { confidence: 'H'; provenance: string }> }).meta
+      for (const k of Object.keys(meta)) {
+        meta[k] = { confidence: 'H', provenance: 'homeowner-confirmed' }
+      }
+    }
+  }
+  return s
+}
+
+describe('reward loop — confirming tightens the band', () => {
+  for (const f of CONTRACT_FIXTURES) {
+    test(`${f.id}: fully confirmed is strictly tighter than untouched`, () => {
+      const contract = floorPlanToLayout(f.build())
+      const untouched = computeBom(hydrateFromHypothesis(null, { layoutContract: contract }))
+      const confirmed = computeBom(confirmEverything(hydrateFromHypothesis(null, { layoutContract: contract })))
+      expect(confirmed.bandWidthPct).toBeLessThan(untouched.bandWidthPct)
     })
   }
 })
@@ -53,10 +74,13 @@ describe('estimate drift — totals per fixture', () => {
   for (const f of CONTRACT_FIXTURES) {
     test(`${f.id}: total range snapshot`, () => {
       const bom = estimateForFixture(f.id)
+      const contract = floorPlanToLayout(CONTRACT_FIXTURES.find((x) => x.id === f.id)!.build())
+      const confirmed = computeBom(confirmEverything(hydrateFromHypothesis(null, { layoutContract: contract })))
       expect({
         low: bom.total.low,
         high: bom.total.high,
         displayedBandPct: Math.round(bom.bandWidthPct / 2),
+        confirmedBandPct: Math.round(confirmed.bandWidthPct / 2),
         lines: bom.lineItems.map((l) => l.key),
       }).toMatchSnapshot()
     })

@@ -209,3 +209,34 @@
   build 12/12 green.
 - Next iteration: **B1 — band recalibration** (fix the double-counting, cap
   the unconfirmed band at ±20%, keep the confirm-to-tighten loop).
+
+### 2026-06-12 — Iteration 2 (B1 — band recalibration)
+
+- **B1 done — the band is back inside the promise.** The model is inverted
+  per the charter: `widenByMeta` → `narrowByMeta` in `bom.ts`. The legacy
+  per-line spreads (waste factors, no-SKU multipliers, market spread) ARE the
+  L-grade worst case; confidence narrows each line's half-width toward its
+  midpoint — H/homeowner ×0.6, M ×0.85, L ×1 (unchanged). Midpoint-
+  preserving, unlike W3b's widening which drifted the midpoint up. No runtime
+  clamp — the ±20% cap is enforced by the gate so future regressions go red
+  instead of being silently hidden.
+- **Numbers (real route, hypothesis = null), before → after:** l-shape ±28%
+  → ±14% · galley ±28% → ±13% · u-shape ±28% → ±13% · island ±27% → ±12% ·
+  peninsula ±28% → ±13% · single ±29% → ±14%. Fully confirmed: ±9–10%.
+  Untouched sits BELOW the old ±20% because Part-1 confirmations honestly
+  count: layout runs and contract-measured appliances are
+  homeowner-confirmed at hydration, and labour + appliance lines are driven
+  by exactly those fields. Snapshot totals updated accordingly (explained
+  drift: midpoints unchanged, half-widths narrowed on H-driven lines).
+- Gate hardened while here: the six band-cap tests flipped from `test.fails`
+  (KNOWN RED) to plain `test`; six new reward-loop tests assert fully
+  confirmed < untouched per fixture; drift snapshots now also lock
+  `confirmedBandPct`.
+- **Escalated (LOOP.md Q6):** the two calibration knobs — fully-confirmed
+  floor (±9–10% now; floor at market spread?) and untouched starting point
+  (±13% now vs the ±20% headline) — are Toni's call, tunable in one line
+  (`CONFIDENCE_HALF_WIDTH`).
+- Gate: 18/18 tests · tsc clean · eslint clean · build 12/12 green.
+- Next iteration: **B2 — connect funnel → builder for real** (`/builder` is
+  a dev harness with `hypothesis = null`; the live `/` journey must hand off
+  contract + hypothesis + saved state, with calm degradation on failure).

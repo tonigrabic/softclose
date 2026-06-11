@@ -43,7 +43,10 @@ Companion files: `WORKLOG.md` (append-only iteration log),
   fixture. It SHOULD fail red at ~±30% on day one — that proves it works.
   Wire a `npm run gate` script chaining test + tsc + eslint + build.
 
-- [ ] **B1 — Band recalibration (fix the ±30% regression).** Diagnosis, so it
+- [x] **B1 — Band recalibration (fix the ±30% regression).** ✓ 2026-06-12 —
+  `narrowByMeta` replaces `widenByMeta`: legacy spread = L worst case,
+  confidence narrows half-width toward the midpoint (H ×0.6, M ×0.85, L ×1).
+  Untouched ±12–14%, fully confirmed ±9–10% on all fixtures. See Q6. Diagnosis, so it
   needn't be rediscovered:
   - `widenByMeta` (`src/lib/builder/bom.ts`) double-counts uncertainty: the
     base spreads already encode unspecified-ness (boards ×1.18 waste,
@@ -124,3 +127,11 @@ Companion files: `WORKLOG.md` (append-only iteration log),
 5. Band display convention: ± measured against the low end (current,
    inflates the number) or against the midpoint (industry-typical)? B1 caps
    at ≤20 either way, but the convention changes the headline number.
+6. B1 calibration knobs (shipped, tunable in one line —
+   `CONFIDENCE_HALF_WIDTH` in `bom.ts`): untouched now displays ±12–14%
+   (below the old ±20%, because Part-1 layout confirmation + contract-known
+   appliances already count as confirmed), fully confirmed ±9–10%. Is a
+   fully-confirmed ±9% an acceptable claim for an AI estimate the maker
+   hasn't confirmed, or should there be a floor (e.g. ±10–12% market
+   spread)? And is starting at ±13% fine, or would you rather the untouched
+   state sit closer to the ±20% headline (H ×0.75 instead of ×0.6)?

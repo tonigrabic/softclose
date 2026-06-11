@@ -6,11 +6,12 @@
  * sink-taps until the Schachermayer scrape lands.
  *
  * Output is always a *range* (low/high), never a single number — see
- * Principle 6 of product-foundations.md. The width of the range reflects
- * uncertainty in two ways: a line whose catalog source is missing widens
- * hard (`widenByConfidence`), and every line widens by the WORST confidence
- * among its driving fields (`widenByMeta` — H/homeowner = no widening,
- * M = ±6 %, L = ±15 %). Confirming choices is what tightens the band.
+ * Principle 6 of product-foundations.md. The legacy line spreads are the
+ * worst-case (L) band; every line NARROWS toward its midpoint by the worst
+ * confidence among its driving fields (`narrowByMeta` — H/homeowner = ×0.6
+ * half-width, M = ×0.85, L = unchanged), so confirming choices tightens the
+ * band and the unconfirmed total stays inside the ±20% promise. A line whose
+ * catalog source is missing still widens hard (`widenByConfidence`).
  */
 
 import { decors as catalogDecors, services, doorPricePerM2, worktopPricePerM, findDecor } from '@/lib/catalog'
@@ -141,12 +142,19 @@ function widenByConfidence(low: number, high: number, missingSource: boolean): {
   return { low, high }
 }
 
-/* Confidence-graded widening (foundations principle 6). A homeowner who
- * confirmed or edited a field has answered the question — that's H regardless
- * of what the AI originally guessed. AI-seeded fields widen the line by their
- * stored confidence. A line is as uncertain as its WORST driving field. */
+/* Confidence-graded band (foundations principle 6 + the ±20% promise).
+ * The legacy line spreads ARE the worst-case band: they were calibrated with
+ * nothing confirmed (waste factors, no-SKU multipliers, market spread), so
+ * grading must NARROW from there, never widen past it — the displayed total
+ * stays inside ±20% (AGENTS.md; enforced by tests/band-invariant.test.ts,
+ * deliberately not a runtime clamp). A homeowner who confirmed or edited a
+ * field has answered the question — that's H regardless of what the AI
+ * originally guessed. AI-seeded fields narrow by their stored confidence.
+ * A line is as uncertain as its WORST driving field. */
 const CONFIDENCE_RANK: Record<'H' | 'M' | 'L', number> = { H: 0, M: 1, L: 2 }
-const CONFIDENCE_WIDEN = [0, 0.06, 0.15] as const
+/** Half-width multiplier by worst confidence: H tightens hard, M a little,
+ * L keeps the full legacy spread. Midpoint-preserving. */
+const CONFIDENCE_HALF_WIDTH = [0.6, 0.85, 1] as const
 
 function effectiveConfidence(m: FieldMeta | undefined): 'H' | 'M' | 'L' {
   if (!m) return 'L'
@@ -154,15 +162,18 @@ function effectiveConfidence(m: FieldMeta | undefined): 'H' | 'M' | 'L' {
   return m.confidence
 }
 
-function widenByMeta(
+function narrowByMeta(
   low: number,
   high: number,
   metas: Array<FieldMeta | undefined>
 ): { low: number; high: number } {
   if (metas.length === 0) return { low, high }
   const worst = Math.max(...metas.map((m) => CONFIDENCE_RANK[effectiveConfidence(m)]))
-  const f = CONFIDENCE_WIDEN[worst]
-  return { low: low * (1 - f), high: high * (1 + f) }
+  const f = CONFIDENCE_HALF_WIDTH[worst]
+  if (f === 1) return { low, high }
+  const mid = (low + high) / 2
+  const half = ((high - low) / 2) * f
+  return { low: mid - half, high: mid + half }
 }
 
 /**
@@ -269,7 +280,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     state.cabinetBoxes.meta.carcassMaterial,
   ]
   const boardsSource = widenByConfidence(boardLow, boardHigh, !doorDecor)
-  const boardsRange = widenByMeta(boardsSource.low, boardsSource.high, boardMetas)
+  const boardsRange = narrowByMeta(boardsSource.low, boardsSource.high, boardMetas)
   const unitCountSuffix = usingUnitModel ? ` · ${units.length} ${tr('cabinets', 'ormarića')}` : ''
   lineItems.push({
     key: 'boards',
@@ -294,7 +305,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   const wtLow = state.worktop.totalLengthM * wtPricePerM * edgeFactor
   const wtHigh = wtLow * 1.15 + state.worktop.mitreJoinCount * 25
   const wtSource = widenByConfidence(wtLow, wtHigh, !wtDecor)
-  const wtRange = widenByMeta(wtSource.low, wtSource.high, [
+  const wtRange = narrowByMeta(wtSource.low, wtSource.high, [
     state.worktop.meta.family,
     state.worktop.meta.decorCode,
   ])
@@ -319,7 +330,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
             : 25
     const bsLow = state.backsplash.kind === 'matching_slab' ? state.worktop.totalLengthM * wtPricePerM * 0.6 : bsArea * bsRate
     const bsHigh = bsLow * 1.25
-    const bsRange = widenByMeta(bsLow, bsHigh, [
+    const bsRange = narrowByMeta(bsLow, bsHigh, [
       state.backsplash.meta.kind,
       state.backsplash.meta.heightCm,
     ])
@@ -339,7 +350,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   const edgeLow = edgeM * edgePerM
   const edgeHigh = edgeLow * 1.15
   // Derived from board area, so it inherits the boards' driving fields.
-  const edgeRange = widenByMeta(edgeLow, edgeHigh, boardMetas)
+  const edgeRange = narrowByMeta(edgeLow, edgeHigh, boardMetas)
   lineItems.push({
     key: 'edgeBanding',
     detail: tr('ABS edge banding 0.8 mm × 23 mm', 'ABS kantiranje 0,8 mm × 23 mm'),
@@ -429,7 +440,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     ? `${unitEquivalents.toFixed(1)} ${tr('unit eq.', 'jed. ekv.')} · ${drawerCount} ${tr('drawers', 'ladica')}`
     : `${unitEquivalents.toFixed(1)} ${tr('unit eq.', 'jed. ekv.')}`
   const hwPicked = state.hardware.drawerSystemSku ? state.hardware.drawerSystemPickedName : null
-  const hwRange = widenByMeta(hwLow, hwHigh, [
+  const hwRange = narrowByMeta(hwLow, hwHigh, [
     state.hardware.meta.drawerSystemTier,
     state.hardware.meta.hingeType,
     ...(handleless ? [] : [state.hardware.meta.handleStyle, state.hardware.meta.handleFinish]),
@@ -495,7 +506,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   const tapPicked = state.sinkTaps.tap.pickedName
     ? `${state.sinkTaps.tap.pickedBrand ?? ''} ${state.sinkTaps.tap.pickedName}`.trim()
     : null
-  const sinkTapsRange = widenByMeta(sinkLow + tapLow, sinkHigh + tapHigh, [
+  const sinkTapsRange = narrowByMeta(sinkLow + tapLow, sinkHigh + tapHigh, [
     state.sinkTaps.meta.sinkBowls,
     state.sinkTaps.meta.sinkMount,
     state.sinkTaps.meta.sinkMaterial,
@@ -563,7 +574,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     // without tracked meta — microwave, wine fridge, coffee — don't widen;
     // their per-selection narrowing above already reflects specification).
     const applianceMetaMap = state.appliances.meta as Partial<Record<string, FieldMeta>>
-    const apRange = widenByMeta(
+    const apRange = narrowByMeta(
       apLow,
       apHigh,
       state.appliances.selections
@@ -599,7 +610,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     lightHigh += 350
   }
   if (lightLow > 0) {
-    const lightRange = widenByMeta(lightLow, lightHigh, [
+    const lightRange = narrowByMeta(lightLow, lightHigh, [
       state.lighting.meta.underCabinetLed,
       state.lighting.meta.plinthLed,
       state.lighting.meta.pendantOverIsland,
@@ -639,7 +650,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     finHigh += state.finishing.openShelvingMeters * 90
   }
   if (finHigh > 0) {
-    const finRange = widenByMeta(finLow, finHigh, [
+    const finRange = narrowByMeta(finLow, finHigh, [
       state.finishing.meta.plinthHeightMm,
       state.finishing.meta.plinthMaterial,
       state.finishing.meta.corniceStyle,
@@ -659,7 +670,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   const labourMetas = [state.layout.meta.runs]
   const designHours = Math.max(1, Math.round(carcassCount * LABOUR_RATES.designHoursPerCarcass))
   const designCost = designHours * LABOUR_RATES.designPerHour
-  const designRange = widenByMeta(designCost * 0.9, designCost * 1.15, labourMetas)
+  const designRange = narrowByMeta(designCost * 0.9, designCost * 1.15, labourMetas)
   lineItems.push({
     key: 'design',
     detail: tr('Design & specification', 'Razrada i projektiranje'),
@@ -670,7 +681,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
 
   const cncPositions = Math.round(carcassCount * LABOUR_RATES.positionsPerCarcass)
   const cncCost = cncPositions * LABOUR_RATES.cncPerPosition
-  const cncRange = widenByMeta(cncCost * 0.95, cncCost * 1.1, labourMetas)
+  const cncRange = narrowByMeta(cncCost * 0.95, cncCost * 1.1, labourMetas)
   lineItems.push({
     key: 'cnc',
     detail: tr('CNC machining', 'CNC obrada'),
@@ -680,7 +691,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   })
 
   const assemblyCost = carcassCount * LABOUR_RATES.assemblyPerCarcass
-  const assemblyRange = widenByMeta(assemblyCost * 0.95, assemblyCost * 1.1, labourMetas)
+  const assemblyRange = narrowByMeta(assemblyCost * 0.95, assemblyCost * 1.1, labourMetas)
   lineItems.push({
     key: 'assembly',
     detail: tr('Carcass assembly', 'Sklapanje korpusa'),
@@ -690,7 +701,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   })
 
   const installCost = installM * LABOUR_RATES.installPerMetre
-  const installRange = widenByMeta(installCost * 0.9, installCost * 1.15, labourMetas)
+  const installRange = narrowByMeta(installCost * 0.9, installCost * 1.15, labourMetas)
   lineItems.push({
     key: 'install',
     detail: tr('On-site installation', 'Montaža na licu mjesta'),
