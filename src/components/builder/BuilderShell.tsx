@@ -9,7 +9,7 @@ import {
   BUILDER_GROUPS,
   nextBuilderGroup,
   prevBuilderGroup,
-  type BuilderGroupId,
+  type BuilderScreenId,
   type BuilderState,
 } from '@/lib/builder/inventory'
 import { hydrateFromHypothesis, useBuilderState } from '@/lib/builder/state'
@@ -18,22 +18,13 @@ import type { LayoutContract } from '@/lib/contract/layout-contract'
 import { LiveBOMPanel } from './LiveBOMPanel'
 import { RerenderPanel } from './RerenderPanel'
 import { RenderCarousel } from './RenderCarousel'
-import { FactsRecap } from './FactsRecap'
 import { LayoutConfirm } from './LayoutConfirm'
 import { JourneyNavRail, journeyPillLabel } from '@/components/JourneyNavRail'
 import { RenderAnchorCard } from '@/components/RenderAnchorCard'
 import { MobileRangeDock } from './MobileRangeDock'
 import { AppShell } from '@/components/AppShell'
 import type { LeadProfile } from '@/lib/types'
-import { DoorsGroup } from './groups/DoorsGroup'
-import { WorktopGroup } from './groups/WorktopGroup'
-import { CabinetBoxesGroup } from './groups/CabinetBoxesGroup'
-import { BacksplashGroup } from './groups/BacksplashGroup'
-import { HardwareGroup } from './groups/HardwareGroup'
-import { AppliancesGroup } from './groups/AppliancesGroup'
-import { SinkTapsGroup } from './groups/SinkTapsGroup'
-import { LightingGroup } from './groups/LightingGroup'
-import { FinishingGroup } from './groups/FinishingGroup'
+import { GROUP_MODULES } from './groups/registry'
 
 export interface BuilderShellProps {
   /**
@@ -101,7 +92,7 @@ export function BuilderShell({
   }, [hypothesis, layoutContract, layoutPreconfirmed, savedState])
   const [state, dispatch] = useBuilderState(initial)
   // Builder now opens on Cabinet Boxes — Layout/dimensions are owned by Phase 1.
-  const [currentId, setCurrentId] = useState<BuilderGroupId>('cabinetBoxes')
+  const [currentId, setCurrentId] = useState<BuilderScreenId>('cabinetBoxes')
 
   // Locale comes from the root LocaleProvider (and the language switcher) — the
   // builder no longer forces its own; it inherits whatever the homeowner chose.
@@ -173,8 +164,8 @@ function Shell({
   state: BuilderState
   dispatch: React.Dispatch<Parameters<ReturnType<typeof useBuilderState>[1]>[0]>
   layoutContract: LayoutContract
-  currentId: BuilderGroupId
-  onCurrentChange: (id: BuilderGroupId) => void
+  currentId: BuilderScreenId
+  onCurrentChange: (id: BuilderScreenId) => void
   hypothesis: BuilderHypothesis | null
   renderImageDataUrl?: string
   anchorPhotoDataUrl?: string
@@ -205,6 +196,7 @@ function Shell({
 
   const currentOrder = BUILDER_GROUPS.find((g) => g.id === currentId)?.order ?? 0
   const progressPercent = Math.round((currentOrder / BUILDER_GROUPS.length) * 100)
+  const GroupBody = GROUP_MODULES[currentId].Body
 
   // Left nav: the ONE "Your brief" act/step rail, spanning the whole journey.
   // While in the builder we feed it the live builder position; the funnel
@@ -276,66 +268,14 @@ function Shell({
                 </p>
               </header>
 
-              {currentId === 'cabinetBoxes' && (
-                <>
-                  <FactsRecap hypothesis={hypothesis} />
-                  <CabinetBoxesGroup
-                    state={state}
-                    hypothesis={hypothesis}
-                    layoutContract={layoutContract}
-                    onPatch={(patch) => dispatch({ type: 'patch_cabinetBoxes', patch })}
-                  />
-                </>
-              )}
-              {currentId === 'doors' && (
-                <DoorsGroup
-                  state={state}
-                  onPatch={(patch) => dispatch({ type: 'patch_doors', patch })}
-                />
-              )}
-              {currentId === 'worktop' && (
-                <WorktopGroup
-                  state={state}
-                  onPatch={(patch) => dispatch({ type: 'patch_worktop', patch })}
-                />
-              )}
-              {currentId === 'backsplash' && (
-                <BacksplashGroup
-                  state={state}
-                  onPatch={(patch) => dispatch({ type: 'patch_backsplash', patch })}
-                />
-              )}
-              {currentId === 'hardware' && (
-                <HardwareGroup
-                  state={state}
-                  onPatch={(patch) => dispatch({ type: 'patch_hardware', patch })}
-                />
-              )}
-              {currentId === 'appliances' && (
-                <AppliancesGroup
-                  state={state}
-                  layoutContract={layoutContract}
-                  onPatch={(patch) => dispatch({ type: 'patch_appliances', patch })}
-                />
-              )}
-              {currentId === 'sinkTaps' && (
-                <SinkTapsGroup
-                  state={state}
-                  onPatch={(patch) => dispatch({ type: 'patch_sinkTaps', patch })}
-                />
-              )}
-              {currentId === 'lighting' && (
-                <LightingGroup
-                  state={state}
-                  onPatch={(patch) => dispatch({ type: 'patch_lighting', patch })}
-                />
-              )}
-              {currentId === 'finishing' && (
-                <FinishingGroup
-                  state={state}
-                  onPatch={(patch) => dispatch({ type: 'patch_finishing', patch })}
-                />
-              )}
+              {/* The screen body comes from the registry — adding/removing a
+                  builder screen never touches this shell. */}
+              <GroupBody
+                state={state}
+                hypothesis={hypothesis}
+                layoutContract={layoutContract}
+                dispatch={dispatch}
+              />
 
               <FooterNav currentId={currentId} onBack={goBack} onNext={goNext} />
             </motion.section>
@@ -349,7 +289,7 @@ function FooterNav({
   onBack,
   onNext,
 }: {
-  currentId: BuilderGroupId
+  currentId: BuilderScreenId
   onBack: () => void
   onNext: () => void
 }) {

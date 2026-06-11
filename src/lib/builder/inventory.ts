@@ -392,7 +392,7 @@ export interface BuilderState {
   originalRenderRef?: string
 }
 
-/** Group identifiers — for the stepper / current-step state. */
+/** Group identifiers — the state slices a `patch_<id>` action can target. */
 export type BuilderGroupId =
   | 'layout'
   | 'cabinetBoxes'
@@ -405,8 +405,14 @@ export type BuilderGroupId =
   | 'lighting'
   | 'finishing'
 
+/**
+ * Builder screens = the navigable steps. `layout` is a state slice (owned by
+ * Phase 1 via the contract) but NOT a screen — it has no step of its own.
+ */
+export type BuilderScreenId = Exclude<BuilderGroupId, 'layout'>
+
 export interface BuilderGroupMeta {
-  id: BuilderGroupId
+  id: BuilderScreenId
   /** i18n key. Resolved at render time via the i18n layer. */
   labelKey: string
   /** What this group covers, in one sentence (i18n key). */
@@ -430,16 +436,16 @@ export const BUILDER_GROUPS: BuilderGroupMeta[] = [
   { id: 'finishing', labelKey: 'builder.groups.finishing.label', whyKey: 'builder.groups.finishing.why', order: 9 },
 ]
 
-export function builderGroupOrder(id: BuilderGroupId): number {
+export function builderGroupOrder(id: BuilderScreenId): number {
   return BUILDER_GROUPS.find((g) => g.id === id)?.order ?? 0
 }
 
-export function nextBuilderGroup(id: BuilderGroupId): BuilderGroupId | null {
+export function nextBuilderGroup(id: BuilderScreenId): BuilderScreenId | null {
   const i = BUILDER_GROUPS.findIndex((g) => g.id === id)
   return i >= 0 && i < BUILDER_GROUPS.length - 1 ? BUILDER_GROUPS[i + 1].id : null
 }
 
-export function prevBuilderGroup(id: BuilderGroupId): BuilderGroupId | null {
+export function prevBuilderGroup(id: BuilderScreenId): BuilderScreenId | null {
   const i = BUILDER_GROUPS.findIndex((g) => g.id === id)
   return i > 0 ? BUILDER_GROUPS[i - 1].id : null
 }

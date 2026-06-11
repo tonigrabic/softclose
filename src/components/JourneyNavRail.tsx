@@ -4,12 +4,13 @@ import type { LeadProfile } from '@/lib/types'
 import { FLOW, flowIndex, type FlowStepId } from '@/lib/flow'
 import {
   BUILDER_GROUPS,
-  type BuilderGroupId,
+  type BuilderScreenId,
   type BuilderState,
 } from '@/lib/builder/inventory'
 import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n'
 import { JourneyRail, type RailAct, type RailStatus, type RailStep } from '@/components/JourneyRail'
 import { readbackFor } from './kitchen-intake/readbacks'
+import { GROUP_MODULES } from './builder/groups/registry'
 
 /**
  * The ONE "Your brief" rail for the whole journey — capture steps, the builder's
@@ -31,7 +32,7 @@ import { readbackFor } from './kitchen-intake/readbacks'
 
 type Entry =
   | { kind: 'funnel'; id: FlowStepId; label: string; readback: string | null }
-  | { kind: 'builder'; id: BuilderGroupId; label: string; readback: string | null }
+  | { kind: 'builder'; id: BuilderScreenId; label: string; readback: string | null }
 
 const ACTS: { id: 'space' | 'build' | 'offer'; num: number }[] = [
   { id: 'space', num: 1 },
@@ -62,9 +63,9 @@ export function JourneyNavRail({
   /** Live builder state while in the builder; falls back to `profile.builderState`. */
   builderState?: BuilderState | null
   /** Active builder group while in the builder. */
-  builderGroupId?: BuilderGroupId | null
+  builderGroupId?: BuilderScreenId | null
   /** Jump between builder groups — only wired while actually in the builder. */
-  onBuilderNavigate?: (id: BuilderGroupId) => void
+  onBuilderNavigate?: (id: BuilderScreenId) => void
   /** True on the wrap-up screen: every act and step renders as done. */
   journeyDone?: boolean
   locale?: Locale
@@ -142,7 +143,7 @@ function buildLinear(
           id: g.id,
           label: tDynamic(g.labelKey, locale),
           readback: builderStateForReadbacks
-            ? groupReadback(g.id, builderStateForReadbacks, locale)
+            ? GROUP_MODULES[g.id].readback(builderStateForReadbacks, locale)
             : null,
         })
       }
@@ -161,7 +162,7 @@ function buildLinear(
 function currentLinearIndex(
   linear: Entry[],
   funnelStepId: FlowStepId,
-  builderGroupId?: BuilderGroupId | null
+  builderGroupId?: BuilderScreenId | null
 ): number {
   return funnelStepId === 'builder'
     ? linear.findIndex(
@@ -181,7 +182,7 @@ const entryAct = (e: Entry): 'space' | 'build' | 'offer' =>
 export function journeyPillLabel(opts: {
   funnelStepId: FlowStepId
   profile: LeadProfile
-  builderGroupId?: BuilderGroupId | null
+  builderGroupId?: BuilderScreenId | null
   journeyDone?: boolean
   locale?: Locale
 }): string {
@@ -199,26 +200,3 @@ export function journeyPillLabel(opts: {
   return `${tDynamic(`journey.act.${act}`, locale)} · ${current.label} · ${pos}/${actSteps.length}`
 }
 
-/** Short captured-value summary under a completed builder step (status visibility). */
-function groupReadback(id: BuilderGroupId, state: BuilderState, locale: Locale): string | null {
-  switch (id) {
-    case 'cabinetBoxes':
-      return tDynamic(`cabinetBoxes.carcass.${state.cabinetBoxes.carcassMaterial}`, locale)
-    case 'doors':
-      return tDynamic(`doors.style.${state.doors.style}`, locale)
-    case 'worktop':
-      return tDynamic(`worktop.family.${state.worktop.family}`, locale)
-    case 'backsplash':
-      return state.backsplash.kind === 'none'
-        ? null
-        : tDynamic(`backsplash.kind.${state.backsplash.kind}`, locale)
-    case 'hardware':
-      return tDynamic(`hardware.tier.${state.hardware.drawerSystemTier}`, locale)
-    case 'sinkTaps':
-      return tDynamic(`sinkTaps.material.${state.sinkTaps.sink.material}`, locale)
-    case 'finishing':
-      return tDynamic(`finishing.plinthMaterial.${state.finishing.plinthMaterial}`, locale)
-    default:
-      return null
-  }
-}

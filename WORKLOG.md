@@ -23,9 +23,7 @@
       - [x] W3b — confidence → band ✓ iter 4
       - [x] W3c — measured positions drive seeded patterns ✓ iter 5
       - [x] W3d — window-aware `hasWall` default ✓ iter 5
-- [ ] **W4 — Plug-in/plug-out builder screens**: define one step-module interface
-      (id, nav node, body, gating, readback, BOM contribution) so adding/removing
-      a builder group is a registry entry, not an `index.tsx` surgery.
+- [x] **W4 — Plug-in/plug-out builder screens** ✓ iter 6 — `groups/registry.tsx`
 - [ ] **W5 — Whole-app analysis**: architecture + UX pass over the full journey;
       propose improvements, get them on this list, build them.
 
@@ -151,3 +149,27 @@
 - **W3 (better estimate) is now complete: W3a–W3d all landed.**
 - Next iteration: **W4 — plug-in/plug-out builder screens** (one step-module
   registry: id, nav node, body, gating, readback, BOM contribution).
+
+### 2026-06-12 — Iteration 6
+
+- **W4 built — builder screens are now plug-in/plug-out.** New
+  `src/components/builder/groups/registry.tsx`: each screen is one
+  `BuilderGroupModule` (`Body` adapter + `readback`), in a Record that is
+  **exhaustive over the new `BuilderScreenId` type** — the compiler refuses to
+  build until every screen has a module, and flags orphaned modules when one
+  is removed. What got registry-driven:
+  - `BuilderShell` no longer knows any group: the 9-branch conditional render
+    chain (and 10 imports) collapsed to one `GROUP_MODULES[currentId].Body`.
+  - `JourneyNavRail`'s builder-readback switch moved into each module —
+    adding a screen brings its readback with it.
+  - Already registry-driven before (verified): nav entries, mobile pill,
+    progress %, next/prev, and the reducer (generic `patch_<groupId>`).
+  - Type hygiene: split `BuilderScreenId` (navigable screens) from
+    `BuilderGroupId` (state slices) — `layout` is a slice owned by Phase 1's
+    contract, not a screen, and the types now say so.
+  - Recipe documented in the registry header: add a screen = component +
+    meta/slice/locale entries + one registry entry; remove = delete the same.
+    Zero shell edits either way.
+- tsc + eslint + production build green.
+- Next iteration: **W5 — whole-app analysis** (architecture + UX pass over the
+  full journey; propose improvements, queue them here, build them).
