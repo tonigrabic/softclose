@@ -36,9 +36,7 @@ The merge is incomplete wherever the journey still swaps chrome or language:
 - [x] **T2 — Localize the room summary line** ✓ `54a634f`
 - [x] **T3 — Offer screen into the shell + localized + honest badge** ✓ `98e74db`
 - [x] **T4 — Finish PR3: `type` opens Act 1, timeline joins logistics** ✓ `71c8544`
-- [ ] **T5 — Mobile navigation model**
-      Progress pill (act · step · n/m) in a mobile header → bottom-sheet with the same
-      `JourneyRail`; pinned bottom live-range bar once a BOM exists.
+- [x] **T5 — Mobile navigation model** ✓ `8d5204e`
 - [ ] **T6 — Dead-code sweep**
       Verify and remove orphaned components left behind by the refactor
       (`StepsOverview` shell at minimum — confirm each by grepping importers first).
@@ -82,6 +80,15 @@ The merge is incomplete wherever the journey still swaps chrome or language:
   every screen (project type / timeline / access / living now use `option.*` keys;
   counts use new `readback.*` keys; the locale flows through from `JourneyNavRail`).
   `tsc` + `eslint` clean.
+- **2026-06-11 · T5 · `8d5204e`** — Mobile finally has navigation. Sticky header with a
+  progress pill ("Gradnja · Korpusi · 2/12") that opens a bottom sheet rendering the
+  same nav node as the desktop aside (new `journeyPillLabel()` shares the rail's
+  position model, so the two can't disagree). Pinned `MobileRangeDock` shows the live
+  range from the seam onward; expands to line items + maker-confirms note. Sheet
+  closes on backdrop/Escape/step-pick; body scroll locks. Simplification vs. the
+  blueprint: no render thumbnail in the mobile header (pill + dock carry the status;
+  thumbnail felt like clutter at 380px — revisit if design disagrees). `tsc` +
+  `eslint` clean.
 
 ## Open questions / decisions taken without asking
 

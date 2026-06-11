@@ -9,7 +9,7 @@ import {
 } from '@/lib/builder/inventory'
 import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n'
 import { JourneyRail, type RailAct, type RailStatus, type RailStep } from '@/components/JourneyRail'
-import { readbackFor } from './kitchen-intake/StepsOverview'
+import { readbackFor } from './kitchen-intake/readbacks'
 
 /**
  * The ONE "Your brief" rail for the whole journey — capture steps, the builder's
