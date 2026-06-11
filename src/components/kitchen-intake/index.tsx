@@ -7,7 +7,7 @@ import { JourneyNavRail } from '@/components/JourneyNavRail'
 import { RenderAnchorCard } from '@/components/RenderAnchorCard'
 import { LiveBOMPanel } from '@/components/builder/LiveBOMPanel'
 import { AppShell } from '@/components/AppShell'
-import { useTranslations } from '@/lib/i18n'
+import { useTranslations, tDynamic, type Locale } from '@/lib/i18n'
 import { SpaceCapture } from './SpaceCapture'
 import { Inspiration } from './Inspiration'
 import { ConceptRender as ConceptRenderUI, type ProductReference } from './ConceptRender'
@@ -94,6 +94,7 @@ interface IntakeFlowState {
 }
 
 export function KitchenIntake() {
+  const { locale } = useTranslations()
   const [state, setState] = useState<IntakeFlowState>({
     currentStepId: 'space_photos',
     visitedSteps: new Set(['space_photos']),
@@ -135,6 +136,8 @@ export function KitchenIntake() {
   const [builderHypothesis, setBuilderHypothesis] = useState<BuilderHypothesis | null>(null)
   const [isLoadingHypothesis, setIsLoadingHypothesis] = useState(false)
   const [hypothesisError, setHypothesisError] = useState<string | null>(null)
+  // True once the user explicitly starts building without the AI suggestion.
+  const [builderStartedNoAI, setBuilderStartedNoAI] = useState(false)
 
   /** Patch the central LeadProfile (replace strategy at top-level keys). */
   function patchProfile(patch: Partial<LeadProfile>) {
@@ -422,6 +425,9 @@ export function KitchenIntake() {
     setMustHavesText('')
     setNiceToHavesText('')
     setDealBreakersText('')
+    setBuilderHypothesis(null)
+    setHypothesisError(null)
+    setBuilderStartedNoAI(false)
   }
 
   /**
@@ -434,10 +440,43 @@ export function KitchenIntake() {
     patchProfile({ conceptRenderChosenId: id, conceptRenders })
   }
 
+  /**
+   * Fire the builder-hypothesis vision call; the builder mounts when it lands.
+   * Hands the measured layout to the vision call so it reuses our run ids /
+   * lengths instead of inventing its own (context/layout-contract.md).
+   */
+  async function loadHypothesis() {
+    const render = chosenRender
+    if (!render?.imageDataUrl) return
+    setIsLoadingHypothesis(true)
+    setHypothesisError(null)
+    try {
+      const plan = planFromProfile(profile)
+      const layoutContract = plan ? floorPlanToLayout(validate(plan)) : undefined
+      const res = await fetch('/api/builder-hypothesis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ renderImage: render.imageDataUrl, profile, layoutContract }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error ?? `Hypothesis failed (${res.status})`)
+      setBuilderHypothesis(data.hypothesis as BuilderHypothesis)
+    } catch (err) {
+      setHypothesisError(err instanceof Error ? err.message : 'Builder hypothesis failed')
+    } finally {
+      setIsLoadingHypothesis(false)
+    }
+  }
+
   const progress = useMemo(
     () => Math.round(((flowIndex(state.currentStepId) + (isDone ? 1 : 0)) / FLOW.length) * 100),
     [state.currentStepId, isDone]
   )
+
+  // The render the builder anchors to: the explicitly chosen one, else the latest.
+  const chosenRender = chosenRenderId
+    ? conceptRenders.find((r) => r.id === chosenRenderId)
+    : conceptRenders[conceptRenders.length - 1]
 
   if (isDone && wrapUpData) {
     return (
@@ -450,43 +489,32 @@ export function KitchenIntake() {
     )
   }
 
-  // ── Phase 2: Builder step takes over the full screen with its own chrome.
-  if (state.currentStepId === 'builder') {
-    const chosenRender = chosenRenderId
-      ? conceptRenders.find((r) => r.id === chosenRenderId)
-      : conceptRenders[conceptRenders.length - 1]
+  // ── The builder proper. Mounts once the homeowner actually starts building
+  // (AI hypothesis loaded, explicit "without AI", or a saved build to resume).
+  // BuilderShell renders through the same AppShell internally, so there is no
+  // chrome swap — until then the builder step shows its entry body below, inside
+  // the very same shell as every other step.
+  const builderSavedState = profile.builderState as BuilderState | undefined
+  if (
+    state.currentStepId === 'builder' &&
+    (builderHypothesis || builderStartedNoAI || builderSavedState)
+  ) {
+    // Freeze the Part-1 FloorPlan and project it into the COMPLETE layout
+    // contract the builder seeds from. Always produced (an 'unsure' single-wall
+    // preset when the homeowner somehow reached the builder without a plan) so
+    // the builder never lacks a contract. See context/layout-contract.md.
+    const plan = planFromProfile(profile) ?? fromShapePreset('unsure')
+    const layoutContract = floorPlanToLayout(validate(plan))
     return (
-      <BuilderStepView
+      <BuilderShell
+        hypothesis={builderHypothesis}
+        layoutContract={layoutContract}
+        savedState={builderSavedState}
         renderImageDataUrl={chosenRender?.imageDataUrl}
         anchorPhotoDataUrl={spacePhotos[0]}
-        layoutSummary={summariseLayoutFromProfile(profile)}
+        layoutSummary={summariseLayoutFromProfile(profile, locale)}
         profile={profile}
-        hypothesis={builderHypothesis}
-        isLoadingHypothesis={isLoadingHypothesis}
-        hypothesisError={hypothesisError}
-        onLoadHypothesis={async () => {
-          if (!chosenRender?.imageDataUrl) return
-          setIsLoadingHypothesis(true)
-          setHypothesisError(null)
-          try {
-            // Hand the measured layout to the vision call so it reuses our run
-            // ids / lengths instead of inventing its own (context/layout-contract.md).
-            const plan = planFromProfile(profile)
-            const layoutContract = plan ? floorPlanToLayout(validate(plan)) : undefined
-            const res = await fetch('/api/builder-hypothesis', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ renderImage: chosenRender.imageDataUrl, profile, layoutContract }),
-            })
-            const data = await res.json()
-            if (!res.ok || data.error) throw new Error(data.error ?? `Hypothesis failed (${res.status})`)
-            setBuilderHypothesis(data.hypothesis as BuilderHypothesis)
-          } catch (err) {
-            setHypothesisError(err instanceof Error ? err.message : 'Builder hypothesis failed')
-          } finally {
-            setIsLoadingHypothesis(false)
-          }
-        }}
+        layoutPreconfirmed
         onComplete={(builderState) => {
           patchProfile({ builderState })
           logTurn(
@@ -495,11 +523,6 @@ export function KitchenIntake() {
           )
           goNext()
         }}
-        onSkip={() => {
-          logTurn('user', 'Skipped the builder — sending minimal brief.')
-          goNext()
-        }}
-        onBack={goBack}
       />
     )
   }
@@ -517,6 +540,7 @@ export function KitchenIntake() {
   const funnelBuilderState = profile.builderState as BuilderState | undefined
   const rightRailSteps: FlowStepId[] = [
     'confirm_look',
+    'builder',
     'scope',
     'wishlist',
     'project_basics',
@@ -527,7 +551,11 @@ export function KitchenIntake() {
     rightRailSteps.includes(state.currentStepId) && funnelRenderSrc ? (
       <div className="flex flex-col gap-5">
         {funnelBuilderState && <LiveBOMPanel state={funnelBuilderState} />}
-        <RenderAnchorCard src={funnelRenderSrc} summary={summariseLayoutFromProfile(profile)} />
+        <RenderAnchorCard
+          src={funnelRenderSrc}
+          summary={summariseLayoutFromProfile(profile, locale)}
+          locale={locale}
+        />
       </div>
     ) : undefined
 
@@ -566,6 +594,19 @@ export function KitchenIntake() {
               transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
               className="space-y-7"
             >
+              {state.currentStepId === 'builder' ? (
+                <BuilderEntryBody
+                  hasRender={Boolean(chosenRender?.imageDataUrl)}
+                  isLoading={isLoadingHypothesis}
+                  error={hypothesisError}
+                  onStartWithAI={() => void loadHypothesis()}
+                  onStartWithoutAI={() => setBuilderStartedNoAI(true)}
+                  onSkip={() => {
+                    logTurn('user', 'Skipped the builder — sending minimal brief.')
+                    goNext()
+                  }}
+                />
+              ) : (
               <StepBody
                 stepId={state.currentStepId}
                 profile={profile}
@@ -612,6 +653,7 @@ export function KitchenIntake() {
                   goNext()
                 }}
               />
+              )}
 
               {translateError && (
                 <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-2.5 text-xs text-destructive">
@@ -1124,6 +1166,9 @@ function FooterNav({
         // SpaceCapture handles its own internal "Confirm" button when a vision result
         // is ready. The footer Continue is a "skip and move on" — always enabled.
         return true
+      case 'builder':
+        // The entry body owns its CTAs (begin / skip); no footer Continue.
+        return false
       case 'inspiration':
         return hasInspirationInput
       case 'concept_render':
@@ -1168,160 +1213,117 @@ function FooterNav({
         <ArrowLeft className="size-3.5 stroke-[2]" aria-hidden />
         {t('nav.back')}
       </button>
-      <button
-        type="button"
-        onClick={onContinue}
-        disabled={!canContinue || isBusy}
-        className={cn(
-          'inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[13px] font-semibold transition-all',
-          canContinue && !isBusy
-            ? 'bg-foreground text-background shadow-sm hover:brightness-110'
-            : 'cursor-not-allowed bg-muted text-muted-foreground'
-        )}
-      >
-        {isBusy ? (
-          <>
-            <span className="inline-block size-1.5 animate-pulse rounded-full bg-background/80" />
-            {t('nav.working')}
-          </>
-        ) : (
-          <>
-            {isSpaceStep ? t('nav.skip') : ctaLabel}
-            <ArrowRight className="size-3.5 stroke-[2]" aria-hidden />
-          </>
-        )}
-      </button>
+      {stepId !== 'builder' && (
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={!canContinue || isBusy}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[13px] font-semibold transition-all',
+            canContinue && !isBusy
+              ? 'bg-foreground text-background shadow-sm hover:brightness-110'
+              : 'cursor-not-allowed bg-muted text-muted-foreground'
+          )}
+        >
+          {isBusy ? (
+            <>
+              <span className="inline-block size-1.5 animate-pulse rounded-full bg-background/80" />
+              {t('nav.working')}
+            </>
+          ) : (
+            <>
+              {isSpaceStep ? t('nav.skip') : ctaLabel}
+              <ArrowRight className="size-3.5 stroke-[2]" aria-hidden />
+            </>
+          )}
+        </button>
+      )}
     </div>
   )
 }
 
 /**
- * Phase-2 entry screen. Three states:
- *  - Idle: introduce the builder + a "Start building" CTA that fires the
- *    /api/builder-hypothesis call.
- *  - Loading: dots while we wait for the vision pass.
- *  - Ready: full BuilderShell takeover.
- *
- * The user can also skip the builder entirely (sends a minimal brief).
+ * The builder step's entry body — rendered INSIDE the shared AppShell (same
+ * nav, progress and right rail as every other step; no chrome swap). Idle:
+ * introduce the builder + CTAs. Loading: dots while the vision pass runs.
+ * Once the hypothesis lands (or the user starts without it / has a saved
+ * build), the parent mounts BuilderShell instead.
  */
-function BuilderStepView({
-  renderImageDataUrl,
-  anchorPhotoDataUrl,
-  layoutSummary,
-  profile,
-  hypothesis,
-  isLoadingHypothesis,
-  hypothesisError,
-  onLoadHypothesis,
-  onComplete,
+function BuilderEntryBody({
+  hasRender,
+  isLoading,
+  error,
+  onStartWithAI,
+  onStartWithoutAI,
   onSkip,
-  onBack,
 }: {
-  renderImageDataUrl?: string
-  anchorPhotoDataUrl?: string
-  layoutSummary?: string
-  profile: LeadProfile
-  hypothesis: BuilderHypothesis | null
-  isLoadingHypothesis: boolean
-  hypothesisError: string | null
-  onLoadHypothesis: () => void
-  onComplete: (state: BuilderState) => void
+  hasRender: boolean
+  isLoading: boolean
+  error: string | null
+  onStartWithAI: () => void
+  onStartWithoutAI: () => void
   onSkip: () => void
-  onBack: () => void
 }) {
-  // Once we have a hypothesis (or the user explicitly clicked "Start without
-  // hypothesis"), mount the BuilderShell. Otherwise show the entry screen.
-  const [skippedHypothesis, setSkippedHypothesis] = useState(false)
-
-  // Freeze the Part-1 FloorPlan and project it into the COMPLETE layout contract
-  // the builder seeds from. Always produced (an 'unsure' single-wall preset when
-  // the homeowner somehow reached the builder without a plan) so the builder
-  // never lacks a contract. See context/layout-contract.md.
-  const layoutContract = useMemo(() => {
-    const plan = planFromProfile(profile) ?? fromShapePreset('unsure')
-    return floorPlanToLayout(validate(plan))
-  }, [profile])
-
-  if (hypothesis || skippedHypothesis) {
-    return (
-      <BuilderShell
-        hypothesis={hypothesis}
-        layoutContract={layoutContract}
-        renderImageDataUrl={renderImageDataUrl}
-        anchorPhotoDataUrl={anchorPhotoDataUrl}
-        layoutSummary={layoutSummary}
-        profile={profile}
-        layoutPreconfirmed
-        onComplete={onComplete}
-      />
-    )
-  }
-
+  const { t, tDynamic: td } = useTranslations()
   return (
-    <div className="min-h-[100dvh] bg-background text-foreground">
-      <div className="mx-auto flex min-h-[100dvh] max-w-2xl flex-col items-center justify-center gap-6 px-6 py-16 text-center">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary/80">
-          Phase 2 — {DESIGNER_NAME}
-        </p>
-        <h1 className="text-balance text-3xl font-semibold leading-tight md:text-4xl">
-          Sastavi svoju kuhinju, dio po dio.
-        </h1>
-        <p className="max-w-prose text-[14.5px] leading-relaxed text-muted-foreground">
-          Prošli ćemo kroz svaki dio kuhinje — od dimenzija i vrata do okova, sudopera i rasvjete. Procjena cijene se ažurira uživo dok mijenjaš odabire.
-          {profile.builderState !== undefined && ' Već si započeo — nastavi gdje si stao.'}
-        </p>
-
-        {hypothesisError && (
+    <StepFrame
+      eyebrow={td('journey.act.build')}
+      title={t('funnel.builderEntry.title')}
+      subtitle={t('funnel.builderEntry.subtitle')}
+    >
+      <div className="space-y-6">
+        {error && (
           <p className="max-w-prose rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
-            {hypothesisError}
+            {error}
           </p>
         )}
 
-        <div className="flex flex-col items-center gap-3 sm:flex-row">
+        <div className="flex flex-col gap-3 sm:flex-row">
           <button
             type="button"
-            onClick={renderImageDataUrl ? onLoadHypothesis : () => setSkippedHypothesis(true)}
-            disabled={isLoadingHypothesis}
+            onClick={hasRender ? onStartWithAI : onStartWithoutAI}
+            disabled={isLoading}
             className={cn(
               'inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md transition-all',
-              isLoadingHypothesis ? 'opacity-70' : 'hover:brightness-[1.06]'
+              isLoading ? 'opacity-70' : 'hover:brightness-[1.06]'
             )}
           >
-            {isLoadingHypothesis ? (
+            {isLoading ? (
               <>
-                <span className="inline-block size-1.5 animate-pulse rounded-full bg-background/80" />
-                Čitam tvoj render…
+                <span className="inline-block size-1.5 animate-pulse rounded-full bg-primary-foreground/80" />
+                {t('funnel.builderEntry.loading')}
               </>
-            ) : renderImageDataUrl ? (
-              <>Započni gradnju (s AI prijedlogom)</>
+            ) : hasRender ? (
+              <>{t('funnel.builderEntry.ctaWithAI')}</>
             ) : (
-              <>Započni gradnju</>
+              <>{t('funnel.builderEntry.cta')}</>
             )}
           </button>
-          <button
-            type="button"
-            onClick={() => setSkippedHypothesis(true)}
-            disabled={isLoadingHypothesis || !renderImageDataUrl}
-            className={cn(
-              'rounded-2xl border border-border bg-card px-5 py-3 text-sm font-medium text-muted-foreground transition-colors',
-              !isLoadingHypothesis && renderImageDataUrl && 'hover:text-foreground'
-            )}
-          >
-            Bez AI prijedloga
-          </button>
+          {hasRender && (
+            <button
+              type="button"
+              onClick={onStartWithoutAI}
+              disabled={isLoading}
+              className={cn(
+                'rounded-2xl border border-border bg-card px-5 py-3 text-sm font-medium text-muted-foreground transition-colors',
+                !isLoading && 'hover:text-foreground'
+              )}
+            >
+              {t('funnel.builderEntry.noAI')}
+            </button>
+          )}
         </div>
 
-        <div className="flex gap-3 pt-4 text-xs">
-          <button type="button" onClick={onBack} className="text-muted-foreground hover:text-foreground">
-            ← Natrag
-          </button>
-          <span className="text-muted-foreground/40">·</span>
-          <button type="button" onClick={onSkip} className="text-muted-foreground hover:text-foreground">
-            Preskoči — pošalji samo osnovni brief
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onSkip}
+          disabled={isLoading}
+          className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {t('funnel.builderEntry.skip')}
+        </button>
       </div>
-    </div>
+    </StepFrame>
   )
 }
 
@@ -1330,26 +1332,17 @@ function BuilderStepView({
  * Phase-1 captures. Surfaced under the Builder's persistent preview so the
  * user always sees the room context without needing to re-edit it.
  */
-function summariseLayoutFromProfile(p: LeadProfile): string | undefined {
+function summariseLayoutFromProfile(p: LeadProfile, locale: Locale): string | undefined {
   const shape = p.layoutShape ?? p.spaceVisionResult?.layoutShape
   const length = p.spaceLengthCm ?? p.spaceVisionResult?.lengthCm
   const width = p.spaceWidthCm ?? p.spaceVisionResult?.widthCm
   const parts: string[] = []
-  if (shape) {
-    const labels: Record<string, string> = {
-      galley: 'Paralelne klupe',
-      l_shape: 'L-oblik',
-      u_shape: 'U-oblik',
-      island: 'S otokom',
-      peninsula: 'S poluotokom',
-      open: 'Otvoreni prostor',
-      unsure: 'Oblik tbd',
-    }
-    parts.push(labels[shape] ?? shape.replace(/_/g, ' '))
+  if (shape && shape !== 'unsure') {
+    parts.push(tDynamic(`layout.shape.${shape}`, locale))
   }
   if (length && width) parts.push(`${length} × ${width} cm`)
   else if (length) parts.push(`${length} cm`)
-  if (p.hasIsland) parts.push('+ otok')
+  if (p.hasIsland) parts.push(tDynamic('layout.suffix.island', locale))
   return parts.length > 0 ? parts.join(' · ') : undefined
 }
 

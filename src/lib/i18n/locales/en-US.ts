@@ -95,6 +95,7 @@ export const enUS: Record<TranslationKey, string> = {
   'layout.shape.peninsula': 'With peninsula',
   'layout.shape.open': 'Open plan',
   'layout.shape.unsure': "I'm not sure",
+  'layout.suffix.island': '+ island',
   'layout.runs.editPrompt': 'Update wall lengths:',
   'layout.runs.run': 'Run',
   'layout.runs.length': 'Length',
@@ -332,6 +333,17 @@ export const enUS: Record<TranslationKey, string> = {
   'funnel.contact.eyebrow': 'Last step',
   'funnel.contact.title': 'Where should the designer reach you?',
   'funnel.contact.subtitle': "We'll only use this for your project conversation.",
+
+  // ---- Builder entry (start of the Build act) -----------------------------
+  'funnel.builderEntry.title': 'Build your kitchen, piece by piece.',
+  'funnel.builderEntry.subtitle':
+    "We'll walk through every part of the kitchen — from dimensions and doors to hardware, sink and lighting. The price estimate updates live as you make choices.",
+  'funnel.builderEntry.resume': "You've already started — pick up where you left off.",
+  'funnel.builderEntry.ctaWithAI': 'Begin building (with AI suggestion)',
+  'funnel.builderEntry.cta': 'Begin building',
+  'funnel.builderEntry.loading': 'Reading your render…',
+  'funnel.builderEntry.noAI': 'Without the AI suggestion',
+  'funnel.builderEntry.skip': 'Skip — send just the basic brief',
 
   // ---- Funnel field headings ---------------------------------------------
   'funnel.field.projectType': 'Project type',

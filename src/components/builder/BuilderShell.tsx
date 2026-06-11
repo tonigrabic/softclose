@@ -69,6 +69,12 @@ export interface BuilderShellProps {
    * gate. The dev harness omits this, so it still shows the gate.
    */
   layoutPreconfirmed?: boolean
+  /**
+   * A previously completed/abandoned build to resume (from
+   * `profile.builderState`). Takes precedence over hypothesis hydration so
+   * re-entering the builder keeps every pick instead of starting over.
+   */
+  savedState?: BuilderState
   /** Callback fired when the user finishes the builder. */
   onComplete?: (state: BuilderState) => void
 }
@@ -81,13 +87,17 @@ export function BuilderShell({
   layoutSummary,
   profile,
   layoutPreconfirmed,
+  savedState,
   onComplete,
 }: BuilderShellProps) {
   const initial = useMemo(() => {
+    if (savedState) {
+      return layoutPreconfirmed ? { ...savedState, layoutConfirmed: true } : savedState
+    }
     const s = hydrateFromHypothesis(hypothesis, { layoutContract })
     if (layoutPreconfirmed) s.layoutConfirmed = true
     return s
-  }, [hypothesis, layoutContract, layoutPreconfirmed])
+  }, [hypothesis, layoutContract, layoutPreconfirmed, savedState])
   const [state, dispatch] = useBuilderState(initial)
   // Builder now opens on Cabinet Boxes — Layout/dimensions are owned by Phase 1.
   const [currentId, setCurrentId] = useState<BuilderGroupId>('cabinetBoxes')

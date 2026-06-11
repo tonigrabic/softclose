@@ -98,6 +98,7 @@ export const hrHR = {
   'layout.shape.peninsula': 'S poluotokom',
   'layout.shape.open': 'Otvoreni prostor',
   'layout.shape.unsure': 'Nisam siguran',
+  'layout.suffix.island': '+ otok',
   'layout.runs.editPrompt': 'Ažuriraj duljine zidova:',
   'layout.runs.run': 'Zid',
   'layout.runs.length': 'Dužina',
@@ -345,6 +346,17 @@ export const hrHR = {
   'funnel.contact.eyebrow': 'Zadnji korak',
   'funnel.contact.title': 'Gdje te dizajner može kontaktirati?',
   'funnel.contact.subtitle': 'Koristimo to samo za razgovor o tvom projektu.',
+
+  // ---- Builder entry (start of the Build act) -----------------------------
+  'funnel.builderEntry.title': 'Sastavi svoju kuhinju, dio po dio.',
+  'funnel.builderEntry.subtitle':
+    'Prošli ćemo kroz svaki dio kuhinje — od dimenzija i vrata do okova, sudopera i rasvjete. Procjena cijene se ažurira uživo dok mijenjaš odabire.',
+  'funnel.builderEntry.resume': 'Već si započeo — nastavi gdje si stao.',
+  'funnel.builderEntry.ctaWithAI': 'Započni gradnju (s AI prijedlogom)',
+  'funnel.builderEntry.cta': 'Započni gradnju',
+  'funnel.builderEntry.loading': 'Čitam tvoj render…',
+  'funnel.builderEntry.noAI': 'Bez AI prijedloga',
+  'funnel.builderEntry.skip': 'Preskoči — pošalji samo osnovni brief',
 
   // ---- Funnel field headings ---------------------------------------------
   'funnel.field.projectType': 'Vrsta projekta',
