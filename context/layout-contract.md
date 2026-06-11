@@ -96,7 +96,9 @@ lives in one place:
 - For each closed wall where `effectiveHasCounter(plan, wall)`:
   emit a `ContractRun` with `lengthCm = Σ counterSegmentsForWall(plan, wall)`,
   `id = wall`, `label = sides[wall].label ?? Cap(wall)`.
-  Defaults: `hasWall = true`, `hasTall = false`, `hasCorner` = owns an inner corner.
+  Defaults: `hasWall = true` **unless more than half the run sits under a
+  window** (no wall to hang uppers on — deterministic, homeowner refines),
+  `hasTall = false`, `hasCorner` = owns an inner corner.
 - If `plan.island`: emit a run `id: 'island'`, `lengthCm = island.lengthCm`,
   `hasWall = false` (no uppers over an island).
 - For each `feature` in `plan.features`: emit a `ContractAppliance`

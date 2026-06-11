@@ -41,6 +41,12 @@ interface SuggestOptions {
    * sit on ordinary base units (the sink unit is forced by the caller).
    */
   applianceSpans?: ApplianceSpanInput[]
+  /**
+   * When the fridge is integrated, its span isn't empty floor — it needs a
+   * full-height housing carcass (tall unit, doors front) at the measured
+   * position. Freestanding fridges (default) seed nothing.
+   */
+  integratedFridge?: boolean
   /** Cabinet base depth (mm). 600 = standard. */
   baseDepthMm?: number
   /** Cabinet wall depth (mm). 330 = standard. */
@@ -164,6 +170,23 @@ export function suggestCabinetsForRun(
       })
       positionMm += w
     })
+  }
+
+  // Integrated fridge → a tall housing carcass fills the measured span (the
+  // fill above already skipped it, so this adds the housing without overlap).
+  if (opts.integratedFridge) {
+    for (const f of spans.filter((s) => s.kind === 'fridge')) {
+      out.push({
+        id: newId(),
+        type: 'tall',
+        widthMm: clampWidth(f.widthMm),
+        heightMm: tallHeight,
+        depthMm: baseDepth,
+        runId: run.id,
+        positionPctAlongRun: totalMm > 0 ? clampPctNum((f.startMm / totalMm) * 100) : 0,
+        pattern: 'doors_shelf',
+      })
+    }
   }
 
   if (run.hasTall) {

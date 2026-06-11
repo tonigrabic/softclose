@@ -21,9 +21,8 @@
 - [ ] **W3 — Better estimate** (scoped by W2's findings, in build order):
       - [x] W3a — appliance footprints stop double-counting ✓ iter 3
       - [x] W3b — confidence → band ✓ iter 4
-      - [ ] W3c — hob/fridge/dishwasher measured positions drive seeded patterns
-            (Finding 3)
-      - [ ] W3d — window-aware `hasWall` default (Finding 4)
+      - [x] W3c — measured positions drive seeded patterns ✓ iter 5
+      - [x] W3d — window-aware `hasWall` default ✓ iter 5
 - [ ] **W4 — Plug-in/plug-out builder screens**: define one step-module interface
       (id, nav node, body, gating, readback, BOM contribution) so adding/removing
       a builder group is a registry entry, not an `index.tsx` surgery.
@@ -128,3 +127,27 @@
   (fridge housing at the measured end when integrated; no trash pullout under
   the hob), then W3d (window-aware hasWall), then on to W4 (plug-in/out
   builder screens).
+
+### 2026-06-11 — Iteration 5
+
+- **W3c built — measured positions now drive seeded patterns.**
+  - Hob: the placement loop in `CabinetBoxesGroup` (formerly sink-only) now
+    places sink first (`sink_unit`), then hob (`drawer_bank` — pots under the
+    hob); hob can't steal the sink's unit or the dishwasher slot; both run
+    after AI overrides so the contract wins.
+  - Integrated fridge: `suggestCabinetsForRun` gains `integratedFridge` — the
+    measured fridge span gets a full-height tall housing carcass (was: empty
+    floor, under-counting integrated builds). Freestanding stays empty.
+    Integration signal read from `state.appliances.selections` (hypothesis +
+    back-compat already folded in there).
+- **W3d built — window-aware `hasWall`.** `floorPlanToLayout` measures window
+  overlap with each run's counter segments; >50% under glass → `hasWall:
+  false` (no wall to hang uppers on). Deterministic, homeowner refines; spec
+  doc updated.
+- **Fixture checks**: fridge housing seeds `tall/800` at the measured 38%
+  position; 300cm window over the 380cm top run flips it to `hasWall=false`
+  while the left run keeps uppers; sink/hob placement verified (sink first,
+  hob nearest-remaining). tsc + eslint + production build green.
+- **W3 (better estimate) is now complete: W3a–W3d all landed.**
+- Next iteration: **W4 — plug-in/plug-out builder screens** (one step-module
+  registry: id, nav node, body, gating, readback, BOM contribution).

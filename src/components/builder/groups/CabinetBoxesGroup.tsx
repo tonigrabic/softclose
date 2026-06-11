@@ -92,7 +92,14 @@ export function CabinetBoxesGroup({ state, hypothesis, layoutContract, onPatch }
       const applianceSpans = layoutContract
         ? applianceSpansForRun(layoutContract, run.id)
         : []
-      const runUnits = suggestCabinetsForRun(run, { hasCorner, tallHeightMm, applianceSpans })
+      const integratedFridge =
+        state.appliances.selections.find((s) => s.type === 'fridge')?.integrated ?? false
+      const runUnits = suggestCabinetsForRun(run, {
+        hasCorner,
+        tallHeightMm,
+        applianceSpans,
+        integratedFridge,
+      })
       // AI-suggested patterns override the heuristic at matching positions (15% tol).
       // Contract-driven appliance slots are not up for grabs — measured geometry
       // beats the render hypothesis.
@@ -104,13 +111,22 @@ export function CabinetBoxesGroup({ state, hypothesis, layoutContract, onPatch }
         )
         if (match) u.pattern = match.pattern
       })
-      // Contract geometry is authoritative for the sink: force the nearest base
-      // unit at the sink's measured position to a sink_unit (plumbing cutout).
+      // Contract geometry is authoritative for sink and hob: force the nearest
+      // base unit at each measured position — sink_unit (plumbing cutout) for
+      // the sink, drawer_bank (pots live under the hob) for the hob. The sink
+      // is placed first so the hob can't claim its unit; both run after the AI
+      // overrides so the contract wins.
       const totalMm = run.lengthCm * 10
-      for (const a of appliances) {
-        if (a.runId !== run.id || a.kind !== 'sink') continue
+      const placeable = appliances
+        .filter((a) => a.runId === run.id && (a.kind === 'sink' || a.kind === 'hob'))
+        .sort((a) => (a.kind === 'sink' ? -1 : 1))
+      for (const a of placeable) {
         const candidates = runUnits.filter(
-          (u) => u.type === 'base' && !unitIsCorner(u) && u.pattern !== 'appliance_slot'
+          (u) =>
+            u.type === 'base' &&
+            !unitIsCorner(u) &&
+            u.pattern !== 'appliance_slot' &&
+            u.pattern !== 'sink_unit'
         )
         if (candidates.length === 0) continue
         let best = candidates[0]
@@ -124,12 +140,12 @@ export function CabinetBoxesGroup({ state, hypothesis, layoutContract, onPatch }
             best = u
           }
         }
-        best.pattern = 'sink_unit'
+        best.pattern = a.kind === 'sink' ? 'sink_unit' : 'drawer_bank'
       }
       runUnits.forEach((u) => seeded.push(u))
     })
     if (seeded.length > 0) onPatch({ units: seeded })
-  }, [runs, state.cabinetBoxes.units.length, hypothesis, layoutContract, onPatch])
+  }, [runs, state.cabinetBoxes.units.length, state.appliances.selections, hypothesis, layoutContract, onPatch])
 
   function updateUnit(id: string, patch: Partial<CabinetUnit>) {
     onPatch({

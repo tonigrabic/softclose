@@ -161,15 +161,24 @@ export const DEFAULT_CEILING_CM = 280
  */
 export function floorPlanToLayout(plan: FloorPlan): LayoutContract {
   // 1. Base-bearing walls + their cabinet lengths (doors/passages cut out).
-  const baseWalls: Array<{ wall: WallSide; lengthCm: number }> = []
+  // While we have the segments, measure how much of each run sits under a
+  // window — a run mostly fronted by glass carries no upper cabinets.
+  const baseWalls: Array<{ wall: WallSide; lengthCm: number; windowCm: number }> = []
   for (const wall of WALLS) {
     if (!effectiveHasCounter(plan, wall)) continue
-    const lengthCm = counterSegmentsForWall(plan, wall).reduce(
-      (sum, seg) => sum + (seg.endCm - seg.startCm),
-      0
-    )
+    const segments = counterSegmentsForWall(plan, wall)
+    const lengthCm = segments.reduce((sum, seg) => sum + (seg.endCm - seg.startCm), 0)
     if (lengthCm <= 0) continue
-    baseWalls.push({ wall, lengthCm: Math.round(lengthCm) })
+    let windowCm = 0
+    for (const o of plan.openings) {
+      if (o.wall !== wall || o.kind !== 'window') continue
+      const oStart = o.startCm
+      const oEnd = o.startCm + o.widthCm
+      for (const seg of segments) {
+        windowCm += Math.max(0, Math.min(seg.endCm, oEnd) - Math.max(seg.startCm, oStart))
+      }
+    }
+    baseWalls.push({ wall, lengthCm: Math.round(lengthCm), windowCm })
   }
   const baseWallSet = new Set<WallSide>(baseWalls.map((b) => b.wall))
 
@@ -187,12 +196,14 @@ export function floorPlanToLayout(plan: FloorPlan): LayoutContract {
   }
 
   // 4. Complete runs — geometry + defaults for render-silent fields.
-  const runs: ContractRun[] = baseWalls.map(({ wall, lengthCm }) => ({
+  const runs: ContractRun[] = baseWalls.map(({ wall, lengthCm, windowCm }) => ({
     id: wall,
     label: plan.room.sides[wall].label ?? capitalize(wall),
     lengthCm,
     hasBase: true,
-    hasWall: true, // perimeter runs carry uppers by default; user refines
+    // Perimeter runs carry uppers by default — unless the run is mostly
+    // window (no wall to hang them on). Deterministic, homeowner refines.
+    hasWall: windowCm / lengthCm <= 0.5,
     hasTall: false,
     hasCorner: cornerOwners.has(wall),
     confidence: plan.room.confidence,
