@@ -97,7 +97,7 @@ export function JourneyNavRail({
       kind: 'funnel',
       id: step.id,
       label: tDynamic(`flow.${step.id}.label`, locale),
-      readback: readbackFor(step.id, profile),
+      readback: readbackFor(step.id, profile, locale),
     })
   }
 

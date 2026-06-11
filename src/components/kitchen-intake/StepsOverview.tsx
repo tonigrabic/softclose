@@ -3,6 +3,7 @@
 import { Check, Circle } from 'lucide-react'
 import type { LeadProfile } from '@/lib/types'
 import { FLOW, flowIndex, type FlowStepId, type FlowStepMeta } from '@/lib/flow'
+import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 interface StepsOverviewProps {
@@ -102,13 +103,22 @@ const GROUP_LABELS: Record<FlowStepMeta['group'], string> = {
   finish: 'Finish',
 }
 
-export function readbackFor(stepId: FlowStepId, p: LeadProfile): string | null {
+export function readbackFor(
+  stepId: FlowStepId,
+  p: LeadProfile,
+  locale: Locale = DEFAULT_LOCALE
+): string | null {
+  const td = (key: string) => tDynamic(key, locale)
   switch (stepId) {
+    case 'type': {
+      return p.projectType ? td(`option.projectType.${p.projectType}`) : null
+    }
     case 'space_photos': {
       const n = p.spacePhotos?.length ?? 0
       if (n === 0) return null
+      const photos = td('readback.photos').replace('{n}', String(n))
       const layout = p.layoutShape ?? p.spaceVisionResult?.layoutShape
-      return layout ? `${n} photo${n === 1 ? '' : 's'} · ${layout.replace(/_/g, ' ')}` : `${n} photo${n === 1 ? '' : 's'}`
+      return layout && layout !== 'unsure' ? `${photos} · ${td(`layout.shape.${layout}`)}` : photos
     }
     case 'inspiration': {
       const styles = p.stylePreferences ?? []
@@ -117,7 +127,7 @@ export function readbackFor(stepId: FlowStepId, p: LeadProfile): string | null {
     }
     case 'concept_render': {
       if (!p.conceptRenderChosenId) return null
-      return 'Render chosen'
+      return td('readback.renderChosen')
     }
     case 'confirm_look': {
       const parts = [
@@ -129,22 +139,14 @@ export function readbackFor(stepId: FlowStepId, p: LeadProfile): string | null {
       return parts.map((s) => s.replace(/_/g, ' ')).join(' · ')
     }
     case 'builder': {
-      return p.builderState ? 'Built · live estimate ready' : null
-    }
-    case 'project_basics': {
-      const parts = [
-        p.projectType?.replace(/_/g, ' '),
-        p.timeline?.replace(/_/g, ' '),
-        p.budgetRange?.replace(/_/g, ' '),
-      ].filter(Boolean)
-      return parts.length > 0 ? parts.join(' · ') : null
+      return p.builderState ? td('readback.built') : null
     }
     case 'scope': {
       const trueKeys = Object.entries(p.scope ?? {})
         .filter(([, v]) => v === true)
         .map(([k]) => k)
       if (trueKeys.length === 0) return null
-      return `${trueKeys.length} item${trueKeys.length === 1 ? '' : 's'} in scope`
+      return td('readback.scopeItems').replace('{n}', String(trueKeys.length))
     }
     case 'wishlist': {
       const total =
@@ -152,12 +154,15 @@ export function readbackFor(stepId: FlowStepId, p: LeadProfile): string | null {
         (p.niceToHaves?.length ?? 0) +
         (p.dealBreakers?.length ?? 0)
       if (total === 0) return null
-      return `${total} item${total === 1 ? '' : 's'} captured`
+      return td('readback.wishlistItems').replace('{n}', String(total))
     }
     case 'logistics': {
       const parts = [
-        p.logistics?.siteAccess?.replace(/_/g, ' '),
-        p.logistics?.livingDuringBuild?.replace(/_/g, ' '),
+        p.timeline ? td(`option.timeline.${p.timeline}`) : null,
+        p.logistics?.siteAccess ? td(`option.siteAccess.${p.logistics.siteAccess}`) : null,
+        p.logistics?.livingDuringBuild
+          ? td(`option.living.${p.logistics.livingDuringBuild}`)
+          : null,
       ].filter(Boolean)
       return parts.length > 0 ? parts.join(' · ') : null
     }

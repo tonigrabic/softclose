@@ -301,6 +301,7 @@ export const hrHR = {
   'finishing.openShelvingLabel': 'Otvoreno polica (m)',
 
   // ---- Funnel flow: nav rail step labels ---------------------------------
+  'flow.type.label': 'Vrsta projekta',
   'flow.space_photos.label': 'Vaš prostor',
   'flow.inspiration.label': 'Inspiracija',
   'flow.concept_render.label': 'AI koncept',
@@ -308,30 +309,29 @@ export const hrHR = {
   'flow.builder.label': 'Sastavljanje',
   'flow.scope.label': 'Opseg radova',
   'flow.wishlist.label': 'Lista želja',
-  'flow.project_basics.label': 'Osnovni podaci',
   'flow.logistics.label': 'Logistika',
   'flow.contact.label': 'Kontakt',
 
   // ---- Funnel step headers (eyebrow / title / subtitle) ------------------
-  'funnel.space_photos.eyebrow': 'Korak 1',
+  'funnel.type.eyebrow': 'Korak 1',
+  'funnel.type.title': 'Što radimo?',
+  'funnel.type.subtitle': 'Vrsta projekta — okvir za sve ostalo.',
+  'funnel.space_photos.eyebrow': 'Korak 2',
   'funnel.space_photos.title': 'Slikaj svoju kuhinju — mi čitamo raspored.',
   'funnel.space_photos.subtitle':
     'Nekoliko širokih kadrova je idealno. Pomažu nam da usidrimo AI render i unaprijed ispunimo tlocrt.',
-  'funnel.inspiration.eyebrow': 'Korak 2',
+  'funnel.inspiration.eyebrow': 'Korak 3',
   'funnel.inspiration.title': 'Što ti se sviđa?',
   'funnel.inspiration.subtitle':
     'Odaberi smjer ili dodaj nekoliko inspiracijskih slika. Pročitat ćemo što te privlači i ispuniti ostalo.',
-  'funnel.concept_render.eyebrow': 'Korak 3',
+  'funnel.concept_render.eyebrow': 'Korak 4',
   'funnel.concept_render.title': 'Prva AI skica tvog prostora.',
   'funnel.concept_render.subtitle':
     'Usidrena na tvoju fotografiju. Dodirni oznaku za izmjenu i ponovno renderiraj, ili odaberi ovu i nastavi.',
-  'funnel.confirm_look.eyebrow': 'Korak 4',
+  'funnel.confirm_look.eyebrow': 'Korak 5',
   'funnel.confirm_look.title': 'Potvrdi i zaključaj.',
   'funnel.confirm_look.subtitle':
     'Ovo je temelj na kojem gradimo — tvoj prostor i izgled. Potvrdi da zaključaš; svaki dio fino podešavaš dalje.',
-  'funnel.project_basics.eyebrow': 'Korak 5',
-  'funnel.project_basics.title': 'Osnovni podaci.',
-  'funnel.project_basics.subtitle': 'Što želiš i kada.',
   'funnel.scope.eyebrow': 'Korak 6',
   'funnel.scope.title': 'Što se zapravo radi?',
   'funnel.scope.subtitle': 'Dodirni sve što je u opsegu. Nećemo pitati za ono što preskočiš.',
@@ -342,7 +342,7 @@ export const hrHR = {
   'funnel.logistics.eyebrow': 'Korak 8',
   'funnel.logistics.title': 'Logistika.',
   'funnel.logistics.subtitle':
-    'Nekoliko praktičnih stvari da izrađivač može planirati oko tvog života.',
+    'Otprilike kada — i nekoliko praktičnih stvari da izrađivač može planirati oko tvog života.',
   'funnel.contact.eyebrow': 'Zadnji korak',
   'funnel.contact.title': 'Gdje te dizajner može kontaktirati?',
   'funnel.contact.subtitle': 'Koristimo to samo za razgovor o tvom projektu.',
@@ -359,6 +359,11 @@ export const hrHR = {
   'funnel.builderEntry.skip': 'Preskoči — pošalji samo osnovni brief',
 
   // ---- Wrap-up / offer screen ---------------------------------------------
+  'readback.photos': '{n} foto',
+  'readback.renderChosen': 'Render odabran',
+  'readback.built': 'Sastavljeno · procjena spremna',
+  'readback.scopeItems': '{n} u opsegu',
+  'readback.wishlistItems': '{n} zabilježeno',
   'wrapup.title': 'Evo tvog sažetka',
   'wrapup.review': 'Pregledaj što šaljemo — ispravi sve što ne valja.',
   'wrapup.estimate.title': 'Okvirni raspon cijene',

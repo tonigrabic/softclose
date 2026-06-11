@@ -96,8 +96,8 @@ interface IntakeFlowState {
 export function KitchenIntake() {
   const { locale } = useTranslations()
   const [state, setState] = useState<IntakeFlowState>({
-    currentStepId: 'space_photos',
-    visitedSteps: new Set(['space_photos']),
+    currentStepId: 'type',
+    visitedSteps: new Set(['type']),
   })
   const [profile, setProfile] = useState<LeadProfile>({})
   const [transcript, setTranscript] = useState<ClientMessage[]>([])
@@ -255,9 +255,9 @@ export function KitchenIntake() {
     goNext()
   }
 
-  function commitProjectBasics() {
-    if (!profile.projectType || !profile.timeline) return
-    logTurn('user', `Project basics: ${profile.projectType} · ${profile.timeline}`)
+  function commitType() {
+    if (!profile.projectType) return
+    logTurn('user', `Project type: ${profile.projectType}`)
     goNext()
   }
 
@@ -339,7 +339,7 @@ export function KitchenIntake() {
     })
     logTurn(
       'user',
-      `Logistics: ${[siteAccess, livingPlan].filter(Boolean).join(' · ') || '(skipped)'}`
+      `Logistics: ${[profile.timeline, siteAccess, livingPlan].filter(Boolean).join(' · ') || '(skipped)'}`
     )
     goNext()
   }
@@ -402,7 +402,7 @@ export function KitchenIntake() {
   }
 
   function resetAll() {
-    setState({ currentStepId: 'space_photos', visitedSteps: new Set(['space_photos']) })
+    setState({ currentStepId: 'type', visitedSteps: new Set(['type']) })
     setProfile({})
     setTranscript([])
     setIsDone(false)
@@ -568,7 +568,6 @@ export function KitchenIntake() {
     'builder',
     'scope',
     'wishlist',
-    'project_basics',
     'logistics',
     'contact',
   ]
@@ -713,6 +712,9 @@ export function KitchenIntake() {
 
   function commitForStep(id: FlowStepId): void {
     switch (id) {
+      case 'type':
+        commitType()
+        break
       case 'space_photos':
         commitSpacePhotos()
         break
@@ -733,9 +735,6 @@ export function KitchenIntake() {
         // is a "skip the builder" affordance and just advances the outer flow.
         logTurn('user', 'Skipped the detailed builder — using minimal brief.')
         goNext()
-        break
-      case 'project_basics':
-        commitProjectBasics()
         break
       case 'scope':
         commitScope()
@@ -921,51 +920,29 @@ function StepBody(props: StepBodyProps) {
       )
     }
 
-    case 'project_basics':
+    case 'type':
       return (
         <StepFrame
-          eyebrow={t('funnel.project_basics.eyebrow')}
-          title={t('funnel.project_basics.title')}
-          subtitle={t('funnel.project_basics.subtitle')}
+          eyebrow={t('funnel.type.eyebrow')}
+          title={t('funnel.type.title')}
+          subtitle={t('funnel.type.subtitle')}
         >
-          <div className="space-y-7">
-            <div>
-              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                {t('funnel.field.projectType')}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {PROJECT_TYPE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => onPatchProfile({ projectType: opt.value })}
-                    className={cn(
-                      'rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all',
-                      profile.projectType === opt.value
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border bg-card hover:border-primary/40'
-                    )}
-                  >
-                    {tDynamic(`option.projectType.${opt.value}`)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                {t('funnel.field.timeline')}
-              </p>
-              <VisualScale
-                bands={TIMELINE_BANDS.map((b) => ({
-                  ...b,
-                  label: tDynamic(`option.timeline.${b.value}`),
-                  caption: tDynamic(`option.timeline.${b.value}.caption`),
-                }))}
-                selected={profile.timeline ?? null}
-                onSelect={(v) => onPatchProfile({ timeline: v })}
-                axisCaption={t('funnel.field.timelineAxis')}
-              />
-            </div>
+          <div className="flex flex-wrap gap-2">
+            {PROJECT_TYPE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onPatchProfile({ projectType: opt.value })}
+                className={cn(
+                  'rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all',
+                  profile.projectType === opt.value
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-card hover:border-primary/40'
+                )}
+              >
+                {tDynamic(`option.projectType.${opt.value}`)}
+              </button>
+            ))}
           </div>
         </StepFrame>
       )
@@ -1032,6 +1009,21 @@ function StepBody(props: StepBodyProps) {
           subtitle={t('funnel.logistics.subtitle')}
         >
           <div className="space-y-7">
+            <div>
+              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                {t('funnel.field.timeline')}
+              </p>
+              <VisualScale
+                bands={TIMELINE_BANDS.map((b) => ({
+                  ...b,
+                  label: tDynamic(`option.timeline.${b.value}`),
+                  caption: tDynamic(`option.timeline.${b.value}.caption`),
+                }))}
+                selected={profile.timeline ?? null}
+                onSelect={(v) => onPatchProfile({ timeline: v })}
+                axisCaption={t('funnel.field.timelineAxis')}
+              />
+            </div>
             <div>
               <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
                 {t('funnel.field.siteAccess')}
@@ -1187,6 +1179,8 @@ function FooterNav({
 
   const canContinue = (() => {
     switch (stepId) {
+      case 'type':
+        return Boolean(profile.projectType)
       case 'space_photos':
         // SpaceCapture handles its own internal "Confirm" button when a vision result
         // is ready. The footer Continue is a "skip and move on" — always enabled.
@@ -1206,14 +1200,14 @@ function FooterNav({
             profile.backsplashPreference ||
             profile.hardwareTier
         )
-      case 'project_basics':
-        return Boolean(profile.projectType && profile.timeline)
       case 'scope':
         return scopeCount > 0
       case 'wishlist':
         return true
       case 'logistics':
-        return true
+        // Timeline moved here from the old project-basics step; it's the one
+        // piece the maker can't plan without.
+        return Boolean(profile.timeline)
       case 'contact':
         return hasContactDraft
     }

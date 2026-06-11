@@ -34,10 +34,7 @@ The merge is incomplete wherever the journey still swaps chrome or language:
 - [x] **T0 — Audit + this plan**
 - [x] **T1 — Builder entry screen into the shell + localized** ✓ `54a634f`
 - [x] **T2 — Localize the room summary line** ✓ `54a634f`
-- [ ] **T3 — Offer screen into the shell + localized + honest badge**
-      `WrapUpScreen` renders inside `AppShell` with the rail showing everything done;
-      hr/en strings; "Placeholder" badge only when the estimate is the budget stub;
-      real-BOM estimates get the maker-confirms framing instead.
+- [x] **T3 — Offer screen into the shell + localized + honest badge** ✓ `98e74db`
 - [ ] **T4 — Finish PR3: `type` opens Act 1, timeline joins logistics**
       Split `project_basics`; new `type` step first in `FLOW`; timeline picker inside
       the logistics step; update gating, read-backs, commit handlers, locales.
@@ -71,6 +68,14 @@ The merge is incomplete wherever the journey still swaps chrome or language:
   `layout.shape.*` + new `layout.suffix.island` key. The footer Continue is hidden on
   the entry step (its own CTAs own forward motion; footer Back still works). `tsc` +
   `eslint` clean.
+- **2026-06-11 · T3 · `98e74db`** — Offer/wrap-up screen merged into the shell: renders
+  inside `AppShell` with the journey rail fully done (`journeyDone` flag) and progress
+  100%. All copy localized (`wrapup.*`, hr + en); option values go through `option.*`
+  keys with humanized fallback. Honest estimate badge: amber "Placeholder" only for the
+  budget stub; builder-BOM ranges show a neutral "From your build" tag, with the basis
+  line composed client-side from a new `bandPct` field (so it localizes). Found + fixed
+  in passing: the funnel's nav rail never received the active locale, so it stayed
+  Croatian in EN mode. `tsc` + `eslint` clean.
 
 ## Open questions / decisions taken without asking
 

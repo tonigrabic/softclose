@@ -12,12 +12,12 @@
  */
 
 export type FlowStepId =
+  | 'type'
   | 'space_photos'
   | 'inspiration'
   | 'concept_render'
   | 'confirm_look'
   | 'builder'
-  | 'project_basics'
   | 'scope'
   | 'wishlist'
   | 'logistics'
@@ -34,6 +34,15 @@ export interface FlowStepMeta {
 }
 
 export const FLOW: FlowStepMeta[] = [
+  // `type` opens Act 1 — "what are we doing" frames the whole flow
+  // (handoff/IMPLEMENTATION.md §1; the timeline half of the old
+  // project-basics step lives with logistics in Act 3).
+  {
+    id: 'type',
+    label: 'Project type',
+    why: "What we're doing — it frames everything else.",
+    group: 'space',
+  },
   {
     id: 'space_photos',
     label: 'Your space',
@@ -78,18 +87,12 @@ export const FLOW: FlowStepMeta[] = [
     why: 'Must-haves and deal-breakers in your own words.',
     group: 'build',
   },
-  // Close: a few practicalities, then contact. No up-front budget — the live
-  // range is the budget conversation.
-  {
-    id: 'project_basics',
-    label: 'Project basics',
-    why: 'Project type and timeline.',
-    group: 'details',
-  },
+  // Close: a few practicalities (incl. the timeline), then contact. No
+  // up-front budget — the live range is the budget conversation.
   {
     id: 'logistics',
     label: 'Logistics',
-    why: 'Site access, living arrangement, phasing.',
+    why: 'Rough timing, site access, living arrangement.',
     group: 'details',
   },
   {
