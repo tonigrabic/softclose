@@ -37,13 +37,8 @@ The merge is incomplete wherever the journey still swaps chrome or language:
 - [x] **T3 — Offer screen into the shell + localized + honest badge** ✓ `98e74db`
 - [x] **T4 — Finish PR3: `type` opens Act 1, timeline joins logistics** ✓ `71c8544`
 - [x] **T5 — Mobile navigation model** ✓ `8d5204e`
-- [ ] **T6 — Dead-code sweep**
-      Verify and remove orphaned components left behind by the refactor
-      (`StepsOverview` shell at minimum — confirm each by grepping importers first).
-- [ ] **T7 — Verification sweep**
-      `tsc` + `eslint` + production build; §8 principle checklist pass; hr/en
-      spot-check of every journey surface. Browser smoke test stays with you
-      (I don't run your dev server).
+- [x] **T6 — Dead-code sweep** ✓ `4a6a224`
+- [x] **T7 — Verification sweep** ✓ (see done log; browser smoke test stays with you)
 - [ ] **T8 (stretch, explicitly deferred)** — PR5 route promotion (`/space` `/build` `/offer`)
       + state lift. The blueprint itself marks this "later refactor"; not part of
       functional merge completion. Won't start without explicit go-ahead.
@@ -89,6 +84,18 @@ The merge is incomplete wherever the journey still swaps chrome or language:
   blueprint: no render thumbnail in the mobile header (pill + dock carry the status;
   thumbnail felt like clutter at 380px — revisit if design disagrees). `tsc` +
   `eslint` clean.
+
+- **2026-06-11 · T7** — Verification sweep. `tsc` clean, `eslint` clean (after
+  ignoring `handoff/**` — the 7 errors were all in the static design-reference
+  prototype, not app code), production build green (12/12 pages). §8 checklist
+  verified in code: all three surfaces render through `AppShell` (no takeovers
+  left), `DEFAULT_LOCALE = 'hr-HR'`, "maker confirms" framing in both locales,
+  no urgency/scarcity/fixed-price copy anywhere, mobile pill→sheet→dock in place.
+  One gap found and fixed: nothing respected `prefers-reduced-motion` — added the
+  global reduce guard in `globals.css`. hr/en spot-check at code level: the only
+  Croatian outside `i18n/locales` is comments, locale-keyed maps, and Schachermayer
+  catalog search keywords (the catalog itself is Croatian) — correct. Browser
+  smoke test remains with Toni.
 
 ## Open questions / decisions taken without asking
 
