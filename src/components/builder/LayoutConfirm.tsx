@@ -5,7 +5,7 @@ import { Check, Ruler, CornerUpRight } from 'lucide-react'
 import { useTranslations, type Locale } from '@/lib/i18n'
 import { formatLength } from '@/lib/floor-plan'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
-import { suggestCabinetsForRun } from '@/lib/builder/cabinet-suggest'
+import { contractSeedOptions, suggestCabinetsForRun } from '@/lib/builder/cabinet-suggest'
 
 /**
  * Layout-counts confirmation gate. Before the homeowner refines anything, they
@@ -37,7 +37,9 @@ export function LayoutConfirm({
   const rows = useMemo(
     () =>
       contract.runs.map((run) => {
-        const units = suggestCabinetsForRun(run, { hasCorner: run.hasCorner })
+        // Same options assembler as the builder's seeding — the tally shown
+        // here must be the tally that gets priced (B3a parity).
+        const units = suggestCabinetsForRun(run, contractSeedOptions(contract, run))
         return {
           id: run.id,
           label: run.label,
@@ -47,7 +49,7 @@ export function LayoutConfirm({
           tall: units.filter((u) => u.type === 'tall').length,
         }
       }),
-    [contract.runs]
+    [contract]
   )
 
   const totalCabinets = rows.reduce((s, r) => s + r.base + r.wall + r.tall, 0)

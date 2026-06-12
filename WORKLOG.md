@@ -330,3 +330,34 @@
   knowing for every future iteration.
 - Next iteration: **B3a — confirmed tally = seeded tally** (shared
   seeding-input helper + parity test).
+
+### 2026-06-12 — Iteration 5 (B3a — confirmed tally = seeded tally)
+
+- **B3a done — "what we counted" now counts what gets priced.**
+  - New `contractSeedOptions(contract, run, {integratedFridge})` in
+    `cabinet-suggest.ts`: THE single assembler turning contract geometry into
+    suggest options (corner ownership, ceiling-driven `tallHeightMm`,
+    measured `applianceSpans`, integrated-fridge flag).
+  - `CabinetBoxesGroup` seeding and `LayoutConfirm` tally both route through
+    it. Behavioral change is on the CONFIRM side: the homeowner now sees
+    footprint-aware counts (fridge span seeds nothing; dishwasher span is an
+    appliance front) and ceiling-correct tall units — previously the confirm
+    screen showed a naive fill that the builder then silently contradicted.
+  - `integratedFridge` stays the documented one-input divergence: the
+    contract doesn't know it; confirm time uses the same default (false) as
+    the builder's contract-only first seed, so parity holds on the real
+    null-hypothesis path. A later hypothesis/edit can still flip it — that's
+    new information, not drift.
+  - Non-contract fallback branch in the group simplified (tall default 2200
+    vs old hand-computed 2680) — unreachable in product: BuilderShell
+    requires a contract; recorded here for honesty.
+  - **Tests** (`tests/confirm-tally-parity.test.ts`): per fixture × per run,
+    LayoutConfirm tally === builder first-seed tally; plus the l-shape
+    fridge wall must confirm FEWER cabinets than a naive fill (the old bug
+    fails this).
+- Gate: 31/31 tests · tsc clean · eslint clean · build 12/12 green. BOM
+  snapshots unchanged (builder-side seeding identical; only the confirm
+  display corrected).
+- Next iteration: **B3b — per-chip AI-guess provenance pills** in
+  ConfirmLook (per-field provenance per foundations P6; pill clears once the
+  homeowner touches the row).

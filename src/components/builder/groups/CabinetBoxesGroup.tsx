@@ -7,6 +7,7 @@ import { useTranslations } from '@/lib/i18n'
 import { PickerSlot } from '../PickerSlot'
 import { ChipRow } from '../ChipRow'
 import {
+  contractSeedOptions,
   suggestCabinetsForRun,
   totalBaseWidthMm,
   totalWallWidthMm,
@@ -15,7 +16,7 @@ import {
 } from '@/lib/builder/cabinet-suggest'
 import { PATTERN_SPECS, unitIsCorner } from '@/lib/builder/cabinet-patterns'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
-import { applianceSpansForRun, type LayoutContract } from '@/lib/contract/layout-contract'
+import type { LayoutContract } from '@/lib/contract/layout-contract'
 import type {
   BuilderState,
   CabinetPattern,
@@ -79,27 +80,21 @@ export function CabinetBoxesGroup({ state, hypothesis, layoutContract, onPatch }
     if (state.cabinetBoxes.units.length > 0) return
     const overrides = hypothesis?.cabinetBoxes?.unitPatterns ?? []
     const appliances = layoutContract?.appliances ?? []
-    // Tall units run floor-to-ceiling, so their height (and thus board area)
-    // follows the contract's ceiling height (minus a plinth).
-    const tallHeightMm = Math.max(1800, (layoutContract?.ceilingHeightCm ?? 280) * 10 - 120)
     const seeded: CabinetUnit[] = []
     runs.forEach((run, i) => {
       // Prefer the contract-derived corner ownership; fall back to the positional
       // heuristic only when no layout contract stamped run.hasCorner.
       const hasCorner = run.hasCorner ?? (i === 0 && runs.length > 1)
-      // Measured appliance footprints: the fridge span seeds no cabinets, the
-      // dishwasher span seeds an appliance front instead of a carcass.
-      const applianceSpans = layoutContract
-        ? applianceSpansForRun(layoutContract, run.id)
-        : []
       const integratedFridge =
         state.appliances.selections.find((s) => s.type === 'fridge')?.integrated ?? false
-      const runUnits = suggestCabinetsForRun(run, {
-        hasCorner,
-        tallHeightMm,
-        applianceSpans,
-        integratedFridge,
-      })
+      // Contract-driven options come from the ONE shared assembler so this seed
+      // can never diverge from the tally the homeowner confirmed (LayoutConfirm).
+      const runUnits = suggestCabinetsForRun(
+        run,
+        layoutContract
+          ? contractSeedOptions(layoutContract, { id: run.id, hasCorner }, { integratedFridge })
+          : { hasCorner, integratedFridge }
+      )
       // AI-suggested patterns override the heuristic at matching positions (15% tol).
       // Contract-driven appliance slots are not up for grabs — measured geometry
       // beats the render hypothesis.

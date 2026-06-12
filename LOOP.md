@@ -79,15 +79,10 @@ Companion files: `WORKLOG.md` (append-only iteration log),
 - [x] **B3 — Verify/confirm screen: audit + M3.** ✓ 2026-06-12 — gap list in
   WORKLOG iteration 4 (G1–G6); the false "AI prefilled" banner (M3/G2) fixed
   via `visionPrefilledLook()`. Remaining gaps split out below:
-- [ ] **B3a — Confirmed tally = seeded tally (G1, HIGH).** `LayoutConfirm`
-  computes the per-run cabinet counts with `suggestCabinetsForRun(run,
-  {hasCorner})` only; the builder seeds with `tallHeightMm`,
-  `applianceSpans`, `integratedFridge` (`CabinetBoxesGroup.tsx:97`). The
-  homeowner signs off on counts that differ from what gets priced — exactly
-  the lie "what we counted" exists to prevent. Fix: extract the builder's
-  seeding-input assembly into one shared helper used by both; cover with a
-  test asserting LayoutConfirm's tally === the builder's seeded tally per
-  fixture.
+- [x] **B3a — Confirmed tally = seeded tally (G1, HIGH).** ✓ 2026-06-12 —
+  `contractSeedOptions()` in cabinet-suggest.ts is the one assembler; both
+  CabinetBoxesGroup and LayoutConfirm route through it. Parity + footprint
+  tests in `tests/confirm-tally-parity.test.ts`.
 - [ ] **B3b — Per-chip AI-guess provenance (G3, MED).** ConfirmLook's
   docstring promises a "soft 'AI guess' pill" per prefilled chip; none is
   rendered — only the global banner. Show provenance per field (pill on

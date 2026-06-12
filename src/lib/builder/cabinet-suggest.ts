@@ -10,6 +10,7 @@
  */
 
 import type { CabinetPattern, CabinetUnit, WallRunDimensions } from './inventory'
+import { applianceSpansForRun, type LayoutContract } from '@/lib/contract/layout-contract'
 
 const STANDARD_WIDTHS_BASE = [800, 600, 600, 600, 450] as const
 const STANDARD_WIDTHS_WALL = [800, 600, 600, 600, 450] as const
@@ -85,6 +86,30 @@ function fillRunWithWidths(
     attempt++
   }
   return out
+}
+
+/**
+ * Contract geometry → seeding options, in ONE place. Both the builder's
+ * seeding (CabinetBoxesGroup) and the confirm tally (LayoutConfirm) must
+ * assemble their options here so the counts the homeowner signs off on are
+ * the counts the builder prices (tests/confirm-tally-parity.test.ts).
+ *
+ * `integratedFridge` is the one driver the contract doesn't know — it arrives
+ * later (render hypothesis or a homeowner edit). The confirm tally runs
+ * before either exists, so its default (false = freestanding) matches the
+ * builder's first seed from a contract-only hydration.
+ */
+export function contractSeedOptions(
+  contract: LayoutContract,
+  run: { id: string; hasCorner?: boolean },
+  opts: { integratedFridge?: boolean } = {}
+): SuggestOptions {
+  return {
+    hasCorner: run.hasCorner,
+    tallHeightMm: Math.max(1800, contract.ceilingHeightCm * 10 - 120),
+    applianceSpans: applianceSpansForRun(contract, run.id),
+    integratedFridge: opts.integratedFridge ?? false,
+  }
 }
 
 export function suggestCabinetsForRun(
