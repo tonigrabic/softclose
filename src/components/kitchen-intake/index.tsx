@@ -30,7 +30,7 @@ import {
 import { BuilderShell } from '@/components/builder/BuilderShell'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { BuilderState } from '@/lib/builder/inventory'
-import { derivePrefills } from '@/lib/derive-prefills'
+import { derivePrefills, visionPrefilledLook } from '@/lib/derive-prefills'
 import { DESIGNER_NAME } from '@/lib/system-prompt'
 import type { UploadedReference } from './ImageSelect'
 import type { FloorPlan } from '@/lib/floor-plan'
@@ -925,9 +925,9 @@ function StepBody(props: StepBodyProps) {
           <ConfirmLook
             profile={profile}
             onChange={onPatchProfile}
-            hasPrefills={Boolean(
-              inspirationVision || profile.stylePreferences?.length || profile.doorMaterial
-            )}
+            // Vision-only: the banner claims AI prefilled these fields, so the
+            // homeowner's own taps (styles, manual chips) must not trigger it.
+            hasPrefills={visionPrefilledLook(inspirationVision, spaceVision)}
           />
         </StepFrame>
       )

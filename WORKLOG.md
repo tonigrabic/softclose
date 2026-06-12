@@ -286,3 +286,47 @@
 - Next iteration: **B3 — finish the verify/confirm screen** (audit
   ConfirmScreen + confirm-look against foundations/intake docs, list gaps,
   then fix — includes M3 banner/gate asymmetry).
+
+### 2026-06-12 — Iteration 4 (B3 — verify/confirm audit + M3 fix)
+
+- **Audit of both confirm surfaces** (`LayoutConfirm` + Part-1 `confirm_look`
+  step + builder `ConfirmScreen`), against foundations P6 (confidence +
+  provenance) and the trust scaffold. Gaps:
+  - **G1 (HIGH, → B3a): the confirmed tally is not the seeded tally.**
+    `LayoutConfirm.tsx:40` tallies `suggestCabinetsForRun(run, {hasCorner})`;
+    the builder seeds with `tallHeightMm` + `applianceSpans` +
+    `integratedFridge` (`CabinetBoxesGroup.tsx:97`). A fridge wall confirms
+    N cabinets, then prices N−2 + an appliance front. Violates the
+    component's own contract ("Nothing is priced off counts they haven't
+    signed off on").
+  - **G2 (M3, FIXED this iteration): false "AI prefilled" banner.** The
+    banner condition included `profile.stylePreferences?.length ||
+    profile.doorMaterial` — both reachable by the homeowner's own taps, so a
+    fully manual journey claimed AI provenance. Now `visionPrefilledLook()`
+    (in `derive-prefills.ts`, defined ON TOP of `derivePrefills` with manual
+    styles stripped, so it can't drift) — banner only when vision actually
+    contributed a look field. 4 unit tests.
+  - **G3 (MED, → B3b): docstring promises per-chip "AI guess" pills; none
+    rendered.** Only the global banner exists — per-field provenance (P6) is
+    missing on the homeowner's most provenance-sensitive screen.
+  - **G4 (→ B3c): money-driving layout decisions invisible at confirm.**
+    Ceiling height (tall-unit pricing) and W3d's window-driven
+    `hasWall:false` (a run silently loses its uppers) don't appear in "what
+    we counted".
+  - **G5 (non-issue): builder `ConfirmScreen` is harness-only** — the funnel
+    passes `layoutPreconfirmed` because capture's confirm-look IS the lock.
+    By design, keep.
+  - **G6 (non-issue, noted): the "lock" is navigational** —
+    `commitConfirmLook` logs + advances; the contract re-derives
+    deterministically from the profile, and editing the plan re-routes
+    through confirm. Acceptable.
+- LOOP.md backlog restructured: B3 audit ticked; B3a/B3b/B3c added in
+  priority order ahead of B4.
+- Gate: 24/24 tests · tsc clean · eslint clean · build 12/12 green.
+- Note for the record: mid-iteration the shell cwd reset to the MAIN
+  checkout and two reads silently hit the wrong tree — caught because main's
+  grep results disagreed with worktree file state already in context. All
+  commands now re-anchor with an explicit `cd` to the worktree. Worth
+  knowing for every future iteration.
+- Next iteration: **B3a — confirmed tally = seeded tally** (shared
+  seeding-input helper + parity test).
