@@ -368,8 +368,11 @@ export interface ClientMessage {
 
 /** Stub estimate produced at wrap-up. Marked placeholder so the maker dashboard can render it differently. */
 export interface StubEstimate {
+  /** Main range: kitchen only, excluding appliance supply. */
   low: number
   high: number
+  /** Range including appliance supply; null when appliance supply isn't in scope. */
+  withAppliances: { low: number; high: number } | null
   basis: string
   placeholder: true
 }

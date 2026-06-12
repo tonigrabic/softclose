@@ -51,20 +51,41 @@ function midpointFromScope(profile: LeadProfile): number {
   return SCOPE_MIDPOINTS_USD[Math.min(n, 13)] ?? 30000
 }
 
+function rangeFromMidpoint(midpoint: number): { low: number; high: number } {
+  return {
+    low: Math.round(midpoint * 0.8 * 100) / 100,
+    high: Math.round(midpoint * 1.2 * 100) / 100,
+  }
+}
+
 export function buildStubEstimate(profile: LeadProfile): StubEstimate | null {
   const explicit = midpointFromBudget(profile)
   const fromScope = midpointFromScope(profile)
   // Use the explicit budget band if present, but bias by ±10% if it doesn't
   // match scope wildly.
   const midpoint = explicit ?? fromScope
-  const low = Math.round(midpoint * 0.8 * 100) / 100
-  const high = Math.round(midpoint * 1.2 * 100) / 100
+
+  // The headline range is kitchen-only. When appliance supply is in scope we
+  // carve out a stub allowance (15% of midpoint, clamped) and report the
+  // all-in figure separately. Real engine will price the actual appliance list.
+  const suppliesAppliances = profile.scope?.appliancesSupply === true
+  const applianceAllowance = suppliesAppliances
+    ? Math.min(Math.max(Math.round(midpoint * 0.15), 4000), 15000)
+    : 0
+  const kitchenMidpoint = midpoint - applianceAllowance
+
+  const { low, high } = rangeFromMidpoint(kitchenMidpoint)
+  const withAppliances = suppliesAppliances ? rangeFromMidpoint(midpoint) : null
+  const exclusionNote = suppliesAppliances
+    ? ' Kitchen only — appliance supply shown separately.'
+    : ''
   const basis = explicit
-    ? `Centered on stated budget band (${profile.budgetRange ?? 'unknown'}); ±20% placeholder range. Real engine will use scope + materials + structural + trades.`
-    : `Derived from ${countTrueValues(profile.scope as Record<string, unknown> | undefined)} scope items selected; ±20% placeholder range. Real engine will use stated budget + materials + structural + trades.`
+    ? `Centered on stated budget band (${profile.budgetRange ?? 'unknown'}); ±20% placeholder range.${exclusionNote} Real engine will use scope + materials + structural + trades.`
+    : `Derived from ${countTrueValues(profile.scope as Record<string, unknown> | undefined)} scope items selected; ±20% placeholder range.${exclusionNote} Real engine will use stated budget + materials + structural + trades.`
   return {
     low,
     high,
+    withAppliances,
     basis,
     placeholder: true,
   }

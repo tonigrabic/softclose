@@ -156,10 +156,26 @@ export function MakerDashboardPreview({ bundle, onBack }: MakerDashboardPreviewP
             </div>
             {summary ? (
               <>
+                {summary.withAppliances && (
+                  <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                    Kitchen — excl. appliance supply
+                  </p>
+                )}
                 <p className="font-mono text-2xl font-bold text-slate-900">
                   {fmtMoney(summary.low)} <span className="text-slate-400">–</span> {fmtMoney(summary.high)}
                 </p>
                 <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">{summary.basis}</p>
+                {summary.withAppliances && (
+                  <div className="mt-3 border-t border-slate-200 pt-3">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Incl. appliance supply
+                    </p>
+                    <p className="mt-0.5 font-mono text-base font-bold text-slate-700">
+                      {fmtMoney(summary.withAppliances.low)} <span className="text-slate-400">–</span>{' '}
+                      {fmtMoney(summary.withAppliances.high)}
+                    </p>
+                  </div>
+                )}
               </>
             ) : (
               <p className="text-sm text-slate-500">No estimate available.</p>
