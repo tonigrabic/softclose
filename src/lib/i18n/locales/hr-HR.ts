@@ -11,6 +11,10 @@ export const hrHR = {
   'builder.shell.bom.title': 'Procjena uživo',
   'builder.shell.bom.disclaimer':
     'Procjena u rasponu, na temelju materijala i okova s hrvatskog tržišta. Tvoj će izrađivač potvrditi konačnu cijenu.',
+  'builder.shell.bom.works': 'Kuhinja (izrada i montaža)',
+  'builder.shell.bom.goods': 'Uređaji, sudoper i slavina',
+  'builder.shell.bom.goodsExact': 'točno — tvoj odabir',
+  'builder.shell.bom.goodsEstimate': 'procjena — odaberi modele za točnu cijenu',
   'builder.shell.continue': 'Nastavi',
   'builder.shell.back': 'Natrag',
   'builder.shell.skip': 'Preskoči',

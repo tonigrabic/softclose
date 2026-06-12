@@ -147,6 +147,7 @@ function HardwareBrowsePanel({
                   drawerSystemSku: undefined,
                   drawerSystemPickedName: undefined,
                   drawerSystemPickedBrand: undefined,
+                  drawerSystemPriceEur: undefined,
                 })
               }
             />
@@ -160,6 +161,7 @@ function HardwareBrowsePanel({
                 drawerSystemSku: p.sku,
                 drawerSystemPickedName: p.name,
                 drawerSystemPickedBrand: p.brand,
+                drawerSystemPriceEur: p.priceEur,
               }
               if (tier) {
                 patch.drawerSystemTier = tier
@@ -186,6 +188,7 @@ function HardwareBrowsePanel({
                   hingeSku: undefined,
                   hingePickedName: undefined,
                   hingePickedBrand: undefined,
+                  hingePriceEur: undefined,
                 })
               }
             />
@@ -198,6 +201,7 @@ function HardwareBrowsePanel({
                 hingeSku: p.sku,
                 hingePickedName: p.name,
                 hingePickedBrand: p.brand,
+                hingePriceEur: p.priceEur,
               })
             }
             initialLimit={6}

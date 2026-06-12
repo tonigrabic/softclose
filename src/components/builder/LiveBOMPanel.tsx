@@ -31,6 +31,31 @@ export function LiveBOMPanel({ state }: { state: BuilderState }) {
           </span>
         </div>
         <p className="mt-1 text-[11px] text-muted-foreground">±{Math.round(bom.bandWidthPct / 2)}%</p>
+
+        {/* Kitchen vs goods: the kitchen is OUR estimate (a range, ±20%
+            promise); the goods collapse to an exact sum once models are
+            picked — the homeowner sees exactly which part they control. */}
+        <dl className="mt-3 space-y-1 border-t border-border/50 pt-3 text-[11.5px]">
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="text-muted-foreground">{t('builder.shell.bom.works')}</dt>
+            <dd className="shrink-0 tabular-nums font-medium text-foreground">
+              {formatEUR(bom.sections.works.low, locale)} – {formatEUR(bom.sections.works.high, locale)}
+            </dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-2">
+            <dt className="text-muted-foreground">{t('builder.shell.bom.goods')}</dt>
+            <dd className="shrink-0 tabular-nums font-medium text-foreground">
+              {bom.sections.goods.allPicked
+                ? formatEUR(bom.sections.goods.low, locale)
+                : `${formatEUR(bom.sections.goods.low, locale)} – ${formatEUR(bom.sections.goods.high, locale)}`}
+            </dd>
+          </div>
+          <p className="text-[10px] text-muted-foreground/80">
+            {bom.sections.goods.allPicked
+              ? t('builder.shell.bom.goodsExact')
+              : t('builder.shell.bom.goodsEstimate')}
+          </p>
+        </dl>
       </header>
 
       <ul className="divide-y divide-border/50">

@@ -224,11 +224,15 @@ export interface HardwareGroup {
   /** Denormalised name/brand of the picked drawer system, for BOM line text. */
   drawerSystemPickedName?: string
   drawerSystemPickedBrand?: string
+  /** Catalog reference price (EUR) of the picked drawer runner set — per drawer. */
+  drawerSystemPriceEur?: number
   hingeType: HingeType
   /** Specific Schachermayer hinge SKU once the homeowner pins a model. */
   hingeSku?: string
   hingePickedName?: string
   hingePickedBrand?: string
+  /** Catalog reference price (EUR) of the picked hinge — per hinge. */
+  hingePriceEur?: number
   handleStyle: HandleStyle
   handleFinish: HandleFinish
   /** Internal organisers selected (cutlery insert, magic corner, pull-out larder, etc). */
@@ -255,6 +259,8 @@ export interface ApplianceSelection {
   pickedSku?: string
   pickedName?: string
   pickedBrand?: string
+  /** Catalog reference price (EUR) of the picked model — makes the line exact. */
+  pickedPriceEur?: number
   /** Free-text notes for the maker (intent, dimensions). Not for SKU encoding. */
   notes?: string
 }
@@ -289,6 +295,8 @@ export interface SinkTapsGroup {
     sku?: string
     pickedName?: string
     pickedBrand?: string
+    /** Catalog reference price (EUR) of the picked model — makes the line exact. */
+    pickedPriceEur?: number
     /** Bowl outer dimensions, useful for cabinet sizing. */
     widthMm?: number
     depthMm?: number
@@ -299,6 +307,8 @@ export interface SinkTapsGroup {
     sku?: string
     pickedName?: string
     pickedBrand?: string
+    /** Catalog reference price (EUR) of the picked model — makes the line exact. */
+    pickedPriceEur?: number
   }
   meta: {
     sinkBowls: FieldMeta

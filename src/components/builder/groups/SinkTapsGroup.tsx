@@ -171,6 +171,7 @@ function SinkTapBrowsePanel({
                     sku: undefined,
                     pickedName: undefined,
                     pickedBrand: undefined,
+                    pickedPriceEur: undefined,
                   },
                 })
               }
@@ -193,6 +194,7 @@ function SinkTapBrowsePanel({
                   sku: p.sku,
                   pickedName: p.name,
                   pickedBrand: p.brand,
+                  pickedPriceEur: p.priceEur,
                 },
                 meta,
               })
@@ -215,6 +217,7 @@ function SinkTapBrowsePanel({
                     sku: undefined,
                     pickedName: undefined,
                     pickedBrand: undefined,
+                    pickedPriceEur: undefined,
                   },
                 })
               }
@@ -236,6 +239,7 @@ function SinkTapBrowsePanel({
                   sku: p.sku,
                   pickedName: p.name,
                   pickedBrand: p.brand,
+                  pickedPriceEur: p.priceEur,
                 },
                 meta,
               })

@@ -91,9 +91,16 @@ function ProductCard({
           </p>
         )}
         <p className="line-clamp-2 text-[11px] font-medium leading-snug text-foreground">{product.name}</p>
-        {product.sku && (
-          <p className="mt-0.5 text-[10px] tabular-nums text-muted-foreground/60">{product.sku}</p>
-        )}
+        <div className="mt-0.5 flex items-baseline justify-between gap-2">
+          {product.sku && (
+            <p className="text-[10px] tabular-nums text-muted-foreground/60">{product.sku}</p>
+          )}
+          {product.priceEur != null && (
+            <p className="shrink-0 text-[11px] font-semibold tabular-nums text-foreground">
+              {product.priceEur.toLocaleString('hr-HR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })} €
+            </p>
+          )}
+        </div>
       </div>
       <div className="flex items-center justify-between gap-2">
         {onPick && (

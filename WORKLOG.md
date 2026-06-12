@@ -361,3 +361,37 @@
 - Next iteration: **B3b — per-chip AI-guess provenance pills** in
   ConfirmLook (per-field provenance per foundations P6; pill clears once the
   homeowner touches the row).
+
+### 2026-06-12 — Iteration 6 (U1, Toni-directed: picked models pin prices)
+
+- **Why picking models never narrowed the estimate — three stacked gaps:**
+  (1) the Schachermayer scrape carries no prices (B2B login-walled, by
+  design); (2) `ApplianceSelection` & friends had no price field to carry
+  one anyway; (3) `bom.ts` priced a picked SKU as ±8% around the GENERIC
+  class midpoint — pick a €1,390 Miele dishwasher, the line said ~€540–630.
+- **Fixed end to end:**
+  - `scripts/add-reference-prices.mjs` stamps `priceEur` on all 74 products
+    (29 hardware, 22 sink/tap, 23 appliances) — curated reference RRPs,
+    fails loudly if a re-scrape ships an unpriced product. **These are my
+    estimates (LOOP.md Q7): replace with maker B2B prices.**
+  - Schema: `pickedPriceEur` on appliance selections + sink + tap;
+    `drawerSystemPriceEur` / `hingePriceEur` on hardware. All pickers store
+    and clear the price with the pick; product cards now show prices.
+  - BOM: picked appliance models sum EXACTLY (mixed-supply halving applies
+    only to unpicked estimates); sink and tap price independently — one pick
+    already tightens, both exact → line exact; picked runner set prices
+    per-drawer, picked hinge prices per door front (~2/front) with the
+    generic bundle keeping only its 70% fittings share.
+  - **Sections** (Toni's sketch): `BomEstimate.sections` = `works` (kitchen
+    range — the ±20% promise, now also tested standalone) + `goods`
+    (appliances/sink/tap, `allPicked` flag). LiveBOMPanel shows
+    "Kuhinja X–Y €" + "Uređaji… Z € (točno / procjena)". Wrap-up + maker
+    dashboard split → folded into B6.
+  - Hardware honesty fix while there: the hinge-type multiplier no longer
+    scales drawer-runner costs, only the hinge-bearing bundle (defaults
+    unaffected — fixtures unchanged).
+- 13 new tests (catalog completeness; exactness per line; partial-pick
+  tightening; hardware narrowing; works ≤ ±20% per fixture). Snapshots
+  unchanged — unpicked behavior identical by construction.
+- Gate: 44/44 tests · tsc clean · eslint clean · build 12/12 green.
+- Next iteration: back to **B3b** unless Toni redirects again.

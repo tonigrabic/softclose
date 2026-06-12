@@ -54,6 +54,7 @@ function upsert(
     pickedSku: patch.pickedSku ?? existing?.pickedSku,
     pickedName: patch.pickedName ?? existing?.pickedName,
     pickedBrand: patch.pickedBrand ?? existing?.pickedBrand,
+    pickedPriceEur: patch.pickedPriceEur ?? existing?.pickedPriceEur,
     notes: patch.notes ?? existing?.notes,
   }
   const others = state.appliances.selections.filter((s) => s.type !== type)
@@ -295,6 +296,7 @@ function ApplianceBrowsePanel({
                         pickedSku: undefined,
                         pickedName: undefined,
                         pickedBrand: undefined,
+                        pickedPriceEur: undefined,
                       },
                     ],
                   })
@@ -315,6 +317,7 @@ function ApplianceBrowsePanel({
                   pickedSku: p.sku,
                   pickedName: p.name,
                   pickedBrand: p.brand,
+                  pickedPriceEur: p.priceEur,
                   notes: selected?.notes,
                 }
                 onPatch({ selections: [...others, merged] })

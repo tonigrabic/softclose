@@ -4,10 +4,10 @@
  * curated landing-page snapshot, not a deep crawl — so the picker UIs can
  * surface real products without paginating.
  *
- * Pricing is NOT included (Schachermayer's prices are B2B login-walled). The
- * BOM calculator uses tier-based reference RRP today; specific-SKU picks let
- * the maker see what the homeowner had in mind, even if the exact price comes
- * from the maker's account.
+ * Every product carries `priceEur` — a curated Croatian-market reference RRP
+ * (incl. VAT) stamped by scripts/add-reference-prices.mjs, because the
+ * supplier's own prices are B2B login-walled. A pick WITH a price makes its
+ * BOM component exact; the maker's account price replaces it at quote time.
  */
 import schachermayerJson from './schachermayer-hardware.json'
 
@@ -19,6 +19,9 @@ export interface SchachermayerProduct {
   imageUrl?: string
   productUrl?: string
   shortSpec?: string
+  /** Reference RRP in EUR (see module header). Optional defensively — a
+   * future re-scrape might land before its pricing pass. */
+  priceEur?: number
 }
 
 export type SchachermayerKind = 'hardware' | 'sink_tap' | 'appliance'

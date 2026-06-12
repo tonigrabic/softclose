@@ -83,6 +83,14 @@ Companion files: `WORKLOG.md` (append-only iteration log),
   `contractSeedOptions()` in cabinet-suggest.ts is the one assembler; both
   CabinetBoxesGroup and LayoutConfirm route through it. Parity + footprint
   tests in `tests/confirm-tally-parity.test.ts`.
+- [x] **U1 — Picked models pin prices; works/goods split (TONI-DIRECTED,
+  2026-06-12).** ✓ — all 74 catalog products carry `priceEur` reference RRPs
+  (stamped by `scripts/add-reference-prices.mjs`; REPLACE with maker B2B
+  prices later); picks store the price; BOM prices picked components exactly
+  (appliances per model, sink/tap per piece, hardware per runner-set/hinge);
+  estimate splits into `works` (kitchen range, ±20% promise — now tested on
+  its own) and `goods` (exact when all picked). LiveBOMPanel shows the
+  split. Wrap-up + maker-dashboard split display → folded into B6.
 - [ ] **B3b — Per-chip AI-guess provenance (G3, MED).** ConfirmLook's
   docstring promises a "soft 'AI guess' pill" per prefilled chip; none is
   rendered — only the global banner. Show provenance per field (pill on
@@ -148,3 +156,7 @@ Companion files: `WORKLOG.md` (append-only iteration log),
    hasn't confirmed, or should there be a floor (e.g. ±10–12% market
    spread)? And is starting at ±13% fine, or would you rather the untouched
    state sit closer to the ±20% headline (H ×0.75 instead of ×0.6)?
+7. (U1) The 74 `priceEur` values are curated reference RRPs estimated from
+   Croatian-market context — Schachermayer's real prices are B2B
+   login-walled. Replace via `scripts/add-reference-prices.mjs` rules (or a
+   priced re-scrape) before anything customer-facing leans on "exact".

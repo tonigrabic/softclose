@@ -36,6 +36,14 @@ export interface BomLineItem {
     | 'design'
     | 'assembly'
     | 'install'
+  /**
+   * `works` = the kitchen itself (materials + labour) — always an estimate,
+   * the ±20% promise lives here. `goods` = catalog products (appliances,
+   * sink + tap) whose price becomes EXACT once the homeowner picks models.
+   */
+  section: 'works' | 'goods'
+  /** True when every component of this line is a picked catalog price. */
+  exact?: boolean
   /** Plain-language explanation suitable for the side panel + maker handoff. */
   detail: string
   /** Quantity + unit (e.g. "8.4 m²", "12 doors"). */
@@ -50,6 +58,15 @@ export interface BomEstimate {
   total: { low: number; high: number }
   /** ±X% width of the range — informative for the disclaimer copy. */
   bandWidthPct: number
+  /**
+   * The homeowner-facing split (per product direction 2026-06-12): the
+   * kitchen itself is a range; the goods (appliances, sink + tap) are listed
+   * next to it and turn EXACT when every model is picked.
+   */
+  sections: {
+    works: { low: number; high: number; bandWidthPct: number }
+    goods: { low: number; high: number; allPicked: boolean }
+  }
   currency: 'EUR'
 }
 
@@ -284,6 +301,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   const unitCountSuffix = usingUnitModel ? ` · ${units.length} ${tr('cabinets', 'ormarića')}` : ''
   lineItems.push({
     key: 'boards',
+    section: 'works',
     detail: `${doorDecor?.name ?? state.doors.decorCode} (${state.doors.decorCode}/${state.doors.decorStructure}) ${tr('door', 'vrata')} + ${label('cabinetBoxes.carcass', state.cabinetBoxes.carcassMaterial)} ${tr('carcass', 'korpus')}${unitCountSuffix}`,
     quantity: `${totalBoardM2.toFixed(1)} m²`,
     low: round(boardsRange.low),
@@ -311,6 +329,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   ])
   lineItems.push({
     key: 'worktop',
+    section: 'works',
     detail: `${wtDecor?.name ?? label('worktop.family', state.worktop.family)} ${state.worktop.thicknessMm} mm`,
     quantity: `${state.worktop.totalLengthM.toFixed(2)} m`,
     low: round(wtRange.low),
@@ -336,6 +355,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     ])
     lineItems.push({
       key: 'backsplash',
+      section: 'works',
       detail: `${label('backsplash.kind', state.backsplash.kind)}, ${state.backsplash.heightCm} cm`,
       quantity: `${state.worktop.totalLengthM.toFixed(2)} m`,
       low: round(bsRange.low),
@@ -353,6 +373,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   const edgeRange = narrowByMeta(edgeLow, edgeHigh, boardMetas)
   lineItems.push({
     key: 'edgeBanding',
+    section: 'works',
     detail: tr('ABS edge banding 0.8 mm × 23 mm', 'ABS kantiranje 0,8 mm × 23 mm'),
     quantity: `${edgeM.toFixed(0)} m`,
     low: round(edgeRange.low),
@@ -393,6 +414,14 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   const tierRRP = HARDWARE_TIER_RRP[state.hardware.drawerSystemTier]
   const hingeMultiplier =
     state.hardware.hingeType === 'soft_close' ? 1.0 : state.hardware.hingeType === 'push_to_open' ? 1.15 : 0.85
+  // Picked catalog prices pin the two dominant hardware components:
+  // a runner set per drawer, a hinge model per door front (≈2 hinges each).
+  // The generic perBaseUnit bundle covers hinges + small fittings; when the
+  // hinge is picked we price hinges explicitly and keep only the fittings
+  // share (~70%) of the bundle, so the two don't double-count.
+  const drawerPriceEur = state.hardware.drawerSystemPriceEur
+  const hingePriceEur = state.hardware.hingePriceEur
+  const HINGE_BUNDLE_SHARE = 0.3
 
   let hwLow = 0
   let hwHigh = 0
@@ -401,21 +430,39 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   let accessoryLow = 0
   let accessoryHigh = 0
   if (usingUnitModel) {
+    let doorFronts = 0
+    let bundleLow = 0
+    let bundleHigh = 0
+    let drawersLow = 0
+    let drawersHigh = 0
     for (const u of units) {
       const spec = PATTERN_SPECS[u.pattern]
       const typeFactor = u.type === 'tall' ? 1.4 : u.type === 'wall' ? 0.6 : 1.0
       const unitEq = typeFactor * spec.hardwareMultiplier
       unitEquivalents += unitEq
       drawerCount += spec.defaultDrawers
-      hwLow += unitEq * tierRRP.perBaseUnit.low + spec.defaultDrawers * tierRRP.perDrawer.low
-      hwHigh += unitEq * tierRRP.perBaseUnit.high + spec.defaultDrawers * tierRRP.perDrawer.high
+      if (spec.defaultDrawers === 0 && u.pattern !== 'appliance_slot') doorFronts++
+      const bundleShare = hingePriceEur != null ? 1 - HINGE_BUNDLE_SHARE : 1
+      bundleLow += unitEq * tierRRP.perBaseUnit.low * bundleShare
+      bundleHigh += unitEq * tierRRP.perBaseUnit.high * bundleShare
+      if (drawerPriceEur != null) {
+        drawersLow += spec.defaultDrawers * drawerPriceEur
+        drawersHigh += spec.defaultDrawers * drawerPriceEur
+      } else {
+        drawersLow += spec.defaultDrawers * tierRRP.perDrawer.low
+        drawersHigh += spec.defaultDrawers * tierRRP.perDrawer.high
+      }
       if (spec.accessoryCost) {
         accessoryLow += spec.accessoryCost.low
         accessoryHigh += spec.accessoryCost.high
       }
     }
-    hwLow *= hingeMultiplier
-    hwHigh *= hingeMultiplier
+    // Hinge type lives in the bundle; a picked hinge model prices explicitly
+    // (≈2 per door front) and the bundle keeps only its fittings share.
+    const bundleFactor = hingePriceEur != null ? 1 : hingeMultiplier
+    const hingeCost = hingePriceEur != null ? doorFronts * 2 * hingePriceEur : 0
+    hwLow = bundleLow * bundleFactor + drawersLow + hingeCost
+    hwHigh = bundleHigh * bundleFactor + drawersHigh + hingeCost
   } else {
     unitEquivalents =
       Math.ceil(baseM / 0.6) + Math.ceil(wallM / 0.6) * 0.6 + Math.ceil(tallM / 0.6) * 1.4
@@ -447,6 +494,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   ])
   lineItems.push({
     key: 'hardware',
+    section: 'works',
     detail:
       `${tr('Drawers + hinges', 'Ladice + šarke')}, ${tr('tier', 'klasa')}: ${label('hardware.tier', state.hardware.drawerSystemTier)}; ${label('hardware.hinge', state.hardware.hingeType)}` +
       (hwPicked ? ` · ${hwPicked}` : ''),
@@ -459,6 +507,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     const accessoryUnitCount = units.filter((u) => PATTERN_SPECS[u.pattern].accessoryCost).length
     lineItems.push({
       key: 'accessories',
+      section: 'works',
       detail: tr(
         'Magic corner, larder, trash pullout & similar mechanisms',
         'Magični kut, smočnica, izvlačni koš i slični mehanizmi'
@@ -506,15 +555,28 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   const tapPicked = state.sinkTaps.tap.pickedName
     ? `${state.sinkTaps.tap.pickedBrand ?? ''} ${state.sinkTaps.tap.pickedName}`.trim()
     : null
-  const sinkTapsRange = narrowByMeta(sinkLow + tapLow, sinkHigh + tapHigh, [
-    state.sinkTaps.meta.sinkBowls,
-    state.sinkTaps.meta.sinkMount,
-    state.sinkTaps.meta.sinkMaterial,
-    state.sinkTaps.meta.tapType,
-    state.sinkTaps.meta.tapFinish,
-  ])
+  // A picked model with a catalog price is EXACT — no class estimate, no
+  // narrowing. Each piece prices independently so a single pick already
+  // tightens the line; both picked → the whole line is exact.
+  const sinkPriceEur = state.sinkTaps.sink.pickedPriceEur
+  const tapPriceEur = state.sinkTaps.tap.pickedPriceEur
+  const sinkPart =
+    sinkPriceEur != null
+      ? { low: sinkPriceEur, high: sinkPriceEur }
+      : narrowByMeta(sinkLow, sinkHigh, [
+          state.sinkTaps.meta.sinkBowls,
+          state.sinkTaps.meta.sinkMount,
+          state.sinkTaps.meta.sinkMaterial,
+        ])
+  const tapPart =
+    tapPriceEur != null
+      ? { low: tapPriceEur, high: tapPriceEur }
+      : narrowByMeta(tapLow, tapHigh, [state.sinkTaps.meta.tapType, state.sinkTaps.meta.tapFinish])
+  const sinkTapsRange = { low: sinkPart.low + tapPart.low, high: sinkPart.high + tapPart.high }
   lineItems.push({
     key: 'sinkTaps',
+    section: 'goods',
+    exact: sinkPriceEur != null && tapPriceEur != null,
     detail:
       `${label('sinkTaps.bowls', state.sinkTaps.sink.bowls)} · ${label('sinkTaps.material', state.sinkTaps.sink.material)} ${tr('sink', 'sudoper')}, ${label('sinkTaps.tap', state.sinkTaps.tap.type)} ${tr('tap', 'slavina')}` +
       (sinkPicked ? ` · ${tr('sink', 'sudoper')}: ${sinkPicked}` : '') +
@@ -541,16 +603,28 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
       coffee: { low: 1100, high: 2000 },
     }
     const selectedTypes = new Set<string>(state.appliances.selections.map((s) => s.type))
+    // Picked models (catalog price) sum EXACTLY; the rest stay class
+    // estimates. Pick everything → the whole line is one exact number.
+    let exactSum = 0
+    let pickedCount = 0
     let apLow = 0
     let apHigh = 0
+    const estimatedMetas: FieldMeta[] = []
+    const applianceMetaMap = state.appliances.meta as Partial<Record<string, FieldMeta>>
     const detailNames: string[] = []
     for (const sel of state.appliances.selections) {
+      const picked = sel.pickedBrand && sel.pickedName ? `${sel.pickedBrand} ${sel.pickedName}` : null
+      detailNames.push(picked ? `${applName(sel.type)}: ${picked}` : applName(sel.type))
+      if (sel.pickedPriceEur != null) {
+        exactSum += sel.pickedPriceEur
+        pickedCount++
+        continue
+      }
       const p = APPLIANCE_PRICE[sel.type]
       if (!p) continue
-      // Specifying an appliance narrows its band: pinning a model (SKU) is
-      // tightest; choosing a class (induction / double oven / …) is narrower
-      // than the fully-unspecified default. So picking concrete appliances
-      // *improves* the estimate instead of only adding uncertainty.
+      // Specifying narrows: a pinned SKU without a catalog price hugs the
+      // class midpoint; a chosen class (induction / double oven / …) is
+      // narrower than the fully-unspecified default.
       const mid = (p.low + p.high) / 2
       let lo = p.low
       let hi = p.high
@@ -563,30 +637,28 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
       }
       apLow += lo
       apHigh += hi
-      const picked = sel.pickedBrand && sel.pickedName ? `${sel.pickedBrand} ${sel.pickedName}` : null
-      detailNames.push(picked ? `${applName(sel.type)}: ${picked}` : applName(sel.type))
+      const m = applianceMetaMap[sel.type]
+      if (m) estimatedMetas.push(m)
     }
     if (state.appliances.supply === 'mixed') {
+      // Halving models "homeowner supplies some of these" — it only applies
+      // to the unpicked estimate; an explicitly picked model is in the build.
       apLow *= 0.5
       apHigh *= 0.5
     }
-    // Line confidence = worst meta among the SELECTED appliance types (types
-    // without tracked meta — microwave, wine fridge, coffee — don't widen;
-    // their per-selection narrowing above already reflects specification).
-    const applianceMetaMap = state.appliances.meta as Partial<Record<string, FieldMeta>>
-    const apRange = narrowByMeta(
-      apLow,
-      apHigh,
-      state.appliances.selections
-        .map((sel) => applianceMetaMap[sel.type])
-        .filter((m): m is FieldMeta => m !== undefined)
-    )
+    // Line confidence = worst meta among the ESTIMATED types only (picked
+    // models are facts; types without tracked meta — microwave, wine fridge,
+    // coffee — already narrowed per selection above).
+    const apRange = narrowByMeta(apLow, apHigh, estimatedMetas)
+    const allPicked = pickedCount === state.appliances.selections.length
     lineItems.push({
       key: 'appliances',
+      section: 'goods',
+      exact: allPicked,
       detail: detailNames.length > 0 ? detailNames.join(' · ') : `${selectedTypes.size} ${tr('appliances', 'uređaja')}`,
       quantity: `${selectedTypes.size} ${tr('pcs', 'kom')}`,
-      low: round(apRange.low),
-      high: round(apRange.high),
+      low: round(exactSum + apRange.low),
+      high: round(exactSum + apRange.high),
     })
   }
 
@@ -617,6 +689,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     ])
     lineItems.push({
       key: 'lighting',
+      section: 'works',
       detail: tr('LED + pendants', 'LED + viseće'),
       quantity: tr('Layered', 'Slojevito'),
       low: round(lightRange.low),
@@ -657,6 +730,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     ])
     lineItems.push({
       key: 'finishing',
+      section: 'works',
       detail: tr('Plinth, cornice & panels', 'Sokl, vijenac i bočni panel'),
       quantity: `${baseM.toFixed(1)} m`,
       low: round(finRange.low),
@@ -673,6 +747,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   const designRange = narrowByMeta(designCost * 0.9, designCost * 1.15, labourMetas)
   lineItems.push({
     key: 'design',
+    section: 'works',
     detail: tr('Design & specification', 'Razrada i projektiranje'),
     quantity: `${designHours} h`,
     low: round(designRange.low),
@@ -684,6 +759,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   const cncRange = narrowByMeta(cncCost * 0.95, cncCost * 1.1, labourMetas)
   lineItems.push({
     key: 'cnc',
+    section: 'works',
     detail: tr('CNC machining', 'CNC obrada'),
     quantity: `${cncPositions} ${tr('positions', 'pozicija')}`,
     low: round(cncRange.low),
@@ -694,6 +770,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   const assemblyRange = narrowByMeta(assemblyCost * 0.95, assemblyCost * 1.1, labourMetas)
   lineItems.push({
     key: 'assembly',
+    section: 'works',
     detail: tr('Carcass assembly', 'Sklapanje korpusa'),
     quantity: `${carcassCount} ${tr('carcasses', 'korpusa')}`,
     low: round(assemblyRange.low),
@@ -704,6 +781,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   const installRange = narrowByMeta(installCost * 0.9, installCost * 1.15, labourMetas)
   lineItems.push({
     key: 'install',
+    section: 'works',
     detail: tr('On-site installation', 'Montaža na licu mjesta'),
     quantity: `${installM.toFixed(1)} m`,
     low: round(installRange.low),
@@ -716,10 +794,33 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   )
   const bandWidthPct = total.low > 0 ? Math.round(((total.high - total.low) / total.low) * 100) : 0
 
+  // Homeowner-facing split: the kitchen (works) stays a range — the ±20%
+  // promise applies to it; the goods (appliances, sink + tap) ride alongside
+  // and collapse to an exact sum once every model is picked.
+  const sum = (section: BomLineItem['section']) =>
+    lineItems
+      .filter((l) => l.section === section)
+      .reduce((acc, l) => ({ low: acc.low + l.low, high: acc.high + l.high }), { low: 0, high: 0 })
+  const works = sum('works')
+  const goods = sum('goods')
+  const goodsLines = lineItems.filter((l) => l.section === 'goods')
+
   return {
     lineItems,
     total: { low: round(total.low), high: round(total.high) },
     bandWidthPct,
+    sections: {
+      works: {
+        low: round(works.low),
+        high: round(works.high),
+        bandWidthPct: works.low > 0 ? Math.round(((works.high - works.low) / works.low) * 100) : 0,
+      },
+      goods: {
+        low: round(goods.low),
+        high: round(goods.high),
+        allPicked: goodsLines.length > 0 && goodsLines.every((l) => l.exact === true),
+      },
+    },
     currency: 'EUR',
   }
 }
