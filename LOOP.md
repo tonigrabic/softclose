@@ -65,7 +65,10 @@ Companion files: `WORKLOG.md` (append-only iteration log),
   - Acceptance: gate green (all fixtures ≤ 20), and confirming fields still
     visibly tightens the band (keep that reward loop).
 
-- [ ] **B2 — Connect funnel → builder for real.** `/builder` is a dev harness
+- [x] **B2 — Connect funnel → builder for real.** ✓ 2026-06-12 — full-path
+  code audit: connected end to end with calm degradation at every AI seam;
+  handoff seam now pinned by tests (`tests/handoff-connection.test.ts`).
+  Browser walk = Toni's check, click-path in WORKLOG iteration 3. `/builder` is a dev harness
   with `hypothesis={null}`; the live `/` journey must hand off: frozen Part-1
   FloorPlan → `floorPlanToLayout` contract → BuilderShell mounted with a
   non-null hypothesis from `/api/builder-hypothesis`, the profile, and saved

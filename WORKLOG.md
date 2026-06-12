@@ -240,3 +240,49 @@
 - Next iteration: **B2 — connect funnel → builder for real** (`/builder` is
   a dev harness with `hypothesis = null`; the live `/` journey must hand off
   contract + hypothesis + saved state, with calm degradation on failure).
+
+### 2026-06-12 — Iteration 3 (B2 — funnel → builder connection)
+
+- **B2 done — the path is connected in code; what remains is Toni's browser
+  walk.** Full audit of the live `/` journey (`kitchen-intake/index.tsx`):
+  - Builder mounts inside the funnel at the `builder` step once hypothesis
+    lands / "without AI" / saved build (`index.tsx:530`), with contract from
+    the frozen Part-1 plan (`planFromProfile → validate → floorPlanToLayout`,
+    `'unsure'` preset fallback), profile, saved state, `layoutPreconfirmed`.
+  - Calm degradation verified at every AI seam: space photos (footer Skip),
+    inspiration (manual style chips), concept render (optional, Continue
+    always live), confirm-look (manual chips unlock the gate),
+    builder-hypothesis failure (error banner + retry + "start without AI" —
+    no 500 wall), summarize-brief failure (fallback summary, journey still
+    completes). No dead ends found. FLOW: … confirm_look → builder → scope →
+    … → contact.
+  - On complete the build is saved to `profile.builderState`, the right-rail
+    LiveBOMPanel pins the range through Act 3, and `/api/handoff` prefers the
+    real BOM over the budget stub.
+  - **New tests** (`tests/handoff-connection.test.ts`): the handoff route
+    called for real — brief WITH builderState → estimate = BOM totals,
+    `placeholder: false`, bandPct ≤ 20; brief WITHOUT → stub flagged
+    `placeholder: true`, bandPct 20. The builder-entry seam (contract + null
+    hypothesis hydration) is already pinned by the band tests.
+- **Needs browser check by Toni** (can't be proven from here — real API keys,
+  vision quality, visual states). Click-path on `localhost:3000/`:
+  1. Project type → pick one → Continue.
+  2. Your space → upload photos, or footer **Skip** (no-key path).
+  3. Inspiration → tap ≥1 style chip → Continue.
+  4. Concept render → generate or skip straight through.
+  5. Confirm the look → if AI didn't prefill, tap any material chip →
+     Continue.
+  6. Builder entry → with render: **Start with AI** (watch the error banner +
+     retry + without-AI fallback if the key is missing); without render: the
+     primary CTA starts AI-free. Builder should open on Cabinet boxes with
+     the range dock showing ±12–14%.
+  7. Finish a few groups → complete → lands on Scope with the range pinned
+     in the right rail.
+  8. Scope → wishlist → logistics (timeline) → contact → wrap-up: estimate
+     badge must say BOM-based (not "Placeholder"), same numbers as the
+     builder showed. (Maker preview still shows `$` — that's B6.)
+  9. Re-entry: nav-rail back to the builder — must RESUME the saved build.
+- Gate: 20/20 tests · tsc clean · eslint clean · build 12/12 green.
+- Next iteration: **B3 — finish the verify/confirm screen** (audit
+  ConfirmScreen + confirm-look against foundations/intake docs, list gaps,
+  then fix — includes M3 banner/gate asymmetry).
