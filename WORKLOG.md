@@ -609,3 +609,23 @@ Walked every screen in code (not just the agent summaries):
   a component); the in-builder ConfirmScreen still serves the standalone
   /builder dev harness (not dead). Left both.
 - Gate: 73 tests · tsc · eslint · next build green.
+
+### Improvements loop — #1 scope allowances for trades/structural/flooring
+- The trade/structural scope toggles (flooring, demolitionDisposal,
+  electricalWork, plumbingRelocation, structural) previously moved nothing in
+  the estimate. Now each, when scoped IN, adds a rough allowance line in a NEW
+  `project` BOM section: flooring 900–2800, demolition 400–1500, electrical
+  600–2200, plumbing 500–1800, structural 1500–6000 €.
+- Design choice protecting the promise: allowances live in `sections.project`,
+  shown alongside the kitchen + goods and folded into the all-in total, but
+  NEVER into the `works` band — so the kitchen ±15% stays honest while the
+  all-in figure reflects the real project. Wide on purpose, labelled
+  "allowance"; only emitted when scope[key] === true (absent scope adds nothing,
+  so band-invariant + every other snapshot is unchanged).
+- These bands are domain allowances (no catalog/contract source), flagged as
+  such — placeholders until real trade quotes/maker pricelist land.
+- LiveBOMPanel shows a "Project work (allowance)" row; the mobile dock + line
+  lists pick the new keys up generically. i18n added both locales.
+- tests/scope-estimate.test.ts +3: no allowances without scope; scoping a trade
+  adds its project line; allowances leave the works band untouched but lift the
+  total. Gate: 76 tests · tsc · eslint · next build green.

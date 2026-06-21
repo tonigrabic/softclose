@@ -56,3 +56,37 @@ describe('scope gates the estimate', () => {
     expect(keys(withFlooring)).toEqual(expect.arrayContaining(['boards', 'worktop']))
   })
 })
+
+describe('project-scope allowances', () => {
+  const state = stateFor('l-shape')
+
+  test('no allowance lines without scope; the project section is zero', () => {
+    const full = computeBom(state)
+    for (const k of ['flooring', 'demolition', 'electrical', 'plumbing', 'structural']) {
+      expect(keys(full)).not.toContain(k)
+    }
+    expect(full.sections.project).toEqual({ low: 0, high: 0 })
+  })
+
+  test('scoping a trade in adds its allowance line in the project section', () => {
+    const withTrades = computeBom(state, DEFAULT_LOCALE, {
+      scope: { cabinets: true, electricalWork: true, structural: true },
+    })
+    expect(keys(withTrades)).toEqual(expect.arrayContaining(['electrical', 'structural']))
+    expect(keys(withTrades)).not.toContain('plumbing') // not scoped in
+    // allowances live in `project`, never in the kitchen `works` band
+    const projectLines = withTrades.lineItems.filter((l) => l.section === 'project')
+    expect(projectLines.map((l) => l.key).sort()).toEqual(['electrical', 'structural'])
+    expect(withTrades.sections.project.high).toBeGreaterThan(0)
+  })
+
+  test('allowances do not change the kitchen works band', () => {
+    const base = computeBom(state, DEFAULT_LOCALE, { scope: { cabinets: true } })
+    const withStructural = computeBom(state, DEFAULT_LOCALE, {
+      scope: { cabinets: true, structural: true },
+    })
+    expect(withStructural.sections.works).toEqual(base.sections.works)
+    // …but they do lift the all-in total.
+    expect(withStructural.total.high).toBeGreaterThan(base.total.high)
+  })
+})

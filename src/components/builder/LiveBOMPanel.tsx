@@ -61,6 +61,14 @@ export function LiveBOMPanel({ state, scope }: { state: BuilderState; scope?: Le
           {bom.sections.goods.allPicked && (
             <p className="text-[10px] text-muted-foreground/80">{t('builder.shell.bom.goodsExact')}</p>
           )}
+          {bom.sections.project.high > 0 && (
+            <div className="flex items-baseline justify-between gap-2">
+              <dt className="font-medium text-foreground">{t('builder.shell.bom.project')}</dt>
+              <dd className="shrink-0 tabular-nums font-semibold text-foreground">
+                {formatEUR(bom.sections.project.low, locale)} – {formatEUR(bom.sections.project.high, locale)}
+              </dd>
+            </div>
+          )}
           <div className="flex items-baseline justify-between gap-2 border-t border-border/50 pt-2">
             <dt className="font-medium text-foreground">{t('builder.shell.bom.totalWithGoods')}</dt>
             <dd className="shrink-0 tabular-nums font-semibold text-foreground">

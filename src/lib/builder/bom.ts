@@ -69,12 +69,21 @@ export interface BomLineItem {
     | 'design'
     | 'assembly'
     | 'install'
+    // Project-scope allowances (trades / structural / flooring) — rough
+    // domain bands, only present when the homeowner scopes them IN.
+    | 'flooring'
+    | 'demolition'
+    | 'electrical'
+    | 'plumbing'
+    | 'structural'
   /**
    * `works` = the kitchen itself (materials + labour) — always an estimate,
    * the ±20% promise lives here. `goods` = catalog products (appliances,
    * sink + tap) whose price becomes EXACT once the homeowner picks models.
+   * `project` = rough allowances for trades/structural/flooring the homeowner
+   * scoped in — wide by nature, kept OUT of the kitchen band promise.
    */
-  section: 'works' | 'goods'
+  section: 'works' | 'goods' | 'project'
   /**
    * The kitchen estimate reads as its three real components: `material`
    * (boards, worktop, hardware, …), `make` (design + CNC + assembly — the
@@ -111,6 +120,9 @@ export interface BomEstimate {
       breakdown: Record<'material' | 'make' | 'install', { low: number; high: number }>
     }
     goods: { low: number; high: number; allPicked: boolean }
+    /** Rough trade/structural/flooring allowances the homeowner scoped in.
+     * Wide by nature — shown alongside, never folded into the kitchen band. */
+    project: { low: number; high: number }
   }
   currency: 'EUR'
 }
@@ -868,6 +880,37 @@ export function computeBom(
     high: round(installRange.high),
   })
 
+  /* 9. Project-scope allowances — trades / structural / flooring the homeowner
+     scoped IN. Rough domain bands (no catalog, no contract geometry), wide on
+     purpose and labelled "allowance"; kept in their own `project` section so
+     they never tighten or widen the kitchen-band promise. Only emitted when
+     explicitly scoped in (scope[key] === true) — absent scope adds nothing. */
+  const ALLOWANCE: Array<{
+    key: BomLineItem['key']
+    scopeKey: keyof NonNullable<LeadProfile['scope']>
+    low: number
+    high: number
+    en: string
+    hr: string
+  }> = [
+    { key: 'flooring', scopeKey: 'flooring', low: 900, high: 2800, en: 'New flooring', hr: 'Novi pod' },
+    { key: 'demolition', scopeKey: 'demolitionDisposal', low: 400, high: 1500, en: 'Demolition + disposal', hr: 'Rušenje i odvoz' },
+    { key: 'electrical', scopeKey: 'electricalWork', low: 600, high: 2200, en: 'Electrical work', hr: 'Elektroinstalacije' },
+    { key: 'plumbing', scopeKey: 'plumbingRelocation', low: 500, high: 1800, en: 'Plumbing relocation', hr: 'Premještanje vodovoda' },
+    { key: 'structural', scopeKey: 'structural', low: 1500, high: 6000, en: 'Structural work', hr: 'Građevinski radovi' },
+  ]
+  for (const a of ALLOWANCE) {
+    if (opts.scope?.[a.scopeKey] !== true) continue
+    lineItems.push({
+      key: a.key,
+      section: 'project',
+      detail: `${tr(a.en, a.hr)} — ${tr('rough allowance', 'okvirna procjena')}`,
+      quantity: tr('allowance', 'procjena'),
+      low: a.low,
+      high: a.high,
+    })
+  }
+
   // Drop line items the homeowner has put OUT of scope (e.g. no installation,
   // homeowner supplies appliances). Default (no scope yet) keeps everything.
   const visibleLines = lineItems.filter((l) => lineInScope(l.key, opts.scope))
@@ -891,6 +934,7 @@ export function computeBom(
       .reduce((acc, l) => ({ low: acc.low + l.low, high: acc.high + l.high }), { low: 0, high: 0 })
   const works = sumWhere((l) => l.section === 'works')
   const goods = sumWhere((l) => l.section === 'goods')
+  const project = sumWhere((l) => l.section === 'project')
   const goodsLines = visibleLines.filter((l) => l.section === 'goods')
   const kind = (k: 'material' | 'make' | 'install') => {
     const s = sumWhere((l) => l.worksKind === k)
@@ -913,6 +957,7 @@ export function computeBom(
         high: round(goods.high),
         allPicked: goodsLines.length > 0 && goodsLines.every((l) => l.exact === true),
       },
+      project: { low: round(project.low), high: round(project.high) },
     },
     currency: 'EUR',
   }
