@@ -2,7 +2,8 @@ import { generateImage } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { rateLimit } from '@/lib/rate-limit'
 
-const MAX_RENDERS_PER_SESSION = 5
+// TEMP: raised from 5 to effectively disable the per-session cap during testing.
+const MAX_RENDERS_PER_SESSION = 9999
 const SESSION_WINDOW_MS = 30 * 60 * 1000
 const MAX_BYTES_PER_IMAGE = 5 * 1024 * 1024
 const MAX_STYLE_REFS = 3

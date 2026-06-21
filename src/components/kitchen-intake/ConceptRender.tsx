@@ -11,7 +11,8 @@ import type {
   LeadProfile,
 } from '@/lib/types'
 
-const MAX_RENDERS_PER_SESSION = 5
+// TEMP: raised from 5 to effectively disable the per-session cap during testing.
+const MAX_RENDERS_PER_SESSION = 9999
 const MAX_PRODUCT_REFS = 4
 
 // `value` is the English instruction sent to the renderer (keep stable for the

@@ -60,12 +60,16 @@ export async function POST(req: Request) {
     if (estimate) estimate.bandPct = 20
     if (brief.builderState) {
       const bom = computeBom(brief.builderState as BuilderState)
+      // Headline range is kitchen-only (works); appliances + sink/tap (goods)
+      // ride alongside as the all-in figure. Band applies to the works range.
+      const hasGoods = bom.sections.goods.high > 0
       estimate = {
-        low: bom.total.low,
-        high: bom.total.high,
-        basis: `Estimated from your build — ±${Math.round(bom.bandWidthPct / 2)}%. An estimate your maker confirms, never a final quote.`,
+        low: bom.sections.works.low,
+        high: bom.sections.works.high,
+        withAppliances: hasGoods ? { low: bom.total.low, high: bom.total.high } : null,
+        basis: `Estimated from your build — ±${Math.round(bom.sections.works.bandWidthPct / 2)}%. An estimate your maker confirms, never a final quote.`,
         placeholder: false,
-        bandPct: Math.round(bom.bandWidthPct / 2),
+        bandPct: Math.round(bom.sections.works.bandWidthPct / 2),
       }
     }
 
