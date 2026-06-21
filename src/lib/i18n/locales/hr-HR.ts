@@ -97,6 +97,7 @@ export const hrHR = {
   'common.yes': 'Da',
   'common.no': 'Ne',
   'common.optional': 'Neobavezno',
+  'common.retry': 'Pokušaj ponovno',
   'common.confidence.H': 'Visoka pouzdanost',
   'common.confidence.M': 'Srednja pouzdanost',
   'common.confidence.L': 'Niska pouzdanost',
@@ -380,6 +381,7 @@ export const hrHR = {
   'funnel.builderEntry.loading': 'Čitam tvoj render…',
   'funnel.builderEntry.noAI': 'Bez AI prijedloga',
   'funnel.builderEntry.skip': 'Preskoči — pošalji samo osnovni brief',
+  'funnel.finaliseError': 'Nismo uspjeli dohvatiti AI sažetak, ali tvoj je brief spremljen. Nastavljamo s pričuvnim sažetkom.',
 
   // ---- Wrap-up / offer screen ---------------------------------------------
   'readback.photos': '{n} foto',

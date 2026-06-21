@@ -750,13 +750,21 @@ export function KitchenIntake() {
               )}
 
               {translateError && (
-                <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-2.5 text-xs text-destructive">
-                  {translateError}
-                </p>
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-2.5 text-xs text-destructive">
+                  <span>{translateError}</span>
+                  <button
+                    type="button"
+                    onClick={() => void commitWishlist()}
+                    disabled={isTranslating}
+                    className="rounded-full border border-destructive/40 px-3 py-1 font-semibold transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                  >
+                    {tDynamic('common.retry', locale)}
+                  </button>
+                </div>
               )}
               {finaliseError && (
                 <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-2.5 text-xs text-destructive">
-                  Couldn&apos;t fetch the AI summary, but your brief is saved. Continuing with a fallback summary.
+                  {tDynamic('funnel.finaliseError', locale)}
                 </p>
               )}
 
@@ -1400,6 +1408,8 @@ function BuilderEntryBody({
                 <span className="inline-block size-1.5 animate-pulse rounded-full bg-primary-foreground/80" />
                 {t('funnel.builderEntry.loading')}
               </>
+            ) : error ? (
+              <>{t('common.retry')}</>
             ) : hasRender ? (
               <>{t('funnel.builderEntry.ctaWithAI')}</>
             ) : (

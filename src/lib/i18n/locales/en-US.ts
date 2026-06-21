@@ -95,6 +95,7 @@ export const enUS: Record<TranslationKey, string> = {
   'common.yes': 'Yes',
   'common.no': 'No',
   'common.optional': 'Optional',
+  'common.retry': 'Try again',
   'common.confidence.H': 'High confidence',
   'common.confidence.M': 'Medium confidence',
   'common.confidence.L': 'Low confidence',
@@ -367,6 +368,7 @@ export const enUS: Record<TranslationKey, string> = {
   'funnel.builderEntry.loading': 'Reading your render…',
   'funnel.builderEntry.noAI': 'Without the AI suggestion',
   'funnel.builderEntry.skip': 'Skip — send just the basic brief',
+  'funnel.finaliseError': "Couldn't fetch the AI summary, but your brief is saved. Continuing with a fallback summary.",
 
   // ---- Wrap-up / offer screen ---------------------------------------------
   'readback.photos': '{n} photos',
