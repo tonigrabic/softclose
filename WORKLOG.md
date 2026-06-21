@@ -629,3 +629,14 @@ Walked every screen in code (not just the agent summaries):
 - tests/scope-estimate.test.ts +3: no allowances without scope; scoping a trade
   adds its project line; allowances leave the works band untouched but lift the
   total. Gate: 76 tests · tsc · eslint · next build green.
+
+### Improvements loop — #2 worktop edge profile + thickness UI
+- WorktopGroup now exposes Edge profile (square/rounded/bevel/waterfall) and
+  Thickness (38/20/12 mm). Edge feeds the existing `edgeFactor` in the BOM
+  (waterfall ×1.25, radius ×1.06) so it really moves the price; thickness is a
+  captured spec shown in the worktop line detail + maker brief (catalog has no
+  thickness-specific €/m yet, so it doesn't claim a price delta it can't back).
+- Both write homeowner-edited provenance; worktop.meta extended with optional
+  edge/thickness. `mitreJoinCount` stays auto-derived from the contract (it's
+  geometry, not a homeowner choice) — left as is. i18n both locales.
+- Gate: 76 tests · tsc · eslint · next build green.

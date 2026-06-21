@@ -144,6 +144,12 @@ export const hrHR = {
   'worktop.family.stainless': 'Nehrđajući čelik',
   'worktop.familyLabel': 'Materijal radne ploče',
   'worktop.decorLabel': 'Dekor radne ploče',
+  'worktop.edgeLabel': 'Obrada ruba',
+  'worktop.edge.square': 'Ravni',
+  'worktop.edge.radius': 'Zaobljeni',
+  'worktop.edge.bevel': 'Zakošeni',
+  'worktop.edge.mitred_waterfall': 'Vodopad (gerung)',
+  'worktop.thicknessLabel': 'Debljina',
 
   // ---- Live BOM panel ----------------------------------------------------
   'bom.lineItem.boards': 'Ploče (korpus + vrata)',

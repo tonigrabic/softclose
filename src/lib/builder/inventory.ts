@@ -181,7 +181,7 @@ export interface WorktopGroup {
   totalLengthM: number
   /** Mitre joins (each adds labor cost). */
   mitreJoinCount: number
-  meta: { family: FieldMeta; decorCode: FieldMeta }
+  meta: { family: FieldMeta; decorCode: FieldMeta; edge?: FieldMeta; thickness?: FieldMeta }
 }
 
 /* ─────────────────────────── 5. Backsplash ─────────────────────────────── */

@@ -139,6 +139,12 @@ export const enUS: Record<TranslationKey, string> = {
   'worktop.family.stainless': 'Stainless steel',
   'worktop.familyLabel': 'Worktop material',
   'worktop.decorLabel': 'Worktop decor',
+  'worktop.edgeLabel': 'Edge profile',
+  'worktop.edge.square': 'Square',
+  'worktop.edge.radius': 'Rounded',
+  'worktop.edge.bevel': 'Bevelled',
+  'worktop.edge.mitred_waterfall': 'Waterfall (mitred)',
+  'worktop.thicknessLabel': 'Thickness',
 
   'bom.lineItem.boards': 'Boards (carcass + doors)',
   'bom.lineItem.worktop': 'Worktop',
