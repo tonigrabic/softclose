@@ -395,3 +395,42 @@
   unchanged — unpicked behavior identical by construction.
 - Gate: 44/44 tests · tsc clean · eslint clean · build 12/12 green.
 - Next iteration: back to **B3b** unless Toni redirects again.
+
+### 2026-06-21 — Layout now derived FROM THE AI RENDER (Toni-directed flow)
+
+- **Why.** Toni's intended flow: photos = anchor → describe + generate
+  render → derive the layout FROM the render → confirm + lock → estimate.
+  The app did the OPPOSITE: layout was read from the original photos and
+  locked in step 1 (the floor-plan editor lived in `SpaceCapture`), before
+  the render existed; the render was cosmetic and `builder-hypothesis` was
+  told to treat the photo layout as FIXED. We rewired the seam.
+- **Decision (hybrid, agreed with Toni).** An AI image has no true scale and
+  the render is img2img-anchored, so: room shell + cm dimensions stay the
+  PHOTO's; shape + island + cabinet-bearing config come from the RENDER. The
+  homeowner confirms/edits the proposed plan before it freezes — the safety
+  net for any render mis-read.
+- **Changes.**
+  - `lib/derive-layout.ts` (new): `spaceVisionWithRenderLayout` merges render
+    config over photo scale, then the single `fromVision()` builds the plan.
+  - `SpaceCapture` gains `captureOnly`: step 1 is anchor capture + a SCALE
+    read only — no editor, no lock.
+  - `builder-hypothesis` route: the render now OWNS the layout (prompt
+    rewritten); the photo contract is a cm-scale hint, and is validated
+    server-side (`sanitizeContract`) before it touches the prompt.
+  - "Confirm the look" → "Confirm layout & look": new `LayoutReview` hosts the
+    floor-plan editor seeded with the render-derived plan; the vision pass
+    fires here (decoupled from builder entry) and the footer Continue freezes
+    the plan + locks the contract. Gate is the layout; decor stays optional.
+  - Dropped dead `visitedSteps` state.
+- **Accuracy note (honesty).** The earlier analysis claimed an "800 mm hob
+  seeds a 400 mm cabinet → €100–300 error". On inspection that's overstated:
+  a hob sits ON a normal base cabinet that the greedy fill already counts
+  (unlike a dishwasher front or a full-height fridge). The real refinement is
+  a drawer-bank pattern under the hob (hardware only, not board area) — small
+  payoff, churns every fixture snapshot — so it's deferred to its own pass,
+  alongside multi-tall-unit seeding and the ±20%-headline band calibration
+  (LOOP.md Q6). None are blocked; they want maker pricing data + a deliberate
+  snapshot update, not a rushed change.
+- 6 new tests (`tests/derive-layout.test.ts`): render owns shape/island,
+  photo owns scale, pass-through + preset fallbacks.
+- Gate: 50/50 tests · tsc clean · eslint clean · build 12/12 green.
