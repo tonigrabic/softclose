@@ -458,3 +458,61 @@
     should read ±18%") and I'll tune + update snapshots in one commit.
   - **Real B2B prices** (LOOP.md Q7) — still the launch blocker; needs the
     maker pricelist to replace the reference RRPs.
+
+## 2026-06-21 — Program 2: defensible estimate, layout reading, contract gate
+
+Three sequenced iterations (each ends green: vitest · tsc · eslint · next build).
+
+### Iter 1 — layout reading: anchor + render, stronger model
+- `/api/builder-hypothesis` now sees the ANCHOR PHOTO alongside the render
+  (render first = the design we price; anchor second = true scale + window/door
+  positions to sanity-check against). Prompt rewritten to cross-reference; the
+  contract text is demoted to an explicit scale hint.
+- That one accuracy-critical call moved to the full `gpt-5.4` (swappable via the
+  new `LAYOUT_MODEL` const); the mini stays for the cheaper routes.
+- Message assembly extracted to a pure `buildHypothesisMessages` +
+  `tests/builder-hypothesis-messages.test.ts` (render-first/anchor-second order).
+
+### Iter 2 — dedicated contract-confirmation step
+- New `confirm_contract` flow step between "Confirm layout & look" and the
+  builder: an explicit "this is my kitchen" sign-off on the full derived
+  contract (runs, cabinet tally, corners, appliances, shape, ceiling).
+- Pure `summarizeContract()` (cabinet-suggest.ts) is the single projection
+  behind both this step and the in-builder LayoutConfirm gate — tally goes
+  through the same `suggestCabinetsForRun` the builder seeds from, so the
+  numbers signed off ARE the numbers priced. `tests/contract-summary.test.ts`.
+- Records `profile.contractConfirmedAt` (maker provenance). i18n for both
+  locales; later funnel steps renumbered.
+
+### Iter 3 — defensible estimate formulas + ≤15% band
+- **Honest finding.** I did NOT machine-derive class ranges from the
+  Schachermayer scrape: it's too sparse/noisy (hardware is 0.8–38 € individual
+  parts, not drawer systems; ~3–5 untyped appliances per category with accessory
+  noise at 6/24 €). Forcing percentile bands off n≈4 would be *less* defensible
+  than the curated domain bands, not more.
+- **What was actually wrong.** Several invented appliance bands EXCLUDED every
+  real catalog product of their type — overconfident in the wrong place:
+  - oven 500–850 vs real ovens 339–469 (Miele 849) → recalibrated **340–780**
+  - hob 350–550 vs 289–449 → **280–470**
+  - extractor 250–480 vs 149–459 → **150–470**
+  - microwave 180–320 vs the one real unit at 339 → **200–380**
+  - dishwasher 450–720 vs 429–519 (Miele 1390) → **420–760**
+  Each band now CONTAINS the real catalog products it's meant to estimate.
+  Sparse/uncovered types (fridge — only an undercounter unit; wine fridge,
+  coffee — none) stay documented domain estimates.
+- `tests/class-band-grounding.test.ts` reads the catalog live and asserts, per
+  covered type, the band is centered on the catalog median and covers ≥50% of
+  real products (premium outliers may sit above — pinned exactly when picked).
+  This catches the exact "band excludes real products" bug going forward.
+- Worktop null-price fallback: laminate 35 → **38 €/m**, the mean of the REAL
+  Elgrad worktop prices in the catalog (32–74 €/m). Quartz/sintered have no
+  catalog prices yet → still domain estimates.
+- **Band.** Grounding nudged the displayed band UP from 11–12% to 11–13%
+  (honest: real appliance spread is wider than the overconfident bands). The
+  ±20% promise holds with margin, so the invariant cap was tightened **20 → 15**
+  and the drift snapshots updated to the grounded totals.
+- **Still the launch blocker (LOOP.md Q7).** Everything above uses REFERENCE
+  RRPs (retail), not the maker's B2B account price. Labour rates, board carcass
+  rates (13/16/18 €/m²), and the style/edge/waste multipliers remain domain
+  estimates. A picked model already overrides with its exact price; the rest
+  needs the maker's pricelist to be "exact" to a customer.

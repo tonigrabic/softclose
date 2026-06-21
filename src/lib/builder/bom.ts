@@ -326,9 +326,13 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     ? findDecor(state.worktop.decorCode, state.worktop.decorStructure)
     : null
   let wtPricePerM = wtDecor ? worktopPricePerM(wtDecor, 600) ?? null : null
-  // Fall back by family if catalog row has no worktop price.
+  // Fall back by family when the catalog row has no worktop price. The laminate
+  // fallback (38 €/m) is the mean of the REAL Elgrad worktop prices in the
+  // catalog (oak/concrete/marble laminate decors, 32–74 €/m); quartz and
+  // sintered stone have no catalog prices yet, so those stay domain estimates
+  // pending the maker's pricelist (LOOP.md Q7).
   if (!wtPricePerM) {
-    wtPricePerM = state.worktop.family === 'quartz' ? 90 : state.worktop.family === 'sintered_stone' ? 130 : 35
+    wtPricePerM = state.worktop.family === 'quartz' ? 90 : state.worktop.family === 'sintered_stone' ? 130 : 38
   }
   // Edge profile premium — a mitred waterfall is a major add; radius a small one.
   const edgeFactor =
@@ -610,13 +614,24 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   // and price each by class so swapping induction → gas, single → double
   // oven actually moves the line.
   if (state.appliances.supply !== 'homeowner_supplies' && state.appliances.selections.length > 0) {
+    // Per-type estimate bands for an UNPICKED appliance. Grounded against the
+    // Schachermayer hr-HR reference-RRP scrape (src/lib/catalog, see
+    // appliancesForType): each band is calibrated to CONTAIN the real catalog
+    // products of that type, so the estimate covers what we'd actually sell
+    // (tests/class-band-grounding.test.ts enforces this). Observed prices at
+    // the scrape: hob 289–449, oven 339–469 (+Miele 849), extractor 149–459,
+    // dishwasher 429–519 (+Miele 1390), microwave 339. Types the scrape doesn't
+    // cover (fridge has only an undercounter unit; wine/coffee none) stay
+    // domain estimates pending the maker's B2B pricelist (LOOP.md Q7).
+    // These remain REFERENCE RRPs, not the maker's account price — a picked
+    // model still overrides with its exact price at quote time.
     const APPLIANCE_PRICE: Record<string, { low: number; high: number }> = {
-      hob: { low: 350, high: 550 },
-      oven: { low: 500, high: 850 },
-      extractor: { low: 250, high: 480 },
-      fridge: { low: 700, high: 1100 },
-      dishwasher: { low: 450, high: 720 },
-      microwave: { low: 180, high: 320 },
+      hob: { low: 280, high: 470 },
+      oven: { low: 340, high: 780 },
+      extractor: { low: 150, high: 470 },
+      fridge: { low: 600, high: 1150 },
+      dishwasher: { low: 420, high: 760 },
+      microwave: { low: 200, high: 380 },
       wine_fridge: { low: 750, high: 1200 },
       coffee: { low: 1100, high: 2000 },
     }

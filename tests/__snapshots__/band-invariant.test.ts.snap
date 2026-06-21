@@ -3,8 +3,8 @@
 exports[`estimate drift — totals per fixture > galley: total range snapshot 1`] = `
 {
   "confirmedBandPct": 9,
-  "displayedBandPct": 11,
-  "high": 7376,
+  "displayedBandPct": 12,
+  "high": 7319,
   "lines": [
     "boards",
     "worktop",
@@ -20,7 +20,7 @@ exports[`estimate drift — totals per fixture > galley: total range snapshot 1`
     "assembly",
     "install",
   ],
-  "low": 5905,
+  "low": 5762,
 }
 `;
 
@@ -28,7 +28,7 @@ exports[`estimate drift — totals per fixture > island: total range snapshot 1`
 {
   "confirmedBandPct": 8,
   "displayedBandPct": 11,
-  "high": 5704,
+  "high": 5627,
   "lines": [
     "boards",
     "worktop",
@@ -44,15 +44,15 @@ exports[`estimate drift — totals per fixture > island: total range snapshot 1`
     "assembly",
     "install",
   ],
-  "low": 4625,
+  "low": 4552,
 }
 `;
 
 exports[`estimate drift — totals per fixture > l-shape: total range snapshot 1`] = `
 {
-  "confirmedBandPct": 9,
-  "displayedBandPct": 12,
-  "high": 7661,
+  "confirmedBandPct": 10,
+  "displayedBandPct": 13,
+  "high": 7630,
   "lines": [
     "boards",
     "worktop",
@@ -68,7 +68,7 @@ exports[`estimate drift — totals per fixture > l-shape: total range snapshot 1
     "assembly",
     "install",
   ],
-  "low": 6093,
+  "low": 5934,
 }
 `;
 
@@ -76,7 +76,7 @@ exports[`estimate drift — totals per fixture > peninsula: total range snapshot
 {
   "confirmedBandPct": 8,
   "displayedBandPct": 11,
-  "high": 7707,
+  "high": 7630,
   "lines": [
     "boards",
     "worktop",
@@ -92,7 +92,7 @@ exports[`estimate drift — totals per fixture > peninsula: total range snapshot
     "assembly",
     "install",
   ],
-  "low": 6225,
+  "low": 6152,
 }
 `;
 
@@ -122,8 +122,8 @@ exports[`estimate drift — totals per fixture > single: total range snapshot 1`
 exports[`estimate drift — totals per fixture > u-shape: total range snapshot 1`] = `
 {
   "confirmedBandPct": 9,
-  "displayedBandPct": 11,
-  "high": 10784,
+  "displayedBandPct": 12,
+  "high": 10753,
   "lines": [
     "boards",
     "worktop",
@@ -139,6 +139,6 @@ exports[`estimate drift — totals per fixture > u-shape: total range snapshot 1
     "assembly",
     "install",
   ],
-  "low": 8622,
+  "low": 8463,
 }
 `;

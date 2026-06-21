@@ -20,7 +20,11 @@ import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import { hydrateFromHypothesis } from '@/lib/builder/state'
 import { computeBom } from '@/lib/builder/bom'
 
-const BAND_CAP_PCT = 20
+// Tightened from 20 → 15 in iteration 3 (WORKLOG 2026-06-21): once the goods
+// bands were grounded in real catalog products the displayed band settled at
+// 11–13% across every fixture, so the ±20% AGENTS.md promise holds with margin
+// to spare and we assert the tighter, real invariant the model actually meets.
+const BAND_CAP_PCT = 15
 
 function estimateForFixture(id: string) {
   const fixture = CONTRACT_FIXTURES.find((f) => f.id === id)
