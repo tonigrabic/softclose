@@ -12,6 +12,10 @@ export const enUS: Record<TranslationKey, string> = {
   'builder.shell.bom.disclaimer':
     'Range estimate based on Croatian-market materials and hardware. Your maker will confirm the final price.',
   'builder.shell.bom.works': 'Kitchen (made & installed)',
+  'builder.shell.bom.material': 'Materials',
+  'builder.shell.bom.make': 'Making',
+  'builder.shell.bom.install': 'Installation',
+  'builder.shell.bom.totalWithGoods': 'Total incl. appliances',
   'builder.shell.bom.goods': 'Appliances, sink & tap',
   'builder.shell.bom.goodsExact': 'exact — your picks',
   'builder.shell.bom.goodsEstimate': 'estimate — pick models to pin it',

@@ -12,7 +12,7 @@ import {
   type BuilderScreenId,
   type BuilderState,
 } from '@/lib/builder/inventory'
-import { hydrateFromHypothesis, useBuilderState } from '@/lib/builder/state'
+import { confirmGroupMetas, hydrateFromHypothesis, useBuilderState } from '@/lib/builder/state'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
 import { LiveBOMPanel } from './LiveBOMPanel'
@@ -185,9 +185,13 @@ function Shell({
   const previewSrc = activeRerender?.imageDataUrl ?? originalSrc ?? null
 
   function goNext() {
+    // Continuing past a screen confirms its prefilled values — the estimate
+    // band narrows as the homeowner walks the builder (see confirmGroupMetas).
+    const confirmed = confirmGroupMetas(state, currentId)
+    if (confirmed !== state) dispatch({ type: 'replace', state: confirmed })
     const n = nextBuilderGroup(currentId)
     if (n) onCurrentChange(n)
-    else onComplete?.(state)
+    else onComplete?.(confirmed)
   }
   function goBack() {
     const p = prevBuilderGroup(currentId)

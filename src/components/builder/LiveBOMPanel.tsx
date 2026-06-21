@@ -23,38 +23,48 @@ export function LiveBOMPanel({ state }: { state: BuilderState }) {
         </p>
         <div className="mt-2 flex items-baseline gap-2">
           <span className="text-2xl font-semibold tabular-nums text-foreground">
-            {formatEUR(bom.total.low, locale)}
+            {formatEUR(bom.sections.works.low, locale)}
           </span>
           <span className="text-sm text-muted-foreground">–</span>
           <span className="text-2xl font-semibold tabular-nums text-foreground">
-            {formatEUR(bom.total.high, locale)}
+            {formatEUR(bom.sections.works.high, locale)}
           </span>
         </div>
-        <p className="mt-1 text-[11px] text-muted-foreground">±{Math.round(bom.bandWidthPct / 2)}%</p>
+        <p className="mt-1 text-[11px] text-muted-foreground">
+          {t('builder.shell.bom.works')} · ±{Math.round(bom.sections.works.bandWidthPct / 2)}%
+        </p>
 
-        {/* Kitchen vs goods: the kitchen is OUR estimate (a range, ±20%
-            promise); the goods collapse to an exact sum once models are
-            picked — the homeowner sees exactly which part they control. */}
+        {/* The headline IS the kitchen (material + make + install — the three
+            things the maker actually quotes), without appliances. The goods
+            ride below and collapse to an exact sum once models are picked;
+            the all-in total closes the section. */}
         <dl className="mt-3 space-y-1 border-t border-border/50 pt-3 text-[11.5px]">
-          <div className="flex items-baseline justify-between gap-2">
-            <dt className="text-muted-foreground">{t('builder.shell.bom.works')}</dt>
-            <dd className="shrink-0 tabular-nums font-medium text-foreground">
-              {formatEUR(bom.sections.works.low, locale)} – {formatEUR(bom.sections.works.high, locale)}
-            </dd>
-          </div>
-          <div className="flex items-baseline justify-between gap-2">
-            <dt className="text-muted-foreground">{t('builder.shell.bom.goods')}</dt>
-            <dd className="shrink-0 tabular-nums font-medium text-foreground">
+          {(['material', 'make', 'install'] as const).map((k) => (
+            <div key={k} className="flex items-baseline justify-between gap-2">
+              <dt className="text-muted-foreground">{t(`builder.shell.bom.${k}`)}</dt>
+              <dd className="shrink-0 tabular-nums text-muted-foreground">
+                {formatEUR(bom.sections.works.breakdown[k].low, locale)} –{' '}
+                {formatEUR(bom.sections.works.breakdown[k].high, locale)}
+              </dd>
+            </div>
+          ))}
+          <div className="flex items-baseline justify-between gap-2 pt-1.5">
+            <dt className="font-medium text-foreground">{t('builder.shell.bom.goods')}</dt>
+            <dd className="shrink-0 tabular-nums font-semibold text-foreground">
               {bom.sections.goods.allPicked
                 ? formatEUR(bom.sections.goods.low, locale)
                 : `${formatEUR(bom.sections.goods.low, locale)} – ${formatEUR(bom.sections.goods.high, locale)}`}
             </dd>
           </div>
-          <p className="text-[10px] text-muted-foreground/80">
-            {bom.sections.goods.allPicked
-              ? t('builder.shell.bom.goodsExact')
-              : t('builder.shell.bom.goodsEstimate')}
-          </p>
+          {bom.sections.goods.allPicked && (
+            <p className="text-[10px] text-muted-foreground/80">{t('builder.shell.bom.goodsExact')}</p>
+          )}
+          <div className="flex items-baseline justify-between gap-2 border-t border-border/50 pt-2">
+            <dt className="font-medium text-foreground">{t('builder.shell.bom.totalWithGoods')}</dt>
+            <dd className="shrink-0 tabular-nums font-semibold text-foreground">
+              {formatEUR(bom.total.low, locale)} – {formatEUR(bom.total.high, locale)}
+            </dd>
+          </div>
         </dl>
       </header>
 

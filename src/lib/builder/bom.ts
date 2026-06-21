@@ -42,6 +42,12 @@ export interface BomLineItem {
    * sink + tap) whose price becomes EXACT once the homeowner picks models.
    */
   section: 'works' | 'goods'
+  /**
+   * The kitchen estimate reads as its three real components: `material`
+   * (boards, worktop, hardware, …), `make` (design + CNC + assembly — the
+   * shop) and `install` (on site). Only set on `works` lines.
+   */
+  worksKind?: 'material' | 'make' | 'install'
   /** True when every component of this line is a picked catalog price. */
   exact?: boolean
   /** Plain-language explanation suitable for the side panel + maker handoff. */
@@ -56,7 +62,7 @@ export interface BomLineItem {
 export interface BomEstimate {
   lineItems: BomLineItem[]
   total: { low: number; high: number }
-  /** ±X% width of the range — informative for the disclaimer copy. */
+  /** Full band width as % of the range midpoint; display as ±(bandWidthPct/2). */
   bandWidthPct: number
   /**
    * The homeowner-facing split (per product direction 2026-06-12): the
@@ -64,7 +70,13 @@ export interface BomEstimate {
    * next to it and turn EXACT when every model is picked.
    */
   sections: {
-    works: { low: number; high: number; bandWidthPct: number }
+    works: {
+      low: number
+      high: number
+      bandWidthPct: number
+      /** Material + make + install — sums to the works range. */
+      breakdown: Record<'material' | 'make' | 'install', { low: number; high: number }>
+    }
     goods: { low: number; high: number; allPicked: boolean }
   }
   currency: 'EUR'
@@ -302,6 +314,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   lineItems.push({
     key: 'boards',
     section: 'works',
+    worksKind: 'material',
     detail: `${doorDecor?.name ?? state.doors.decorCode} (${state.doors.decorCode}/${state.doors.decorStructure}) ${tr('door', 'vrata')} + ${label('cabinetBoxes.carcass', state.cabinetBoxes.carcassMaterial)} ${tr('carcass', 'korpus')}${unitCountSuffix}`,
     quantity: `${totalBoardM2.toFixed(1)} m²`,
     low: round(boardsRange.low),
@@ -330,6 +343,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   lineItems.push({
     key: 'worktop',
     section: 'works',
+    worksKind: 'material',
     detail: `${wtDecor?.name ?? label('worktop.family', state.worktop.family)} ${state.worktop.thicknessMm} mm`,
     quantity: `${state.worktop.totalLengthM.toFixed(2)} m`,
     low: round(wtRange.low),
@@ -356,6 +370,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     lineItems.push({
       key: 'backsplash',
       section: 'works',
+      worksKind: 'material',
       detail: `${label('backsplash.kind', state.backsplash.kind)}, ${state.backsplash.heightCm} cm`,
       quantity: `${state.worktop.totalLengthM.toFixed(2)} m`,
       low: round(bsRange.low),
@@ -374,6 +389,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   lineItems.push({
     key: 'edgeBanding',
     section: 'works',
+    worksKind: 'material',
     detail: tr('ABS edge banding 0.8 mm × 23 mm', 'ABS kantiranje 0,8 mm × 23 mm'),
     quantity: `${edgeM.toFixed(0)} m`,
     low: round(edgeRange.low),
@@ -495,6 +511,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   lineItems.push({
     key: 'hardware',
     section: 'works',
+    worksKind: 'material',
     detail:
       `${tr('Drawers + hinges', 'Ladice + šarke')}, ${tr('tier', 'klasa')}: ${label('hardware.tier', state.hardware.drawerSystemTier)}; ${label('hardware.hinge', state.hardware.hingeType)}` +
       (hwPicked ? ` · ${hwPicked}` : ''),
@@ -508,6 +525,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     lineItems.push({
       key: 'accessories',
       section: 'works',
+      worksKind: 'material',
       detail: tr(
         'Magic corner, larder, trash pullout & similar mechanisms',
         'Magični kut, smočnica, izvlačni koš i slični mehanizmi'
@@ -662,24 +680,28 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     })
   }
 
-  /* 8. Lighting ────────────────────────────────────────────────────────── */
+  /* 8. Lighting ─────────────────────────────────────────────────────────
+     Mid-market component bands (profile + strip + driver per metre; one
+     fixture per pendant). The fixture choice itself stays the homeowner's —
+     a designer pendant blows any band, so the range covers the standard
+     trade catalog, not the long tail. */
   let lightLow = 0
   let lightHigh = 0
   if (state.lighting.underCabinetLed) {
-    lightLow += wallM * 25
-    lightHigh += wallM * 60
+    lightLow += wallM * 30
+    lightHigh += wallM * 55
   }
   if (state.lighting.plinthLed) {
-    lightLow += baseM * 15
-    lightHigh += baseM * 40
+    lightLow += baseM * 18
+    lightHigh += baseM * 38
   }
   if (state.lighting.pendantOverIsland && state.lighting.pendantCount > 0) {
-    lightLow += state.lighting.pendantCount * 80
-    lightHigh += state.lighting.pendantCount * 350
+    lightLow += state.lighting.pendantCount * 110
+    lightHigh += state.lighting.pendantCount * 250
   }
   if (state.lighting.smartControls) {
-    lightLow += 120
-    lightHigh += 350
+    lightLow += 150
+    lightHigh += 300
   }
   if (lightLow > 0) {
     const lightRange = narrowByMeta(lightLow, lightHigh, [
@@ -690,6 +712,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     lineItems.push({
       key: 'lighting',
       section: 'works',
+      worksKind: 'material',
       detail: tr('LED + pendants', 'LED + viseće'),
       quantity: tr('Layered', 'Slojevito'),
       low: round(lightRange.low),
@@ -731,6 +754,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     lineItems.push({
       key: 'finishing',
       section: 'works',
+      worksKind: 'material',
       detail: tr('Plinth, cornice & panels', 'Sokl, vijenac i bočni panel'),
       quantity: `${baseM.toFixed(1)} m`,
       low: round(finRange.low),
@@ -748,6 +772,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   lineItems.push({
     key: 'design',
     section: 'works',
+    worksKind: 'make',
     detail: tr('Design & specification', 'Razrada i projektiranje'),
     quantity: `${designHours} h`,
     low: round(designRange.low),
@@ -760,6 +785,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   lineItems.push({
     key: 'cnc',
     section: 'works',
+    worksKind: 'make',
     detail: tr('CNC machining', 'CNC obrada'),
     quantity: `${cncPositions} ${tr('positions', 'pozicija')}`,
     low: round(cncRange.low),
@@ -771,6 +797,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   lineItems.push({
     key: 'assembly',
     section: 'works',
+    worksKind: 'make',
     detail: tr('Carcass assembly', 'Sklapanje korpusa'),
     quantity: `${carcassCount} ${tr('carcasses', 'korpusa')}`,
     low: round(assemblyRange.low),
@@ -782,6 +809,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   lineItems.push({
     key: 'install',
     section: 'works',
+    worksKind: 'install',
     detail: tr('On-site installation', 'Montaža na licu mjesta'),
     quantity: `${installM.toFixed(1)} m`,
     low: round(installRange.low),
@@ -792,18 +820,26 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     (acc, l) => ({ low: acc.low + l.low, high: acc.high + l.high }),
     { low: 0, high: 0 }
   )
-  const bandWidthPct = total.low > 0 ? Math.round(((total.high - total.low) / total.low) * 100) : 0
+  // Band width relative to the MIDPOINT, so displayed ±(bandWidthPct/2) reads
+  // symmetrically; dividing by `low` overstated the band by ~3 points.
+  const bandPct = (r: { low: number; high: number }) =>
+    r.low + r.high > 0 ? Math.round(((r.high - r.low) / ((r.low + r.high) / 2)) * 100) : 0
+  const bandWidthPct = bandPct(total)
 
   // Homeowner-facing split: the kitchen (works) stays a range — the ±20%
   // promise applies to it; the goods (appliances, sink + tap) ride alongside
   // and collapse to an exact sum once every model is picked.
-  const sum = (section: BomLineItem['section']) =>
+  const sumWhere = (pred: (l: BomLineItem) => boolean) =>
     lineItems
-      .filter((l) => l.section === section)
+      .filter(pred)
       .reduce((acc, l) => ({ low: acc.low + l.low, high: acc.high + l.high }), { low: 0, high: 0 })
-  const works = sum('works')
-  const goods = sum('goods')
+  const works = sumWhere((l) => l.section === 'works')
+  const goods = sumWhere((l) => l.section === 'goods')
   const goodsLines = lineItems.filter((l) => l.section === 'goods')
+  const kind = (k: 'material' | 'make' | 'install') => {
+    const s = sumWhere((l) => l.worksKind === k)
+    return { low: round(s.low), high: round(s.high) }
+  }
 
   return {
     lineItems,
@@ -813,7 +849,8 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
       works: {
         low: round(works.low),
         high: round(works.high),
-        bandWidthPct: works.low > 0 ? Math.round(((works.high - works.low) / works.low) * 100) : 0,
+        bandWidthPct: bandPct(works),
+        breakdown: { material: kind('material'), make: kind('make'), install: kind('install') },
       },
       goods: {
         low: round(goods.low),

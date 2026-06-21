@@ -16,6 +16,7 @@ import { applianceFootprintCm } from '@/lib/contract/layout-contract'
 import type {
   ApplianceSelection,
   BuilderGroupId,
+  BuilderScreenId,
   BuilderState,
   ConfidenceLevel,
   DoorStyle,
@@ -356,6 +357,24 @@ function seedApplianceSelections(
   }
 
   return out
+}
+
+/**
+ * Walking past a screen is an answer: the homeowner saw the prefilled values
+ * and moved on, so every field meta in that group flips to
+ * homeowner-confirmed — `narrowByMeta` then grades the lines it drives as H.
+ * Pure (no reducer dispatch) so BuilderShell can hand the confirmed state to
+ * `onComplete` without racing the last dispatch.
+ */
+export function confirmGroupMetas(state: BuilderState, group: BuilderScreenId): BuilderState {
+  const current = state[group] as { meta?: Record<string, FieldMeta | undefined> }
+  if (!current.meta) return state
+  const meta = Object.fromEntries(
+    Object.entries(current.meta).map(([k, m]) =>
+      m ? [k, { ...m, provenance: 'homeowner-confirmed' as Provenance }] : [k, m]
+    )
+  )
+  return { ...state, [group]: { ...current, meta } }
 }
 
 /* ────────────────────────── Reducer ────────────────────────── */

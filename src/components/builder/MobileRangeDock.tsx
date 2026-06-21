@@ -31,10 +31,10 @@ export function MobileRangeDock({ state }: { state: BuilderState }) {
         </span>
         <span className="flex items-center gap-2">
           <span className="text-sm font-semibold tabular-nums text-foreground">
-            {formatEUR(bom.total.low, locale)} – {formatEUR(bom.total.high, locale)}
+            {formatEUR(bom.sections.works.low, locale)} – {formatEUR(bom.sections.works.high, locale)}
           </span>
           <span className="text-[10px] tabular-nums text-muted-foreground">
-            ±{Math.round(bom.bandWidthPct / 2)}%
+            ±{Math.round(bom.sections.works.bandWidthPct / 2)}%
           </span>
           <ChevronUp
             className={cn(
@@ -62,6 +62,12 @@ export function MobileRangeDock({ state }: { state: BuilderState }) {
               </li>
             ))}
           </ul>
+          <div className="flex items-baseline justify-between gap-3 border-t border-border/50 py-2 text-[12px]">
+            <p className="font-medium text-foreground">{t('builder.shell.bom.totalWithGoods')}</p>
+            <span className="shrink-0 tabular-nums font-semibold text-foreground">
+              {formatEUR(bom.total.low, locale)} – {formatEUR(bom.total.high, locale)}
+            </span>
+          </div>
           <p className="mt-2 text-[10.5px] leading-relaxed text-muted-foreground/80">
             {t('builder.shell.bom.disclaimer')}
           </p>
