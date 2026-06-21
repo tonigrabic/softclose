@@ -1,5 +1,7 @@
 import { hasPlan, planFromProfile, renderFloorPlanSvg, validate } from '@/lib/floor-plan'
 import { buildStubEstimate } from '@/lib/stub-estimate'
+import { computeBom } from '@/lib/builder/bom'
+import type { BuilderState } from '@/lib/builder/inventory'
 import type {
   ClientMessage,
   ConceptRender,
@@ -52,7 +54,20 @@ export async function POST(req: Request) {
       if (found) chosenRender = { ...found, conceptOnly: true as const }
     }
 
-    const estimate = buildStubEstimate(brief)
+    // Prefer the real BOM the homeowner built in Phase 2; fall back to the
+    // budget-band stub only if they never opened the builder.
+    let estimate = buildStubEstimate(brief)
+    if (estimate) estimate.bandPct = 20
+    if (brief.builderState) {
+      const bom = computeBom(brief.builderState as BuilderState)
+      estimate = {
+        low: bom.total.low,
+        high: bom.total.high,
+        basis: `Estimated from your build — ±${Math.round(bom.bandWidthPct / 2)}%. An estimate your maker confirms, never a final quote.`,
+        placeholder: false,
+        bandPct: Math.round(bom.bandWidthPct / 2),
+      }
+    }
 
     const bundle: HandoffBundle = {
       brief,

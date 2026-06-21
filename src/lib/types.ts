@@ -73,6 +73,8 @@ export interface SpaceVisionResult {
   hasIsland?: boolean
   lengthCm?: number
   widthCm?: number
+  /** AI estimate of ceiling height (cm); homeowner confirms. Defaults ~270. */
+  ceilingHeightCm?: number
   wallRuns?: WallRun[]
   windows?: OpeningPosition[]
   doors?: OpeningPosition[]
@@ -266,6 +268,14 @@ export interface LeadProfile {
   conceptRenders?: ConceptRender[]
   conceptRenderChosenId?: string
 
+  /**
+   * Phase-2 builder state — every confirmed component selection plus the
+   * computed BOM + price range. Stored as `unknown` here to avoid pulling the
+   * full builder type tree into LeadProfile; the builder module casts on read.
+   * Set when the homeowner walks through (and finishes) the Builder step.
+   */
+  builderState?: unknown
+
   // ---- Catch-all (also translated)
   additionalNotes?: TranslatedField
 }
@@ -374,7 +384,10 @@ export interface StubEstimate {
   /** Range including appliance supply; null when appliance supply isn't in scope. */
   withAppliances: { low: number; high: number } | null
   basis: string
-  placeholder: true
+  /** True for the budget-band stub; false when derived from the real builder BOM. */
+  placeholder: boolean
+  /** Half-width of the range in percent (e.g. 20 for ±20%), for localized display. */
+  bandPct?: number
 }
 
 /** Shape returned by /api/handoff for the designer-facing pack. */

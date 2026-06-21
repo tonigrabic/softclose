@@ -1,0 +1,144 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`estimate drift — totals per fixture > galley: total range snapshot 1`] = `
+{
+  "confirmedBandPct": 9,
+  "displayedBandPct": 11,
+  "high": 7376,
+  "lines": [
+    "boards",
+    "worktop",
+    "backsplash",
+    "edgeBanding",
+    "hardware",
+    "sinkTaps",
+    "appliances",
+    "lighting",
+    "finishing",
+    "design",
+    "cnc",
+    "assembly",
+    "install",
+  ],
+  "low": 5905,
+}
+`;
+
+exports[`estimate drift — totals per fixture > island: total range snapshot 1`] = `
+{
+  "confirmedBandPct": 8,
+  "displayedBandPct": 11,
+  "high": 5704,
+  "lines": [
+    "boards",
+    "worktop",
+    "backsplash",
+    "edgeBanding",
+    "hardware",
+    "sinkTaps",
+    "appliances",
+    "lighting",
+    "finishing",
+    "design",
+    "cnc",
+    "assembly",
+    "install",
+  ],
+  "low": 4625,
+}
+`;
+
+exports[`estimate drift — totals per fixture > l-shape: total range snapshot 1`] = `
+{
+  "confirmedBandPct": 9,
+  "displayedBandPct": 12,
+  "high": 7661,
+  "lines": [
+    "boards",
+    "worktop",
+    "backsplash",
+    "edgeBanding",
+    "hardware",
+    "sinkTaps",
+    "appliances",
+    "lighting",
+    "finishing",
+    "design",
+    "cnc",
+    "assembly",
+    "install",
+  ],
+  "low": 6093,
+}
+`;
+
+exports[`estimate drift — totals per fixture > peninsula: total range snapshot 1`] = `
+{
+  "confirmedBandPct": 8,
+  "displayedBandPct": 11,
+  "high": 7707,
+  "lines": [
+    "boards",
+    "worktop",
+    "backsplash",
+    "edgeBanding",
+    "hardware",
+    "sinkTaps",
+    "appliances",
+    "lighting",
+    "finishing",
+    "design",
+    "cnc",
+    "assembly",
+    "install",
+  ],
+  "low": 6225,
+}
+`;
+
+exports[`estimate drift — totals per fixture > single: total range snapshot 1`] = `
+{
+  "confirmedBandPct": 8,
+  "displayedBandPct": 12,
+  "high": 3413,
+  "lines": [
+    "boards",
+    "worktop",
+    "backsplash",
+    "edgeBanding",
+    "hardware",
+    "sinkTaps",
+    "lighting",
+    "finishing",
+    "design",
+    "cnc",
+    "assembly",
+    "install",
+  ],
+  "low": 2722,
+}
+`;
+
+exports[`estimate drift — totals per fixture > u-shape: total range snapshot 1`] = `
+{
+  "confirmedBandPct": 9,
+  "displayedBandPct": 11,
+  "high": 10784,
+  "lines": [
+    "boards",
+    "worktop",
+    "backsplash",
+    "edgeBanding",
+    "hardware",
+    "sinkTaps",
+    "appliances",
+    "lighting",
+    "finishing",
+    "design",
+    "cnc",
+    "assembly",
+    "install",
+  ],
+  "low": 8622,
+}
+`;

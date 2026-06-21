@@ -3,12 +3,17 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react'
-import { ProgressBar } from './ProgressBar'
-import { StepsOverview } from './StepsOverview'
+import { JourneyNavRail, journeyPillLabel } from '@/components/JourneyNavRail'
+import { RenderAnchorCard } from '@/components/RenderAnchorCard'
+import { LiveBOMPanel } from '@/components/builder/LiveBOMPanel'
+import { MobileRangeDock } from '@/components/builder/MobileRangeDock'
+import { AppShell } from '@/components/AppShell'
+import { useTranslations, tDynamic, type Locale } from '@/lib/i18n'
 import { SpaceCapture } from './SpaceCapture'
 import { Inspiration } from './Inspiration'
 import { ConceptRender as ConceptRenderUI, type ProductReference } from './ConceptRender'
 import { ConfirmLook } from './ConfirmLook'
+import { LayoutConfirm } from '@/components/builder/LayoutConfirm'
 import { ChipMulti } from './ChipMulti'
 import { VisualScale } from './VisualScale'
 import { ContactForm, type ContactValue } from './ContactForm'
@@ -22,10 +27,15 @@ import {
   prevStepId,
   type FlowStepId,
 } from '@/lib/flow'
-import { derivePrefills } from '@/lib/derive-prefills'
+import { BuilderShell } from '@/components/builder/BuilderShell'
+import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
+import type { BuilderState } from '@/lib/builder/inventory'
+import { derivePrefills, visionPrefilledLook } from '@/lib/derive-prefills'
 import { DESIGNER_NAME } from '@/lib/system-prompt'
 import type { UploadedReference } from './ImageSelect'
 import type { FloorPlan } from '@/lib/floor-plan'
+import { planFromProfile, validate, fromShapePreset } from '@/lib/floor-plan'
+import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import type {
   ClientMessage,
   ConceptRender,
@@ -49,14 +59,6 @@ const TIMELINE_BANDS = [
   { value: '3_6_months', label: '3–6 months', caption: 'Planning' },
   { value: '6_12_months', label: '6–12 months', caption: 'Researching' },
   { value: 'no_rush', label: 'No rush', caption: 'Just exploring' },
-]
-
-const BUDGET_BANDS = [
-  { value: 'under_15k', label: 'Under $15k' },
-  { value: '15k_30k', label: '$15–30k' },
-  { value: '30k_60k', label: '$30–60k' },
-  { value: '60k_plus', label: '$60k+' },
-  { value: 'unsure', label: 'Not sure yet' },
 ]
 
 const SCOPE_OPTIONS = [
@@ -93,9 +95,10 @@ interface IntakeFlowState {
 }
 
 export function KitchenIntake() {
+  const { locale } = useTranslations()
   const [state, setState] = useState<IntakeFlowState>({
-    currentStepId: 'space_photos',
-    visitedSteps: new Set(['space_photos']),
+    currentStepId: 'type',
+    visitedSteps: new Set(['type']),
   })
   const [profile, setProfile] = useState<LeadProfile>({})
   const [transcript, setTranscript] = useState<ClientMessage[]>([])
@@ -129,6 +132,13 @@ export function KitchenIntake() {
   const [dealBreakersText, setDealBreakersText] = useState('')
   const [isTranslating, setIsTranslating] = useState(false)
   const [translateError, setTranslateError] = useState<string | null>(null)
+
+  // Phase-2 Builder state — populated lazily on entry to the builder step.
+  const [builderHypothesis, setBuilderHypothesis] = useState<BuilderHypothesis | null>(null)
+  const [isLoadingHypothesis, setIsLoadingHypothesis] = useState(false)
+  const [hypothesisError, setHypothesisError] = useState<string | null>(null)
+  // True once the user explicitly starts building without the AI suggestion.
+  const [builderStartedNoAI, setBuilderStartedNoAI] = useState(false)
 
   /** Patch the central LeadProfile (replace strategy at top-level keys). */
   function patchProfile(patch: Partial<LeadProfile>) {
@@ -246,13 +256,9 @@ export function KitchenIntake() {
     goNext()
   }
 
-  function commitProjectBasics() {
-    if (!profile.projectType || !profile.timeline) return
-    if (!profile.budgetRange && profile.budgetShared !== false) return
-    logTurn(
-      'user',
-      `Project basics: ${profile.projectType} · ${profile.timeline} · ${profile.budgetRange ?? 'budget tbd'}`
-    )
+  function commitType() {
+    if (!profile.projectType) return
+    logTurn('user', `Project type: ${profile.projectType}`)
     goNext()
   }
 
@@ -334,7 +340,7 @@ export function KitchenIntake() {
     })
     logTurn(
       'user',
-      `Logistics: ${[siteAccess, livingPlan].filter(Boolean).join(' · ') || '(skipped)'}`
+      `Logistics: ${[profile.timeline, siteAccess, livingPlan].filter(Boolean).join(' · ') || '(skipped)'}`
     )
     goNext()
   }
@@ -397,7 +403,7 @@ export function KitchenIntake() {
   }
 
   function resetAll() {
-    setState({ currentStepId: 'space_photos', visitedSteps: new Set(['space_photos']) })
+    setState({ currentStepId: 'type', visitedSteps: new Set(['type']) })
     setProfile({})
     setTranscript([])
     setIsDone(false)
@@ -420,6 +426,9 @@ export function KitchenIntake() {
     setMustHavesText('')
     setNiceToHavesText('')
     setDealBreakersText('')
+    setBuilderHypothesis(null)
+    setHypothesisError(null)
+    setBuilderStartedNoAI(false)
   }
 
   /**
@@ -432,54 +441,187 @@ export function KitchenIntake() {
     patchProfile({ conceptRenderChosenId: id, conceptRenders })
   }
 
+  /**
+   * Fire the builder-hypothesis vision call; the builder mounts when it lands.
+   * Hands the measured layout to the vision call so it reuses our run ids /
+   * lengths instead of inventing its own (context/layout-contract.md).
+   */
+  async function loadHypothesis() {
+    const render = chosenRender
+    if (!render?.imageDataUrl) return
+    setIsLoadingHypothesis(true)
+    setHypothesisError(null)
+    try {
+      const plan = planFromProfile(profile)
+      const layoutContract = plan ? floorPlanToLayout(validate(plan)) : undefined
+      const res = await fetch('/api/builder-hypothesis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ renderImage: render.imageDataUrl, profile, layoutContract }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) throw new Error(data.error ?? `Hypothesis failed (${res.status})`)
+      setBuilderHypothesis(data.hypothesis as BuilderHypothesis)
+    } catch (err) {
+      setHypothesisError(err instanceof Error ? err.message : 'Builder hypothesis failed')
+    } finally {
+      setIsLoadingHypothesis(false)
+    }
+  }
+
   const progress = useMemo(
     () => Math.round(((flowIndex(state.currentStepId) + (isDone ? 1 : 0)) / FLOW.length) * 100),
     [state.currentStepId, isDone]
   )
 
+  // The render the builder anchors to: the explicitly chosen one, else the latest.
+  const chosenRender = chosenRenderId
+    ? conceptRenders.find((r) => r.id === chosenRenderId)
+    : conceptRenders[conceptRenders.length - 1]
+
+  // ── Wrap-up / offer — still inside the one shell: the journey rail stays,
+  // with every act marked done (status visibility to the very last screen).
   if (isDone && wrapUpData) {
     return (
-      <WrapUpScreen
-        data={wrapUpData}
+      <AppShell
+        progressPercent={100}
+        mobilePillLabel={journeyPillLabel({
+          funnelStepId: 'contact',
+          profile,
+          journeyDone: true,
+          locale,
+        })}
+        nav={
+          <>
+            <header className="mb-5 flex items-center justify-between gap-3">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                {DESIGNER_NAME}
+              </p>
+              <button
+                type="button"
+                onClick={resetAll}
+                className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                title="Start over"
+              >
+                <RotateCcw className="size-3 stroke-[2]" aria-hidden />
+                Start over
+              </button>
+            </header>
+            <JourneyNavRail funnelStepId="contact" profile={profile} journeyDone locale={locale} />
+          </>
+        }
+      >
+        <WrapUpScreen
+          data={wrapUpData}
+          profile={profile}
+          explorationRefs={[]}
+          transcript={transcript}
+        />
+      </AppShell>
+    )
+  }
+
+  // ── The builder proper. Mounts once the homeowner actually starts building
+  // (AI hypothesis loaded, explicit "without AI", or a saved build to resume).
+  // BuilderShell renders through the same AppShell internally, so there is no
+  // chrome swap — until then the builder step shows its entry body below, inside
+  // the very same shell as every other step.
+  const builderSavedState = profile.builderState as BuilderState | undefined
+  if (
+    state.currentStepId === 'builder' &&
+    (builderHypothesis || builderStartedNoAI || builderSavedState)
+  ) {
+    // Freeze the Part-1 FloorPlan and project it into the COMPLETE layout
+    // contract the builder seeds from. Always produced (an 'unsure' single-wall
+    // preset when the homeowner somehow reached the builder without a plan) so
+    // the builder never lacks a contract. See context/layout-contract.md.
+    const plan = planFromProfile(profile) ?? fromShapePreset('unsure')
+    const layoutContract = floorPlanToLayout(validate(plan))
+    return (
+      <BuilderShell
+        hypothesis={builderHypothesis}
+        layoutContract={layoutContract}
+        savedState={builderSavedState}
+        renderImageDataUrl={chosenRender?.imageDataUrl}
+        anchorPhotoDataUrl={spacePhotos[0]}
+        layoutSummary={summariseLayoutFromProfile(profile, locale)}
         profile={profile}
-        explorationRefs={[]}
-        transcript={transcript}
+        layoutPreconfirmed
+        onComplete={(builderState) => {
+          patchProfile({ builderState })
+          logTurn(
+            'user',
+            `Builder complete — doors: ${builderState.doors.decorCode}, worktop: ${builderState.worktop.decorCode}`
+          )
+          goNext()
+        }}
       />
     )
   }
 
-  return (
-    <div className="min-h-[100dvh] bg-background text-foreground">
-      <ProgressBar percent={progress} />
-      {/* The sidebar is fixed-positioned so it floats over the layout instead
-          of stealing horizontal space — that way <main> can center on the
-          full viewport via mx-auto, with the sidebar parked on the left
-          regardless of where the centered content lands. */}
-      <aside className="fixed left-0 top-0 z-30 hidden h-dvh w-64 shrink-0 overflow-y-auto px-5 py-10 lg:flex lg:w-72 lg:flex-col lg:px-6">
-        <header className="mb-5 flex items-center justify-between gap-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            {DESIGNER_NAME}
-          </p>
-          {Object.keys(profile).length > 0 && (
-            <button
-              type="button"
-              onClick={resetAll}
-              className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
-              title="Start over"
-            >
-              <RotateCcw className="size-3 stroke-[2]" aria-hidden />
-              Start over
-            </button>
-          )}
-        </header>
-        <StepsOverview
-          currentStepId={state.currentStepId}
-          visitedSteps={state.visitedSteps}
-          profile={profile}
+  // ── Persistent right rail (render anchor + live range), present from the
+  // confirm-look step onward so the right column never appears/disappears as the
+  // homeowner crosses into and back out of the builder. The live range only
+  // shows once the builder has produced a BOM (profile.builderState).
+  const funnelRenderSrc =
+    (chosenRenderId
+      ? conceptRenders.find((r) => r.id === chosenRenderId)?.imageDataUrl
+      : undefined) ??
+    conceptRenders[conceptRenders.length - 1]?.imageDataUrl ??
+    spacePhotos[0]
+  const funnelBuilderState = profile.builderState as BuilderState | undefined
+  const rightRailSteps: FlowStepId[] = [
+    'confirm_look',
+    'builder',
+    'scope',
+    'wishlist',
+    'logistics',
+    'contact',
+  ]
+  const funnelRightRail =
+    rightRailSteps.includes(state.currentStepId) && funnelRenderSrc ? (
+      <div className="flex flex-col gap-5">
+        {funnelBuilderState && <LiveBOMPanel state={funnelBuilderState} />}
+        <RenderAnchorCard
+          src={funnelRenderSrc}
+          summary={summariseLayoutFromProfile(profile, locale)}
+          locale={locale}
         />
-      </aside>
+      </div>
+    ) : undefined
 
-      <main className="mx-auto w-full max-w-3xl px-8 py-14 lg:px-14 lg:py-16">
+  return (
+    <AppShell
+      progressPercent={progress}
+      rightRail={funnelRightRail}
+      mobilePillLabel={journeyPillLabel({ funnelStepId: state.currentStepId, profile, locale })}
+      mobileDock={
+        funnelBuilderState && rightRailSteps.includes(state.currentStepId) ? (
+          <MobileRangeDock state={funnelBuilderState} />
+        ) : undefined
+      }
+      nav={
+        <>
+          <header className="mb-5 flex items-center justify-between gap-3">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              {DESIGNER_NAME}
+            </p>
+            {Object.keys(profile).length > 0 && (
+              <button
+                type="button"
+                onClick={resetAll}
+                className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
+                title="Start over"
+              >
+                <RotateCcw className="size-3 stroke-[2]" aria-hidden />
+                Start over
+              </button>
+            )}
+          </header>
+          <JourneyNavRail funnelStepId={state.currentStepId} profile={profile} locale={locale} />
+        </>
+      }
+    >
           <AnimatePresence mode="wait">
             <motion.section
               key={state.currentStepId}
@@ -489,6 +631,19 @@ export function KitchenIntake() {
               transition={{ duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
               className="space-y-7"
             >
+              {state.currentStepId === 'builder' ? (
+                <BuilderEntryBody
+                  hasRender={Boolean(chosenRender?.imageDataUrl)}
+                  isLoading={isLoadingHypothesis}
+                  error={hypothesisError}
+                  onStartWithAI={() => void loadHypothesis()}
+                  onStartWithoutAI={() => setBuilderStartedNoAI(true)}
+                  onSkip={() => {
+                    logTurn('user', 'Skipped the builder — sending minimal brief.')
+                    goNext()
+                  }}
+                />
+              ) : (
               <StepBody
                 stepId={state.currentStepId}
                 profile={profile}
@@ -535,6 +690,7 @@ export function KitchenIntake() {
                   goNext()
                 }}
               />
+              )}
 
               {translateError && (
                 <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-2.5 text-xs text-destructive">
@@ -564,12 +720,14 @@ export function KitchenIntake() {
               />
             </motion.section>
           </AnimatePresence>
-        </main>
-    </div>
+    </AppShell>
   )
 
   function commitForStep(id: FlowStepId): void {
     switch (id) {
+      case 'type':
+        commitType()
+        break
       case 'space_photos':
         commitSpacePhotos()
         break
@@ -585,8 +743,11 @@ export function KitchenIntake() {
       case 'confirm_look':
         commitConfirmLook()
         break
-      case 'project_basics':
-        commitProjectBasics()
+      case 'builder':
+        // The Builder owns its own continue/back; the footer Continue here
+        // is a "skip the builder" affordance and just advances the outer flow.
+        logTurn('user', 'Skipped the detailed builder — using minimal brief.')
+        goNext()
         break
       case 'scope':
         commitScope()
@@ -686,14 +847,15 @@ function StepBody(props: StepBodyProps) {
     onSpacePhotosSkip,
     onConceptRenderSkip,
   } = props
+  const { t, tDynamic } = useTranslations()
 
   switch (stepId) {
     case 'space_photos':
       return (
         <StepFrame
-          eyebrow="Step 1"
-          title="Snap your kitchen — we&apos;ll read the layout."
-          subtitle="A few wide shots are perfect. We use them to anchor the AI render and pre-fill the floor plan."
+          eyebrow={t('funnel.space_photos.eyebrow')}
+          title={t('funnel.space_photos.title')}
+          subtitle={t('funnel.space_photos.subtitle')}
         >
           <SpaceCapture
             photos={spacePhotos}
@@ -711,9 +873,9 @@ function StepBody(props: StepBodyProps) {
     case 'inspiration':
       return (
         <StepFrame
-          eyebrow="Step 2"
-          title="What feels right?"
-          subtitle="Pick a direction or upload a few inspiration shots. We&apos;ll read what you&apos;re drawn to and pre-fill the rest."
+          eyebrow={t('funnel.inspiration.eyebrow')}
+          title={t('funnel.inspiration.title')}
+          subtitle={t('funnel.inspiration.subtitle')}
         >
           <Inspiration
             selectedStyles={inspirationStyles}
@@ -730,9 +892,9 @@ function StepBody(props: StepBodyProps) {
     case 'concept_render':
       return (
         <StepFrame
-          eyebrow="Step 3"
-          title="A first AI sketch of your space."
-          subtitle="Anchored to your photo. Tap a tweak chip and re-render, or pick this one and move on."
+          eyebrow={t('funnel.concept_render.eyebrow')}
+          title={t('funnel.concept_render.title')}
+          subtitle={t('funnel.concept_render.subtitle')}
         >
           <ConceptRenderUI
             anchorPhotos={spacePhotos}
@@ -750,80 +912,50 @@ function StepBody(props: StepBodyProps) {
         </StepFrame>
       )
 
-    case 'confirm_look':
+    case 'confirm_look': {
+      const confirmPlan = planFromProfile(profile)
+      const confirmContract = confirmPlan ? floorPlanToLayout(validate(confirmPlan)) : null
       return (
         <StepFrame
-          eyebrow="Step 4"
-          title="Confirm the look."
-          subtitle="We&apos;ve pre-filled what we read from your render. Adjust anything that&apos;s off."
+          eyebrow={t('funnel.confirm_look.eyebrow')}
+          title={t('funnel.confirm_look.title')}
+          subtitle={t('funnel.confirm_look.subtitle')}
         >
+          {confirmContract && <LayoutConfirm contract={confirmContract} />}
           <ConfirmLook
             profile={profile}
             onChange={onPatchProfile}
-            hasPrefills={Boolean(
-              inspirationVision || profile.stylePreferences?.length || profile.doorMaterial
-            )}
+            // Vision-only: the banner claims AI prefilled these fields, so the
+            // homeowner's own taps (styles, manual chips) must not trigger it.
+            hasPrefills={visionPrefilledLook(inspirationVision, spaceVision)}
           />
         </StepFrame>
       )
+    }
 
-    case 'project_basics':
+    case 'type':
       return (
         <StepFrame
-          eyebrow="Step 5"
-          title="Project basics."
-          subtitle="What you're after, when, and roughly how much."
+          eyebrow={t('funnel.type.eyebrow')}
+          title={t('funnel.type.title')}
+          subtitle={t('funnel.type.subtitle')}
         >
-          <div className="space-y-7">
-            <div>
-              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Project type
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {PROJECT_TYPE_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => onPatchProfile({ projectType: opt.value })}
-                    className={cn(
-                      'rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all',
-                      profile.projectType === opt.value
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border bg-card hover:border-primary/40'
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Timeline
-              </p>
-              <VisualScale
-                bands={TIMELINE_BANDS}
-                selected={profile.timeline ?? null}
-                onSelect={(v) => onPatchProfile({ timeline: v })}
-                axisCaption="Roughly when?"
-              />
-            </div>
-            <div>
-              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Budget
-              </p>
-              <VisualScale
-                bands={BUDGET_BANDS}
-                selected={profile.budgetRange ?? null}
-                onSelect={(v) =>
-                  onPatchProfile({
-                    budgetRange: v === 'unsure' ? undefined : v,
-                    budgetShared: v !== 'unsure',
-                  })
-                }
-                axisCaption="Roughly how much?"
-              />
-            </div>
+          <div className="flex flex-wrap gap-2">
+            {PROJECT_TYPE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onPatchProfile({ projectType: opt.value })}
+                className={cn(
+                  'rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all',
+                  profile.projectType === opt.value
+                    ? 'border-primary bg-primary text-primary-foreground'
+                    : 'border-border bg-card hover:border-primary/40'
+                )}
+              >
+                {tDynamic(`option.projectType.${opt.value}`)}
+              </button>
+            ))}
           </div>
         </StepFrame>
       )
@@ -831,12 +963,12 @@ function StepBody(props: StepBodyProps) {
     case 'scope':
       return (
         <StepFrame
-          eyebrow="Step 6"
-          title="What's actually being touched?"
-          subtitle="Tap everything in scope. We won't ask about anything you skip."
+          eyebrow={t('funnel.scope.eyebrow')}
+          title={t('funnel.scope.title')}
+          subtitle={t('funnel.scope.subtitle')}
         >
           <ChipMulti
-            options={SCOPE_OPTIONS}
+            options={SCOPE_OPTIONS.map((o) => ({ ...o, label: tDynamic(`option.scope.${o.value}`) }))}
             selected={scopeSelected}
             onToggle={(v) =>
               onScopeChange(
@@ -852,29 +984,29 @@ function StepBody(props: StepBodyProps) {
     case 'wishlist':
       return (
         <StepFrame
-          eyebrow="Step 7"
-          title="In your own words."
-          subtitle="No need to be precise — write the way you think. We'll translate to trade-grade and keep your phrasing for the designer."
+          eyebrow={t('funnel.wishlist.eyebrow')}
+          title={t('funnel.wishlist.title')}
+          subtitle={t('funnel.wishlist.subtitle')}
         >
           <div className="space-y-5">
             <FreeTextField
-              label="Must-haves"
-              hint="Things this kitchen has to do for you."
-              placeholder="e.g. Easy-to-grab pots and pans, big drawers near the stove…"
+              label={t('funnel.wishlist.mustHaves.label')}
+              hint={t('funnel.wishlist.mustHaves.hint')}
+              placeholder={t('funnel.wishlist.mustHaves.placeholder')}
               value={mustHavesText}
               onChange={onMustHavesTextChange}
             />
             <FreeTextField
-              label="Nice-to-haves"
-              hint="Bonus points if we can fit it."
-              placeholder="e.g. A coffee station, more outlets along the counter…"
+              label={t('funnel.wishlist.niceToHaves.label')}
+              hint={t('funnel.wishlist.niceToHaves.hint')}
+              placeholder={t('funnel.wishlist.niceToHaves.placeholder')}
               value={niceToHavesText}
               onChange={onNiceToHavesTextChange}
             />
             <FreeTextField
-              label="Deal-breakers"
-              hint="Anything you do NOT want."
-              placeholder="e.g. Open shelving, dark countertops…"
+              label={t('funnel.wishlist.dealBreakers.label')}
+              hint={t('funnel.wishlist.dealBreakers.hint')}
+              placeholder={t('funnel.wishlist.dealBreakers.placeholder')}
               value={dealBreakersText}
               onChange={onDealBreakersTextChange}
             />
@@ -885,14 +1017,29 @@ function StepBody(props: StepBodyProps) {
     case 'logistics':
       return (
         <StepFrame
-          eyebrow="Step 8"
-          title="Logistics."
-          subtitle="A couple of practical things so the maker can plan around your life."
+          eyebrow={t('funnel.logistics.eyebrow')}
+          title={t('funnel.logistics.title')}
+          subtitle={t('funnel.logistics.subtitle')}
         >
           <div className="space-y-7">
             <div>
               <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Site access
+                {t('funnel.field.timeline')}
+              </p>
+              <VisualScale
+                bands={TIMELINE_BANDS.map((b) => ({
+                  ...b,
+                  label: tDynamic(`option.timeline.${b.value}`),
+                  caption: tDynamic(`option.timeline.${b.value}.caption`),
+                }))}
+                selected={profile.timeline ?? null}
+                onSelect={(v) => onPatchProfile({ timeline: v })}
+                axisCaption={t('funnel.field.timelineAxis')}
+              />
+            </div>
+            <div>
+              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                {t('funnel.field.siteAccess')}
               </p>
               <div className="flex flex-wrap gap-2">
                 {SITE_ACCESS_OPTIONS.map((opt) => (
@@ -909,14 +1056,14 @@ function StepBody(props: StepBodyProps) {
                         : 'border-border bg-card hover:border-primary/40'
                     )}
                   >
-                    {opt.label}
+                    {tDynamic(`option.siteAccess.${opt.value}`)}
                   </button>
                 ))}
               </div>
             </div>
             <div>
               <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Where will you live during the build?
+                {t('funnel.field.living')}
               </p>
               <div className="flex flex-wrap gap-2">
                 {LIVING_OPTIONS.map((opt) => (
@@ -933,7 +1080,7 @@ function StepBody(props: StepBodyProps) {
                         : 'border-border bg-card hover:border-primary/40'
                     )}
                   >
-                    {opt.label}
+                    {tDynamic(`option.living.${opt.value}`)}
                   </button>
                 ))}
               </div>
@@ -945,9 +1092,9 @@ function StepBody(props: StepBodyProps) {
     case 'contact':
       return (
         <StepFrame
-          eyebrow="Last step"
-          title="Where should the designer reach you?"
-          subtitle="We&apos;ll only use this for your project conversation."
+          eyebrow={t('funnel.contact.eyebrow')}
+          title={t('funnel.contact.title')}
+          subtitle={t('funnel.contact.subtitle')}
         >
           <ContactForm value={contactDraft} onChange={onContactDraftChange} />
         </StepFrame>
@@ -1039,18 +1186,21 @@ function FooterNav({
   hasContactDraft: boolean
   scopeCount: number
 }) {
+  const { t } = useTranslations()
   // Per-step continue gating + label.
-  const ctaLabel = (() => {
-    if (stepId === 'contact') return 'Send to designer'
-    return 'Continue'
-  })()
+  const ctaLabel = stepId === 'contact' ? t('nav.send') : t('nav.continue')
 
   const canContinue = (() => {
     switch (stepId) {
+      case 'type':
+        return Boolean(profile.projectType)
       case 'space_photos':
         // SpaceCapture handles its own internal "Confirm" button when a vision result
         // is ready. The footer Continue is a "skip and move on" — always enabled.
         return true
+      case 'builder':
+        // The entry body owns its CTAs (begin / skip); no footer Continue.
+        return false
       case 'inspiration':
         return hasInspirationInput
       case 'concept_render':
@@ -1063,18 +1213,14 @@ function FooterNav({
             profile.backsplashPreference ||
             profile.hardwareTier
         )
-      case 'project_basics':
-        return Boolean(
-          profile.projectType &&
-            profile.timeline &&
-            (profile.budgetRange || profile.budgetShared === false)
-        )
       case 'scope':
         return scopeCount > 0
       case 'wishlist':
         return true
       case 'logistics':
-        return true
+        // Timeline moved here from the old project-basics step; it's the one
+        // piece the maker can't plan without.
+        return Boolean(profile.timeline)
       case 'contact':
         return hasContactDraft
     }
@@ -1097,33 +1243,139 @@ function FooterNav({
         )}
       >
         <ArrowLeft className="size-3.5 stroke-[2]" aria-hidden />
-        Back
+        {t('nav.back')}
       </button>
-      <button
-        type="button"
-        onClick={onContinue}
-        disabled={!canContinue || isBusy}
-        className={cn(
-          'inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[13px] font-semibold transition-all',
-          canContinue && !isBusy
-            ? 'bg-foreground text-background shadow-sm hover:brightness-110'
-            : 'cursor-not-allowed bg-muted text-muted-foreground'
-        )}
-      >
-        {isBusy ? (
-          <>
-            <span className="inline-block size-1.5 animate-pulse rounded-full bg-background/80" />
-            Working…
-          </>
-        ) : (
-          <>
-            {isSpaceStep ? 'Skip' : ctaLabel}
-            <ArrowRight className="size-3.5 stroke-[2]" aria-hidden />
-          </>
-        )}
-      </button>
+      {stepId !== 'builder' && (
+        <button
+          type="button"
+          onClick={onContinue}
+          disabled={!canContinue || isBusy}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[13px] font-semibold transition-all',
+            canContinue && !isBusy
+              ? 'bg-foreground text-background shadow-sm hover:brightness-110'
+              : 'cursor-not-allowed bg-muted text-muted-foreground'
+          )}
+        >
+          {isBusy ? (
+            <>
+              <span className="inline-block size-1.5 animate-pulse rounded-full bg-background/80" />
+              {t('nav.working')}
+            </>
+          ) : (
+            <>
+              {isSpaceStep ? t('nav.skip') : ctaLabel}
+              <ArrowRight className="size-3.5 stroke-[2]" aria-hidden />
+            </>
+          )}
+        </button>
+      )}
     </div>
   )
+}
+
+/**
+ * The builder step's entry body — rendered INSIDE the shared AppShell (same
+ * nav, progress and right rail as every other step; no chrome swap). Idle:
+ * introduce the builder + CTAs. Loading: dots while the vision pass runs.
+ * Once the hypothesis lands (or the user starts without it / has a saved
+ * build), the parent mounts BuilderShell instead.
+ */
+function BuilderEntryBody({
+  hasRender,
+  isLoading,
+  error,
+  onStartWithAI,
+  onStartWithoutAI,
+  onSkip,
+}: {
+  hasRender: boolean
+  isLoading: boolean
+  error: string | null
+  onStartWithAI: () => void
+  onStartWithoutAI: () => void
+  onSkip: () => void
+}) {
+  const { t, tDynamic: td } = useTranslations()
+  return (
+    <StepFrame
+      eyebrow={td('journey.act.build')}
+      title={t('funnel.builderEntry.title')}
+      subtitle={t('funnel.builderEntry.subtitle')}
+    >
+      <div className="space-y-6">
+        {error && (
+          <p className="max-w-prose rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
+            {error}
+          </p>
+        )}
+
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <button
+            type="button"
+            onClick={hasRender ? onStartWithAI : onStartWithoutAI}
+            disabled={isLoading}
+            className={cn(
+              'inline-flex items-center justify-center gap-2 rounded-2xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-md transition-all',
+              isLoading ? 'opacity-70' : 'hover:brightness-[1.06]'
+            )}
+          >
+            {isLoading ? (
+              <>
+                <span className="inline-block size-1.5 animate-pulse rounded-full bg-primary-foreground/80" />
+                {t('funnel.builderEntry.loading')}
+              </>
+            ) : hasRender ? (
+              <>{t('funnel.builderEntry.ctaWithAI')}</>
+            ) : (
+              <>{t('funnel.builderEntry.cta')}</>
+            )}
+          </button>
+          {hasRender && (
+            <button
+              type="button"
+              onClick={onStartWithoutAI}
+              disabled={isLoading}
+              className={cn(
+                'rounded-2xl border border-border bg-card px-5 py-3 text-sm font-medium text-muted-foreground transition-colors',
+                !isLoading && 'hover:text-foreground'
+              )}
+            >
+              {t('funnel.builderEntry.noAI')}
+            </button>
+          )}
+        </div>
+
+        <button
+          type="button"
+          onClick={onSkip}
+          disabled={isLoading}
+          className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {t('funnel.builderEntry.skip')}
+        </button>
+      </div>
+    </StepFrame>
+  )
+}
+
+/**
+ * Render a one-line summary of the room (shape + key dimensions) using only
+ * Phase-1 captures. Surfaced under the Builder's persistent preview so the
+ * user always sees the room context without needing to re-edit it.
+ */
+function summariseLayoutFromProfile(p: LeadProfile, locale: Locale): string | undefined {
+  const shape = p.layoutShape ?? p.spaceVisionResult?.layoutShape
+  const length = p.spaceLengthCm ?? p.spaceVisionResult?.lengthCm
+  const width = p.spaceWidthCm ?? p.spaceVisionResult?.widthCm
+  const parts: string[] = []
+  if (shape && shape !== 'unsure') {
+    parts.push(tDynamic(`layout.shape.${shape}`, locale))
+  }
+  if (length && width) parts.push(`${length} × ${width} cm`)
+  else if (length) parts.push(`${length} cm`)
+  if (p.hasIsland) parts.push(tDynamic('layout.suffix.island', locale))
+  return parts.length > 0 ? parts.join(' · ') : undefined
 }
 
 function buildFallbackSummary(profile: LeadProfile): string[] {

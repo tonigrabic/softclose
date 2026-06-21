@@ -12,6 +12,7 @@ import {
 import { STYLE_OPTIONS } from '@/lib/style-options'
 import type { LeadProfile, SelectOption } from '@/lib/types'
 import { cn } from '@/lib/utils'
+import { useTranslations } from '@/lib/i18n'
 
 interface ConfirmLookProps {
   profile: LeadProfile
@@ -32,6 +33,7 @@ interface ConfirmLookProps {
  * suggestion came from.
  */
 export function ConfirmLook({ profile, onChange, hasPrefills }: ConfirmLookProps) {
+  const { t } = useTranslations()
   return (
     <div className="space-y-7">
       {hasPrefills && (
@@ -41,15 +43,13 @@ export function ConfirmLook({ profile, onChange, hasPrefills }: ConfirmLookProps
           className="flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2.5 text-xs"
         >
           <Sparkles className="mt-0.5 size-3.5 shrink-0 text-primary" aria-hidden />
-          <p className="leading-relaxed text-foreground/85">
-            We pre-selected what we read from your inspiration. Tap any chip to change it.
-          </p>
+          <p className="leading-relaxed text-foreground/85">{t('confirmLook.prefillBanner')}</p>
         </motion.div>
       )}
 
       <ChipRow
-        label="Style direction"
-        helpText="What overall feel are you after? You can pick more than one."
+        label={t('confirmLook.style.label')}
+        helpText={t('confirmLook.style.help')}
         options={STYLE_OPTIONS}
         selected={profile.stylePreferences ?? []}
         onToggle={(v) =>
@@ -61,16 +61,16 @@ export function ConfirmLook({ profile, onChange, hasPrefills }: ConfirmLookProps
       />
 
       <ChipRow
-        label="Door / drawer fronts"
-        helpText="The cabinet face style."
+        label={t('confirmLook.door.label')}
+        helpText={t('confirmLook.door.help')}
         options={DOOR_MATERIAL_OPTIONS}
         selected={profile.doorMaterial ? [profile.doorMaterial] : []}
         onToggle={(v) => onChange({ doorMaterial: profile.doorMaterial === v ? undefined : v })}
       />
 
       <ChipRow
-        label="Worktop / countertop"
-        helpText="The work surface."
+        label={t('confirmLook.worktop.label')}
+        helpText={t('confirmLook.worktop.help')}
         options={WORKTOP_OPTIONS}
         selected={profile.worktopPreference ? [profile.worktopPreference] : []}
         onToggle={(v) =>
@@ -79,8 +79,8 @@ export function ConfirmLook({ profile, onChange, hasPrefills }: ConfirmLookProps
       />
 
       <ChipRow
-        label="Backsplash"
-        helpText="What sits behind the worktop."
+        label={t('confirmLook.backsplash.label')}
+        helpText={t('confirmLook.backsplash.help')}
         options={BACKSPLASH_OPTIONS}
         selected={profile.backsplashPreference ? [profile.backsplashPreference] : []}
         onToggle={(v) =>
@@ -89,8 +89,8 @@ export function ConfirmLook({ profile, onChange, hasPrefills }: ConfirmLookProps
       />
 
       <ChipRow
-        label="Hardware / metals"
-        helpText="The pulls, knobs, and tap finish."
+        label={t('confirmLook.hardware.label')}
+        helpText={t('confirmLook.hardware.help')}
         options={HARDWARE_OPTIONS}
         selected={profile.hardwareTier ? [profile.hardwareTier] : []}
         onToggle={(v) => onChange({ hardwareTier: profile.hardwareTier === v ? undefined : v })}
@@ -119,6 +119,7 @@ function ChipRow({
   onToggle: (v: string) => void
   multiSelect?: boolean
 }) {
+  const { t } = useTranslations()
   const [expanded, setExpanded] = useState(false)
   const hasSelection = selected.length > 0
   // Show 5 by default, full list if expanded.
@@ -136,11 +137,11 @@ function ChipRow({
         <h3 className="text-[15px] font-semibold text-foreground">{label}</h3>
         {hasSelection ? (
           <span className="text-[10px] font-medium uppercase tracking-wider text-primary/80">
-            {selected.length} selected
+            {selected.length} {t('confirmLook.selected')}
           </span>
         ) : (
           <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground/70">
-            {multiSelect ? 'Pick any' : 'Pick one'}
+            {multiSelect ? t('confirmLook.pickAny') : t('confirmLook.pickOne')}
           </span>
         )}
       </div>
@@ -174,7 +175,7 @@ function ChipRow({
             className="rounded-full border border-dashed border-border px-3 py-1.5 text-[12px] font-medium text-muted-foreground hover:border-primary/40 hover:text-foreground"
           >
             <ChevronDown className="mr-0.5 inline size-3 stroke-[2]" aria-hidden />
-            More options
+            {t('confirmLook.moreOptions')}
           </button>
         )}
       </div>

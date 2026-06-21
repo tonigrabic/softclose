@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Camera, Sparkles, AlertCircle, RotateCcw, Check, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslations } from '@/lib/i18n'
 import { fromVision } from '@/lib/floor-plan'
 import type { FloorPlan } from '@/lib/floor-plan'
 import { FloorPlanEditor, ShapePicker } from './floor-plan-editor'
@@ -48,6 +49,7 @@ export function SpaceCapture({
   onSkip,
   onConfirm,
 }: SpaceCaptureProps) {
+  const { t } = useTranslations()
   const inputRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -83,7 +85,7 @@ export function SpaceCapture({
     setError(null)
     const valid = accepted.filter((f) => {
       if (f.size > MAX_BYTES_PER_PHOTO) {
-        setError(`"${f.name}" is over 5MB — please pick a smaller photo.`)
+        setError(`"${f.name}" ${t('space.error.tooLarge')}`)
         return false
       }
       return true
@@ -124,7 +126,7 @@ export function SpaceCapture({
       }
       onVisionResult(data.result as SpaceVisionResult)
     } catch (err) {
-      setAnalyzeError(err instanceof Error ? err.message : 'Could not analyze photos')
+      setAnalyzeError(err instanceof Error ? err.message : t('space.error.analyzeFailed'))
     } finally {
       setIsAnalyzing(false)
     }
@@ -142,9 +144,7 @@ export function SpaceCapture({
   return (
     <div className="space-y-5">
       {phase !== 'editing' && (
-        <p className="text-sm text-muted-foreground">
-          Three or four wide shots of your current kitchen — corner-to-corner is ideal. Snap them now or upload from your camera roll.
-        </p>
+        <p className="text-sm text-muted-foreground">{t('space.intro')}</p>
       )}
 
       {phase === 'awaiting' && (
@@ -182,11 +182,11 @@ export function SpaceCapture({
               <Camera className="size-6 stroke-[1.5]" aria-hidden />
             </div>
             <div className="text-center">
-              <p className="text-base font-semibold text-foreground">Add photos of your space</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">Tap or drag in — JPG, PNG, HEIC up to 5MB each</p>
+              <p className="text-base font-semibold text-foreground">{t('space.dropTitle')}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{t('space.dropHint')}</p>
             </div>
             <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground/80">
-              Up to {MAX_PHOTOS} photos
+              {t('space.upTo')}
             </p>
           </div>
 
@@ -197,7 +197,7 @@ export function SpaceCapture({
               className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent/40"
             >
               <Camera className="size-3.5 stroke-[1.75]" aria-hidden />
-              Take photo
+              {t('space.takePhoto')}
             </button>
             <button
               type="button"
@@ -205,14 +205,14 @@ export function SpaceCapture({
               className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent/40"
             >
               <Pencil className="size-3.5 stroke-[1.75]" aria-hidden />
-              Describe instead
+              {t('space.describeInstead')}
             </button>
             <button
               type="button"
               onClick={onSkip}
               className="flex-1 rounded-xl border border-transparent bg-transparent py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
             >
-              Skip
+              {t('nav.skip')}
             </button>
           </div>
 
@@ -251,7 +251,7 @@ export function SpaceCapture({
                   removePhoto(i)
                 }}
                 className="absolute right-1 top-1 flex size-5 items-center justify-center rounded-full bg-foreground/80 text-background opacity-0 shadow-sm transition-all group-hover:opacity-100"
-                aria-label="Remove photo"
+                aria-label={t('space.removePhoto')}
               >
                 ×
               </button>
@@ -267,7 +267,7 @@ export function SpaceCapture({
           className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:brightness-[1.06]"
         >
           <Sparkles className="size-4 stroke-[1.75]" aria-hidden />
-          Read my space ({photos.length} photo{photos.length > 1 ? 's' : ''})
+          {t('space.read')} ({photos.length})
         </button>
       )}
 
@@ -292,10 +292,8 @@ export function SpaceCapture({
                 />
               ))}
             </div>
-            <p className="text-sm font-medium text-foreground">Reading your kitchen…</p>
-            <p className="text-xs text-muted-foreground">
-              Pulling out layout, openings, sink and hob positions, style and material hints.
-            </p>
+            <p className="text-sm font-medium text-foreground">{t('space.analyzing.title')}</p>
+            <p className="text-xs text-muted-foreground">{t('space.analyzing.detail')}</p>
           </motion.div>
         )}
       </AnimatePresence>
@@ -304,9 +302,7 @@ export function SpaceCapture({
         <div className="space-y-3 rounded-2xl border border-amber-300/50 bg-amber-50/60 px-4 py-4 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
           <div className="flex items-start gap-2">
             <AlertCircle className="mt-0.5 size-4 shrink-0 stroke-[1.75]" aria-hidden />
-            <p className="text-sm leading-relaxed">
-              Hmm — these don&apos;t look like a kitchen. Re-upload, describe the shape instead, or skip and your designer will measure on site.
-            </p>
+            <p className="text-sm leading-relaxed">{t('space.rejected.message')}</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -315,7 +311,7 @@ export function SpaceCapture({
               className="flex-1 rounded-lg border border-border bg-card py-2 text-xs font-semibold text-foreground hover:bg-accent/40"
             >
               <RotateCcw className="-mt-0.5 mr-1 inline size-3.5 stroke-[1.75]" aria-hidden />
-              Re-upload
+              {t('space.reupload')}
             </button>
             <button
               type="button"
@@ -326,14 +322,14 @@ export function SpaceCapture({
               className="flex-1 rounded-lg border border-border bg-card py-2 text-xs font-semibold text-foreground hover:bg-accent/40"
             >
               <Pencil className="-mt-0.5 mr-1 inline size-3.5 stroke-[1.75]" aria-hidden />
-              Describe instead
+              {t('space.describeInstead')}
             </button>
             <button
               type="button"
               onClick={onSkip}
               className="flex-1 rounded-lg py-2 text-xs font-semibold text-muted-foreground hover:text-foreground"
             >
-              Skip for now
+              {t('space.skipForNow')}
             </button>
           </div>
         </div>
@@ -352,7 +348,7 @@ export function SpaceCapture({
             onClick={() => setShowShapePicker(false)}
             className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
           >
-            ← Back to upload
+            {t('space.backToUpload')}
           </button>
         </div>
       )}
@@ -361,19 +357,19 @@ export function SpaceCapture({
         <div className="space-y-4">
           <div className="flex items-baseline justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Your space — drag, type, fix what&apos;s off
+              {t('space.editor.title')}
             </p>
             <button
               type="button"
               onClick={startOver}
               className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
             >
-              Start over
+              {t('space.startOver')}
             </button>
           </div>
           {visionResult?.summary && (
             <p className="rounded-xl border border-border bg-card/60 px-3 py-2 text-sm text-foreground">
-              <span className="mr-1.5 font-medium text-muted-foreground">AI read:</span>
+              <span className="mr-1.5 font-medium text-muted-foreground">{t('space.aiRead')}</span>
               {visionResult.summary}
             </p>
           )}
@@ -382,13 +378,42 @@ export function SpaceCapture({
             anchorPhotoUrl={photos[0]}
             onChange={onFloorPlanChange}
           />
+          {/* Ceiling height — AI estimate or homeowner-set; drives tall-unit material. */}
+          <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/60 px-4 py-3">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-foreground">{t('space.ceiling.title')}</p>
+              <p className="text-[11px] text-muted-foreground">
+                {floorPlan.ceilingHeightCm ? t('space.ceiling.aiEstimate') : t('space.ceiling.prompt')}
+              </p>
+            </div>
+            <div className="flex items-center overflow-hidden rounded-lg border border-border bg-background focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/20">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={220}
+                max={360}
+                placeholder="280"
+                value={floorPlan.ceilingHeightCm ?? ''}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10)
+                  onFloorPlanChange({
+                    ...floorPlan,
+                    ceilingHeightCm:
+                      Number.isFinite(n) && n > 0 ? Math.max(220, Math.min(360, n)) : undefined,
+                  })
+                }}
+                className="w-20 bg-transparent px-2.5 py-1.5 text-right text-[13px] tabular-nums text-foreground placeholder:text-muted-foreground/40 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+              />
+              <span className="shrink-0 pr-2.5 text-[11px] text-muted-foreground/60">cm</span>
+            </div>
+          </div>
           <button
             type="button"
             onClick={onConfirm}
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:brightness-[1.06]"
           >
             <Check className="size-4 stroke-[1.75]" aria-hidden />
-            Looks right — continue
+            {t('space.looksRight')}
           </button>
         </div>
       )}
@@ -402,7 +427,7 @@ export function SpaceCapture({
               onClick={analyze}
               className="rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground"
             >
-              Try again
+              {t('space.tryAgain')}
             </button>
             <button
               type="button"
@@ -412,14 +437,14 @@ export function SpaceCapture({
               }}
               className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent/40"
             >
-              Describe instead
+              {t('space.describeInstead')}
             </button>
             <button
               type="button"
               onClick={onSkip}
               className="rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
             >
-              Skip
+              {t('nav.skip')}
             </button>
           </div>
         </div>

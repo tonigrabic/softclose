@@ -12,11 +12,12 @@
  */
 
 export type FlowStepId =
+  | 'type'
   | 'space_photos'
   | 'inspiration'
   | 'concept_render'
   | 'confirm_look'
-  | 'project_basics'
+  | 'builder'
   | 'scope'
   | 'wishlist'
   | 'logistics'
@@ -29,10 +30,19 @@ export interface FlowStepMeta {
   /** One-line description of what's being captured here. */
   why: string
   /** Group label for the sidebar — keeps scrollable list bucketed visually. */
-  group: 'space' | 'look' | 'details' | 'finish'
+  group: 'space' | 'look' | 'build' | 'details' | 'finish'
 }
 
 export const FLOW: FlowStepMeta[] = [
+  // `type` opens Act 1 — "what are we doing" frames the whole flow
+  // (handoff/IMPLEMENTATION.md §1; the timeline half of the old
+  // project-basics step lives with logistics in Act 3).
+  {
+    id: 'type',
+    label: 'Project type',
+    why: "What we're doing — it frames everything else.",
+    group: 'space',
+  },
   {
     id: 'space_photos',
     label: 'Your space',
@@ -58,27 +68,31 @@ export const FLOW: FlowStepMeta[] = [
     group: 'look',
   },
   {
-    id: 'project_basics',
-    label: 'Project basics',
-    why: 'Type, timeline, budget.',
-    group: 'details',
+    id: 'builder',
+    label: 'Build it out',
+    why: 'Pick every component and see a live cost range.',
+    group: 'build',
   },
+  // scope + wishlist live INSIDE the Build act — they shape the kitchen and
+  // move the price, so they belong with the live range, not after it.
   {
     id: 'scope',
     label: 'Scope of work',
     why: "What's actually being touched in this project.",
-    group: 'details',
+    group: 'build',
   },
   {
     id: 'wishlist',
     label: 'Wishlist',
-    why: "Must-haves and deal-breakers in your own words.",
-    group: 'details',
+    why: 'Must-haves and deal-breakers in your own words.',
+    group: 'build',
   },
+  // Close: a few practicalities (incl. the timeline), then contact. No
+  // up-front budget — the live range is the budget conversation.
   {
     id: 'logistics',
     label: 'Logistics',
-    why: 'Site access, living arrangement, phasing.',
+    why: 'Rough timing, site access, living arrangement.',
     group: 'details',
   },
   {

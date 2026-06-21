@@ -35,6 +35,12 @@ const visionResultSchema = z.object({
     .max(1200)
     .optional()
     .describe('Rough shorter-run length in cm. Clamp to [100, 1200].'),
+  ceilingHeightCm: z
+    .number()
+    .min(220)
+    .max(360)
+    .optional()
+    .describe('Rough ceiling height in cm (door tops ≈ 200–210; standard ceiling ≈ 250–280). Only if you can judge it.'),
   wallRuns: z
     .array(
       z.object({
