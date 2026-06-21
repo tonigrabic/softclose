@@ -46,8 +46,10 @@ describe('maker handoff — estimate comes from the real build', () => {
     const bundle = await res.json()
 
     expect(bundle.estimate.placeholder).toBe(false)
-    expect(bundle.estimate.low).toBe(bom.total.low)
-    expect(bundle.estimate.high).toBe(bom.total.high)
+    // Headline is kitchen-only (works); the all-in figure rides in withAppliances.
+    expect(bundle.estimate.low).toBe(bom.sections.works.low)
+    expect(bundle.estimate.high).toBe(bom.sections.works.high)
+    expect(bundle.estimate.withAppliances).toEqual({ low: bom.total.low, high: bom.total.high })
     // The promise survives the handoff seam too.
     expect(bundle.estimate.bandPct).toBeLessThanOrEqual(20)
   })
