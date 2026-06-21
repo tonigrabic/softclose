@@ -529,6 +529,10 @@ export const hrHR = {
   'space.editor.title': 'Tvoj prostor — povuci, upiši, popravi što ne valja',
   'space.startOver': 'Počni ispočetka',
   'space.aiRead': 'AI čita:',
+  'space.captured.title': 'Snimili smo tvoj prostor',
+  'space.captured.note':
+    'Tlocrt ćemo složiti iz tvoje AI vizualizacije i pokazati ti ga na potvrdu — fotografije služe kao mjerilo.',
+  'layoutReview.loading': 'Iščitavam raspored iz tvoje vizualizacije…',
   'space.ceiling.title': 'Visina stropa',
   'space.ceiling.aiEstimate': 'AI procjena — ispravi ako treba',
   'space.ceiling.prompt': 'Otprilike koliko je visok prostor?',

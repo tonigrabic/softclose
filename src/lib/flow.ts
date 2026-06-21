@@ -63,8 +63,8 @@ export const FLOW: FlowStepMeta[] = [
   },
   {
     id: 'confirm_look',
-    label: 'Confirm the look',
-    why: 'Best guesses pulled from your render — adjust anything.',
+    label: 'Confirm layout & look',
+    why: 'The layout we read from your render — adjust it, then confirm.',
     group: 'look',
   },
   {

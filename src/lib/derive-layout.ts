@@ -1,0 +1,69 @@
+/**
+ * Hybrid layout derivation — the seam for "derive the layout from the AI render".
+ *
+ * Product decision (2026-06-21): the kitchen we PRICE is the AI-generated
+ * design, so its layout should come from the render — but an AI image has no
+ * true scale, and the render is img2img-anchored to the homeowner's photo, so
+ * the room SHELL (dimensions, openings) is the photo's. We therefore MERGE:
+ *
+ *   scale + shell (lengthCm, widthCm, windows, doors, existing features)
+ *       ← the original space photos  (`/api/space-vision`, the only true cm scale)
+ *   configuration (shape, island)
+ *       ← the generated render       (`/api/builder-hypothesis` → layout)
+ *
+ * The homeowner then confirms/edits the proposed plan in the editor before it
+ * is frozen into the contract — so a render mis-read is always correctable.
+ *
+ * Pure functions, no AI calls — easy to unit-test.
+ */
+import type { SpaceVisionResult } from '@/lib/types'
+import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
+import { fromVision, type FloorPlan, type LayoutShape } from '@/lib/floor-plan'
+
+/**
+ * Overlay the render's layout configuration onto the photo's scale + shell,
+ * producing a single `SpaceVisionResult` ready for `fromVision`.
+ *
+ * - With no render layout, returns the photo vision unchanged (legacy path).
+ * - Shape + island come from the render when it read them; everything else
+ *   (dimensions, windows, doors, feature positions) stays the photo's.
+ */
+export function spaceVisionWithRenderLayout(
+  photoVision: SpaceVisionResult | null | undefined,
+  hypothesis: BuilderHypothesis | null | undefined
+): SpaceVisionResult | null {
+  const renderLayout = hypothesis?.layout
+  if (!renderLayout) return photoVision ?? null
+
+  // Base on the photo read (scale + shell). When there were no photos we still
+  // synthesise a minimal result so the render's shape drives a preset-sized plan.
+  const base: SpaceVisionResult = photoVision
+    ? { ...photoVision }
+    : { lookedLikeKitchen: true }
+
+  const renderShape = renderLayout.shape?.value
+  if (renderShape && renderShape !== 'unsure') {
+    base.layoutShape = renderShape as LayoutShape
+  }
+  if (typeof renderLayout.hasIsland?.value === 'boolean') {
+    base.hasIsland = renderLayout.hasIsland.value
+  }
+  // Ceiling height: the photo read wins (it can anchor to references); fall
+  // back to the render's guess only when the photo didn't capture one.
+  if (base.ceilingHeightCm == null && renderLayout.ceilingHeightCm?.value) {
+    base.ceilingHeightCm = renderLayout.ceilingHeightCm.value
+  }
+  return base
+}
+
+/**
+ * Build the proposed `FloorPlan` for the post-render "Confirm layout & look"
+ * step: render configuration over photo scale, through the single `fromVision`
+ * constructor (so there is still exactly one FloorPlan-construction path).
+ */
+export function renderDerivedFloorPlan(
+  photoVision: SpaceVisionResult | null | undefined,
+  hypothesis: BuilderHypothesis | null | undefined
+): FloorPlan {
+  return fromVision(spaceVisionWithRenderLayout(photoVision, hypothesis))
+}

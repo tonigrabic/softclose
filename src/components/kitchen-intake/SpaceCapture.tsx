@@ -21,14 +21,21 @@ interface SpaceCaptureProps {
   /**
    * Confirmed cm-based floor plan. Persists across step navigation so Back
    * preserves edits. Seeded from vision (or a shape preset) the moment the
-   * homeowner enters the editor.
+   * homeowner enters the editor. Unused in `captureOnly` mode.
    */
-  floorPlan: FloorPlan | null
-  onFloorPlanChange: (plan: FloorPlan | null) => void
+  floorPlan?: FloorPlan | null
+  onFloorPlanChange?: (plan: FloorPlan | null) => void
   /** Notifies parent when the user explicitly skips this step. */
   onSkip: () => void
-  /** Notifies parent when the user wants to confirm and continue. */
-  onConfirm: () => void
+  /** Notifies parent when the user wants to confirm and continue. Full mode only. */
+  onConfirm?: () => void
+  /**
+   * Anchor-only mode (the post-merge step 1): capture photos + read the space
+   * for SCALE, but do NOT build/confirm the floor plan here. The layout is
+   * derived from the AI render and confirmed later (LayoutReview at
+   * "Confirm layout & look"). The parent's footer drives Continue.
+   */
+  captureOnly?: boolean
 }
 
 type Phase =
@@ -37,6 +44,7 @@ type Phase =
   | 'rejected'
   | 'shape_picker'
   | 'editing'
+  | 'captured'
   | 'error'
 
 export function SpaceCapture({
@@ -48,6 +56,7 @@ export function SpaceCapture({
   onFloorPlanChange,
   onSkip,
   onConfirm,
+  captureOnly = false,
 }: SpaceCaptureProps) {
   const { t } = useTranslations()
   const inputRef = useRef<HTMLInputElement>(null)
@@ -60,11 +69,12 @@ export function SpaceCapture({
 
   // Seed the editor from the vision result the moment it arrives. Don't
   // overwrite an existing floor plan (the user may have already started editing).
+  // Skipped in capture-only mode: the layout is derived from the render later.
   useEffect(() => {
-    if (!floorPlan && visionResult?.lookedLikeKitchen) {
-      onFloorPlanChange(fromVision(visionResult))
+    if (!captureOnly && !floorPlan && visionResult?.lookedLikeKitchen) {
+      onFloorPlanChange?.(fromVision(visionResult))
     }
-  }, [visionResult, floorPlan, onFloorPlanChange])
+  }, [captureOnly, visionResult, floorPlan, onFloorPlanChange])
 
   const phase: Phase = isAnalyzing
     ? 'analyzing'
@@ -72,11 +82,15 @@ export function SpaceCapture({
       ? 'error'
       : visionResult && !visionResult.lookedLikeKitchen
         ? 'rejected'
-        : floorPlan
-          ? 'editing'
-          : showShapePicker
-            ? 'shape_picker'
+        : captureOnly
+          ? visionResult
+            ? 'captured'
             : 'awaiting'
+          : floorPlan
+            ? 'editing'
+            : showShapePicker
+              ? 'shape_picker'
+              : 'awaiting'
 
   function handleFiles(files: FileList | null) {
     if (!files) return
@@ -106,7 +120,7 @@ export function SpaceCapture({
   function removePhoto(idx: number) {
     onPhotosChange(photos.filter((_, i) => i !== idx))
     onVisionResult(null)
-    onFloorPlanChange(null)
+    onFloorPlanChange?.(null)
     setAnalyzeError(null)
   }
 
@@ -135,7 +149,7 @@ export function SpaceCapture({
   function startOver() {
     onPhotosChange([])
     onVisionResult(null)
-    onFloorPlanChange(null)
+    onFloorPlanChange?.(null)
     setShowShapePicker(false)
     setAnalyzeError(null)
     setError(null)
@@ -199,14 +213,16 @@ export function SpaceCapture({
               <Camera className="size-3.5 stroke-[1.75]" aria-hidden />
               {t('space.takePhoto')}
             </button>
-            <button
-              type="button"
-              onClick={() => setShowShapePicker(true)}
-              className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent/40"
-            >
-              <Pencil className="size-3.5 stroke-[1.75]" aria-hidden />
-              {t('space.describeInstead')}
-            </button>
+            {!captureOnly && (
+              <button
+                type="button"
+                onClick={() => setShowShapePicker(true)}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card py-2.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent/40"
+              >
+                <Pencil className="size-3.5 stroke-[1.75]" aria-hidden />
+                {t('space.describeInstead')}
+              </button>
+            )}
             <button
               type="button"
               onClick={onSkip}
@@ -335,11 +351,36 @@ export function SpaceCapture({
         </div>
       )}
 
+      {phase === 'captured' && (
+        <div className="space-y-3 rounded-2xl border border-border bg-card/60 px-4 py-4">
+          <div className="flex items-start gap-2">
+            <Check className="mt-0.5 size-4 shrink-0 stroke-[2] text-primary" aria-hidden />
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">{t('space.captured.title')}</p>
+              {visionResult?.summary && (
+                <p className="text-[13px] text-muted-foreground">
+                  <span className="mr-1 font-medium">{t('space.aiRead')}</span>
+                  {visionResult.summary}
+                </p>
+              )}
+              <p className="text-[12px] text-muted-foreground">{t('space.captured.note')}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={startOver}
+            className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
+          >
+            {t('space.startOver')}
+          </button>
+        </div>
+      )}
+
       {phase === 'shape_picker' && (
         <div className="space-y-3 rounded-2xl border border-border bg-card p-4 shadow-sm">
           <ShapePicker
             onPick={(plan) => {
-              onFloorPlanChange(plan)
+              onFloorPlanChange?.(plan)
               setShowShapePicker(false)
             }}
           />
@@ -376,7 +417,7 @@ export function SpaceCapture({
           <FloorPlanEditor
             initialPlan={floorPlan}
             anchorPhotoUrl={photos[0]}
-            onChange={onFloorPlanChange}
+            onChange={(p) => onFloorPlanChange?.(p)}
           />
           {/* Ceiling height — AI estimate or homeowner-set; drives tall-unit material. */}
           <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/60 px-4 py-3">
@@ -396,7 +437,7 @@ export function SpaceCapture({
                 value={floorPlan.ceilingHeightCm ?? ''}
                 onChange={(e) => {
                   const n = parseInt(e.target.value, 10)
-                  onFloorPlanChange({
+                  onFloorPlanChange?.({
                     ...floorPlan,
                     ceilingHeightCm:
                       Number.isFinite(n) && n > 0 ? Math.max(220, Math.min(360, n)) : undefined,
@@ -409,7 +450,7 @@ export function SpaceCapture({
           </div>
           <button
             type="button"
-            onClick={onConfirm}
+            onClick={() => onConfirm?.()}
             className="flex w-full items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-sm font-semibold text-primary-foreground shadow-md transition-all hover:brightness-[1.06]"
           >
             <Check className="size-4 stroke-[1.75]" aria-hidden />

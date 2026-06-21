@@ -256,12 +256,33 @@ function describeLayoutContract(lc: LayoutContract | undefined): string {
     ? lc.corners.map((c) => `  - runs "${c.runA}" and "${c.runB}" meet at a corner`).join('\n')
     : '  (none)'
   return (
-    `MEASURED LAYOUT (confirmed by the homeowner in Part 1 — treat as FIXED FACTS; do not re-estimate run count or lengths):\n` +
-    `- shape: ${lc.shape}; island: ${lc.hasIsland ? 'yes' : 'no'}\n` +
-    `- runs (reuse these exact ids in runs[], hasWall/hasTall and unitPatterns):\n${runLines}\n` +
-    `- fixed appliances already placed:\n${applianceLines}\n` +
-    `- corners:\n${cornerLines}`
+    `APPROXIMATE LAYOUT of the EXISTING space (a rough read of the homeowner's photos — use ONLY as a SCALE/size reference, not as the design):\n` +
+    `- existing shape: ${lc.shape}; existing island: ${lc.hasIsland ? 'yes' : 'no'}\n` +
+    `- existing runs (cm lengths give you scale; reuse these ids where they still apply):\n${runLines}\n` +
+    `- existing appliances:\n${applianceLines}\n` +
+    `- corners:\n${cornerLines}\n` +
+    `IMPORTANT: the RENDER is the INTENDED NEW design. Read the actual layout — shape, whether there's an island, which walls carry cabinets — FROM THE RENDER, and only borrow the cm scale from the figures above. If the render clearly adds an island or changes the shape, follow the render.`
   )
+}
+
+/**
+ * Defensive guard: the layout contract is client-supplied and interpolated into
+ * the prompt, so accept it only when it's structurally a LayoutContract. Returns
+ * a trimmed-to-known-fields copy, or undefined if malformed/injected.
+ */
+function sanitizeContract(raw: unknown): LayoutContract | undefined {
+  if (!raw || typeof raw !== 'object') return undefined
+  const c = raw as Record<string, unknown>
+  if (!Array.isArray(c.runs) || typeof c.shape !== 'string') return undefined
+  const runsOk = c.runs.every(
+    (r) =>
+      r &&
+      typeof r === 'object' &&
+      typeof (r as Record<string, unknown>).id === 'string' &&
+      typeof (r as Record<string, unknown>).lengthCm === 'number'
+  )
+  if (!runsOk) return undefined
+  return raw as LayoutContract
 }
 
 function approxBytesOfDataUrl(dataUrl: string): number {
@@ -288,7 +309,7 @@ Rules:
 - Confidence is per-field. 'H' only when the visual evidence is unambiguous; 'L' liberally — better empty than wrong.
 - For each field include a short \`reason\` (≤ 12 words) referencing the visual evidence ("matte black slab fronts visible", "concrete-textured worktop").
 - For decorCode suggestions: pick the closest match from the catalog below. Match family + tone + finish. If nothing close, leave decorCode empty and provide a colorDescription on the doors field.
-- For runs: a MEASURED LAYOUT is usually provided in the user message (runs already measured + confirmed by the homeowner). When it is, DO NOT invent runs or lengths — reuse the given run ids EXACTLY (e.g. "top", "left", "island") in your runs[], hasWall/hasTall, and unitPatterns so they line up. Per given run, only infer hasWall (wall/upper cabinets present on this run?) and hasTall (a full-height tower present?). If NO measured layout is provided, fall back to: L-shape → two runs, galley → two facing, straight → one.
+- For layout (shape, island, runs): READ THE LAYOUT FROM THE RENDER — this is the kitchen we are pricing. Set layout.shape and layout.hasIsland from what the render actually shows. An APPROXIMATE existing-space layout may be provided in the user message: use its cm figures ONLY as a SCALE reference, and reuse its run ids ("top", "left", "island") where they still apply so things line up. If the render adds an island or changes the shape vs. the existing space, FOLLOW THE RENDER. Per run, infer hasBase/hasWall (upper cabinets present?) and hasTall (a full-height tower present?). With no reference at all, fall back to: L-shape → two runs, galley → two facing, straight → one.
 - Hardware is mostly invisible in renders — set drawerSystemTier confidence 'L' unless handles are clearly visible.
 - Appliances: identify integrated vs. freestanding by visible seams. Hob type from cooktop appearance.
   - For fridge / dishwasher: return \`{ present, integrated }\` only if you can actually see them (or a clear integrated front). Skip rather than fabricate. The homeowner may not have either appliance — do not assume presence.
@@ -337,7 +358,7 @@ export async function POST(req: Request) {
   }
 
   const profileSummary = JSON.stringify(body.profile ?? {}, null, 2).slice(0, 2000)
-  const layoutFacts = describeLayoutContract(body.layoutContract)
+  const layoutFacts = describeLayoutContract(sanitizeContract(body.layoutContract))
 
   try {
     const result = await generateText({

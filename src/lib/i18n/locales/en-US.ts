@@ -516,6 +516,10 @@ export const enUS: Record<TranslationKey, string> = {
   'space.editor.title': "Your space — drag, type, fix what's off",
   'space.startOver': 'Start over',
   'space.aiRead': 'AI read:',
+  'space.captured.title': 'We captured your space',
+  'space.captured.note':
+    "We'll build the layout from your AI render and show it to you to confirm — your photos set the scale.",
+  'layoutReview.loading': 'Reading the layout from your render…',
   'space.ceiling.title': 'Ceiling height',
   'space.ceiling.aiEstimate': 'AI estimate — adjust if off',
   'space.ceiling.prompt': 'Roughly how tall is the room?',
