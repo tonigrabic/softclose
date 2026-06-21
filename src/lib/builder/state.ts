@@ -73,13 +73,28 @@ export function hydrateFromHypothesis(
   // See context/layout-contract.md.
   const contract = context.layoutContract
 
+  // Tall towers (full-height units) the render shows. The floor plan / contract
+  // can't model them — they're a builder concept — so the contract always says
+  // hasTall=false and a render with a clear pantry/oven tower would otherwise
+  // seed ZERO towers (a real under-count on L/U kitchens). Fold in the render
+  // hypothesis's per-run hasTall + any tall pantry it pinned to a run. Run ids
+  // line up because the render reuses the contract's ids. Without a hypothesis
+  // (the fixture path) this is a no-op, so the contract stays the sole layout
+  // authority there and the band/parity fixtures are unaffected.
+  const renderTallRunIds = new Set<string>()
+  for (const r of hypothesis?.layout?.runs ?? []) {
+    if (r.hasTall?.value) renderTallRunIds.add(r.id)
+  }
+  const tallPantry = hypothesis?.features?.tallPantry
+  if (tallPantry?.present?.value && tallPantry.runId) renderTallRunIds.add(tallPantry.runId)
+
   const runs: WallRunDimensions[] = contract.runs.map((r) => ({
     id: r.id,
     label: r.label,
     lengthCm: r.lengthCm,
     hasBase: r.hasBase,
     hasWall: r.hasWall,
-    hasTall: r.hasTall,
+    hasTall: r.hasTall || renderTallRunIds.has(r.id),
     hasCorner: r.hasCorner,
     applianceFootprintCm: applianceFootprintCm(contract, r.id),
   }))

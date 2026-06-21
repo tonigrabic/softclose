@@ -434,3 +434,27 @@
 - 6 new tests (`tests/derive-layout.test.ts`): render owns shape/island,
   photo owns scale, pass-through + preset fallbacks.
 - Gate: 50/50 tests · tsc clean · eslint clean · build 12/12 green.
+
+### 2026-06-21 — Accuracy: render-visible tall towers now seed
+
+- **Gap.** The floor plan / contract can't model tall units (a builder
+  concept), so `floorPlanToLayout` always emits `hasTall=false`, and
+  `hydrateFromHypothesis` read layout ENTIRELY from the contract — so a render
+  clearly showing a pantry/oven tower seeded ZERO towers. Real under-count on
+  L/U kitchens (the cost of a full-height carcass + its hardware just vanished).
+- **Fix.** Hydration now folds the render hypothesis's per-run `hasTall` and any
+  pinned `features.tallPantry` into each run's `hasTall` (run ids line up — the
+  render reuses the contract ids). `CabinetBoxesGroup` already seeds from
+  `state.layout.runs`, so a flagged run now seeds its tower.
+- **Why it's safe.** Without a hypothesis (every fixture test) it's a no-op, so
+  the contract stays the sole layout authority and the band / parity / drift
+  snapshots are UNCHANGED. 3 new tests (`tests/render-tall-seeding.test.ts`).
+- Gate: 53/53 tests · tsc clean · eslint clean.
+- **Deferred (need Toni's input, not blocked):**
+  - **±20%-headline band (LOOP.md Q6).** Untouched sits at ±11%; nudging it
+    toward the headline is a one-factor recalibration BUT it churns every
+    pricing snapshot toward an invented target and risks the ±20% invariant —
+    I won't pick the number unilaterally. Tell me the target (e.g. "unconfirmed
+    should read ±18%") and I'll tune + update snapshots in one commit.
+  - **Real B2B prices** (LOOP.md Q7) — still the launch blocker; needs the
+    maker pricelist to replace the reference RRPs.
