@@ -17,7 +17,40 @@
 import { decors as catalogDecors, services, doorPricePerM2, worktopPricePerM, findDecor } from '@/lib/catalog'
 import { PATTERN_SPECS, unitDrawerCount } from './cabinet-patterns'
 import type { BuilderState, CabinetUnit, DrawerSystemTier, FieldMeta } from './inventory'
+import type { LeadProfile } from '@/lib/types'
 import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n'
+
+/**
+ * Which scope toggle (from the scope step) controls each BOM line. A line is
+ * dropped from the estimate ONLY when scope explicitly marks its controller
+ * `false` — an absent scope object (before the homeowner reaches the scope
+ * step) or an absent key keeps everything, so the builder's live range is the
+ * full kitchen until the homeowner narrows it. The cabinetry package (boards,
+ * edge banding, hardware, finishing, CNC, assembly, design) all follow
+ * `cabinets`; the backsplash rides with `worktops` (the surfaces decision).
+ */
+const LINE_SCOPE_KEY: Partial<Record<BomLineItem['key'], keyof NonNullable<LeadProfile['scope']>>> = {
+  boards: 'cabinets',
+  edgeBanding: 'cabinets',
+  hardware: 'cabinets',
+  finishing: 'cabinets',
+  cnc: 'cabinets',
+  assembly: 'cabinets',
+  design: 'cabinets',
+  worktop: 'worktops',
+  backsplash: 'worktops',
+  sinkTaps: 'sinkTaps',
+  appliances: 'appliancesSupply',
+  lighting: 'lighting',
+  install: 'installation',
+}
+
+function lineInScope(key: BomLineItem['key'], scope: LeadProfile['scope'] | undefined): boolean {
+  if (!scope) return true
+  const ctrl = LINE_SCOPE_KEY[key]
+  if (!ctrl) return true
+  return scope[ctrl] !== false
+}
 
 export interface BomLineItem {
   /** Stable id usable as React key + i18n routing. */
@@ -236,7 +269,11 @@ const LABOUR_RATES = {
 
 /* ───────────────────────── Main calculator ───────────────────────── */
 
-export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE): BomEstimate {
+export function computeBom(
+  state: BuilderState,
+  locale: Locale = DEFAULT_LOCALE,
+  opts: { scope?: LeadProfile['scope'] } = {}
+): BomEstimate {
   const lineItems: BomLineItem[] = []
 
   // Localisation helpers — line-item detail/quantity are built localized so the
@@ -831,7 +868,11 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     high: round(installRange.high),
   })
 
-  const total = lineItems.reduce(
+  // Drop line items the homeowner has put OUT of scope (e.g. no installation,
+  // homeowner supplies appliances). Default (no scope yet) keeps everything.
+  const visibleLines = lineItems.filter((l) => lineInScope(l.key, opts.scope))
+
+  const total = visibleLines.reduce(
     (acc, l) => ({ low: acc.low + l.low, high: acc.high + l.high }),
     { low: 0, high: 0 }
   )
@@ -845,19 +886,19 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   // promise applies to it; the goods (appliances, sink + tap) ride alongside
   // and collapse to an exact sum once every model is picked.
   const sumWhere = (pred: (l: BomLineItem) => boolean) =>
-    lineItems
+    visibleLines
       .filter(pred)
       .reduce((acc, l) => ({ low: acc.low + l.low, high: acc.high + l.high }), { low: 0, high: 0 })
   const works = sumWhere((l) => l.section === 'works')
   const goods = sumWhere((l) => l.section === 'goods')
-  const goodsLines = lineItems.filter((l) => l.section === 'goods')
+  const goodsLines = visibleLines.filter((l) => l.section === 'goods')
   const kind = (k: 'material' | 'make' | 'install') => {
     const s = sumWhere((l) => l.worksKind === k)
     return { low: round(s.low), high: round(s.high) }
   }
 
   return {
-    lineItems,
+    lineItems: visibleLines,
     total: { low: round(total.low), high: round(total.high) },
     bandWidthPct,
     sections: {

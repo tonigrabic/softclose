@@ -84,6 +84,14 @@ const SCOPE_OPTIONS = [
   { value: 'installation', label: 'Installation', icon: 'wrench' },
 ]
 
+/** Selected scope chips → the scope flags object. The estimate (computeBom)
+ * drops out-of-scope lines from these flags; see LINE_SCOPE_KEY in bom.ts. */
+function scopeFromSelected(selected: string[]): NonNullable<LeadProfile['scope']> {
+  const scope: Record<string, boolean> = {}
+  for (const opt of SCOPE_OPTIONS) scope[opt.value] = selected.includes(opt.value)
+  return scope as NonNullable<LeadProfile['scope']>
+}
+
 const SITE_ACCESS_OPTIONS = [
   { value: 'street_level', label: 'Street level' },
   { value: 'one_flight', label: 'One flight up' },
@@ -270,12 +278,7 @@ export function KitchenIntake() {
   }
 
   function commitScope() {
-    const scope: NonNullable<LeadProfile['scope']> = {}
-    for (const opt of SCOPE_OPTIONS) {
-      const key = opt.value as keyof typeof scope
-      ;(scope as Record<string, boolean>)[key] = scopeSelected.includes(opt.value)
-    }
-    patchProfile({ scope })
+    patchProfile({ scope: scopeFromSelected(scopeSelected) })
     logTurn(
       'user',
       `Scope: ${scopeSelected.length === 0 ? '(none selected)' : scopeSelected.join(', ')}`
@@ -623,10 +626,18 @@ export function KitchenIntake() {
     'logistics',
     'contact',
   ]
+  // The live range respects scope. On the scope step itself it tracks the
+  // homeowner's live picks (so the range reacts as they tick items) — but only
+  // once at least one is picked, so arriving on an empty selection still shows
+  // the full kitchen, not €0. Elsewhere it uses the committed profile.scope.
+  const liveScope =
+    state.currentStepId === 'scope' && scopeSelected.length > 0
+      ? scopeFromSelected(scopeSelected)
+      : profile.scope
   const funnelRightRail =
     rightRailSteps.includes(state.currentStepId) && funnelRenderSrc ? (
       <div className="flex flex-col gap-5">
-        {funnelBuilderState && <LiveBOMPanel state={funnelBuilderState} />}
+        {funnelBuilderState && <LiveBOMPanel state={funnelBuilderState} scope={liveScope} />}
         <RenderAnchorCard
           src={funnelRenderSrc}
           summary={summariseLayoutFromProfile(profile, locale)}
@@ -642,7 +653,7 @@ export function KitchenIntake() {
       mobilePillLabel={journeyPillLabel({ funnelStepId: state.currentStepId, profile, locale })}
       mobileDock={
         funnelBuilderState && rightRailSteps.includes(state.currentStepId) ? (
-          <MobileRangeDock state={funnelBuilderState} />
+          <MobileRangeDock state={funnelBuilderState} scope={liveScope} />
         ) : undefined
       }
       nav={

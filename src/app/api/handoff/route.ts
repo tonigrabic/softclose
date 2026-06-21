@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     let estimate = buildStubEstimate(brief)
     if (estimate) estimate.bandPct = 20
     if (brief.builderState) {
-      const bom = computeBom(brief.builderState as BuilderState)
+      const bom = computeBom(brief.builderState as BuilderState, undefined, { scope: brief.scope })
       // Headline range is kitchen-only (works); appliances + sink/tap (goods)
       // ride alongside as the all-in figure. Band applies to the works range.
       const hasGoods = bom.sections.goods.high > 0

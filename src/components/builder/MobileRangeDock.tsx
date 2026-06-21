@@ -5,6 +5,7 @@ import { ChevronUp } from 'lucide-react'
 import { computeBom, formatEUR } from '@/lib/builder/bom'
 import { tDynamic, useTranslations } from '@/lib/i18n'
 import type { BuilderState } from '@/lib/builder/inventory'
+import type { LeadProfile } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
 /**
@@ -13,10 +14,10 @@ import { cn } from '@/lib/utils'
  * breakdown and the maker-confirms disclaimer. Desktop shows the full
  * LiveBOMPanel in the right rail instead — this is the same numbers, compacted.
  */
-export function MobileRangeDock({ state }: { state: BuilderState }) {
+export function MobileRangeDock({ state, scope }: { state: BuilderState; scope?: LeadProfile['scope'] }) {
   const { t, locale } = useTranslations()
   const [open, setOpen] = useState(false)
-  const bom = useMemo(() => computeBom(state, locale), [state, locale])
+  const bom = useMemo(() => computeBom(state, locale, { scope }), [state, locale, scope])
 
   return (
     <div className="border-t border-border bg-background/95 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] backdrop-blur">

@@ -578,3 +578,21 @@ Walked every screen in code (not just the agent summaries):
   still includes those lines. It's brief metadata today and sits AFTER the
   builder, so wiring it into the range is a design decision, not a clear bug.
 - Gate: 68 tests · tsc · eslint · next build green.
+
+### Follow-up — scope now drives the estimate (Toni: "we need that")
+- `computeBom(state, locale, { scope })` drops out-of-scope lines via
+  `LINE_SCOPE_KEY`: cabinets → boards/edgeBanding/hardware/finishing/cnc/
+  assembly/design; worktops → worktop + backsplash; sinkTaps → sinkTaps;
+  appliancesSupply → appliances; lighting → lighting; installation → install.
+  A line drops ONLY when scope marks its controller false — absent scope (every
+  existing test/snapshot, and the funnel before the scope step) keeps the full
+  kitchen, so zero churn.
+- Wired through: handoff route (brief.scope → wrap-up + maker range),
+  LiveBOMPanel + MobileRangeDock (new optional `scope` prop). On the scope step
+  the range tracks live picks once ≥1 is selected (empty = full kitchen, so it
+  never collapses to €0 on arrival); elsewhere it uses committed profile.scope.
+  The scope step now visibly moves the price — it finally "does something".
+- `tests/scope-estimate.test.ts` (5): no-scope = full; installation:false drops
+  install + lowers total; cabinets:false drops the cabinetry package;
+  appliancesSupply:false drops appliances; unmapped keys (flooring) are no-ops.
+- Gate: 73 tests · tsc · eslint · next build green.
