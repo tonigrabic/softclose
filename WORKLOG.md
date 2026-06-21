@@ -528,3 +528,19 @@ Three sequenced iterations (each ends green: vitest · tsc · eslint · next bui
   still match real products ("slavina"→taps, "sudoper"→sinks) — browse is not
   empty.
 - Gate: 68 tests · tsc · eslint · next build all green.
+
+### Iter 5 — flow walkthrough + verification
+- Full `npm run gate` green: 68 tests · tsc · eslint · next build.
+- Flow sequence verified end-to-end:
+  type → space_photos → inspiration → concept_render → confirm_look →
+  confirm_contract → builder → scope → wishlist → logistics → contact.
+- Seam parity: both the new confirm_contract step and the builder derive the
+  contract via the SAME `planFromProfile → floorPlanToLayout(validate(plan))`
+  path, and the confirm tally goes through the same `suggestCabinetsForRun`
+  the builder seeds from (contract-summary + confirm-tally-parity tests), so
+  the plan the homeowner signs off is exactly what's priced.
+- Manual smoke checklist (hr + en): upload photos → render → land on "Confirm
+  layout & look" with the render-derived plan → confirm → "Confirm the plan"
+  shows runs/tally/corners/appliances/shape/ceiling → sign off → builder seeds
+  the confirmed contract → live range reads 11–13%. Right rail + mobile dock
+  persist across confirm_contract.
