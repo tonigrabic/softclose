@@ -679,3 +679,17 @@ Walked every screen in code (not just the agent summaries):
   earlier "sink/tap have no SKU" note was wrong — they do).
 - Still dormant by default (empty pricelist ⇒ maker == retail; maker-pricing
   test green across fixtures). Gate: 79 tests · tsc · eslint · next build green.
+
+### Screens review loop — error retries, localization, a11y
+Full screen pass (survey + fixes), three batches, gate green throughout (79 tests):
+- **Error retries**: wrap-up handoff failure, wishlist translate failure, and the
+  builder-entry hypothesis error now all offer a clear "Try again" instead of a
+  dead end. Added common.retry; localized the finalise-error message.
+- **Inspiration screen**: was 100% hardcoded English (broke hr-HR default) —
+  fully localized via useTranslations + inspiration.* keys (both locales).
+- **Fallback summary** (buildFallbackSummary, shown when the AI summary fails):
+  was hardcoded English; now localized via fallback.* keys + a locale param.
+- **a11y / labels**: ConceptRender anchor/style-ref titles + the "USE" badge
+  localized and given real alt text; SpaceCapture photo thumbnails get alt text.
+- Reviewed ContactForm — already well-localized + accessible; skipped phone
+  regex validation deliberately (would reject valid +385/spaced numbers).

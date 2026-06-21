@@ -403,7 +403,7 @@ export function KitchenIntake() {
       setProfile(finalProfile)
       setWrapUpData({
         thankYouMessage: `Thanks${finalProfile.name ? `, ${finalProfile.name}` : ''} — your brief is on its way to ${DESIGNER_NAME}.`,
-        summaryLines: buildFallbackSummary(finalProfile),
+        summaryLines: buildFallbackSummary(finalProfile, locale),
       })
       setFinaliseError(err instanceof Error ? err.message : 'Summary unavailable')
       setIsDone(true)
@@ -1463,16 +1463,17 @@ function summariseLayoutFromProfile(p: LeadProfile, locale: Locale): string | un
   return parts.length > 0 ? parts.join(' · ') : undefined
 }
 
-function buildFallbackSummary(profile: LeadProfile): string[] {
+function buildFallbackSummary(profile: LeadProfile, locale: Locale): string[] {
+  const fill = (key: string, v: string) => tDynamic(key, locale).replace('{v}', v.replace(/_/g, ' '))
   const lines: string[] = []
-  if (profile.projectType) lines.push(`Project type: ${profile.projectType.replace(/_/g, ' ')}.`)
-  if (profile.timeline) lines.push(`Timeline: ${profile.timeline.replace(/_/g, ' ')}.`)
-  if (profile.budgetRange) lines.push(`Budget band: ${profile.budgetRange.replace(/_/g, ' ')}.`)
+  if (profile.projectType) lines.push(fill('fallback.projectType', profile.projectType))
+  if (profile.timeline) lines.push(fill('fallback.timeline', profile.timeline))
+  if (profile.budgetRange) lines.push(fill('fallback.budget', profile.budgetRange))
   if (profile.stylePreferences?.length) {
-    lines.push(`Style direction: ${profile.stylePreferences.join(', ').replace(/_/g, ' ')}.`)
+    lines.push(fill('fallback.style', profile.stylePreferences.join(', ')))
   }
-  if (profile.doorMaterial) lines.push(`Door material: ${profile.doorMaterial.replace(/_/g, ' ')}.`)
-  if (profile.worktopPreference) lines.push(`Worktop: ${profile.worktopPreference.replace(/_/g, ' ')}.`)
-  while (lines.length < 3) lines.push('See the brief below for the full capture.')
+  if (profile.doorMaterial) lines.push(fill('fallback.door', profile.doorMaterial))
+  if (profile.worktopPreference) lines.push(fill('fallback.worktop', profile.worktopPreference))
+  while (lines.length < 3) lines.push(tDynamic('fallback.more', locale))
   return lines.slice(0, 6)
 }

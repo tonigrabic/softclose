@@ -259,7 +259,7 @@ export function SpaceCapture({
               className="group relative aspect-square overflow-hidden rounded-xl border border-border shadow-sm"
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt="" className="h-full w-full object-cover" />
+              <img src={src} alt={t('space.photoThumbnail')} className="h-full w-full object-cover" />
               <button
                 type="button"
                 onClick={(e) => {

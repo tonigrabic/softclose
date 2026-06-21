@@ -367,13 +367,13 @@ export function ConceptRender({
                   anchorIndex === i ? 'ring-2 ring-primary' : 'ring-border hover:ring-foreground/30'
                 )}
                 aria-pressed={anchorIndex === i}
-                title={anchorPhotos.length > 1 ? `Anchor shot ${i + 1}` : 'Anchor shot'}
+                title={anchorPhotos.length > 1 ? `${t('concept.anchorShot')} ${i + 1}` : t('concept.anchorShot')}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photo} alt="" className="h-full w-full object-cover" />
+                <img src={photo} alt={t('concept.anchorShot')} className="h-full w-full object-cover" />
                 {anchorIndex === i && (
                   <span className="absolute right-0.5 top-0.5 rounded bg-primary px-1 text-[8px] font-bold text-primary-foreground">
-                    USE
+                    {t('concept.anchorUse')}
                   </span>
                 )}
               </button>
@@ -392,10 +392,10 @@ export function ConceptRender({
                 <div
                   key={`${src}-${i}`}
                   className="size-14 overflow-hidden rounded-lg ring-1 ring-border"
-                  title="Style reference"
+                  title={t('concept.styleRefTitle')}
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={src} alt="" className="h-full w-full object-cover" />
+                  <img src={src} alt={t('concept.styleRefTitle')} className="h-full w-full object-cover" />
                 </div>
               ))}
               {forwardableStyleRefs.length > 3 && (
