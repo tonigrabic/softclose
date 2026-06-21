@@ -559,3 +559,22 @@ Three sequenced iterations (each ends green: vitest · tsc · eslint · next bui
 - Flow is now: type → space_photos → inspiration → concept_render →
   confirm_look (edit + tally + sign-off) → builder → scope → wishlist →
   logistics → contact → wrap-up.
+
+### Follow-up — full screen-by-screen verification (contract active every step)
+Walked every screen in code (not just the agent summaries):
+- Steps 1–4 (type/space/inspiration/render): pre-contract by design — sensible.
+- Step 5 confirm_look: contract DERIVED here (floorPlanToLayout on the live
+  edited plan) and shown read-only (LayoutConfirm tally) — contract goes active.
+- Step 6 builder + 9 groups: contract drives seeding (cabinetBoxes) and gates
+  affordances (appliances lock hob/fridge/dishwasher; lighting pendants↔island,
+  under-cab↔wall units; finishing cornice↔wall units). No orphan price drivers.
+- Wrap-up: range = computeBom(builderState) via /api/handoff — contract-derived
+  end to end.
+- **Fixed:** MakerDashboardPreview hardcoded USD ($/$k) for the cost range while
+  the whole funnel uses EUR — violated AGENTS.md "EUR everywhere". Now €
+  (symbol-after, hr-HR), numbers unchanged (still contract→BOM derived).
+- **Open product question (needs Toni):** `scope` (step 7) never feeds the
+  estimate — if "installation" / "appliances supply" isn't ticked, the range
+  still includes those lines. It's brief metadata today and sits AFTER the
+  builder, so wiring it into the range is a design decision, not a clear bug.
+- Gate: 68 tests · tsc · eslint · next build green.

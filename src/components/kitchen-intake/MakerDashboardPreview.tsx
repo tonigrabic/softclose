@@ -14,8 +14,13 @@ interface MakerDashboardPreviewProps {
   onBack: () => void
 }
 
+// EUR everywhere (AGENTS.md): the maker sees the same currency as the
+// homeowner. Compact (12k €) for the range headline; symbol-after per the
+// Croatian convention used by formatEUR elsewhere.
 function fmtMoney(n: number): string {
-  return n >= 1000 ? `$${Math.round(n / 1000).toLocaleString()}k` : `$${n.toLocaleString()}`
+  return n >= 1000
+    ? `${Math.round(n / 1000).toLocaleString('hr-HR')}k €`
+    : `${n.toLocaleString('hr-HR')} €`
 }
 
 function ConfidencePill({ confidence }: { confidence: Confidence }) {
