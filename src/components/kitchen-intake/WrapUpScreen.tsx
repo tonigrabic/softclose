@@ -168,9 +168,25 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
           <p className="text-sm text-muted-foreground">{t('wrapup.estimate.loading')}</p>
         ) : estimate ? (
           <>
+            {estimate.withAppliances && (
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('wrapup.estimate.kitchenLabel')}
+              </p>
+            )}
             <p className="text-3xl font-bold tabular-nums text-foreground">
               {fmtMoney(estimate.low)} <span className="text-muted-foreground">–</span> {fmtMoney(estimate.high)}
             </p>
+            {estimate.withAppliances && (
+              <div className="mt-2 border-t border-border/60 pt-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t('wrapup.estimate.allInLabel')}
+                </p>
+                <p className="text-xl font-semibold tabular-nums text-foreground">
+                  {fmtMoney(estimate.withAppliances.low)} <span className="text-muted-foreground">–</span>{' '}
+                  {fmtMoney(estimate.withAppliances.high)}
+                </p>
+              </div>
+            )}
             {estimateBasis && (
               <p className="mt-2 text-xs text-muted-foreground">{estimateBasis}</p>
             )}

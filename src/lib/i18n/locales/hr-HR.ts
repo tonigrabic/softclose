@@ -390,6 +390,8 @@ export const hrHR = {
   'wrapup.title': 'Evo tvog sažetka',
   'wrapup.review': 'Pregledaj što šaljemo — ispravi sve što ne valja.',
   'wrapup.estimate.title': 'Okvirni raspon cijene',
+  'wrapup.estimate.kitchenLabel': 'Kuhinja — izrada i montaža',
+  'wrapup.estimate.allInLabel': 'Sve uključeno — s uređajima i radovima',
   'wrapup.estimate.placeholderBadge': 'Privremeno',
   'wrapup.estimate.bomBadge': 'Iz tvoje gradnje',
   'wrapup.estimate.loading': 'Računamo okvirni raspon…',

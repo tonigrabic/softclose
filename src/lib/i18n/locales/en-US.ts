@@ -377,6 +377,8 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.title': "Here's your brief",
   'wrapup.review': "Review what we're sending — fix anything that's off.",
   'wrapup.estimate.title': 'Rough estimate range',
+  'wrapup.estimate.kitchenLabel': 'Kitchen — made & installed',
+  'wrapup.estimate.allInLabel': 'All-in — incl. appliances & project work',
   'wrapup.estimate.placeholderBadge': 'Placeholder',
   'wrapup.estimate.bomBadge': 'From your build',
   'wrapup.estimate.loading': 'Crunching a rough range…',
