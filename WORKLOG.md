@@ -544,3 +544,18 @@ Three sequenced iterations (each ends green: vitest · tsc · eslint · next bui
   shows runs/tally/corners/appliances/shape/ceiling → sign off → builder seeds
   the confirmed contract → live range reads 11–13%. Right rail + mobile dock
   persist across confirm_contract.
+
+### Follow-up — merge confirm_contract back into confirm_look (Toni's call)
+- A screen-by-screen review (builder is registry-driven and contract-respecting;
+  cabinetBoxes/appliances/lighting/finishing all gate on contract facts) found
+  the only real flow smell was the two adjacent layout confirmations I'd added:
+  confirm_look (edit) immediately followed by confirm_contract (read-only tally).
+- Per Toni: MERGED. The contract tally (LayoutConfirm, read-only) now renders
+  inside confirm_look below the decor chips — "here's what we'll price" — and
+  the footer Continue is the single sign-off (records contractConfirmedAt). The
+  separate confirm_contract step is removed; later steps renumbered back.
+- summarizeContract + LayoutConfirm + contractConfirmedAt all retained (just
+  surfaced in one screen now). Gate: 68 tests · tsc · eslint · next build green.
+- Flow is now: type → space_photos → inspiration → concept_render →
+  confirm_look (edit + tally + sign-off) → builder → scope → wishlist →
+  logistics → contact → wrap-up.

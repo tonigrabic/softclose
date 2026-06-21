@@ -17,7 +17,6 @@ export type FlowStepId =
   | 'inspiration'
   | 'concept_render'
   | 'confirm_look'
-  | 'confirm_contract'
   | 'builder'
   | 'scope'
   | 'wishlist'
@@ -62,20 +61,15 @@ export const FLOW: FlowStepMeta[] = [
     why: 'A render anchored to your space, in your direction.',
     group: 'look',
   },
+  // "Confirm layout & look" now also shows the contract tally (runs, cabinet
+  // counts, corners, appliances) below the editor — the homeowner edits the
+  // plan, sees exactly what we'll price, and signs off once. The builder seeds
+  // from exactly this confirmed contract.
   {
     id: 'confirm_look',
     label: 'Confirm layout & look',
-    why: 'The layout we read from your render — adjust it, then confirm.',
+    why: 'The layout we read from your render — adjust it, see the plan, confirm.',
     group: 'look',
-  },
-  // The explicit "this is my kitchen" sign-off: the full derived contract —
-  // runs, cabinet tally, corners, appliances, ceiling — presented for
-  // confirmation BEFORE any pricing. The builder seeds from exactly this.
-  {
-    id: 'confirm_contract',
-    label: 'Confirm the plan',
-    why: "The plan we'll price — runs, cabinet counts, corners and appliances.",
-    group: 'build',
   },
   {
     id: 'builder',

@@ -231,8 +231,9 @@ export function KitchenIntake() {
 
   /**
    * Freeze the reviewed layout (the new source of truth the builder prices
-   * from) AND record the decor confirm. This is where the contract is locked:
-   * the homeowner has seen the render-derived plan and adjusted it.
+   * from), record the decor confirm AND the explicit contract sign-off. This
+   * is where the contract is locked: the homeowner has seen the render-derived
+   * plan, adjusted it, and seen the cabinet tally we'll price (LayoutConfirm).
    */
   function commitConfirmLook() {
     // The plan the homeowner reviewed (render-derived, then their edits).
@@ -245,6 +246,7 @@ export function KitchenIntake() {
         hasIsland: frozen.hasIsland,
         spaceLengthCm: Math.round(frozen.room.lengthCm),
         spaceWidthCm: Math.round(frozen.room.widthCm),
+        contractConfirmedAt: nowMs(),
       })
     }
     const parts = [
@@ -258,18 +260,6 @@ export function KitchenIntake() {
       profile.hardwareTier ? `hardware: ${profile.hardwareTier}` : null,
     ].filter(Boolean)
     logTurn('user', `Confirmed layout & look: ${parts.join(' · ') || '(skipped)'}`)
-    goNext()
-  }
-
-  /**
-   * The explicit "this is my kitchen" sign-off. The contract was already frozen
-   * at confirm_look; here the homeowner confirms the full derived plan (runs,
-   * tally, corners, appliances) the builder will price. Records the sign-off
-   * (provenance for the maker) and advances into the builder.
-   */
-  function commitConfirmContract() {
-    patchProfile({ contractConfirmedAt: nowMs() })
-    logTurn('user', 'Confirmed the layout plan — proceeding to build.')
     goNext()
   }
 
@@ -627,7 +617,6 @@ export function KitchenIntake() {
   const funnelBuilderState = profile.builderState as BuilderState | undefined
   const rightRailSteps: FlowStepId[] = [
     'confirm_look',
-    'confirm_contract',
     'builder',
     'scope',
     'wishlist',
@@ -699,8 +688,6 @@ export function KitchenIntake() {
                     goNext()
                   }}
                 />
-              ) : state.currentStepId === 'confirm_contract' ? (
-                <ContractConfirmBody profile={profile} onConfirm={commitConfirmContract} />
               ) : (
               <StepBody
                 stepId={state.currentStepId}
@@ -803,11 +790,6 @@ export function KitchenIntake() {
         break
       case 'confirm_look':
         commitConfirmLook()
-        break
-      case 'confirm_contract':
-        // The step's own CTA (LayoutConfirm) drives the sign-off; this is only
-        // reached if a footer Continue is ever wired for the step.
-        commitConfirmContract()
         break
       case 'builder':
         // The Builder owns its own continue/back; the footer Continue here
@@ -981,6 +963,10 @@ function StepBody(props: StepBodyProps) {
       )
 
     case 'confirm_look': {
+      // The contract tally derived from the CURRENT edited plan — shown
+      // read-only below the editor so the homeowner sees exactly what we'll
+      // price before the footer Continue freezes it and records the sign-off.
+      const reviewContract = floorPlan ? floorPlanToLayout(validate(floorPlan)) : null
       return (
         <StepFrame
           eyebrow={t('funnel.confirm_look.eyebrow')}
@@ -1002,6 +988,10 @@ function StepBody(props: StepBodyProps) {
             // homeowner's own taps (styles, manual chips) must not trigger it.
             hasPrefills={visionPrefilledLook(inspirationVision, spaceVision)}
           />
+          {/* "Here's what we'll price" — runs, cabinet tally, corners,
+              appliances, ceiling. Read-only; the footer Continue is the
+              sign-off (it records contractConfirmedAt). */}
+          {reviewContract && <LayoutConfirm contract={reviewContract} />}
         </StepFrame>
       )
     }
@@ -1175,35 +1165,6 @@ function StepBody(props: StepBodyProps) {
   }
 }
 
-/**
- * The dedicated contract-confirmation step body. Projects the frozen plan into
- * the SAME layout contract the builder seeds from and shows it through
- * LayoutConfirm for an explicit sign-off. Falls back to an 'unsure' preset so
- * the homeowner is never stuck without a contract to confirm.
- */
-function ContractConfirmBody({
-  profile,
-  onConfirm,
-}: {
-  profile: LeadProfile
-  onConfirm: () => void
-}) {
-  const { t } = useTranslations()
-  const contract = useMemo(
-    () => floorPlanToLayout(validate(planFromProfile(profile) ?? fromShapePreset('unsure'))),
-    [profile]
-  )
-  return (
-    <StepFrame
-      eyebrow={t('funnel.confirm_contract.eyebrow')}
-      title={t('funnel.confirm_contract.title')}
-      subtitle={t('funnel.confirm_contract.subtitle')}
-    >
-      <LayoutConfirm contract={contract} onConfirm={onConfirm} />
-    </StepFrame>
-  )
-}
-
 function StepFrame({
   eyebrow,
   title,
@@ -1315,9 +1276,6 @@ function FooterNav({
         // The layout is the lock (it freezes the contract the builder prices);
         // decor below is optional. Gate on having a plan to confirm.
         return hasFloorPlan
-      case 'confirm_contract':
-        // The LayoutConfirm CTA owns the explicit sign-off; no footer Continue.
-        return false
       case 'scope':
         return scopeCount > 0
       case 'wishlist':
@@ -1351,7 +1309,7 @@ function FooterNav({
         <ArrowLeft className="size-3.5 stroke-[2]" aria-hidden />
         {t('nav.back')}
       </button>
-      {stepId !== 'builder' && stepId !== 'confirm_contract' && (
+      {stepId !== 'builder' && (
         <button
           type="button"
           onClick={onContinue}

@@ -277,10 +277,9 @@ export interface LeadProfile {
   builderState?: unknown
 
   /**
-   * Epoch ms when the homeowner explicitly signed off the derived layout
-   * contract at the `confirm_contract` step. Gates entry to the builder (the
-   * builder seeds from exactly the contract they confirmed) and records the
-   * sign-off for the maker's provenance trail.
+   * Epoch ms when the homeowner signed off the derived layout contract at the
+   * `confirm_look` step (where they see the cabinet tally we'll price below the
+   * editor). Records the sign-off for the maker's provenance trail.
    */
   contractConfirmedAt?: number
 
