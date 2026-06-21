@@ -516,3 +516,15 @@ Three sequenced iterations (each ends green: vitest · tsc · eslint · next bui
   rates (13/16/18 €/m²), and the style/edge/waste multipliers remain domain
   estimates. A picked model already overrides with its exact price; the rest
   needs the maker's pricelist to be "exact" to a customer.
+
+### Iter 4 — screen-by-screen contract audit cleanup
+- Removed the dead `hardware.organisers` field (defined + initialised, never
+  read by any UI or the BOM) and the copy that promised it.
+- Verified `ApplianceSelection.notes` is NOT dead (the audit flag was stale) —
+  AppliancesGroup uses it for SKU pinning. Left intact.
+- Centralised the SinkTaps browse keywords into `sinksFromCatalog()` /
+  `tapsFromCatalog()` in the catalog module (next to `appliancesForType`), so a
+  re-scrape only touches the keyword lists, not the UI. Confirmed the keywords
+  still match real products ("slavina"→taps, "sudoper"→sinks) — browse is not
+  empty.
+- Gate: 68 tests · tsc · eslint · next build all green.

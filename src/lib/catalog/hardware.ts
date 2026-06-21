@@ -75,6 +75,20 @@ export function searchSchachermayer(
   })
 }
 
+/**
+ * Sinks / taps split out of the shared 'sink_tap' scrape by Croatian keyword.
+ * Centralised here (next to appliancesForType) so the keyword knowledge lives
+ * in one place — a re-scrape that renames products only needs these lists
+ * updated, not the SinkTaps browse UI. "slavina" = tap, "sudoper" = sink.
+ */
+export function sinksFromCatalog(): SchachermayerProduct[] {
+  return searchSchachermayer('sink_tap', { anyKeyword: ['sudoper', 'umival'] })
+}
+
+export function tapsFromCatalog(): SchachermayerProduct[] {
+  return searchSchachermayer('sink_tap', { anyKeyword: ['slavin', 'mješalic', 'mjesalic'] })
+}
+
 /** Group hardware items by brand so the Hardware picker can map them to tiers. */
 export function hardwareByBrand(): Record<string, SchachermayerProduct[]> {
   const out: Record<string, SchachermayerProduct[]> = {}

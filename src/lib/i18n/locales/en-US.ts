@@ -80,7 +80,7 @@ export const enUS: Record<TranslationKey, string> = {
   'builder.groups.backsplash.label': 'Backsplash',
   'builder.groups.backsplash.why': 'Tile, panel, or matching slab.',
   'builder.groups.hardware.label': 'Hardware',
-  'builder.groups.hardware.why': 'Drawer system, hinges, handles, internal organisers.',
+  'builder.groups.hardware.why': 'Drawer system, hinges, and handles.',
   'builder.groups.appliances.label': 'Appliances',
   'builder.groups.appliances.why': 'Hob, oven, fridge, dishwasher, extractor.',
   'builder.groups.sinkTaps.label': 'Sink & taps',

@@ -235,8 +235,6 @@ export interface HardwareGroup {
   hingePriceEur?: number
   handleStyle: HandleStyle
   handleFinish: HandleFinish
-  /** Internal organisers selected (cutlery insert, magic corner, pull-out larder, etc). */
-  organisers: string[]
   meta: {
     drawerSystemTier: FieldMeta
     hingeType: FieldMeta

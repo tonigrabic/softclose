@@ -81,7 +81,7 @@ export const hrHR = {
   'builder.groups.backsplash.label': 'Zid iza radne plohe',
   'builder.groups.backsplash.why': 'Pločice, panel ili nastavak radne plohe.',
   'builder.groups.hardware.label': 'Okovi',
-  'builder.groups.hardware.why': 'Sustav ladica, šarke, ručke i unutarnji organizatori.',
+  'builder.groups.hardware.why': 'Sustav ladica, šarke i ručke.',
   'builder.groups.appliances.label': 'Uređaji',
   'builder.groups.appliances.why': 'Ploča, pećnica, hladnjak, perilica i napa.',
   'builder.groups.sinkTaps.label': 'Sudoper i slavina',

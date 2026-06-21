@@ -212,7 +212,6 @@ export function hydrateFromHypothesis(
       hingeType: hypothesis?.hardware?.hingeType?.value ?? 'soft_close',
       handleStyle: hypothesis?.hardware?.handleStyle?.value ?? 'integrated_jpull',
       handleFinish: hypothesis?.hardware?.handleFinish?.value ?? 'matched_to_door',
-      organisers: [],
       meta: {
         drawerSystemTier: metaFromHint(hypothesis?.hardware?.drawerSystemTier),
         hingeType: metaFromHint(hypothesis?.hardware?.hingeType),
