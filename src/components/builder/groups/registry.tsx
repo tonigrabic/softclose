@@ -98,7 +98,10 @@ export const GROUP_MODULES: Record<BuilderScreenId, BuilderGroupModule> = {
         onPatch={(patch) => dispatch({ type: 'patch_appliances', patch })}
       />
     ),
-    readback: () => null,
+    readback: (s, locale) => {
+      const n = s.appliances.selections.length
+      return n > 0 ? tDynamic('readback.appliances', locale).replace('{n}', String(n)) : null
+    },
   },
   sinkTaps: {
     Body: ({ state, dispatch }) => (
@@ -110,7 +113,15 @@ export const GROUP_MODULES: Record<BuilderScreenId, BuilderGroupModule> = {
     Body: ({ state, dispatch }) => (
       <LightingGroup state={state} onPatch={(patch) => dispatch({ type: 'patch_lighting', patch })} />
     ),
-    readback: () => null,
+    readback: (s, locale) => {
+      const n = [
+        s.lighting.underCabinetLed,
+        s.lighting.plinthLed,
+        s.lighting.pendantOverIsland,
+        s.lighting.smartControls,
+      ].filter(Boolean).length
+      return n > 0 ? tDynamic('readback.lightingLayers', locale).replace('{n}', String(n)) : null
+    },
   },
   finishing: {
     Body: ({ state, dispatch }) => (

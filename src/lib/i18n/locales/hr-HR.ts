@@ -387,6 +387,8 @@ export const hrHR = {
   'readback.built': 'Sastavljeno · procjena spremna',
   'readback.scopeItems': '{n} u opsegu',
   'readback.wishlistItems': '{n} zabilježeno',
+  'readback.appliances': '{n} uređaja',
+  'readback.lightingLayers': '{n} sloja rasvjete',
   'wrapup.title': 'Evo tvog sažetka',
   'wrapup.review': 'Pregledaj što šaljemo — ispravi sve što ne valja.',
   'wrapup.estimate.title': 'Okvirni raspon cijene',

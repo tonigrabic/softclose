@@ -374,6 +374,8 @@ export const enUS: Record<TranslationKey, string> = {
   'readback.built': 'Built · live estimate ready',
   'readback.scopeItems': '{n} in scope',
   'readback.wishlistItems': '{n} captured',
+  'readback.appliances': '{n} appliances',
+  'readback.lightingLayers': '{n} lighting layers',
   'wrapup.title': "Here's your brief",
   'wrapup.review': "Review what we're sending — fix anything that's off.",
   'wrapup.estimate.title': 'Rough estimate range',

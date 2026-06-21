@@ -659,3 +659,14 @@ Walked every screen in code (not just the agent summaries):
   and no snapshot churn until the maker's real pricelist lands — the last piece
   of the LOOP.md Q7 launch blocker that doesn't need their data.
 - Gate: 79 tests · tsc · eslint · next build green.
+
+### Screens review loop — wrap-up all-in figure + journey-rail readbacks
+- **Wrap-up estimate**: showed only the kitchen (works) range; now also shows the
+  all-in figure (appliances + sink/tap + project allowances) when present,
+  labelled "Kitchen — made & installed" vs "All-in", matching LiveBOMPanel so the
+  final screen is complete and consistent.
+- **Journey-rail status visibility (AGENTS.md rule 8, P0)**: the appliances and
+  lighting builder groups had null readbacks (blank in the rail when done). Now
+  appliances → "{n} appliances", lighting → "{n} lighting layers" (null when
+  none). i18n both locales.
+- Gate: 79 tests · tsc · eslint · next build green.
