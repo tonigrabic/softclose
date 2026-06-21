@@ -5,7 +5,7 @@ import { Check, Ruler, CornerUpRight } from 'lucide-react'
 import { useTranslations, type Locale } from '@/lib/i18n'
 import { formatLength } from '@/lib/floor-plan'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
-import { contractSeedOptions, suggestCabinetsForRun } from '@/lib/builder/cabinet-suggest'
+import { summarizeContract } from '@/lib/builder/cabinet-suggest'
 
 /**
  * Layout-counts confirmation gate. Before the homeowner refines anything, they
@@ -32,28 +32,12 @@ export function LayoutConfirm({
   /** When provided, renders a confirm CTA; omit to render a read-only summary. */
   onConfirm?: () => void
 }) {
-  const { t, locale } = useTranslations()
+  const { t, tDynamic, locale } = useTranslations()
 
-  const rows = useMemo(
-    () =>
-      contract.runs.map((run) => {
-        // Same options assembler as the builder's seeding — the tally shown
-        // here must be the tally that gets priced (B3a parity).
-        const units = suggestCabinetsForRun(run, contractSeedOptions(contract, run))
-        return {
-          id: run.id,
-          label: run.label,
-          lengthCm: run.lengthCm,
-          base: units.filter((u) => u.type === 'base').length,
-          wall: units.filter((u) => u.type === 'wall').length,
-          tall: units.filter((u) => u.type === 'tall').length,
-        }
-      }),
-    [contract]
-  )
-
-  const totalCabinets = rows.reduce((s, r) => s + r.base + r.wall + r.tall, 0)
-  const cornerCount = contract.corners.length
+  // Same deterministic projection the builder seeds from — the tally shown here
+  // must be the tally that gets priced (B3a parity, confirm-tally-parity test).
+  const summary = useMemo(() => summarizeContract(contract), [contract])
+  const { rows, totalCabinets, cornerCount } = summary
   const rowWords = ROW_LABEL[locale]
   const applianceWords = APPLIANCE_LABEL[locale]
 
@@ -134,6 +118,19 @@ export function LayoutConfirm({
           <p className="text-[12px] text-muted-foreground">{t('builder.confirm.none')}</p>
         )}
       </div>
+
+      {/* Layout shape + ceiling — the room-level facts that scale the tally. */}
+      <p className="px-1 text-[12px] text-muted-foreground">
+        {t('builder.confirm.layoutPrefix')}{' '}
+        <span className="font-semibold text-foreground">
+          {tDynamic(`layout.shape.${summary.shape}`)}
+        </span>
+        {' · '}
+        {t('builder.confirm.ceilingPrefix')}{' '}
+        <span className="font-semibold text-foreground tabular-nums">
+          {formatLength(summary.ceilingHeightCm, contract.units)}
+        </span>
+      </p>
 
       {/* Confirm CTA — only when used as a standalone gate; omitted when embedded
           in the capture "confirm everything" step (the step's own button locks it). */}

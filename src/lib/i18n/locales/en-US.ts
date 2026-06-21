@@ -63,6 +63,8 @@ export const enUS: Record<TranslationKey, string> = {
   'builder.confirm.cornersHeading': 'corner units',
   'builder.confirm.appliancesHeading': 'Appliances',
   'builder.confirm.none': 'none',
+  'builder.confirm.layoutPrefix': 'Layout:',
+  'builder.confirm.ceilingPrefix': 'Ceiling:',
   'builder.confirm.cta': 'Looks right — continue',
   'builder.confirm.editHint':
     'Something off? You can edit every part — cabinet counts, lengths and appliances — in the steps that follow.',
@@ -302,6 +304,7 @@ export const enUS: Record<TranslationKey, string> = {
   'flow.inspiration.label': 'Inspiration',
   'flow.concept_render.label': 'AI concept',
   'flow.confirm_look.label': 'Confirm the look',
+  'flow.confirm_contract.label': 'Confirm the plan',
   'flow.builder.label': 'Build it out',
   'flow.scope.label': 'Scope of work',
   'flow.wishlist.label': 'Wishlist',
@@ -328,14 +331,18 @@ export const enUS: Record<TranslationKey, string> = {
   'funnel.confirm_look.title': 'Confirm & lock it in.',
   'funnel.confirm_look.subtitle':
     "This is what we'll build on — your space and the look. Confirm to lock it; you can fine-tune every part next.",
-  'funnel.scope.eyebrow': 'Step 6',
+  'funnel.confirm_contract.eyebrow': 'Step 6',
+  'funnel.confirm_contract.title': 'Is this your kitchen?',
+  'funnel.confirm_contract.subtitle':
+    "Here's the plan we read — the runs, cabinet counts, corners and appliances we'll price. Confirm it's right, then we build it out together.",
+  'funnel.scope.eyebrow': 'Step 7',
   'funnel.scope.title': "What's actually being touched?",
   'funnel.scope.subtitle': "Tap everything in scope. We won't ask about anything you skip.",
-  'funnel.wishlist.eyebrow': 'Step 7',
+  'funnel.wishlist.eyebrow': 'Step 8',
   'funnel.wishlist.title': 'In your own words.',
   'funnel.wishlist.subtitle':
     "No need to be precise — write the way you think. We'll translate to trade-grade and keep your phrasing for the designer.",
-  'funnel.logistics.eyebrow': 'Step 8',
+  'funnel.logistics.eyebrow': 'Step 9',
   'funnel.logistics.title': 'Logistics.',
   'funnel.logistics.subtitle':
     'Roughly when — and a couple of practical things so the maker can plan around your life.',

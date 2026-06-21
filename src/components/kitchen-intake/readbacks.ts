@@ -42,6 +42,11 @@ export function readbackFor(
       if (parts.length === 0) return null
       return parts.map((s) => s.replace(/_/g, ' ')).join(' · ')
     }
+    case 'confirm_contract': {
+      if (!p.contractConfirmedAt) return null
+      const shape = p.layoutShape
+      return shape && shape !== 'unsure' ? td(`layout.shape.${shape}`) : null
+    }
     case 'builder': {
       return p.builderState ? td('readback.built') : null
     }

@@ -10,7 +10,12 @@
  */
 
 import type { CabinetPattern, CabinetUnit, WallRunDimensions } from './inventory'
-import { applianceSpansForRun, type LayoutContract } from '@/lib/contract/layout-contract'
+import {
+  applianceSpansForRun,
+  type LayoutContract,
+  type RunId,
+} from '@/lib/contract/layout-contract'
+import type { FeatureKind, LayoutShape } from '@/lib/floor-plan'
 
 const STANDARD_WIDTHS_BASE = [800, 600, 600, 600, 450] as const
 const STANDARD_WIDTHS_WALL = [800, 600, 600, 600, 450] as const
@@ -109,6 +114,57 @@ export function contractSeedOptions(
     tallHeightMm: Math.max(1800, contract.ceilingHeightCm * 10 - 120),
     applianceSpans: applianceSpansForRun(contract, run.id),
     integratedFridge: opts.integratedFridge ?? false,
+  }
+}
+
+/** One run's line in the contract summary: its length and per-row cabinet tally. */
+export interface ContractSummaryRow {
+  id: RunId
+  label: string
+  lengthCm: number
+  base: number
+  wall: number
+  tall: number
+}
+
+/**
+ * Everything the homeowner signs off on at the contract-confirmation step,
+ * derived deterministically from the frozen contract. Pure (no React, no I/O)
+ * so the dedicated step and the in-builder gate render the SAME numbers and
+ * it's unit-testable. The per-run tally goes through the same
+ * `suggestCabinetsForRun` the builder seeds from — parity is the whole point
+ * (tests/confirm-tally-parity.test.ts).
+ */
+export interface ContractSummary {
+  rows: ContractSummaryRow[]
+  totalCabinets: number
+  cornerCount: number
+  shape: LayoutShape
+  hasIsland: boolean
+  ceilingHeightCm: number
+  appliances: { kind: FeatureKind }[]
+}
+
+export function summarizeContract(contract: LayoutContract): ContractSummary {
+  const rows: ContractSummaryRow[] = contract.runs.map((run) => {
+    const units = suggestCabinetsForRun(run, contractSeedOptions(contract, run))
+    return {
+      id: run.id,
+      label: run.label,
+      lengthCm: run.lengthCm,
+      base: units.filter((u) => u.type === 'base').length,
+      wall: units.filter((u) => u.type === 'wall').length,
+      tall: units.filter((u) => u.type === 'tall').length,
+    }
+  })
+  return {
+    rows,
+    totalCabinets: rows.reduce((s, r) => s + r.base + r.wall + r.tall, 0),
+    cornerCount: contract.corners.length,
+    shape: contract.shape,
+    hasIsland: contract.hasIsland,
+    ceilingHeightCm: contract.ceilingHeightCm,
+    appliances: contract.appliances.map((a) => ({ kind: a.kind })),
   }
 }
 

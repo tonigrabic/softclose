@@ -63,6 +63,8 @@ export const hrHR = {
   'builder.confirm.cornersHeading': 'kutna elementa',
   'builder.confirm.appliancesHeading': 'Uređaji',
   'builder.confirm.none': 'nema',
+  'builder.confirm.layoutPrefix': 'Raspored:',
+  'builder.confirm.ceilingPrefix': 'Strop:',
   'builder.confirm.cta': 'Točno — nastavi',
   'builder.confirm.editHint':
     'Nešto nije u redu? Možeš urediti svaki dio — broj ormarića, dužine i uređaje — u koracima koji slijede.',
@@ -315,6 +317,7 @@ export const hrHR = {
   'flow.inspiration.label': 'Inspiracija',
   'flow.concept_render.label': 'AI koncept',
   'flow.confirm_look.label': 'Potvrdi izgled',
+  'flow.confirm_contract.label': 'Potvrdi plan',
   'flow.builder.label': 'Sastavljanje',
   'flow.scope.label': 'Opseg radova',
   'flow.wishlist.label': 'Lista želja',
@@ -341,14 +344,18 @@ export const hrHR = {
   'funnel.confirm_look.title': 'Potvrdi i zaključaj.',
   'funnel.confirm_look.subtitle':
     'Ovo je temelj na kojem gradimo — tvoj prostor i izgled. Potvrdi da zaključaš; svaki dio fino podešavaš dalje.',
-  'funnel.scope.eyebrow': 'Korak 6',
+  'funnel.confirm_contract.eyebrow': 'Korak 6',
+  'funnel.confirm_contract.title': 'Je li ovo tvoja kuhinja?',
+  'funnel.confirm_contract.subtitle':
+    'Ovo je plan koji smo pročitali — nizovi, broj elemenata, kutovi i uređaji koje ćemo izračunati. Potvrdi da je točno i gradimo dalje zajedno.',
+  'funnel.scope.eyebrow': 'Korak 7',
   'funnel.scope.title': 'Što se zapravo radi?',
   'funnel.scope.subtitle': 'Dodirni sve što je u opsegu. Nećemo pitati za ono što preskočiš.',
-  'funnel.wishlist.eyebrow': 'Korak 7',
+  'funnel.wishlist.eyebrow': 'Korak 8',
   'funnel.wishlist.title': 'Svojim riječima.',
   'funnel.wishlist.subtitle':
     'Ne moraš biti precizan — piši kako razmišljaš. Mi prevodimo u stručni jezik i čuvamo tvoje riječi za dizajnera.',
-  'funnel.logistics.eyebrow': 'Korak 8',
+  'funnel.logistics.eyebrow': 'Korak 9',
   'funnel.logistics.title': 'Logistika.',
   'funnel.logistics.subtitle':
     'Otprilike kada — i nekoliko praktičnih stvari da izrađivač može planirati oko tvog života.',

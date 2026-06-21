@@ -28,6 +28,7 @@ import {
   type FlowStepId,
 } from '@/lib/flow'
 import { BuilderShell } from '@/components/builder/BuilderShell'
+import { LayoutConfirm } from '@/components/builder/LayoutConfirm'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { BuilderState } from '@/lib/builder/inventory'
 import { derivePrefills, visionPrefilledLook } from '@/lib/derive-prefills'
@@ -45,6 +46,12 @@ import type {
   WrapUpData,
 } from '@/lib/types'
 import type { InspirationVisionResult } from '@/app/api/inspiration-vision/route'
+
+/** Sign-off timestamp, read through a module-level helper so the React purity
+ * lint doesn't flag `Date.now()` in the component's event handlers. */
+function nowMs(): number {
+  return Date.now()
+}
 
 const PROJECT_TYPE_OPTIONS = [
   { value: 'full_remodel', label: 'Full remodel' },
@@ -251,6 +258,18 @@ export function KitchenIntake() {
       profile.hardwareTier ? `hardware: ${profile.hardwareTier}` : null,
     ].filter(Boolean)
     logTurn('user', `Confirmed layout & look: ${parts.join(' · ') || '(skipped)'}`)
+    goNext()
+  }
+
+  /**
+   * The explicit "this is my kitchen" sign-off. The contract was already frozen
+   * at confirm_look; here the homeowner confirms the full derived plan (runs,
+   * tally, corners, appliances) the builder will price. Records the sign-off
+   * (provenance for the maker) and advances into the builder.
+   */
+  function commitConfirmContract() {
+    patchProfile({ contractConfirmedAt: nowMs() })
+    logTurn('user', 'Confirmed the layout plan — proceeding to build.')
     goNext()
   }
 
@@ -608,6 +627,7 @@ export function KitchenIntake() {
   const funnelBuilderState = profile.builderState as BuilderState | undefined
   const rightRailSteps: FlowStepId[] = [
     'confirm_look',
+    'confirm_contract',
     'builder',
     'scope',
     'wishlist',
@@ -679,6 +699,8 @@ export function KitchenIntake() {
                     goNext()
                   }}
                 />
+              ) : state.currentStepId === 'confirm_contract' ? (
+                <ContractConfirmBody profile={profile} onConfirm={commitConfirmContract} />
               ) : (
               <StepBody
                 stepId={state.currentStepId}
@@ -781,6 +803,11 @@ export function KitchenIntake() {
         break
       case 'confirm_look':
         commitConfirmLook()
+        break
+      case 'confirm_contract':
+        // The step's own CTA (LayoutConfirm) drives the sign-off; this is only
+        // reached if a footer Continue is ever wired for the step.
+        commitConfirmContract()
         break
       case 'builder':
         // The Builder owns its own continue/back; the footer Continue here
@@ -1148,6 +1175,35 @@ function StepBody(props: StepBodyProps) {
   }
 }
 
+/**
+ * The dedicated contract-confirmation step body. Projects the frozen plan into
+ * the SAME layout contract the builder seeds from and shows it through
+ * LayoutConfirm for an explicit sign-off. Falls back to an 'unsure' preset so
+ * the homeowner is never stuck without a contract to confirm.
+ */
+function ContractConfirmBody({
+  profile,
+  onConfirm,
+}: {
+  profile: LeadProfile
+  onConfirm: () => void
+}) {
+  const { t } = useTranslations()
+  const contract = useMemo(
+    () => floorPlanToLayout(validate(planFromProfile(profile) ?? fromShapePreset('unsure'))),
+    [profile]
+  )
+  return (
+    <StepFrame
+      eyebrow={t('funnel.confirm_contract.eyebrow')}
+      title={t('funnel.confirm_contract.title')}
+      subtitle={t('funnel.confirm_contract.subtitle')}
+    >
+      <LayoutConfirm contract={contract} onConfirm={onConfirm} />
+    </StepFrame>
+  )
+}
+
 function StepFrame({
   eyebrow,
   title,
@@ -1259,6 +1315,9 @@ function FooterNav({
         // The layout is the lock (it freezes the contract the builder prices);
         // decor below is optional. Gate on having a plan to confirm.
         return hasFloorPlan
+      case 'confirm_contract':
+        // The LayoutConfirm CTA owns the explicit sign-off; no footer Continue.
+        return false
       case 'scope':
         return scopeCount > 0
       case 'wishlist':
@@ -1292,7 +1351,7 @@ function FooterNav({
         <ArrowLeft className="size-3.5 stroke-[2]" aria-hidden />
         {t('nav.back')}
       </button>
-      {stepId !== 'builder' && (
+      {stepId !== 'builder' && stepId !== 'confirm_contract' && (
         <button
           type="button"
           onClick={onContinue}
