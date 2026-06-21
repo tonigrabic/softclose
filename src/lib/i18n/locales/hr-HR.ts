@@ -98,6 +98,21 @@ export const hrHR = {
   'common.no': 'Ne',
   'common.optional': 'Neobavezno',
   'common.retry': 'Pokušaj ponovno',
+
+  // Inspiration step
+  'inspiration.direction': 'Odaberi smjer',
+  'inspiration.analyzing': 'Čitamo tvoju inspiraciju…',
+  'inspiration.analyze': 'Analiziraj inspiraciju',
+  'inspiration.error': 'Nismo uspjeli analizirati inspiraciju',
+  'inspiration.readback.title': 'Iščitano iz tvojih odabira',
+  'inspiration.readback.reanalyze': 'Ponovno analiziraj',
+  'inspiration.readback.style': 'Stil',
+  'inspiration.readback.door': 'Fronte',
+  'inspiration.readback.worktop': 'Radna ploča',
+  'inspiration.readback.backsplash': 'Zid iza ploče',
+  'inspiration.readback.hardware': 'Okovi',
+  'inspiration.readback.prefillHint':
+    'Na temelju ovoga ispunit ćemo ostalo — sve ćeš potvrditi za koji trenutak.',
   'common.confidence.H': 'Visoka pouzdanost',
   'common.confidence.M': 'Srednja pouzdanost',
   'common.confidence.L': 'Niska pouzdanost',

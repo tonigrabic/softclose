@@ -96,6 +96,21 @@ export const enUS: Record<TranslationKey, string> = {
   'common.no': 'No',
   'common.optional': 'Optional',
   'common.retry': 'Try again',
+
+  // Inspiration step
+  'inspiration.direction': 'Pick a direction',
+  'inspiration.analyzing': 'Reading your inspiration…',
+  'inspiration.analyze': 'Analyze inspiration',
+  'inspiration.error': 'Could not analyze inspiration',
+  'inspiration.readback.title': 'Picked up from your picks',
+  'inspiration.readback.reanalyze': 'Re-analyze',
+  'inspiration.readback.style': 'Style read',
+  'inspiration.readback.door': 'Door read',
+  'inspiration.readback.worktop': 'Worktop read',
+  'inspiration.readback.backsplash': 'Backsplash',
+  'inspiration.readback.hardware': 'Hardware',
+  'inspiration.readback.prefillHint':
+    "We'll pre-fill the rest from this — you'll get to confirm everything in a moment.",
   'common.confidence.H': 'High confidence',
   'common.confidence.M': 'Medium confidence',
   'common.confidence.L': 'Low confidence',
