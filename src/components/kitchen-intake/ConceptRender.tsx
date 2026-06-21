@@ -11,8 +11,11 @@ import type {
   LeadProfile,
 } from '@/lib/types'
 
-// TEMP: raised from 5 to effectively disable the per-session cap during testing.
-const MAX_RENDERS_PER_SESSION = 9999
+// Per-session render cap (UX side — disables the generate button + shows
+// "remaining"). Mirrors the server cap in render-concept/route.ts. Defaults to
+// 5 (product rule); override via env for local testing.
+const MAX_RENDERS_PER_SESSION =
+  Number(process.env.NEXT_PUBLIC_RENDER_CAP_PER_SESSION) || 5
 const MAX_PRODUCT_REFS = 4
 
 // `value` is the English instruction sent to the renderer (keep stable for the

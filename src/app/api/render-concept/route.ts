@@ -2,8 +2,11 @@ import { generateImage } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { rateLimit } from '@/lib/rate-limit'
 
-// TEMP: raised from 5 to effectively disable the per-session cap during testing.
-const MAX_RENDERS_PER_SESSION = 9999
+// Per-session render cap (product rule: renders capped at 5/session — they cost
+// real image-gen money). Defaults to 5; override via env for local testing
+// (set RENDER_CAP_PER_SESSION). Keep in sync with the client cap in
+// ConceptRender.tsx (NEXT_PUBLIC_RENDER_CAP_PER_SESSION).
+const MAX_RENDERS_PER_SESSION = Number(process.env.RENDER_CAP_PER_SESSION) || 5
 const SESSION_WINDOW_MS = 30 * 60 * 1000
 const MAX_BYTES_PER_IMAGE = 5 * 1024 * 1024
 const MAX_STYLE_REFS = 3

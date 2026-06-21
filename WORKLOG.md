@@ -596,3 +596,16 @@ Walked every screen in code (not just the agent summaries):
   install + lowers total; cabinets:false drops the cabinetry package;
   appliancesSupply:false drops appliances; unmapped keys (flooring) are no-ops.
 - Gate: 73 tests · tsc · eslint · next build green.
+
+### Improvements loop — restore the render cap (env-overridable)
+- render-concept route + ConceptRender both had `MAX_RENDERS_PER_SESSION = 9999`
+  marked "TEMP … during testing" — disabling the AGENTS.md non-negotiable
+  (renders capped at 5/session) and risking runaway image-gen spend at launch.
+- Now defaults to 5 (the product rule), overridable via env so testing isn't
+  blocked: server `RENDER_CAP_PER_SESSION`, client
+  `NEXT_PUBLIC_RENDER_CAP_PER_SESSION`. Set both high locally to iterate freely.
+- Checked two other flagged items, both non-issues: `tDynamic` in
+  summariseLayoutFromProfile uses the explicit-locale pure form (correct outside
+  a component); the in-builder ConfirmScreen still serves the standalone
+  /builder dev harness (not dead). Left both.
+- Gate: 73 tests · tsc · eslint · next build green.
