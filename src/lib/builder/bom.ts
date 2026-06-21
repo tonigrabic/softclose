@@ -643,8 +643,8 @@ export function computeBom(
   // A picked model with a catalog price is EXACT — no class estimate, no
   // narrowing. Each piece prices independently so a single pick already
   // tightens the line; both picked → the whole line is exact.
-  const sinkPriceEur = state.sinkTaps.sink.pickedPriceEur
-  const tapPriceEur = state.sinkTaps.tap.pickedPriceEur
+  const sinkPriceEur = effPrice(state.sinkTaps.sink.pickedPriceEur, state.sinkTaps.sink.sku)
+  const tapPriceEur = effPrice(state.sinkTaps.tap.pickedPriceEur, state.sinkTaps.tap.sku)
   const sinkPart =
     sinkPriceEur != null
       ? { low: sinkPriceEur, high: sinkPriceEur }

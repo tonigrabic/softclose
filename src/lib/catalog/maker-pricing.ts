@@ -10,7 +10,8 @@
  * (computeBom `pricing: 'maker'`), never the homeowner-facing estimate.
  *
  * Empty by default → `pricing: 'maker'` equals retail → zero behaviour change
- * until the maker populates `bySku`.
+ * until the maker populates `bySku`. Covers every picked catalog product:
+ * appliances, hardware (drawers + hinges), and sink + tap.
  */
 import makerPricingJson from './maker-pricing.json'
 

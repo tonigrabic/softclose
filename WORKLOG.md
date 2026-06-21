@@ -670,3 +670,12 @@ Walked every screen in code (not just the agent summaries):
   appliances → "{n} appliances", lighting → "{n} lighting layers" (null when
   none). i18n both locales.
 - Gate: 79 tests · tsc · eslint · next build green.
+
+### Follow-on — sink/tap into the maker B2B seam
+- Sink + tap already captured `sku` on pick but computeBom read their prices
+  raw. Wired both through `effPrice(pickedPriceEur, sku)`, so the maker B2B
+  override (pricing:'maker') now covers EVERY picked catalog product:
+  appliances, hardware (drawers + hinges), sink + tap. Docs corrected (the
+  earlier "sink/tap have no SKU" note was wrong — they do).
+- Still dormant by default (empty pricelist ⇒ maker == retail; maker-pricing
+  test green across fixtures). Gate: 79 tests · tsc · eslint · next build green.
