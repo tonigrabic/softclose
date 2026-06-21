@@ -455,7 +455,12 @@ export function KitchenIntake() {
       const res = await fetch('/api/builder-hypothesis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ renderImage: render.imageDataUrl, profile, layoutContract }),
+        body: JSON.stringify({
+          renderImage: render.imageDataUrl,
+          anchorPhoto: spacePhotos[0],
+          profile,
+          layoutContract,
+        }),
       })
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error ?? `Hypothesis failed (${res.status})`)

@@ -21,6 +21,13 @@ const MAX_BYTES_PER_PHOTO = 6 * 1024 * 1024
 const MAX_CALLS_PER_SESSION_WINDOW = 4
 const SESSION_WINDOW_MS = 30 * 60 * 1000
 
+/**
+ * Vision model for the layout/hypothesis read. This is the one call where
+ * geometry accuracy pays off most (it drives cabinet seeding + the price band),
+ * so it runs on the full model rather than the mini used elsewhere. Swap here.
+ */
+const LAYOUT_MODEL = 'gpt-5.4'
+
 const confidenceEnum = z.enum(['H', 'M', 'L'])
 const layoutShapeEnum = z.enum([
   'galley',
@@ -235,9 +242,10 @@ const hypothesisSchema = z.object({
 })
 
 /**
- * Render the measured layout contract (Part 1 geometry) as prompt text so the
- * vision model treats runs / appliances / corners as FIXED and reuses the run
- * ids — instead of inventing its own. Returns '' when no contract is supplied.
+ * Render the photo-measured layout (Part 1 geometry) as prompt text — a SCALE
+ * reference only. The model reads the actual design from the render + anchor
+ * photo (see SYSTEM) and borrows these cm figures + run ids so things line up.
+ * Returns '' when no contract is supplied.
  */
 function describeLayoutContract(lc: LayoutContract | undefined): string {
   if (!lc || lc.runs.length === 0) return ''
@@ -295,6 +303,40 @@ function dataUrlToImagePart(dataUrl: string) {
   return { type: 'image' as const, image: dataUrl, mediaType }
 }
 
+/**
+ * Assemble the user message for the hypothesis call. Pure (no I/O) so it can be
+ * unit-tested. The render comes FIRST (it's the design we price); the anchor
+ * photo, when present, comes SECOND as the true-scale / shell reality check the
+ * model cross-references (see SYSTEM). Returns the AI-SDK `messages` array.
+ */
+export function buildHypothesisMessages(args: {
+  renderImage: string
+  anchorPhoto?: string
+  profileSummary: string
+  layoutFacts: string
+}) {
+  const { renderImage, anchorPhoto, profileSummary, layoutFacts } = args
+  const anchorNote = anchorPhoto
+    ? '\n\nTwo images follow: first the RENDER (the design we are pricing), then the ANCHOR PHOTO of the actual space (use only for true scale + window/door positions, not for the old design).'
+    : '\n\nThe rendered concept image follows.'
+  const content: Array<
+    { type: 'text'; text: string } | ReturnType<typeof dataUrlToImagePart>
+  > = [
+    {
+      type: 'text',
+      text:
+        (layoutFacts ? layoutFacts + '\n\n' : '') +
+        'Phase-1 profile (homeowner-stated; treat as soft hints, render takes precedence visually):\n' +
+        profileSummary +
+        anchorNote +
+        ' Call inferBuilderHypothesis with structured fields covering every group you can read.',
+    },
+    dataUrlToImagePart(renderImage),
+  ]
+  if (anchorPhoto) content.push(dataUrlToImagePart(anchorPhoto))
+  return [{ role: 'user' as const, content }]
+}
+
 /** Compact catalog hint for the model — code + name + family + tone, no prices. */
 const CATALOG_HINT = decors
   .map((d) => `${d.code} ${d.structure} (${d.family}/${d.tone}/${d.finish}): ${d.name}`)
@@ -304,12 +346,17 @@ const SYSTEM = `You are a kitchen-trade vision assistant analysing an AI-rendere
 
 Your job: produce a structured BuilderHypothesis covering all 10 component groups so a homeowner can walk through the builder with each value pre-filled.
 
+You may receive TWO images:
+1. The RENDER (always first) — the INTENDED NEW design. This is the kitchen we are pricing. Read the design FROM HERE: shape, runs, island, cabinet configuration, fronts, worktop, appliances.
+2. The ANCHOR PHOTO (optional, second) — the homeowner's ACTUAL existing space. Use it ONLY to sanity-check true scale, room proportions, and the position of fixed openings (windows, doors). Do NOT copy its old cabinets or finishes into the hypothesis — the render is the design, the photo is the reality check.
+When the two disagree on design (the render adds an island, changes the shape, re-runs the cabinets), FOLLOW THE RENDER. When they disagree on scale or where a window/door sits, trust the ANCHOR PHOTO.
+
 Rules:
 - Return only what you can see or reasonably infer. Skip a field rather than fabricate.
 - Confidence is per-field. 'H' only when the visual evidence is unambiguous; 'L' liberally — better empty than wrong.
 - For each field include a short \`reason\` (≤ 12 words) referencing the visual evidence ("matte black slab fronts visible", "concrete-textured worktop").
 - For decorCode suggestions: pick the closest match from the catalog below. Match family + tone + finish. If nothing close, leave decorCode empty and provide a colorDescription on the doors field.
-- For layout (shape, island, runs): READ THE LAYOUT FROM THE RENDER — this is the kitchen we are pricing. Set layout.shape and layout.hasIsland from what the render actually shows. An APPROXIMATE existing-space layout may be provided in the user message: use its cm figures ONLY as a SCALE reference, and reuse its run ids ("top", "left", "island") where they still apply so things line up. If the render adds an island or changes the shape vs. the existing space, FOLLOW THE RENDER. Per run, infer hasBase/hasWall (upper cabinets present?) and hasTall (a full-height tower present?). With no reference at all, fall back to: L-shape → two runs, galley → two facing, straight → one.
+- For layout (shape, island, runs): READ THE LAYOUT FROM THE RENDER — this is the kitchen we are pricing. Set layout.shape and layout.hasIsland from what the render actually shows. An APPROXIMATE existing-space layout may also be provided as text in the user message: use its cm figures ONLY as a SCALE reference, cross-checked against the anchor photo, and reuse its run ids ("top", "left", "island") where they still apply so things line up. If the render adds an island or changes the shape vs. the existing space, FOLLOW THE RENDER. Per run, infer hasBase/hasWall (upper cabinets present?) and hasTall (a full-height tower present?). With no reference at all, fall back to: L-shape → two runs, galley → two facing, straight → one.
 - Hardware is mostly invisible in renders — set drawerSystemTier confidence 'L' unless handles are clearly visible.
 - Appliances: identify integrated vs. freestanding by visible seams. Hob type from cooktop appearance.
   - For fridge / dishwasher: return \`{ present, integrated }\` only if you can actually see them (or a clear integrated front). Skip rather than fabricate. The homeowner may not have either appliance — do not assume presence.
@@ -337,6 +384,7 @@ export async function POST(req: Request) {
 
   let body: {
     renderImage?: string
+    anchorPhoto?: string
     profile?: Record<string, unknown>
     layoutContract?: LayoutContract
   }
@@ -357,29 +405,24 @@ export async function POST(req: Request) {
     )
   }
 
+  // The anchor photo is optional (homeowner may have skipped photos). Accept it
+  // only when it's a valid, in-budget image data URL; otherwise silently drop it
+  // and read the design from the render alone.
+  let anchorPhoto: string | undefined
+  if (typeof body.anchorPhoto === 'string' && body.anchorPhoto.startsWith('data:image/')) {
+    if (approxBytesOfDataUrl(body.anchorPhoto) <= MAX_BYTES_PER_PHOTO) {
+      anchorPhoto = body.anchorPhoto
+    }
+  }
+
   const profileSummary = JSON.stringify(body.profile ?? {}, null, 2).slice(0, 2000)
   const layoutFacts = describeLayoutContract(sanitizeContract(body.layoutContract))
 
   try {
     const result = await generateText({
-      model: openai('gpt-5.4-mini'),
+      model: openai(LAYOUT_MODEL),
       system: SYSTEM,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text:
-                (layoutFacts ? layoutFacts + '\n\n' : '') +
-                "Phase-1 profile (homeowner-stated; treat as soft hints, render takes precedence visually):\n" +
-                profileSummary +
-                "\n\nThe rendered concept image follows. Call inferBuilderHypothesis with structured fields covering every group you can read.",
-            },
-            dataUrlToImagePart(renderImage),
-          ],
-        },
-      ],
+      messages: buildHypothesisMessages({ renderImage, anchorPhoto, profileSummary, layoutFacts }),
       tools: {
         inferBuilderHypothesis: tool({
           description: 'Return a BuilderHypothesis covering all 10 component groups.',
