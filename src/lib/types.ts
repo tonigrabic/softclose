@@ -395,6 +395,12 @@ export interface StubEstimate {
   placeholder: boolean
   /** Half-width of the range in percent (e.g. 20 for ±20%), for localized display. */
   bandPct?: number
+  /**
+   * Maker-only B2B cost basis for the all-in figure (retail stays the
+   * homeowner number). Present only when the maker has supplied B2B prices
+   * (src/lib/catalog/maker-pricing.json); omitted otherwise.
+   */
+  makerCost?: { low: number; high: number }
 }
 
 /** Shape returned by /api/handoff for the designer-facing pack. */

@@ -1,0 +1,9 @@
+{
+  "schema": {
+    "version": "1",
+    "currency": "EUR",
+    "basis": "Maker B2B account cost, keyed by Schachermayer article number (SKU)."
+  },
+  "note": "Drop the maker's real B2B prices here, keyed by SKU (e.g. \"Br.art.112592971\": 42.50). EMPTY = the whole estimate uses retail reference RRP (what the homeowner sees). When populated, the maker handoff/dashboard gains a cost basis alongside the retail range; the homeowner still sees retail. SKU coverage today: appliances + hardware (drawer systems, hinges). Sink/tap have no SKU on state yet — they stay retail until SKU capture is added.",
+  "bySku": {}
+}

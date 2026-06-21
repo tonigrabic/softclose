@@ -15,6 +15,7 @@
  */
 
 import { decors as catalogDecors, services, doorPricePerM2, worktopPricePerM, findDecor } from '@/lib/catalog'
+import { makerPriceForSku } from '@/lib/catalog/maker-pricing'
 import { PATTERN_SPECS, unitDrawerCount } from './cabinet-patterns'
 import type { BuilderState, CabinetUnit, DrawerSystemTier, FieldMeta } from './inventory'
 import type { LeadProfile } from '@/lib/types'
@@ -284,9 +285,22 @@ const LABOUR_RATES = {
 export function computeBom(
   state: BuilderState,
   locale: Locale = DEFAULT_LOCALE,
-  opts: { scope?: LeadProfile['scope'] } = {}
+  opts: { scope?: LeadProfile['scope']; pricing?: 'retail' | 'maker' } = {}
 ): BomEstimate {
   const lineItems: BomLineItem[] = []
+
+  // Retail (homeowner-facing) vs maker B2B cost. In 'maker' mode a picked SKU's
+  // price is replaced by the maker's account price when supplied; otherwise it
+  // stays retail. Empty maker pricelist → identical to retail (see
+  // maker-pricing.ts). Homeowner path always passes 'retail' (the default).
+  const priceMode = opts.pricing ?? 'retail'
+  const effPrice = (retail: number | undefined, sku?: string): number | undefined => {
+    if (priceMode === 'maker') {
+      const m = makerPriceForSku(sku)
+      if (m != null) return m
+    }
+    return retail
+  }
 
   // Localisation helpers — line-item detail/quantity are built localized so the
   // always-visible BOM panel isn't half English. Enum values reuse the existing
@@ -488,8 +502,8 @@ export function computeBom(
   // The generic perBaseUnit bundle covers hinges + small fittings; when the
   // hinge is picked we price hinges explicitly and keep only the fittings
   // share (~70%) of the bundle, so the two don't double-count.
-  const drawerPriceEur = state.hardware.drawerSystemPriceEur
-  const hingePriceEur = state.hardware.hingePriceEur
+  const drawerPriceEur = effPrice(state.hardware.drawerSystemPriceEur, state.hardware.drawerSystemSku)
+  const hingePriceEur = effPrice(state.hardware.hingePriceEur, state.hardware.hingeSku)
   const HINGE_BUNDLE_SHARE = 0.3
 
   let hwLow = 0
@@ -697,8 +711,9 @@ export function computeBom(
     for (const sel of state.appliances.selections) {
       const picked = sel.pickedBrand && sel.pickedName ? `${sel.pickedBrand} ${sel.pickedName}` : null
       detailNames.push(picked ? `${applName(sel.type)}: ${picked}` : applName(sel.type))
-      if (sel.pickedPriceEur != null) {
-        exactSum += sel.pickedPriceEur
+      const pickedPrice = effPrice(sel.pickedPriceEur, sel.pickedSku)
+      if (pickedPrice != null) {
+        exactSum += pickedPrice
         pickedCount++
         continue
       }

@@ -1,6 +1,7 @@
 import { hasPlan, planFromProfile, renderFloorPlanSvg, validate } from '@/lib/floor-plan'
 import { buildStubEstimate } from '@/lib/stub-estimate'
 import { computeBom } from '@/lib/builder/bom'
+import { makerPricingEntryCount } from '@/lib/catalog/maker-pricing'
 import type { BuilderState } from '@/lib/builder/inventory'
 import type {
   ClientMessage,
@@ -70,6 +71,16 @@ export async function POST(req: Request) {
         basis: `Estimated from your build — ±${Math.round(bom.sections.works.bandWidthPct / 2)}%. An estimate your maker confirms, never a final quote.`,
         placeholder: false,
         bandPct: Math.round(bom.sections.works.bandWidthPct / 2),
+      }
+      // Maker-only cost basis: same build priced at the maker's B2B account
+      // prices. Only attached once the maker has supplied prices; the homeowner
+      // figures above stay retail regardless (decision 2026-06-21).
+      if (makerPricingEntryCount() > 0) {
+        const makerBom = computeBom(brief.builderState as BuilderState, undefined, {
+          scope: brief.scope,
+          pricing: 'maker',
+        })
+        estimate.makerCost = { low: makerBom.total.low, high: makerBom.total.high }
       }
     }
 

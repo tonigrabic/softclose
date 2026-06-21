@@ -640,3 +640,22 @@ Walked every screen in code (not just the agent summaries):
   edge/thickness. `mitreJoinCount` stays auto-derived from the contract (it's
   geometry, not a homeowner choice) — left as is. i18n both locales.
 - Gate: 76 tests · tsc · eslint · next build green.
+
+### Improvements loop — #3 maker B2B pricing drop-in (retail to homeowner, cost to maker)
+- Decision (Toni): homeowner keeps seeing retail RRP; the maker gains a cost basis.
+- New `src/lib/catalog/maker-pricing.json` (empty by default) + `maker-pricing.ts`
+  loader (`makerPriceForSku`, `makerPricingEntryCount`). The maker drops real B2B
+  prices keyed by Schachermayer SKU.
+- `computeBom(state, locale, { pricing })`: 'retail' (default, homeowner) vs
+  'maker'. In 'maker' mode a picked SKU's price is replaced by the maker's
+  account price when supplied; else retail. Wired for appliances (pickedSku),
+  hardware drawer (drawerSystemSku) + hinge (hingeSku). Sink/tap have no SKU on
+  state → stay retail (noted; needs SKU capture later).
+- Handoff attaches `estimate.makerCost` (all-in at maker prices) ONLY when the
+  pricelist has entries; MakerDashboardPreview shows a green "Your cost basis
+  (B2B) · maker-only" panel. Homeowner figures stay retail throughout.
+- Ships DORMANT: empty pricelist → maker mode === retail (tests/maker-pricing
+  proves byte-for-byte equality across every fixture), so zero behaviour change
+  and no snapshot churn until the maker's real pricelist lands — the last piece
+  of the LOOP.md Q7 launch blocker that doesn't need their data.
+- Gate: 79 tests · tsc · eslint · next build green.
