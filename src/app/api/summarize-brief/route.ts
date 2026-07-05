@@ -2,6 +2,8 @@ import { generateText, tool } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 import { rateLimit } from '@/lib/rate-limit'
+import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
+import { MOCK_SUMMARY } from '@/lib/api/mock-fixtures/summarize-brief'
 import type { LeadProfile } from '@/lib/types'
 
 const MAX_CALLS_PER_SESSION_WINDOW = 5
@@ -35,6 +37,11 @@ Rules:
 - Keep each bullet under 140 characters.`
 
 export async function POST(req: Request) {
+  // Mock-AI mode: canned fixture before rate limiting, so devs can spam freely.
+  if (mockAiEnabled()) {
+    await mockDelay()
+    return Response.json({ result: MOCK_SUMMARY })
+  }
   const limit = rateLimit(req, 'summarize-brief', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
   if (!limit.ok) {
     return Response.json(

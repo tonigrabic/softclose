@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Download, ExternalLink, Sparkles, AlertCircle } from 'lucide-react'
 import type {
@@ -58,39 +58,32 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
     return label === key ? humanize(value) : label
   }
 
-  useEffect(() => {
-    let cancelled = false
-    async function fetchBundle() {
-      setIsLoadingBundle(true)
-      setBundleError(null)
-      try {
-        const res = await fetch('/api/handoff', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            brief: profile,
-            moodBoard,
-            explorationRefs,
-            transcript,
-          }),
-        })
-        if (!res.ok) throw new Error(`Bundle build failed (${res.status})`)
-        const data = (await res.json()) as HandoffBundle
-        if (!cancelled) setBundle(data)
-      } catch (err) {
-        if (!cancelled) {
-          setBundleError(err instanceof Error ? err.message : 'Could not assemble brief')
-        }
-      } finally {
-        if (!cancelled) setIsLoadingBundle(false)
-      }
-    }
-    void fetchBundle()
-    return () => {
-      cancelled = true
+  // Wrap-up renders after the flow completes, so the bundle inputs are frozen —
+  // loadBundle captures them once (deps []) and is reused for the manual retry.
+  const loadBundle = useCallback(async () => {
+    setIsLoadingBundle(true)
+    setBundleError(null)
+    try {
+      const res = await fetch('/api/handoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brief: profile, moodBoard, explorationRefs, transcript }),
+      })
+      if (!res.ok) throw new Error(`Bundle build failed (${res.status})`)
+      const data = (await res.json()) as HandoffBundle
+      setBundle(data)
+    } catch (err) {
+      setBundleError(err instanceof Error ? err.message : 'Could not assemble brief')
+    } finally {
+      setIsLoadingBundle(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadBundle()
+  }, [loadBundle])
 
   async function downloadHandoff() {
     if (!bundle) return
@@ -168,9 +161,25 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
           <p className="text-sm text-muted-foreground">{t('wrapup.estimate.loading')}</p>
         ) : estimate ? (
           <>
+            {estimate.withAppliances && (
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('wrapup.estimate.kitchenLabel')}
+              </p>
+            )}
             <p className="text-3xl font-bold tabular-nums text-foreground">
               {fmtMoney(estimate.low)} <span className="text-muted-foreground">–</span> {fmtMoney(estimate.high)}
             </p>
+            {estimate.withAppliances && (
+              <div className="mt-2 border-t border-border/60 pt-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  {t('wrapup.estimate.allInLabel')}
+                </p>
+                <p className="text-xl font-semibold tabular-nums text-foreground">
+                  {fmtMoney(estimate.withAppliances.low)} <span className="text-muted-foreground">–</span>{' '}
+                  {fmtMoney(estimate.withAppliances.high)}
+                </p>
+              </div>
+            )}
             {estimateBasis && (
               <p className="mt-2 text-xs text-muted-foreground">{estimateBasis}</p>
             )}
@@ -441,7 +450,19 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
           {isExporting ? t('wrapup.actions.preparing') : t('wrapup.actions.download')}
         </button>
         {exportError && <p className="text-xs font-medium text-destructive">{exportError}</p>}
-        {bundleError && <p className="text-xs font-medium text-destructive">{bundleError}</p>}
+        {bundleError && (
+          <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-destructive">
+            <span>{bundleError}</span>
+            <button
+              type="button"
+              onClick={() => void loadBundle()}
+              disabled={isLoadingBundle}
+              className="rounded-full border border-destructive/40 px-3 py-1 font-semibold transition-colors hover:bg-destructive/10 disabled:opacity-50"
+            >
+              {t('common.retry')}
+            </button>
+          </div>
+        )}
 
         {/* Demo-only link to the maker dashboard preview. Production removes this. */}
         <button

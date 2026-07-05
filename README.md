@@ -16,6 +16,17 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+### Dev without AI spend
+
+- `npm run dev:mock` — the whole funnel runs against canned AI responses
+  (`src/lib/api/mock-fixtures/`): instant, free, no OpenAI key needed. Renders
+  come from a bundled sample image; an amber "MOCK AI" pill marks the mode.
+  Rate limits are bypassed in mock mode.
+- `/builder` (dev-only route) — jump straight into the builder from contract ×
+  hypothesis fixtures, or import a real session's JSON (a `LeadProfile` or a
+  `{ profile, hypothesis?, builderState? }` bundle) via the floating harness
+  panel.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

@@ -5,15 +5,17 @@ import { computeBom, formatEUR } from '@/lib/builder/bom'
 import { useTranslations } from '@/lib/i18n'
 import { tDynamic } from '@/lib/i18n'
 import type { BuilderState } from '@/lib/builder/inventory'
+import type { LeadProfile } from '@/lib/types'
 
 /**
  * Sticky right-side panel with the live cost range. Updates on every
  * BuilderState change. Always shows a range, never a single number — the
- * range is itself a signal of certainty.
+ * range is itself a signal of certainty. `scope` (once the homeowner sets it)
+ * drops out-of-scope lines so the range reflects the actual project.
  */
-export function LiveBOMPanel({ state }: { state: BuilderState }) {
+export function LiveBOMPanel({ state, scope }: { state: BuilderState; scope?: LeadProfile['scope'] }) {
   const { t, locale } = useTranslations()
-  const bom = useMemo(() => computeBom(state, locale), [state, locale])
+  const bom = useMemo(() => computeBom(state, locale, { scope }), [state, locale, scope])
 
   return (
     <aside className="sticky top-6 flex h-fit w-80 shrink-0 flex-col gap-4 rounded-3xl border border-border bg-card/70 p-5 shadow-sm backdrop-blur">
@@ -58,6 +60,14 @@ export function LiveBOMPanel({ state }: { state: BuilderState }) {
           </div>
           {bom.sections.goods.allPicked && (
             <p className="text-[10px] text-muted-foreground/80">{t('builder.shell.bom.goodsExact')}</p>
+          )}
+          {bom.sections.project.high > 0 && (
+            <div className="flex items-baseline justify-between gap-2">
+              <dt className="font-medium text-foreground">{t('builder.shell.bom.project')}</dt>
+              <dd className="shrink-0 tabular-nums font-semibold text-foreground">
+                {formatEUR(bom.sections.project.low, locale)} – {formatEUR(bom.sections.project.high, locale)}
+              </dd>
+            </div>
           )}
           <div className="flex items-baseline justify-between gap-2 border-t border-border/50 pt-2">
             <dt className="font-medium text-foreground">{t('builder.shell.bom.totalWithGoods')}</dt>

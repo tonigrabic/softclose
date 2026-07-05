@@ -12,7 +12,13 @@ import {
   type BuilderScreenId,
   type BuilderState,
 } from '@/lib/builder/inventory'
-import { confirmGroupMetas, hydrateFromHypothesis, useBuilderState } from '@/lib/builder/state'
+import {
+  confirmGroupMetas,
+  hydrateFromHypothesis,
+  relockBuilderState,
+  useBuilderState,
+} from '@/lib/builder/state'
+import type { UnitEdits } from '@/lib/builder/unit-assembly'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
 import { LiveBOMPanel } from './LiveBOMPanel'
@@ -39,6 +45,12 @@ export interface BuilderShellProps {
    * See context/layout-contract.md.
    */
   layoutContract: LayoutContract
+  /**
+   * The homeowner's per-row cabinet-unit edits from the Part-1 contract card
+   * (see UnitEdits in lib/builder/unit-assembly). Replayed through the one
+   * assembler at hydration so the seed equals the confirmed tally.
+   */
+  unitEdits?: UnitEdits | null
   /** The render the hypothesis was derived from, if any. Shown in the left preview pane. */
   renderImageDataUrl?: string
   /** Anchor photo (Phase-1 space upload) shown when no render is available. */
@@ -69,11 +81,18 @@ export interface BuilderShellProps {
   savedState?: BuilderState
   /** Callback fired when the user finishes the builder. */
   onComplete?: (state: BuilderState) => void
+  /**
+   * Escape hatch: persist the LIVE state and jump back to Part 1's
+   * confirm_look step so the homeowner can change the locked layout. On
+   * re-lock the units re-derive while every other pick survives.
+   */
+  onEditLayout?: (state: BuilderState) => void
 }
 
 export function BuilderShell({
   hypothesis,
   layoutContract,
+  unitEdits,
   renderImageDataUrl,
   anchorPhotoDataUrl,
   layoutSummary,
@@ -81,15 +100,19 @@ export function BuilderShell({
   layoutPreconfirmed,
   savedState,
   onComplete,
+  onEditLayout,
 }: BuilderShellProps) {
   const initial = useMemo(() => {
     if (savedState) {
-      return layoutPreconfirmed ? { ...savedState, layoutConfirmed: true } : savedState
+      // Deterministic + idempotent, so every resume re-locks against the
+      // CURRENT contract: the escape-hatch return path re-derives units while
+      // every pick survives, and stale pre-assembler unit lists self-heal.
+      return relockBuilderState(savedState, { layoutContract, hypothesis, unitEdits })
     }
-    const s = hydrateFromHypothesis(hypothesis, { layoutContract })
+    const s = hydrateFromHypothesis(hypothesis, { layoutContract, unitEdits })
     if (layoutPreconfirmed) s.layoutConfirmed = true
     return s
-  }, [hypothesis, layoutContract, layoutPreconfirmed, savedState])
+  }, [hypothesis, layoutContract, unitEdits, layoutPreconfirmed, savedState])
   const [state, dispatch] = useBuilderState(initial)
   // Builder now opens on Cabinet Boxes — Layout/dimensions are owned by Phase 1.
   const [currentId, setCurrentId] = useState<BuilderScreenId>('cabinetBoxes')
@@ -101,6 +124,7 @@ export function BuilderShell({
     // confirming the frozen contract BEFORE any builder chrome appears.
     <ConfirmScreen
       contract={layoutContract}
+      hypothesis={hypothesis}
       previewSrc={renderImageDataUrl ?? anchorPhotoDataUrl}
       onConfirm={() => dispatch({ type: 'confirm_layout' })}
     />
@@ -117,6 +141,7 @@ export function BuilderShell({
       layoutSummary={layoutSummary}
       profile={profile}
       onComplete={onComplete}
+      onEditLayout={onEditLayout}
     />
   )
 }
@@ -124,10 +149,12 @@ export function BuilderShell({
 /** The end-of-capture confirmation — its own screen, no builder chrome. */
 function ConfirmScreen({
   contract,
+  hypothesis,
   previewSrc,
   onConfirm,
 }: {
   contract: LayoutContract
+  hypothesis: BuilderHypothesis | null
   previewSrc?: string
   onConfirm: () => void
 }) {
@@ -142,7 +169,7 @@ function ConfirmScreen({
             className="mb-6 aspect-[4/3] w-full rounded-2xl border border-border object-cover shadow-sm"
           />
         )}
-        <LayoutConfirm contract={contract} onConfirm={onConfirm} />
+        <LayoutConfirm contract={contract} hypothesis={hypothesis} onConfirm={onConfirm} />
       </div>
     </div>
   )
@@ -160,6 +187,7 @@ function Shell({
   layoutSummary,
   profile,
   onComplete,
+  onEditLayout,
 }: {
   state: BuilderState
   dispatch: React.Dispatch<Parameters<ReturnType<typeof useBuilderState>[1]>[0]>
@@ -172,6 +200,7 @@ function Shell({
   layoutSummary?: string
   profile?: LeadProfile
   onComplete?: (state: BuilderState) => void
+  onEditLayout?: (state: BuilderState) => void
 }) {
   const { locale } = useTranslations()
   // The big preview always reads from `activeRenderId`: null = Phase-1
@@ -279,6 +308,7 @@ function Shell({
                 hypothesis={hypothesis}
                 layoutContract={layoutContract}
                 dispatch={dispatch}
+                onEditLayout={onEditLayout ? () => onEditLayout(state) : undefined}
               />
 
               <FooterNav currentId={currentId} onBack={goBack} onNext={goNext} />

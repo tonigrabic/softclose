@@ -64,6 +64,10 @@ export interface SpaceFeatures {
   hob?: FeaturePosition
   fridge?: FeaturePosition
   dishwasher?: FeaturePosition
+  /** Built-in oven (separate from the hob). */
+  oven?: FeaturePosition
+  /** Extractor hood / cooker hood over the hob. */
+  hood?: FeaturePosition
   island?: IslandPosition
 }
 
@@ -276,6 +280,22 @@ export interface LeadProfile {
    */
   builderState?: unknown
 
+  /**
+   * Epoch ms when the homeowner signed off the derived layout contract at the
+   * `confirm_look` step (where they see the cabinet tally we'll price below the
+   * editor). Records the sign-off for the maker's provenance trail.
+   */
+  contractConfirmedAt?: number
+
+  /**
+   * Per-row cabinet-unit edits from the confirm-layout card (sparse pattern
+   * sequences — see `UnitEdits` in lib/builder/unit-assembly). Stored as
+   * `unknown` like `builderState` to keep builder types out of LeadProfile;
+   * the builder casts on read. Applied LAST in the one assembler, so the tally
+   * the homeowner locked is exactly what the builder prices.
+   */
+  unitEdits?: unknown
+
   // ---- Catch-all (also translated)
   additionalNotes?: TranslatedField
 }
@@ -388,6 +408,12 @@ export interface StubEstimate {
   placeholder: boolean
   /** Half-width of the range in percent (e.g. 20 for ±20%), for localized display. */
   bandPct?: number
+  /**
+   * Maker-only B2B cost basis for the all-in figure (retail stays the
+   * homeowner number). Present only when the maker has supplied B2B prices
+   * (src/lib/catalog/maker-pricing.json); omitted otherwise.
+   */
+  makerCost?: { low: number; high: number }
 }
 
 /** Shape returned by /api/handoff for the designer-facing pack. */

@@ -1,9 +1,14 @@
 import { generateImage } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { rateLimit } from '@/lib/rate-limit'
+import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
+import { mockRenderDataUrl } from '@/lib/api/mock-fixtures/render-concept'
 
-// TEMP: raised from 5 to effectively disable the per-session cap during testing.
-const MAX_RENDERS_PER_SESSION = 9999
+// Per-session render cap (product rule: renders capped at 5/session — they cost
+// real image-gen money). Defaults to 5; override via env for local testing
+// (set RENDER_CAP_PER_SESSION). Keep in sync with the client cap in
+// ConceptRender.tsx (NEXT_PUBLIC_RENDER_CAP_PER_SESSION).
+const MAX_RENDERS_PER_SESSION = Number(process.env.RENDER_CAP_PER_SESSION) || 5
 const SESSION_WINDOW_MS = 30 * 60 * 1000
 const MAX_BYTES_PER_IMAGE = 5 * 1024 * 1024
 const MAX_STYLE_REFS = 3
@@ -203,6 +208,31 @@ function sanitizeFreeText(text: unknown, maxLen = 240): string | null {
 }
 
 export async function POST(req: Request) {
+  // Mock-AI mode: canned render (real data URL — downstream consumers validate
+  // the data:image/ prefix) before rate limiting, so devs can iterate freely.
+  if (mockAiEnabled()) {
+    await mockDelay(900)
+    let nudges: string[] = []
+    try {
+      const body = (await req.json()) as { nudges?: string[] }
+      if (Array.isArray(body.nudges)) nudges = body.nudges
+    } catch {
+      // body is optional for the mock — a bare POST still gets a render
+    }
+    return Response.json({
+      id: `render-mock-${Date.now()}`,
+      imageDataUrl: await mockRenderDataUrl(),
+      prompt: '[mock render — MOCK_AI=1]',
+      modelVersion: 'mock',
+      quality: 'mock',
+      styleRefCount: 0,
+      productRefCount: 0,
+      iteratedFromPreviousRender: false,
+      nudges,
+      inputs: [],
+      generatedAt: new Date().toISOString(),
+    })
+  }
   const limit = rateLimit(req, 'render-concept', MAX_RENDERS_PER_SESSION, SESSION_WINDOW_MS)
   if (!limit.ok) {
     return Response.json(

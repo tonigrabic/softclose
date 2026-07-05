@@ -14,9 +14,6 @@ export function readbackFor(
 ): string | null {
   const td = (key: string) => tDynamic(key, locale)
   switch (stepId) {
-    case 'type': {
-      return p.projectType ? td(`option.projectType.${p.projectType}`) : null
-    }
     case 'space_photos': {
       const n = p.spacePhotos?.length ?? 0
       if (n === 0) return null
@@ -34,13 +31,15 @@ export function readbackFor(
       return td('readback.renderChosen')
     }
     case 'confirm_look': {
+      // The contract is layout, not decor: report the shape + footprint we locked.
+      const fp = p.floorPlan
+      const shape = fp?.layoutShape ?? p.layoutShape
+      const dims = fp ? `${Math.round(fp.room.lengthCm)}×${Math.round(fp.room.widthCm)} cm` : null
       const parts = [
-        p.doorMaterial,
-        p.worktopPreference,
-        p.hardwareTier,
+        shape && shape !== 'unsure' ? td(`layout.shape.${shape}`) : null,
+        dims,
       ].filter(Boolean) as string[]
-      if (parts.length === 0) return null
-      return parts.map((s) => s.replace(/_/g, ' ')).join(' · ')
+      return parts.length > 0 ? parts.join(' · ') : null
     }
     case 'builder': {
       return p.builderState ? td('readback.built') : null

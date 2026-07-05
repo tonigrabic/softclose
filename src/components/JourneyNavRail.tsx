@@ -1,7 +1,7 @@
 'use client'
 
 import type { LeadProfile } from '@/lib/types'
-import { FLOW, flowIndex, type FlowStepId } from '@/lib/flow'
+import { FLOW, flowIndex, stepNumber, type FlowStepId } from '@/lib/flow'
 import {
   BUILDER_GROUPS,
   type BuilderScreenId,
@@ -99,6 +99,9 @@ export function JourneyNavRail({
         id: e.id,
         label: e.label,
         status: st,
+        // Funnel steps carry the same number as their step eyebrow; builder
+        // groups stay dot-marked sub-items.
+        num: e.kind === 'funnel' ? stepNumber(e.id) : undefined,
         readback: st === 'done' ? e.readback : null,
         onSelect:
           inBuilder && e.kind === 'builder' && onBuilderNavigate

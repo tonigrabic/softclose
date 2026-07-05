@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { ProgressBar } from '@/components/kitchen-intake/ProgressBar'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { MockBadge } from '@/components/MockBadge'
 import { useTranslations } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
@@ -64,6 +65,7 @@ export function AppShell({
   return (
     <div className="min-h-[100dvh] bg-background text-foreground">
       <ProgressBar percent={progressPercent} />
+      <MockBadge />
 
       {/* Language toggle — fixed top-right on desktop; on mobile it lives in
           the sticky header row so it can't overlap the pill. */}

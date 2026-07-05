@@ -134,7 +134,9 @@ export const PATTERN_SPECS: Record<CabinetPattern, PatternSpec> = {
     minWidthMm: 800,
     maxWidthMm: 1200,
     accessoryCost: { low: 90, high: 220 },
-    allowedTypes: ['base'],
+    // Also the upper-row corner unit (blind/lazy corner wall cabinet), so a
+    // corner run reads "+ kut" on its wall row too, not just the base row.
+    allowedTypes: ['base', 'wall'],
     labelKey: 'builder.cabinetBoxes.pattern.corner_lazy',
     iconKey: 'corner',
     isCorner: true,
@@ -145,7 +147,9 @@ export const PATTERN_SPECS: Record<CabinetPattern, PatternSpec> = {
     minWidthMm: 600,
     maxWidthMm: 600,
     accessoryCost: { low: 40, high: 120 },
-    allowedTypes: ['tall'],
+    // A built-in oven housing is usually a base unit (under-counter) but can also
+    // be a tall column — allow both so a measured oven seeds onto the base row.
+    allowedTypes: ['base', 'tall'],
     labelKey: 'builder.cabinetBoxes.pattern.oven_housing',
     iconKey: 'tall',
     isCorner: false,

@@ -12,7 +12,6 @@
  */
 
 export type FlowStepId =
-  | 'type'
   | 'space_photos'
   | 'inspiration'
   | 'concept_render'
@@ -34,18 +33,13 @@ export interface FlowStepMeta {
 }
 
 export const FLOW: FlowStepMeta[] = [
-  // `type` opens Act 1 — "what are we doing" frames the whole flow
-  // (handoff/IMPLEMENTATION.md §1; the timeline half of the old
-  // project-basics step lives with logistics in Act 3).
-  {
-    id: 'type',
-    label: 'Project type',
-    why: "What we're doing — it frames everything else.",
-    group: 'space',
-  },
+  // The journey opens straight into capturing the space — for an AI kitchen
+  // renderer the old "project type" question was friction, so it was removed.
   {
     id: 'space_photos',
-    label: 'Your space',
+    // "Space photos", not "Your space" — the act heading above it in the rail
+    // is already "Your space" (journey.act.space); identical labels read broken.
+    label: 'Space photos',
     why: 'Photos so we can read your existing kitchen.',
     group: 'space',
   },
@@ -61,10 +55,14 @@ export const FLOW: FlowStepMeta[] = [
     why: 'A render anchored to your space, in your direction.',
     group: 'look',
   },
+  // "Confirm layout & look" now also shows the contract tally (runs, cabinet
+  // counts, corners, appliances) below the editor — the homeowner edits the
+  // plan, sees exactly what we'll price, and signs off once. The builder seeds
+  // from exactly this confirmed contract.
   {
     id: 'confirm_look',
-    label: 'Confirm the look',
-    why: 'Best guesses pulled from your render — adjust anything.',
+    label: 'Confirm layout & look',
+    why: 'The layout we read from your render — adjust it, see the plan, confirm.',
     group: 'look',
   },
   {
@@ -105,6 +103,16 @@ export const FLOW: FlowStepMeta[] = [
 
 export function flowIndex(id: FlowStepId): number {
   return FLOW.findIndex((s) => s.id === id)
+}
+
+/**
+ * 1-based homeowner-visible step number, shared by the step eyebrows and the
+ * journey rail so the two can never disagree. The `builder` step is excluded —
+ * in the UI it expands into its component groups and carries the act label
+ * instead of a number. Returns 0 for `builder`.
+ */
+export function stepNumber(id: FlowStepId): number {
+  return FLOW.filter((s) => s.id !== 'builder').findIndex((s) => s.id === id) + 1
 }
 
 export function nextStepId(id: FlowStepId): FlowStepId | null {

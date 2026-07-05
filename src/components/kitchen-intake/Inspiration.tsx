@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslations } from '@/lib/i18n'
 import { ImageSelect, type UploadedReference } from './ImageSelect'
 import { STYLE_OPTIONS } from '@/lib/style-options'
 import type { SpaceVisionResult } from '@/lib/types'
@@ -30,6 +31,7 @@ export function Inspiration({
   inspirationVisionResult,
   onInspirationVisionResult,
 }: InspirationProps) {
+  const { t } = useTranslations()
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -70,7 +72,7 @@ export function Inspiration({
       }
       onInspirationVisionResult(data.result as InspirationVisionResult)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not analyze inspiration')
+      setError(err instanceof Error ? err.message : t('inspiration.error'))
     } finally {
       setIsAnalyzing(false)
     }
@@ -82,7 +84,7 @@ export function Inspiration({
     <div className="space-y-6">
       <div>
         <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Pick a direction
+          {t('inspiration.direction')}
         </p>
         <ImageSelect
           options={STYLE_OPTIONS}
@@ -126,12 +128,12 @@ export function Inspiration({
                       />
                     ))}
                   </span>
-                  Reading your inspiration…
+                  {t('inspiration.analyzing')}
                 </>
               ) : (
                 <>
                   <Sparkles className="size-4 stroke-[1.75]" aria-hidden />
-                  Analyze inspiration
+                  {t('inspiration.analyze')}
                 </>
               )}
             </button>
@@ -150,15 +152,18 @@ function ReadbackPanel({
   result: InspirationVisionResult
   onClear: () => void
 }) {
+  const { t } = useTranslations()
   const lines: { label: string; value: string }[] = []
-  if (result.styleGuess) lines.push({ label: 'Style read', value: result.styleGuess.replace(/_/g, ' ') })
+  if (result.styleGuess)
+    lines.push({ label: t('inspiration.readback.style'), value: result.styleGuess.replace(/_/g, ' ') })
   if (result.doorMaterialGuess)
-    lines.push({ label: 'Door read', value: result.doorMaterialGuess.replace(/_/g, ' ') })
-  if (result.worktopGuess) lines.push({ label: 'Worktop read', value: result.worktopGuess.replace(/_/g, ' ') })
+    lines.push({ label: t('inspiration.readback.door'), value: result.doorMaterialGuess.replace(/_/g, ' ') })
+  if (result.worktopGuess)
+    lines.push({ label: t('inspiration.readback.worktop'), value: result.worktopGuess.replace(/_/g, ' ') })
   if (result.backsplashGuess)
-    lines.push({ label: 'Backsplash', value: result.backsplashGuess.replace(/_/g, ' ') })
+    lines.push({ label: t('inspiration.readback.backsplash'), value: result.backsplashGuess.replace(/_/g, ' ') })
   if (result.hardwareTierGuess)
-    lines.push({ label: 'Hardware', value: result.hardwareTierGuess.replace(/_/g, ' ') })
+    lines.push({ label: t('inspiration.readback.hardware'), value: result.hardwareTierGuess.replace(/_/g, ' ') })
   return (
     <AnimatePresence>
       <motion.div
@@ -168,14 +173,14 @@ function ReadbackPanel({
       >
         <div className="flex items-baseline justify-between">
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            Picked up from your picks
+            {t('inspiration.readback.title')}
           </p>
           <button
             type="button"
             onClick={onClear}
             className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
           >
-            Re-analyze
+            {t('inspiration.readback.reanalyze')}
           </button>
         </div>
         {result.summary && (
@@ -197,7 +202,7 @@ function ReadbackPanel({
           </ul>
         )}
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          We&apos;ll pre-fill the rest from this — you&apos;ll get to confirm everything in a moment.
+          {t('inspiration.readback.prefillHint')}
         </p>
       </motion.div>
     </AnimatePresence>

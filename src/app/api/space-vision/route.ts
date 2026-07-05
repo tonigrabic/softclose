@@ -2,6 +2,8 @@ import { generateText, tool } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 import { rateLimit } from '@/lib/rate-limit'
+import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
+import { MOCK_SPACE_VISION } from '@/lib/api/mock-fixtures/space-vision'
 import type { SpaceVisionResult } from '@/lib/types'
 
 const MAX_PHOTOS = 4
@@ -79,6 +81,12 @@ const visionResultSchema = z.object({
       hob: featurePositionSchema.optional(),
       fridge: featurePositionSchema.optional(),
       dishwasher: featurePositionSchema.optional(),
+      oven: featurePositionSchema
+        .optional()
+        .describe('Built-in oven, SEPARATE from the hob (under the counter or in a tall column).'),
+      hood: featurePositionSchema
+        .optional()
+        .describe('Extractor / cooker hood over the hob (wall chimney, island, or ceiling).'),
       island: z
         .object({
           positionPct: z.object({
@@ -163,6 +171,7 @@ Rules:
 - If the photos clearly are not a kitchen, set lookedLikeKitchen: false and leave most other fields empty.
 - Confidence is per-feature. Use 'H' only when you can clearly see and locate the feature. Use 'L' liberally — better dashed-with-? than wrong.
 - Positional fields use percentages along the room walls. Treat the longer wall run as 'top' (or 'bottom') and the shorter as 'left'/'right'.
+- Identify EVERY fixed appliance you can see — homeowners often forget these, so be thorough. In particular, report the OVEN and the extractor HOOD as their own features (do not fold them into the hob): the hob is the cooktop surface, the oven is the built-in baking unit (often below the hob or in a tall column), and the hood is the extractor above the hob. Place the hood at the hob's position along its wall.
 - For style and material hints, use trade language (shaker, slab, quartz, butcher block, brushed brass, etc.) — short fragments, not sentences.
 - Skip a field rather than fabricate it.
 
@@ -184,6 +193,11 @@ Dimensions — be honest about what you can and cannot scale:
   Outside those bands, omit rather than report.`
 
 export async function POST(req: Request) {
+  // Mock-AI mode: canned fixture before rate limiting, so devs can spam freely.
+  if (mockAiEnabled()) {
+    await mockDelay()
+    return Response.json({ result: MOCK_SPACE_VISION })
+  }
   const limit = rateLimit(req, 'space-vision', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
   if (!limit.ok) {
     return Response.json(

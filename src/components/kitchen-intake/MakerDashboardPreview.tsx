@@ -14,8 +14,13 @@ interface MakerDashboardPreviewProps {
   onBack: () => void
 }
 
+// EUR everywhere (AGENTS.md): the maker sees the same currency as the
+// homeowner. Compact (12k €) for the range headline; symbol-after per the
+// Croatian convention used by formatEUR elsewhere.
 function fmtMoney(n: number): string {
-  return n >= 1000 ? `$${Math.round(n / 1000).toLocaleString()}k` : `$${n.toLocaleString()}`
+  return n >= 1000
+    ? `${Math.round(n / 1000).toLocaleString('hr-HR')}k €`
+    : `${n.toLocaleString('hr-HR')} €`
 }
 
 function ConfidencePill({ confidence }: { confidence: Confidence }) {
@@ -173,6 +178,20 @@ export function MakerDashboardPreview({ bundle, onBack }: MakerDashboardPreviewP
                     <p className="mt-0.5 font-mono text-base font-bold text-slate-700">
                       {fmtMoney(summary.withAppliances.low)} <span className="text-slate-400">–</span>{' '}
                       {fmtMoney(summary.withAppliances.high)}
+                    </p>
+                  </div>
+                )}
+                {summary.makerCost && (
+                  <div className="mt-3 rounded border border-emerald-300 bg-emerald-50 p-2.5">
+                    <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-800">
+                      Your cost basis (B2B) · maker-only
+                    </p>
+                    <p className="mt-0.5 font-mono text-base font-bold text-emerald-900">
+                      {fmtMoney(summary.makerCost.low)} <span className="text-emerald-500">–</span>{' '}
+                      {fmtMoney(summary.makerCost.high)}
+                    </p>
+                    <p className="mt-1 text-[10px] leading-relaxed text-emerald-700">
+                      All-in at your account prices — never shown to the homeowner.
                     </p>
                   </div>
                 )}

@@ -2,6 +2,8 @@ import { generateText, tool } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 import { rateLimit } from '@/lib/rate-limit'
+import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
+import { MOCK_INSPIRATION } from '@/lib/api/mock-fixtures/inspiration-vision'
 
 const MAX_PHOTOS = 6
 const MAX_BYTES_PER_PHOTO = 5 * 1024 * 1024
@@ -113,6 +115,11 @@ Rules:
 - If they tagged a style but uploaded NO reference photos, you can still emit guesses driven by the tag alone; just keep confidence implicit by skipping the more specific fields (worktop, backsplash) and leaning on hints + summary.`
 
 export async function POST(req: Request) {
+  // Mock-AI mode: canned fixture before rate limiting, so devs can spam freely.
+  if (mockAiEnabled()) {
+    await mockDelay()
+    return Response.json({ result: MOCK_INSPIRATION })
+  }
   const limit = rateLimit(req, 'inspiration-vision', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
   if (!limit.ok) {
     return Response.json(

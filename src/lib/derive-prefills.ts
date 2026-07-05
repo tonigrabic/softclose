@@ -58,26 +58,6 @@ export function derivePrefills(input: PrefillInput): Partial<LeadProfile> {
   return out
 }
 
-/**
- * Did VISION (not the homeowner's own taps) prefill any "confirm the look"
- * field? Drives the "AI prefilled this" banner — which must never show for a
- * fully manual journey. Defined on top of derivePrefills with no manual
- * styles, so the answer can't drift from the actual prefill logic.
- */
-export function visionPrefilledLook(
-  inspirationVision: InspirationVisionResult | null,
-  spaceVision: SpaceVisionResult | null
-): boolean {
-  const p = derivePrefills({ selectedStyles: [], inspirationVision, spaceVision })
-  return Boolean(
-    p.stylePreferences?.length ||
-      p.doorMaterial ||
-      p.worktopPreference ||
-      p.backsplashPreference ||
-      p.hardwareTier
-  )
-}
-
 function guessDoorFromHint(hint: string): string {
   const h = hint.toLowerCase()
   if (h.includes('shaker')) return 'shaker'

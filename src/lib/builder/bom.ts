@@ -15,9 +15,43 @@
  */
 
 import { decors as catalogDecors, services, doorPricePerM2, worktopPricePerM, findDecor } from '@/lib/catalog'
+import { makerPriceForSku } from '@/lib/catalog/maker-pricing'
 import { PATTERN_SPECS, unitDrawerCount } from './cabinet-patterns'
 import type { BuilderState, CabinetUnit, DrawerSystemTier, FieldMeta } from './inventory'
+import type { LeadProfile } from '@/lib/types'
 import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n'
+
+/**
+ * Which scope toggle (from the scope step) controls each BOM line. A line is
+ * dropped from the estimate ONLY when scope explicitly marks its controller
+ * `false` — an absent scope object (before the homeowner reaches the scope
+ * step) or an absent key keeps everything, so the builder's live range is the
+ * full kitchen until the homeowner narrows it. The cabinetry package (boards,
+ * edge banding, hardware, finishing, CNC, assembly, design) all follow
+ * `cabinets`; the backsplash rides with `worktops` (the surfaces decision).
+ */
+const LINE_SCOPE_KEY: Partial<Record<BomLineItem['key'], keyof NonNullable<LeadProfile['scope']>>> = {
+  boards: 'cabinets',
+  edgeBanding: 'cabinets',
+  hardware: 'cabinets',
+  finishing: 'cabinets',
+  cnc: 'cabinets',
+  assembly: 'cabinets',
+  design: 'cabinets',
+  worktop: 'worktops',
+  backsplash: 'worktops',
+  sinkTaps: 'sinkTaps',
+  appliances: 'appliancesSupply',
+  lighting: 'lighting',
+  install: 'installation',
+}
+
+function lineInScope(key: BomLineItem['key'], scope: LeadProfile['scope'] | undefined): boolean {
+  if (!scope) return true
+  const ctrl = LINE_SCOPE_KEY[key]
+  if (!ctrl) return true
+  return scope[ctrl] !== false
+}
 
 export interface BomLineItem {
   /** Stable id usable as React key + i18n routing. */
@@ -36,12 +70,21 @@ export interface BomLineItem {
     | 'design'
     | 'assembly'
     | 'install'
+    // Project-scope allowances (trades / structural / flooring) — rough
+    // domain bands, only present when the homeowner scopes them IN.
+    | 'flooring'
+    | 'demolition'
+    | 'electrical'
+    | 'plumbing'
+    | 'structural'
   /**
    * `works` = the kitchen itself (materials + labour) — always an estimate,
    * the ±20% promise lives here. `goods` = catalog products (appliances,
    * sink + tap) whose price becomes EXACT once the homeowner picks models.
+   * `project` = rough allowances for trades/structural/flooring the homeowner
+   * scoped in — wide by nature, kept OUT of the kitchen band promise.
    */
-  section: 'works' | 'goods'
+  section: 'works' | 'goods' | 'project'
   /**
    * The kitchen estimate reads as its three real components: `material`
    * (boards, worktop, hardware, …), `make` (design + CNC + assembly — the
@@ -78,6 +121,9 @@ export interface BomEstimate {
       breakdown: Record<'material' | 'make' | 'install', { low: number; high: number }>
     }
     goods: { low: number; high: number; allPicked: boolean }
+    /** Rough trade/structural/flooring allowances the homeowner scoped in.
+     * Wide by nature — shown alongside, never folded into the kitchen band. */
+    project: { low: number; high: number }
   }
   currency: 'EUR'
 }
@@ -236,8 +282,25 @@ const LABOUR_RATES = {
 
 /* ───────────────────────── Main calculator ───────────────────────── */
 
-export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE): BomEstimate {
+export function computeBom(
+  state: BuilderState,
+  locale: Locale = DEFAULT_LOCALE,
+  opts: { scope?: LeadProfile['scope']; pricing?: 'retail' | 'maker' } = {}
+): BomEstimate {
   const lineItems: BomLineItem[] = []
+
+  // Retail (homeowner-facing) vs maker B2B cost. In 'maker' mode a picked SKU's
+  // price is replaced by the maker's account price when supplied; otherwise it
+  // stays retail. Empty maker pricelist → identical to retail (see
+  // maker-pricing.ts). Homeowner path always passes 'retail' (the default).
+  const priceMode = opts.pricing ?? 'retail'
+  const effPrice = (retail: number | undefined, sku?: string): number | undefined => {
+    if (priceMode === 'maker') {
+      const m = makerPriceForSku(sku)
+      if (m != null) return m
+    }
+    return retail
+  }
 
   // Localisation helpers — line-item detail/quantity are built localized so the
   // always-visible BOM panel isn't half English. Enum values reuse the existing
@@ -326,9 +389,13 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     ? findDecor(state.worktop.decorCode, state.worktop.decorStructure)
     : null
   let wtPricePerM = wtDecor ? worktopPricePerM(wtDecor, 600) ?? null : null
-  // Fall back by family if catalog row has no worktop price.
+  // Fall back by family when the catalog row has no worktop price. The laminate
+  // fallback (38 €/m) is the mean of the REAL Elgrad worktop prices in the
+  // catalog (oak/concrete/marble laminate decors, 32–74 €/m); quartz and
+  // sintered stone have no catalog prices yet, so those stay domain estimates
+  // pending the maker's pricelist (LOOP.md Q7).
   if (!wtPricePerM) {
-    wtPricePerM = state.worktop.family === 'quartz' ? 90 : state.worktop.family === 'sintered_stone' ? 130 : 35
+    wtPricePerM = state.worktop.family === 'quartz' ? 90 : state.worktop.family === 'sintered_stone' ? 130 : 38
   }
   // Edge profile premium — a mitred waterfall is a major add; radius a small one.
   const edgeFactor =
@@ -435,8 +502,8 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   // The generic perBaseUnit bundle covers hinges + small fittings; when the
   // hinge is picked we price hinges explicitly and keep only the fittings
   // share (~70%) of the bundle, so the two don't double-count.
-  const drawerPriceEur = state.hardware.drawerSystemPriceEur
-  const hingePriceEur = state.hardware.hingePriceEur
+  const drawerPriceEur = effPrice(state.hardware.drawerSystemPriceEur, state.hardware.drawerSystemSku)
+  const hingePriceEur = effPrice(state.hardware.hingePriceEur, state.hardware.hingeSku)
   const HINGE_BUNDLE_SHARE = 0.3
 
   let hwLow = 0
@@ -576,8 +643,8 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   // A picked model with a catalog price is EXACT — no class estimate, no
   // narrowing. Each piece prices independently so a single pick already
   // tightens the line; both picked → the whole line is exact.
-  const sinkPriceEur = state.sinkTaps.sink.pickedPriceEur
-  const tapPriceEur = state.sinkTaps.tap.pickedPriceEur
+  const sinkPriceEur = effPrice(state.sinkTaps.sink.pickedPriceEur, state.sinkTaps.sink.sku)
+  const tapPriceEur = effPrice(state.sinkTaps.tap.pickedPriceEur, state.sinkTaps.tap.sku)
   const sinkPart =
     sinkPriceEur != null
       ? { low: sinkPriceEur, high: sinkPriceEur }
@@ -610,13 +677,24 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   // and price each by class so swapping induction → gas, single → double
   // oven actually moves the line.
   if (state.appliances.supply !== 'homeowner_supplies' && state.appliances.selections.length > 0) {
+    // Per-type estimate bands for an UNPICKED appliance. Grounded against the
+    // Schachermayer hr-HR reference-RRP scrape (src/lib/catalog, see
+    // appliancesForType): each band is calibrated to CONTAIN the real catalog
+    // products of that type, so the estimate covers what we'd actually sell
+    // (tests/class-band-grounding.test.ts enforces this). Observed prices at
+    // the scrape: hob 289–449, oven 339–469 (+Miele 849), extractor 149–459,
+    // dishwasher 429–519 (+Miele 1390), microwave 339. Types the scrape doesn't
+    // cover (fridge has only an undercounter unit; wine/coffee none) stay
+    // domain estimates pending the maker's B2B pricelist (LOOP.md Q7).
+    // These remain REFERENCE RRPs, not the maker's account price — a picked
+    // model still overrides with its exact price at quote time.
     const APPLIANCE_PRICE: Record<string, { low: number; high: number }> = {
-      hob: { low: 350, high: 550 },
-      oven: { low: 500, high: 850 },
-      extractor: { low: 250, high: 480 },
-      fridge: { low: 700, high: 1100 },
-      dishwasher: { low: 450, high: 720 },
-      microwave: { low: 180, high: 320 },
+      hob: { low: 280, high: 470 },
+      oven: { low: 340, high: 780 },
+      extractor: { low: 150, high: 470 },
+      fridge: { low: 600, high: 1150 },
+      dishwasher: { low: 420, high: 760 },
+      microwave: { low: 200, high: 380 },
       wine_fridge: { low: 750, high: 1200 },
       coffee: { low: 1100, high: 2000 },
     }
@@ -633,8 +711,9 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     for (const sel of state.appliances.selections) {
       const picked = sel.pickedBrand && sel.pickedName ? `${sel.pickedBrand} ${sel.pickedName}` : null
       detailNames.push(picked ? `${applName(sel.type)}: ${picked}` : applName(sel.type))
-      if (sel.pickedPriceEur != null) {
-        exactSum += sel.pickedPriceEur
+      const pickedPrice = effPrice(sel.pickedPriceEur, sel.pickedSku)
+      if (pickedPrice != null) {
+        exactSum += pickedPrice
         pickedCount++
         continue
       }
@@ -816,7 +895,42 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
     high: round(installRange.high),
   })
 
-  const total = lineItems.reduce(
+  /* 9. Project-scope allowances — trades / structural / flooring the homeowner
+     scoped IN. Rough domain bands (no catalog, no contract geometry), wide on
+     purpose and labelled "allowance"; kept in their own `project` section so
+     they never tighten or widen the kitchen-band promise. Only emitted when
+     explicitly scoped in (scope[key] === true) — absent scope adds nothing. */
+  const ALLOWANCE: Array<{
+    key: BomLineItem['key']
+    scopeKey: keyof NonNullable<LeadProfile['scope']>
+    low: number
+    high: number
+    en: string
+    hr: string
+  }> = [
+    { key: 'flooring', scopeKey: 'flooring', low: 900, high: 2800, en: 'New flooring', hr: 'Novi pod' },
+    { key: 'demolition', scopeKey: 'demolitionDisposal', low: 400, high: 1500, en: 'Demolition + disposal', hr: 'Rušenje i odvoz' },
+    { key: 'electrical', scopeKey: 'electricalWork', low: 600, high: 2200, en: 'Electrical work', hr: 'Elektroinstalacije' },
+    { key: 'plumbing', scopeKey: 'plumbingRelocation', low: 500, high: 1800, en: 'Plumbing relocation', hr: 'Premještanje vodovoda' },
+    { key: 'structural', scopeKey: 'structural', low: 1500, high: 6000, en: 'Structural work', hr: 'Građevinski radovi' },
+  ]
+  for (const a of ALLOWANCE) {
+    if (opts.scope?.[a.scopeKey] !== true) continue
+    lineItems.push({
+      key: a.key,
+      section: 'project',
+      detail: `${tr(a.en, a.hr)} — ${tr('rough allowance', 'okvirna procjena')}`,
+      quantity: tr('allowance', 'procjena'),
+      low: a.low,
+      high: a.high,
+    })
+  }
+
+  // Drop line items the homeowner has put OUT of scope (e.g. no installation,
+  // homeowner supplies appliances). Default (no scope yet) keeps everything.
+  const visibleLines = lineItems.filter((l) => lineInScope(l.key, opts.scope))
+
+  const total = visibleLines.reduce(
     (acc, l) => ({ low: acc.low + l.low, high: acc.high + l.high }),
     { low: 0, high: 0 }
   )
@@ -830,19 +944,20 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
   // promise applies to it; the goods (appliances, sink + tap) ride alongside
   // and collapse to an exact sum once every model is picked.
   const sumWhere = (pred: (l: BomLineItem) => boolean) =>
-    lineItems
+    visibleLines
       .filter(pred)
       .reduce((acc, l) => ({ low: acc.low + l.low, high: acc.high + l.high }), { low: 0, high: 0 })
   const works = sumWhere((l) => l.section === 'works')
   const goods = sumWhere((l) => l.section === 'goods')
-  const goodsLines = lineItems.filter((l) => l.section === 'goods')
+  const project = sumWhere((l) => l.section === 'project')
+  const goodsLines = visibleLines.filter((l) => l.section === 'goods')
   const kind = (k: 'material' | 'make' | 'install') => {
     const s = sumWhere((l) => l.worksKind === k)
     return { low: round(s.low), high: round(s.high) }
   }
 
   return {
-    lineItems,
+    lineItems: visibleLines,
     total: { low: round(total.low), high: round(total.high) },
     bandWidthPct,
     sections: {
@@ -857,6 +972,7 @@ export function computeBom(state: BuilderState, locale: Locale = DEFAULT_LOCALE)
         high: round(goods.high),
         allPicked: goodsLines.length > 0 && goodsLines.every((l) => l.exact === true),
       },
+      project: { low: round(project.low), high: round(project.high) },
     },
     currency: 'EUR',
   }

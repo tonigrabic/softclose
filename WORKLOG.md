@@ -395,3 +395,377 @@
   unchanged — unpicked behavior identical by construction.
 - Gate: 44/44 tests · tsc clean · eslint clean · build 12/12 green.
 - Next iteration: back to **B3b** unless Toni redirects again.
+
+### 2026-06-21 — Layout now derived FROM THE AI RENDER (Toni-directed flow)
+
+- **Why.** Toni's intended flow: photos = anchor → describe + generate
+  render → derive the layout FROM the render → confirm + lock → estimate.
+  The app did the OPPOSITE: layout was read from the original photos and
+  locked in step 1 (the floor-plan editor lived in `SpaceCapture`), before
+  the render existed; the render was cosmetic and `builder-hypothesis` was
+  told to treat the photo layout as FIXED. We rewired the seam.
+- **Decision (hybrid, agreed with Toni).** An AI image has no true scale and
+  the render is img2img-anchored, so: room shell + cm dimensions stay the
+  PHOTO's; shape + island + cabinet-bearing config come from the RENDER. The
+  homeowner confirms/edits the proposed plan before it freezes — the safety
+  net for any render mis-read.
+- **Changes.**
+  - `lib/derive-layout.ts` (new): `spaceVisionWithRenderLayout` merges render
+    config over photo scale, then the single `fromVision()` builds the plan.
+  - `SpaceCapture` gains `captureOnly`: step 1 is anchor capture + a SCALE
+    read only — no editor, no lock.
+  - `builder-hypothesis` route: the render now OWNS the layout (prompt
+    rewritten); the photo contract is a cm-scale hint, and is validated
+    server-side (`sanitizeContract`) before it touches the prompt.
+  - "Confirm the look" → "Confirm layout & look": new `LayoutReview` hosts the
+    floor-plan editor seeded with the render-derived plan; the vision pass
+    fires here (decoupled from builder entry) and the footer Continue freezes
+    the plan + locks the contract. Gate is the layout; decor stays optional.
+  - Dropped dead `visitedSteps` state.
+- **Accuracy note (honesty).** The earlier analysis claimed an "800 mm hob
+  seeds a 400 mm cabinet → €100–300 error". On inspection that's overstated:
+  a hob sits ON a normal base cabinet that the greedy fill already counts
+  (unlike a dishwasher front or a full-height fridge). The real refinement is
+  a drawer-bank pattern under the hob (hardware only, not board area) — small
+  payoff, churns every fixture snapshot — so it's deferred to its own pass,
+  alongside multi-tall-unit seeding and the ±20%-headline band calibration
+  (LOOP.md Q6). None are blocked; they want maker pricing data + a deliberate
+  snapshot update, not a rushed change.
+- 6 new tests (`tests/derive-layout.test.ts`): render owns shape/island,
+  photo owns scale, pass-through + preset fallbacks.
+- Gate: 50/50 tests · tsc clean · eslint clean · build 12/12 green.
+
+### 2026-06-21 — Accuracy: render-visible tall towers now seed
+
+- **Gap.** The floor plan / contract can't model tall units (a builder
+  concept), so `floorPlanToLayout` always emits `hasTall=false`, and
+  `hydrateFromHypothesis` read layout ENTIRELY from the contract — so a render
+  clearly showing a pantry/oven tower seeded ZERO towers. Real under-count on
+  L/U kitchens (the cost of a full-height carcass + its hardware just vanished).
+- **Fix.** Hydration now folds the render hypothesis's per-run `hasTall` and any
+  pinned `features.tallPantry` into each run's `hasTall` (run ids line up — the
+  render reuses the contract ids). `CabinetBoxesGroup` already seeds from
+  `state.layout.runs`, so a flagged run now seeds its tower.
+- **Why it's safe.** Without a hypothesis (every fixture test) it's a no-op, so
+  the contract stays the sole layout authority and the band / parity / drift
+  snapshots are UNCHANGED. 3 new tests (`tests/render-tall-seeding.test.ts`).
+- Gate: 53/53 tests · tsc clean · eslint clean.
+- **Deferred (need Toni's input, not blocked):**
+  - **±20%-headline band (LOOP.md Q6).** Untouched sits at ±11%; nudging it
+    toward the headline is a one-factor recalibration BUT it churns every
+    pricing snapshot toward an invented target and risks the ±20% invariant —
+    I won't pick the number unilaterally. Tell me the target (e.g. "unconfirmed
+    should read ±18%") and I'll tune + update snapshots in one commit.
+  - **Real B2B prices** (LOOP.md Q7) — still the launch blocker; needs the
+    maker pricelist to replace the reference RRPs.
+
+## 2026-06-21 — Program 2: defensible estimate, layout reading, contract gate
+
+Three sequenced iterations (each ends green: vitest · tsc · eslint · next build).
+
+### Iter 1 — layout reading: anchor + render, stronger model
+- `/api/builder-hypothesis` now sees the ANCHOR PHOTO alongside the render
+  (render first = the design we price; anchor second = true scale + window/door
+  positions to sanity-check against). Prompt rewritten to cross-reference; the
+  contract text is demoted to an explicit scale hint.
+- That one accuracy-critical call moved to the full `gpt-5.4` (swappable via the
+  new `LAYOUT_MODEL` const); the mini stays for the cheaper routes.
+- Message assembly extracted to a pure `buildHypothesisMessages` +
+  `tests/builder-hypothesis-messages.test.ts` (render-first/anchor-second order).
+
+### Iter 2 — dedicated contract-confirmation step
+- New `confirm_contract` flow step between "Confirm layout & look" and the
+  builder: an explicit "this is my kitchen" sign-off on the full derived
+  contract (runs, cabinet tally, corners, appliances, shape, ceiling).
+- Pure `summarizeContract()` (cabinet-suggest.ts) is the single projection
+  behind both this step and the in-builder LayoutConfirm gate — tally goes
+  through the same `suggestCabinetsForRun` the builder seeds from, so the
+  numbers signed off ARE the numbers priced. `tests/contract-summary.test.ts`.
+- Records `profile.contractConfirmedAt` (maker provenance). i18n for both
+  locales; later funnel steps renumbered.
+
+### Iter 3 — defensible estimate formulas + ≤15% band
+- **Honest finding.** I did NOT machine-derive class ranges from the
+  Schachermayer scrape: it's too sparse/noisy (hardware is 0.8–38 € individual
+  parts, not drawer systems; ~3–5 untyped appliances per category with accessory
+  noise at 6/24 €). Forcing percentile bands off n≈4 would be *less* defensible
+  than the curated domain bands, not more.
+- **What was actually wrong.** Several invented appliance bands EXCLUDED every
+  real catalog product of their type — overconfident in the wrong place:
+  - oven 500–850 vs real ovens 339–469 (Miele 849) → recalibrated **340–780**
+  - hob 350–550 vs 289–449 → **280–470**
+  - extractor 250–480 vs 149–459 → **150–470**
+  - microwave 180–320 vs the one real unit at 339 → **200–380**
+  - dishwasher 450–720 vs 429–519 (Miele 1390) → **420–760**
+  Each band now CONTAINS the real catalog products it's meant to estimate.
+  Sparse/uncovered types (fridge — only an undercounter unit; wine fridge,
+  coffee — none) stay documented domain estimates.
+- `tests/class-band-grounding.test.ts` reads the catalog live and asserts, per
+  covered type, the band is centered on the catalog median and covers ≥50% of
+  real products (premium outliers may sit above — pinned exactly when picked).
+  This catches the exact "band excludes real products" bug going forward.
+- Worktop null-price fallback: laminate 35 → **38 €/m**, the mean of the REAL
+  Elgrad worktop prices in the catalog (32–74 €/m). Quartz/sintered have no
+  catalog prices yet → still domain estimates.
+- **Band.** Grounding nudged the displayed band UP from 11–12% to 11–13%
+  (honest: real appliance spread is wider than the overconfident bands). The
+  ±20% promise holds with margin, so the invariant cap was tightened **20 → 15**
+  and the drift snapshots updated to the grounded totals.
+- **Still the launch blocker (LOOP.md Q7).** Everything above uses REFERENCE
+  RRPs (retail), not the maker's B2B account price. Labour rates, board carcass
+  rates (13/16/18 €/m²), and the style/edge/waste multipliers remain domain
+  estimates. A picked model already overrides with its exact price; the rest
+  needs the maker's pricelist to be "exact" to a customer.
+
+### Iter 4 — screen-by-screen contract audit cleanup
+- Removed the dead `hardware.organisers` field (defined + initialised, never
+  read by any UI or the BOM) and the copy that promised it.
+- Verified `ApplianceSelection.notes` is NOT dead (the audit flag was stale) —
+  AppliancesGroup uses it for SKU pinning. Left intact.
+- Centralised the SinkTaps browse keywords into `sinksFromCatalog()` /
+  `tapsFromCatalog()` in the catalog module (next to `appliancesForType`), so a
+  re-scrape only touches the keyword lists, not the UI. Confirmed the keywords
+  still match real products ("slavina"→taps, "sudoper"→sinks) — browse is not
+  empty.
+- Gate: 68 tests · tsc · eslint · next build all green.
+
+### Iter 5 — flow walkthrough + verification
+- Full `npm run gate` green: 68 tests · tsc · eslint · next build.
+- Flow sequence verified end-to-end:
+  type → space_photos → inspiration → concept_render → confirm_look →
+  confirm_contract → builder → scope → wishlist → logistics → contact.
+- Seam parity: both the new confirm_contract step and the builder derive the
+  contract via the SAME `planFromProfile → floorPlanToLayout(validate(plan))`
+  path, and the confirm tally goes through the same `suggestCabinetsForRun`
+  the builder seeds from (contract-summary + confirm-tally-parity tests), so
+  the plan the homeowner signs off is exactly what's priced.
+- Manual smoke checklist (hr + en): upload photos → render → land on "Confirm
+  layout & look" with the render-derived plan → confirm → "Confirm the plan"
+  shows runs/tally/corners/appliances/shape/ceiling → sign off → builder seeds
+  the confirmed contract → live range reads 11–13%. Right rail + mobile dock
+  persist across confirm_contract.
+
+### Follow-up — merge confirm_contract back into confirm_look (Toni's call)
+- A screen-by-screen review (builder is registry-driven and contract-respecting;
+  cabinetBoxes/appliances/lighting/finishing all gate on contract facts) found
+  the only real flow smell was the two adjacent layout confirmations I'd added:
+  confirm_look (edit) immediately followed by confirm_contract (read-only tally).
+- Per Toni: MERGED. The contract tally (LayoutConfirm, read-only) now renders
+  inside confirm_look below the decor chips — "here's what we'll price" — and
+  the footer Continue is the single sign-off (records contractConfirmedAt). The
+  separate confirm_contract step is removed; later steps renumbered back.
+- summarizeContract + LayoutConfirm + contractConfirmedAt all retained (just
+  surfaced in one screen now). Gate: 68 tests · tsc · eslint · next build green.
+- Flow is now: type → space_photos → inspiration → concept_render →
+  confirm_look (edit + tally + sign-off) → builder → scope → wishlist →
+  logistics → contact → wrap-up.
+
+### Follow-up — full screen-by-screen verification (contract active every step)
+Walked every screen in code (not just the agent summaries):
+- Steps 1–4 (type/space/inspiration/render): pre-contract by design — sensible.
+- Step 5 confirm_look: contract DERIVED here (floorPlanToLayout on the live
+  edited plan) and shown read-only (LayoutConfirm tally) — contract goes active.
+- Step 6 builder + 9 groups: contract drives seeding (cabinetBoxes) and gates
+  affordances (appliances lock hob/fridge/dishwasher; lighting pendants↔island,
+  under-cab↔wall units; finishing cornice↔wall units). No orphan price drivers.
+- Wrap-up: range = computeBom(builderState) via /api/handoff — contract-derived
+  end to end.
+- **Fixed:** MakerDashboardPreview hardcoded USD ($/$k) for the cost range while
+  the whole funnel uses EUR — violated AGENTS.md "EUR everywhere". Now €
+  (symbol-after, hr-HR), numbers unchanged (still contract→BOM derived).
+- **Open product question (needs Toni):** `scope` (step 7) never feeds the
+  estimate — if "installation" / "appliances supply" isn't ticked, the range
+  still includes those lines. It's brief metadata today and sits AFTER the
+  builder, so wiring it into the range is a design decision, not a clear bug.
+- Gate: 68 tests · tsc · eslint · next build green.
+
+### Follow-up — scope now drives the estimate (Toni: "we need that")
+- `computeBom(state, locale, { scope })` drops out-of-scope lines via
+  `LINE_SCOPE_KEY`: cabinets → boards/edgeBanding/hardware/finishing/cnc/
+  assembly/design; worktops → worktop + backsplash; sinkTaps → sinkTaps;
+  appliancesSupply → appliances; lighting → lighting; installation → install.
+  A line drops ONLY when scope marks its controller false — absent scope (every
+  existing test/snapshot, and the funnel before the scope step) keeps the full
+  kitchen, so zero churn.
+- Wired through: handoff route (brief.scope → wrap-up + maker range),
+  LiveBOMPanel + MobileRangeDock (new optional `scope` prop). On the scope step
+  the range tracks live picks once ≥1 is selected (empty = full kitchen, so it
+  never collapses to €0 on arrival); elsewhere it uses committed profile.scope.
+  The scope step now visibly moves the price — it finally "does something".
+- `tests/scope-estimate.test.ts` (5): no-scope = full; installation:false drops
+  install + lowers total; cabinets:false drops the cabinetry package;
+  appliancesSupply:false drops appliances; unmapped keys (flooring) are no-ops.
+- Gate: 73 tests · tsc · eslint · next build green.
+
+### Improvements loop — restore the render cap (env-overridable)
+- render-concept route + ConceptRender both had `MAX_RENDERS_PER_SESSION = 9999`
+  marked "TEMP … during testing" — disabling the AGENTS.md non-negotiable
+  (renders capped at 5/session) and risking runaway image-gen spend at launch.
+- Now defaults to 5 (the product rule), overridable via env so testing isn't
+  blocked: server `RENDER_CAP_PER_SESSION`, client
+  `NEXT_PUBLIC_RENDER_CAP_PER_SESSION`. Set both high locally to iterate freely.
+- Checked two other flagged items, both non-issues: `tDynamic` in
+  summariseLayoutFromProfile uses the explicit-locale pure form (correct outside
+  a component); the in-builder ConfirmScreen still serves the standalone
+  /builder dev harness (not dead). Left both.
+- Gate: 73 tests · tsc · eslint · next build green.
+
+### Improvements loop — #1 scope allowances for trades/structural/flooring
+- The trade/structural scope toggles (flooring, demolitionDisposal,
+  electricalWork, plumbingRelocation, structural) previously moved nothing in
+  the estimate. Now each, when scoped IN, adds a rough allowance line in a NEW
+  `project` BOM section: flooring 900–2800, demolition 400–1500, electrical
+  600–2200, plumbing 500–1800, structural 1500–6000 €.
+- Design choice protecting the promise: allowances live in `sections.project`,
+  shown alongside the kitchen + goods and folded into the all-in total, but
+  NEVER into the `works` band — so the kitchen ±15% stays honest while the
+  all-in figure reflects the real project. Wide on purpose, labelled
+  "allowance"; only emitted when scope[key] === true (absent scope adds nothing,
+  so band-invariant + every other snapshot is unchanged).
+- These bands are domain allowances (no catalog/contract source), flagged as
+  such — placeholders until real trade quotes/maker pricelist land.
+- LiveBOMPanel shows a "Project work (allowance)" row; the mobile dock + line
+  lists pick the new keys up generically. i18n added both locales.
+- tests/scope-estimate.test.ts +3: no allowances without scope; scoping a trade
+  adds its project line; allowances leave the works band untouched but lift the
+  total. Gate: 76 tests · tsc · eslint · next build green.
+
+### Improvements loop — #2 worktop edge profile + thickness UI
+- WorktopGroup now exposes Edge profile (square/rounded/bevel/waterfall) and
+  Thickness (38/20/12 mm). Edge feeds the existing `edgeFactor` in the BOM
+  (waterfall ×1.25, radius ×1.06) so it really moves the price; thickness is a
+  captured spec shown in the worktop line detail + maker brief (catalog has no
+  thickness-specific €/m yet, so it doesn't claim a price delta it can't back).
+- Both write homeowner-edited provenance; worktop.meta extended with optional
+  edge/thickness. `mitreJoinCount` stays auto-derived from the contract (it's
+  geometry, not a homeowner choice) — left as is. i18n both locales.
+- Gate: 76 tests · tsc · eslint · next build green.
+
+### Improvements loop — #3 maker B2B pricing drop-in (retail to homeowner, cost to maker)
+- Decision (Toni): homeowner keeps seeing retail RRP; the maker gains a cost basis.
+- New `src/lib/catalog/maker-pricing.json` (empty by default) + `maker-pricing.ts`
+  loader (`makerPriceForSku`, `makerPricingEntryCount`). The maker drops real B2B
+  prices keyed by Schachermayer SKU.
+- `computeBom(state, locale, { pricing })`: 'retail' (default, homeowner) vs
+  'maker'. In 'maker' mode a picked SKU's price is replaced by the maker's
+  account price when supplied; else retail. Wired for appliances (pickedSku),
+  hardware drawer (drawerSystemSku) + hinge (hingeSku). Sink/tap have no SKU on
+  state → stay retail (noted; needs SKU capture later).
+- Handoff attaches `estimate.makerCost` (all-in at maker prices) ONLY when the
+  pricelist has entries; MakerDashboardPreview shows a green "Your cost basis
+  (B2B) · maker-only" panel. Homeowner figures stay retail throughout.
+- Ships DORMANT: empty pricelist → maker mode === retail (tests/maker-pricing
+  proves byte-for-byte equality across every fixture), so zero behaviour change
+  and no snapshot churn until the maker's real pricelist lands — the last piece
+  of the LOOP.md Q7 launch blocker that doesn't need their data.
+- Gate: 79 tests · tsc · eslint · next build green.
+
+### Screens review loop — wrap-up all-in figure + journey-rail readbacks
+- **Wrap-up estimate**: showed only the kitchen (works) range; now also shows the
+  all-in figure (appliances + sink/tap + project allowances) when present,
+  labelled "Kitchen — made & installed" vs "All-in", matching LiveBOMPanel so the
+  final screen is complete and consistent.
+- **Journey-rail status visibility (AGENTS.md rule 8, P0)**: the appliances and
+  lighting builder groups had null readbacks (blank in the rail when done). Now
+  appliances → "{n} appliances", lighting → "{n} lighting layers" (null when
+  none). i18n both locales.
+- Gate: 79 tests · tsc · eslint · next build green.
+
+### Follow-on — sink/tap into the maker B2B seam
+- Sink + tap already captured `sku` on pick but computeBom read their prices
+  raw. Wired both through `effPrice(pickedPriceEur, sku)`, so the maker B2B
+  override (pricing:'maker') now covers EVERY picked catalog product:
+  appliances, hardware (drawers + hinges), sink + tap. Docs corrected (the
+  earlier "sink/tap have no SKU" note was wrong — they do).
+- Still dormant by default (empty pricelist ⇒ maker == retail; maker-pricing
+  test green across fixtures). Gate: 79 tests · tsc · eslint · next build green.
+
+### Screens review loop — error retries, localization, a11y
+Full screen pass (survey + fixes), three batches, gate green throughout (79 tests):
+- **Error retries**: wrap-up handoff failure, wishlist translate failure, and the
+  builder-entry hypothesis error now all offer a clear "Try again" instead of a
+  dead end. Added common.retry; localized the finalise-error message.
+- **Inspiration screen**: was 100% hardcoded English (broke hr-HR default) —
+  fully localized via useTranslations + inspiration.* keys (both locales).
+- **Fallback summary** (buildFallbackSummary, shown when the AI summary fails):
+  was hardcoded English; now localized via fallback.* keys + a locale param.
+- **a11y / labels**: ConceptRender anchor/style-ref titles + the "USE" badge
+  localized and given real alt text; SpaceCapture photo thumbnails get alt text.
+- Reviewed ContactForm — already well-localized + accessible; skipped phone
+  regex validation deliberately (would reject valid +385/spaced numbers).
+
+### Confirm-screen rework — editable contract card v1, walls-derived shape, oven+hood
+User-testing feedback batch ("AI added a wall I can't remove", "says L-oblik but
+it's wrong", "always missing the hood + stove", phantom island):
+- **Shape is now DERIVED from the counter-bearing walls** (`deriveShape`,
+  recomputed in `validate`) — never a stale stored label. `fromVision` places
+  counters on the walls the AI actually saw runs on (`vision.wallRuns`), stored
+  as explicit booleans; `fromShapePreset` same.
+- **Island only with positive evidence** (geometry or explicit hasIsland:true);
+  render silent on island ⇒ NO island (kills the phantom leaking from the photo
+  read). Covered in derive-layout tests.
+- **Oven + hood extraction end-to-end**: space-vision schema + prompt ask for
+  them explicitly; new FeatureKinds (editor toolbar, defaults); render-derived
+  seeding anchors them at the hob; contract → oven_housing base slot mirrors the
+  dishwasher slot; hood maps to the builder's 'extractor'.
+- **LayoutConfirm is now the editable contract card (v1)**: per-wall length
+  input, upper/tall toggle chips, "Remove wall", per-row unit sequences
+  (base/upper/tall) with appliance pills. Edits write the FloorPlan and re-seed
+  the canvas via layoutEditNonce, so card and canvas can't disagree.
+- **`type` step removed** (friction; scope step covers it) — flow opens at
+  space_photos. ConfirmLook (decor) dropped from confirm_look: the step is
+  layout-only; decor lives in the builder. Readback reports shape + dims.
+- Editor: per-wall upper/tall chips; metric default (no navigator.language
+  sniffing). New tests: contract-layout-edits (10 cases).
+- Gate: 89 tests · tsc · build green (eslint gate fixed in the next commit —
+  it trips on .claude/worktrees, not project code).
+
+### Single-assembler rework — what you confirm is what gets priced
+The improvement-plan core (see PR discussion 2026-07-05). Cabinet units were
+re-derived ad hoc: the Part-1 tally used the bare heuristic while the builder
+re-seeded with THREE stacked layers (heuristic → AI unitPatterns ±15% → forced
+sink/hob placement, CabinetBoxesGroup.tsx:79-143) whose candidate filter could
+mint 2+ read-only sink units ("sink extracted in multiple parts") and whose
+patterns moved the price AFTER sign-off. Render hasTall folded into the builder
+seed but never the tally (second parity hole).
+- **`unit-assembly.ts` — `assembleUnits({contract, hints, edits})`** is now the
+  ONE derivation: measured appliance slots (sink → exactly one bound
+  `sink_unit`; AI sink hints ignored), greedy fill, pattern heuristic, AI hints
+  applied once, homeowner `UnitEdits` (sparse per-row pattern sequences that
+  refit across geometry changes) applied last. Deterministic ids, per-unit
+  confidence/provenance meta.
+- **Consumers**: LayoutConfirm tally (`summarizeAssembly`, now hypothesis-aware),
+  `hydrateFromHypothesis` (materializes `cabinetBoxes.units`; tall folding moved
+  into the hints layer), and computeBom via the hydrated units. The
+  CabinetBoxesGroup seeding effect is DELETED.
+- **CabinetBoxes slims to specifics-only**: carcass material + a locked-layout
+  recap (`ContractRecap`, rendered from persisted state so it always equals
+  what's priced) with an "Uredi raspored" escape-hatch slot (wired next).
+  ~16 orphaned `cabinetBoxes.*` editor keys deleted; group renamed "Ormarići".
+- **Estimate snapshots regenerated once** (vitest -u): totals rise ~15-20 %
+  because every fixture now prices the real unit model (drawer counts, sink/
+  corner accessories) instead of the flat layout fallback; displayed bands
+  widen 1-3 pts but ALL stay ≤ the 15 % cap (assertions untouched, green).
+- Parity test strengthened: hydrated units deep-equal the assembler across
+  contract × hypothesis fixtures, incl. tall + pattern hints and a UnitEdits
+  case. Gate: 126 tests · tsc · eslint · build green.
+
+### Per-unit editor + escape hatch — the layout is finally correctable
+- **LayoutConfirm is the design surface**: every chip in a wall's base/upper/
+  tall sequence is tappable — inline panel swaps the pattern (corner slot swaps
+  mechanism only), removes the unit, "+" appends while capacity allows; widths
+  redistribute automatically. Appliance-bound chips (sudoper/perilica/pećnica/
+  hladnjak) open a bound panel: nudge the measured appliance ±10 cm (canvas,
+  tally and price move together) or remove it with a two-tap confirm — the unit
+  goes with the appliance, no orphans. Amber warnings when a wall runs short.
+- Edits are sparse `UnitEdits` sequences: frozen into `profile.unitEdits` at
+  lock, replayed by the builder's hydration — the locked tally IS the priced
+  list.
+- **Escape hatch**: "Uredi raspored" on the builder's Cabinets recap saves the
+  LIVE state and returns to confirm_look; on re-lock, `relockBuilderState`
+  (run on every saved-state mount — idempotent, self-heals stale sessions)
+  re-derives layout/units/worktop geometry and re-syncs appliance presence
+  (plan-deleted kinds drop, AI-only extras survive, measured widths win) while
+  every specifics pick — doors, worktop decor, hardware, sink/taps, lighting,
+  finishing, carcass, renders — survives.
+- Gate: 131 tests · tsc · eslint · build green. New: tests/relock (5 cases).

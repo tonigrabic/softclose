@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react'
 import { JourneyNavRail, journeyPillLabel } from '@/components/JourneyNavRail'
@@ -12,8 +12,7 @@ import { useTranslations, tDynamic, type Locale } from '@/lib/i18n'
 import { SpaceCapture } from './SpaceCapture'
 import { Inspiration } from './Inspiration'
 import { ConceptRender as ConceptRenderUI, type ProductReference } from './ConceptRender'
-import { ConfirmLook } from './ConfirmLook'
-import { LayoutConfirm } from '@/components/builder/LayoutConfirm'
+import { LayoutReview } from './LayoutReview'
 import { ChipMulti } from './ChipMulti'
 import { VisualScale } from './VisualScale'
 import { ContactForm, type ContactValue } from './ContactForm'
@@ -25,12 +24,16 @@ import {
   flowIndex,
   nextStepId,
   prevStepId,
+  stepNumber,
   type FlowStepId,
 } from '@/lib/flow'
 import { BuilderShell } from '@/components/builder/BuilderShell'
+import { LayoutConfirm } from '@/components/builder/LayoutConfirm'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { BuilderState } from '@/lib/builder/inventory'
-import { derivePrefills, visionPrefilledLook } from '@/lib/derive-prefills'
+import type { UnitEdits } from '@/lib/builder/unit-assembly'
+import { derivePrefills } from '@/lib/derive-prefills'
+import { renderDerivedFloorPlan } from '@/lib/derive-layout'
 import { DESIGNER_NAME } from '@/lib/system-prompt'
 import type { UploadedReference } from './ImageSelect'
 import type { FloorPlan } from '@/lib/floor-plan'
@@ -45,13 +48,11 @@ import type {
 } from '@/lib/types'
 import type { InspirationVisionResult } from '@/app/api/inspiration-vision/route'
 
-const PROJECT_TYPE_OPTIONS = [
-  { value: 'full_remodel', label: 'Full remodel' },
-  { value: 'cabinet_replace', label: 'Cabinets only' },
-  { value: 'refresh', label: 'Light refresh' },
-  { value: 'addition', label: 'Addition / extension' },
-  { value: 'repair', label: 'Repair / fix' },
-] as const
+/** Sign-off timestamp, read through a module-level helper so the React purity
+ * lint doesn't flag `Date.now()` in the component's event handlers. */
+function nowMs(): number {
+  return Date.now()
+}
 
 const TIMELINE_BANDS = [
   { value: 'asap', label: 'ASAP', caption: 'Within 4 weeks' },
@@ -76,6 +77,14 @@ const SCOPE_OPTIONS = [
   { value: 'installation', label: 'Installation', icon: 'wrench' },
 ]
 
+/** Selected scope chips → the scope flags object. The estimate (computeBom)
+ * drops out-of-scope lines from these flags; see LINE_SCOPE_KEY in bom.ts. */
+function scopeFromSelected(selected: string[]): NonNullable<LeadProfile['scope']> {
+  const scope: Record<string, boolean> = {}
+  for (const opt of SCOPE_OPTIONS) scope[opt.value] = selected.includes(opt.value)
+  return scope as NonNullable<LeadProfile['scope']>
+}
+
 const SITE_ACCESS_OPTIONS = [
   { value: 'street_level', label: 'Street level' },
   { value: 'one_flight', label: 'One flight up' },
@@ -91,14 +100,12 @@ const LIVING_OPTIONS = [
 
 interface IntakeFlowState {
   currentStepId: FlowStepId
-  visitedSteps: Set<FlowStepId>
 }
 
 export function KitchenIntake() {
   const { locale } = useTranslations()
   const [state, setState] = useState<IntakeFlowState>({
-    currentStepId: 'type',
-    visitedSteps: new Set(['type']),
+    currentStepId: 'space_photos',
   })
   const [profile, setProfile] = useState<LeadProfile>({})
   const [transcript, setTranscript] = useState<ClientMessage[]>([])
@@ -111,6 +118,18 @@ export function KitchenIntake() {
   const [spacePhotos, setSpacePhotos] = useState<string[]>([])
   const [spaceVision, setSpaceVision] = useState<SpaceVisionResult | null>(null)
   const [floorPlan, setFloorPlan] = useState<FloorPlan | null>(null)
+  // Bumped ONLY when the contract card edits the plan, so the canvas editor
+  // re-seeds (remounts) from the new plan. Canvas edits go through plain
+  // setFloorPlan and never bump this — so the canvas never remounts itself
+  // mid-drag, and the two surfaces can't fight over one shared plan.
+  const [layoutEditNonce, setLayoutEditNonce] = useState(0)
+  const editLayoutFromContract = (p: FloorPlan) => {
+    setFloorPlan(p)
+    setLayoutEditNonce((n) => n + 1)
+  }
+  // Per-row cabinet-unit edits from the contract card (sparse pattern
+  // sequences). Frozen into the profile with the plan at commitConfirmLook.
+  const [unitEdits, setUnitEdits] = useState<UnitEdits | null>(null)
   const [inspirationStyles, setInspirationStyles] = useState<string[]>([])
   const [inspirationRefs, setInspirationRefs] = useState<UploadedReference[]>([])
   const [inspirationVision, setInspirationVision] = useState<InspirationVisionResult | null>(null)
@@ -145,12 +164,9 @@ export function KitchenIntake() {
     setProfile((prev) => ({ ...prev, ...patch }))
   }
 
-  /** Move to a specific step, optionally recording it as visited. */
+  /** Move to a specific step. */
   function goTo(id: FlowStepId) {
-    setState((prev) => ({
-      currentStepId: id,
-      visitedSteps: new Set([...prev.visitedSteps, id]),
-    }))
+    setState({ currentStepId: id })
     setTranslateError(null)
     setFinaliseError(null)
   }
@@ -183,37 +199,19 @@ export function KitchenIntake() {
    *     consumers that haven't migrated to `floorPlan` yet),
    *   - the confirmed `floorPlan` object — the new source of truth.
    */
+  /**
+   * Anchor-only commit (post-merge step 1). Stores the photos + the raw vision
+   * read (the scale anchor + provenance for the maker). The LAYOUT is NOT
+   * frozen here — it's derived from the AI render and confirmed later at
+   * "Confirm layout & look" (see the confirm_look effects + commitConfirmLook).
+   */
   function commitSpacePhotos() {
     const inferred: Partial<LeadProfile> = { spacePhotos }
-    if (spaceVision) {
-      inferred.spaceVisionResult = spaceVision
-    }
-    if (floorPlan) {
-      inferred.floorPlan = floorPlan
-      inferred.layoutShape = floorPlan.layoutShape
-      inferred.hasIsland = floorPlan.hasIsland
-      inferred.spaceLengthCm = floorPlan.room.lengthCm
-      inferred.spaceWidthCm = floorPlan.room.widthCm
-    } else if (spaceVision) {
-      if (spaceVision.layoutShape && spaceVision.layoutShape !== 'unsure') {
-        inferred.layoutShape = spaceVision.layoutShape
-      }
-      if (typeof spaceVision.hasIsland === 'boolean') {
-        inferred.hasIsland = spaceVision.hasIsland
-      }
-      if (spaceVision.lengthCm) inferred.spaceLengthCm = spaceVision.lengthCm
-      if (spaceVision.widthCm) inferred.spaceWidthCm = spaceVision.widthCm
-    }
+    if (spaceVision) inferred.spaceVisionResult = spaceVision
     patchProfile(inferred)
-    const summary = floorPlan
-      ? floorPlan.measurementMethod === 'deferred_to_designer'
-        ? 'Plan deferred to designer for on-site measurement.'
-        : `Confirmed plan (${Math.round(floorPlan.room.lengthCm)} × ${Math.round(floorPlan.room.widthCm)} cm).`
-      : spaceVision?.summary
-        ? `AI read: ${spaceVision.summary}`
-        : null
+    const summary = spaceVision?.summary ? `AI read: ${spaceVision.summary}` : null
     const photoNote = spacePhotos.length
-      ? `Uploaded ${spacePhotos.length} space photo${spacePhotos.length === 1 ? '' : 's'}.`
+      ? `Uploaded ${spacePhotos.length} space photo${spacePhotos.length === 1 ? '' : 's'} (anchor).`
       : 'No photos uploaded.'
     logTurn('user', [photoNote, summary].filter(Boolean).join(' '), spacePhotos)
     goNext()
@@ -244,31 +242,41 @@ export function KitchenIntake() {
     goNext()
   }
 
+  /**
+   * Freeze the reviewed layout — the contract the builder prices from — and
+   * record the explicit sign-off. This is where the contract is locked: the
+   * homeowner has seen the render-derived plan, adjusted everything on the
+   * canvas, and watched the live cabinet breakdown (LayoutConfirm) update.
+   * Decor (door/worktop/hardware) is NOT captured here — it lives in the builder.
+   */
   function commitConfirmLook() {
-    const parts = [
-      profile.stylePreferences?.length ? `style: ${profile.stylePreferences.join(', ')}` : null,
-      profile.doorMaterial ? `door: ${profile.doorMaterial}` : null,
-      profile.worktopPreference ? `worktop: ${profile.worktopPreference}` : null,
-      profile.backsplashPreference ? `backsplash: ${profile.backsplashPreference}` : null,
-      profile.hardwareTier ? `hardware: ${profile.hardwareTier}` : null,
-    ].filter(Boolean)
-    logTurn('user', `Confirmed look: ${parts.join(' · ') || '(skipped)'}`)
-    goNext()
-  }
-
-  function commitType() {
-    if (!profile.projectType) return
-    logTurn('user', `Project type: ${profile.projectType}`)
+    // The plan the homeowner reviewed (render-derived, then their edits).
+    const planToFreeze = floorPlan
+    if (planToFreeze) {
+      const frozen = validate(planToFreeze)
+      patchProfile({
+        floorPlan: frozen,
+        layoutShape: frozen.layoutShape,
+        hasIsland: frozen.hasIsland,
+        spaceLengthCm: Math.round(frozen.room.lengthCm),
+        spaceWidthCm: Math.round(frozen.room.widthCm),
+        // The per-unit sequence edits lock WITH the plan — the builder replays
+        // them through the same assembler that rendered the confirmed tally.
+        unitEdits: unitEdits ?? undefined,
+        contractConfirmedAt: nowMs(),
+      })
+      logTurn(
+        'user',
+        `Confirmed layout contract: ${frozen.layoutShape} ${Math.round(frozen.room.lengthCm)}×${Math.round(frozen.room.widthCm)} cm${frozen.hasIsland ? ' + island' : ''}`
+      )
+    } else {
+      logTurn('user', 'Confirmed layout contract: (skipped)')
+    }
     goNext()
   }
 
   function commitScope() {
-    const scope: NonNullable<LeadProfile['scope']> = {}
-    for (const opt of SCOPE_OPTIONS) {
-      const key = opt.value as keyof typeof scope
-      ;(scope as Record<string, boolean>)[key] = scopeSelected.includes(opt.value)
-    }
-    patchProfile({ scope })
+    patchProfile({ scope: scopeFromSelected(scopeSelected) })
     logTurn(
       'user',
       `Scope: ${scopeSelected.length === 0 ? '(none selected)' : scopeSelected.join(', ')}`
@@ -393,7 +401,7 @@ export function KitchenIntake() {
       setProfile(finalProfile)
       setWrapUpData({
         thankYouMessage: `Thanks${finalProfile.name ? `, ${finalProfile.name}` : ''} — your brief is on its way to ${DESIGNER_NAME}.`,
-        summaryLines: buildFallbackSummary(finalProfile),
+        summaryLines: buildFallbackSummary(finalProfile, locale),
       })
       setFinaliseError(err instanceof Error ? err.message : 'Summary unavailable')
       setIsDone(true)
@@ -403,7 +411,7 @@ export function KitchenIntake() {
   }
 
   function resetAll() {
-    setState({ currentStepId: 'type', visitedSteps: new Set(['type']) })
+    setState({ currentStepId: 'space_photos' })
     setProfile({})
     setTranscript([])
     setIsDone(false)
@@ -413,6 +421,7 @@ export function KitchenIntake() {
     setSpacePhotos([])
     setSpaceVision(null)
     setFloorPlan(null)
+    setUnitEdits(null)
     setInspirationStyles([])
     setInspirationRefs([])
     setInspirationVision(null)
@@ -457,7 +466,12 @@ export function KitchenIntake() {
       const res = await fetch('/api/builder-hypothesis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ renderImage: render.imageDataUrl, profile, layoutContract }),
+        body: JSON.stringify({
+          renderImage: render.imageDataUrl,
+          anchorPhoto: spacePhotos[0],
+          profile,
+          layoutContract,
+        }),
       })
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error ?? `Hypothesis failed (${res.status})`)
@@ -479,6 +493,39 @@ export function KitchenIntake() {
     ? conceptRenders.find((r) => r.id === chosenRenderId)
     : conceptRenders[conceptRenders.length - 1]
 
+  // The render-derived layout is still being computed when a render exists but
+  // the vision pass hasn't returned (or errored) yet. While pending, the
+  // confirm step shows a loading state rather than seeding a premature plan.
+  const layoutPending = Boolean(chosenRender) && !builderHypothesis && !hypothesisError
+
+  // On reaching "Confirm layout & look", fire the render vision pass ONCE. It
+  // yields both the layout geometry (→ the proposed FloorPlan below) and the
+  // decor hypothesis the builder reuses — decoupled from builder entry so the
+  // homeowner confirms the layout derived from their render BEFORE building.
+  // Synchronises with an external system (the vision API) on step entry.
+  useEffect(() => {
+    if (state.currentStepId !== 'confirm_look') return
+    if (!chosenRender) return
+    if (builderHypothesis || isLoadingHypothesis || hypothesisError) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void loadHypothesis()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.currentStepId, chosenRender, builderHypothesis, isLoadingHypothesis, hypothesisError])
+
+  // Seed the floor plan for the editor: render configuration over photo scale
+  // (see lib/derive-layout.ts). Fires once the render layout has landed (or
+  // errored → photo-only / preset fallback), or immediately when there's no
+  // render to wait for. Guarded so it never clobbers homeowner edits, and
+  // seeds exactly once (the plan carries random element ids, so it must be
+  // stored, not recomputed each render).
+  useEffect(() => {
+    if (state.currentStepId !== 'confirm_look') return
+    if (floorPlan || layoutPending) return
+    if (!builderHypothesis && !spaceVision) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setFloorPlan(renderDerivedFloorPlan(spaceVision, builderHypothesis ?? null))
+  }, [state.currentStepId, floorPlan, layoutPending, builderHypothesis, spaceVision])
+
   // ── Wrap-up / offer — still inside the one shell: the journey rail stays,
   // with every act marked done (status visibility to the very last screen).
   if (isDone && wrapUpData) {
@@ -493,18 +540,15 @@ export function KitchenIntake() {
         })}
         nav={
           <>
-            <header className="mb-5 flex items-center justify-between gap-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                {DESIGNER_NAME}
-              </p>
+            <header className="mb-5 flex items-center justify-end">
               <button
                 type="button"
                 onClick={resetAll}
                 className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                title="Start over"
+                title={tDynamic('nav.startOver', locale)}
               >
                 <RotateCcw className="size-3 stroke-[2]" aria-hidden />
-                Start over
+                {tDynamic('nav.startOver', locale)}
               </button>
             </header>
             <JourneyNavRail funnelStepId="contact" profile={profile} journeyDone locale={locale} />
@@ -541,10 +585,11 @@ export function KitchenIntake() {
       <BuilderShell
         hypothesis={builderHypothesis}
         layoutContract={layoutContract}
+        unitEdits={(profile.unitEdits as UnitEdits | undefined) ?? unitEdits}
         savedState={builderSavedState}
         renderImageDataUrl={chosenRender?.imageDataUrl}
         anchorPhotoDataUrl={spacePhotos[0]}
-        layoutSummary={summariseLayoutFromProfile(profile, locale)}
+        layoutSummary={summariseLayoutFromProfile(profile, locale, floorPlan)}
         profile={profile}
         layoutPreconfirmed
         onComplete={(builderState) => {
@@ -554,6 +599,14 @@ export function KitchenIntake() {
             `Builder complete — doors: ${builderState.doors.decorCode}, worktop: ${builderState.worktop.decorCode}`
           )
           goNext()
+        }}
+        onEditLayout={(builderState) => {
+          // Escape hatch: keep every pick, reopen the layout. On re-lock the
+          // builder remounts with this savedState and relockBuilderState
+          // re-derives the units against the new contract.
+          patchProfile({ builderState })
+          logTurn('user', 'Went back to edit the layout from the builder.')
+          setState({ currentStepId: 'confirm_look' })
         }}
       />
     )
@@ -578,13 +631,21 @@ export function KitchenIntake() {
     'logistics',
     'contact',
   ]
+  // The live range respects scope. On the scope step itself it tracks the
+  // homeowner's live picks (so the range reacts as they tick items) — but only
+  // once at least one is picked, so arriving on an empty selection still shows
+  // the full kitchen, not €0. Elsewhere it uses the committed profile.scope.
+  const liveScope =
+    state.currentStepId === 'scope' && scopeSelected.length > 0
+      ? scopeFromSelected(scopeSelected)
+      : profile.scope
   const funnelRightRail =
     rightRailSteps.includes(state.currentStepId) && funnelRenderSrc ? (
       <div className="flex flex-col gap-5">
-        {funnelBuilderState && <LiveBOMPanel state={funnelBuilderState} />}
+        {funnelBuilderState && <LiveBOMPanel state={funnelBuilderState} scope={liveScope} />}
         <RenderAnchorCard
           src={funnelRenderSrc}
-          summary={summariseLayoutFromProfile(profile, locale)}
+          summary={summariseLayoutFromProfile(profile, locale, floorPlan)}
           locale={locale}
         />
       </div>
@@ -597,27 +658,24 @@ export function KitchenIntake() {
       mobilePillLabel={journeyPillLabel({ funnelStepId: state.currentStepId, profile, locale })}
       mobileDock={
         funnelBuilderState && rightRailSteps.includes(state.currentStepId) ? (
-          <MobileRangeDock state={funnelBuilderState} />
+          <MobileRangeDock state={funnelBuilderState} scope={liveScope} />
         ) : undefined
       }
       nav={
         <>
-          <header className="mb-5 flex items-center justify-between gap-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              {DESIGNER_NAME}
-            </p>
-            {Object.keys(profile).length > 0 && (
+          {Object.keys(profile).length > 0 && (
+            <header className="mb-5 flex items-center justify-end">
               <button
                 type="button"
                 onClick={resetAll}
                 className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                title="Start over"
+                title={tDynamic('nav.startOver', locale)}
               >
                 <RotateCcw className="size-3 stroke-[2]" aria-hidden />
-                Start over
+                {tDynamic('nav.startOver', locale)}
               </button>
-            )}
-          </header>
+            </header>
+          )}
           <JourneyNavRail funnelStepId={state.currentStepId} profile={profile} locale={locale} />
         </>
       }
@@ -654,6 +712,8 @@ export function KitchenIntake() {
                 onSpaceVisionChange={setSpaceVision}
                 floorPlan={floorPlan}
                 onFloorPlanChange={setFloorPlan}
+                onContractPlanChange={editLayoutFromContract}
+                layoutEditNonce={layoutEditNonce}
                 inspirationStyles={inspirationStyles}
                 onInspirationStylesChange={setInspirationStyles}
                 inspirationRefs={inspirationRefs}
@@ -680,7 +740,6 @@ export function KitchenIntake() {
                 onNiceToHavesTextChange={setNiceToHavesText}
                 dealBreakersText={dealBreakersText}
                 onDealBreakersTextChange={setDealBreakersText}
-                onSpacePhotosCommit={commitSpacePhotos}
                 onSpacePhotosSkip={() => {
                   logTurn('user', 'Skipped uploading space photos')
                   goNext()
@@ -689,17 +748,30 @@ export function KitchenIntake() {
                   logTurn('user', 'Skipped concept render')
                   goNext()
                 }}
+                layoutLoading={layoutPending || isLoadingHypothesis}
+                builderHypothesis={builderHypothesis}
+                unitEdits={unitEdits}
+                onUnitEditsChange={setUnitEdits}
+                anchorRenderUrl={funnelRenderSrc}
               />
               )}
 
               {translateError && (
-                <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-2.5 text-xs text-destructive">
-                  {translateError}
-                </p>
+                <div className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-2.5 text-xs text-destructive">
+                  <span>{translateError}</span>
+                  <button
+                    type="button"
+                    onClick={() => void commitWishlist()}
+                    disabled={isTranslating}
+                    className="rounded-full border border-destructive/40 px-3 py-1 font-semibold transition-colors hover:bg-destructive/10 disabled:opacity-50"
+                  >
+                    {tDynamic('common.retry', locale)}
+                  </button>
+                </div>
               )}
               {finaliseError && (
                 <p className="rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-2.5 text-xs text-destructive">
-                  Couldn&apos;t fetch the AI summary, but your brief is saved. Continuing with a fallback summary.
+                  {tDynamic('funnel.finaliseError', locale)}
                 </p>
               )}
 
@@ -717,6 +789,8 @@ export function KitchenIntake() {
                   Boolean(contactDraft.name.trim() && contactDraft.contactValue.trim())
                 }
                 scopeCount={scopeSelected.length}
+                hasFloorPlan={Boolean(floorPlan)}
+                hasSpacePhotos={spacePhotos.length > 0}
               />
             </motion.section>
           </AnimatePresence>
@@ -725,9 +799,6 @@ export function KitchenIntake() {
 
   function commitForStep(id: FlowStepId): void {
     switch (id) {
-      case 'type':
-        commitType()
-        break
       case 'space_photos':
         commitSpacePhotos()
         break
@@ -775,6 +846,10 @@ interface StepBodyProps {
   onSpaceVisionChange: (v: SpaceVisionResult | null) => void
   floorPlan: FloorPlan | null
   onFloorPlanChange: (p: FloorPlan | null) => void
+  /** Edit from the contract card — sets the plan AND re-seeds the canvas. */
+  onContractPlanChange: (p: FloorPlan) => void
+  /** Bumped on contract-card edits so the canvas editor remounts from the new plan. */
+  layoutEditNonce: number
   inspirationStyles: string[]
   onInspirationStylesChange: (s: string[]) => void
   inspirationRefs: UploadedReference[]
@@ -801,9 +876,17 @@ interface StepBodyProps {
   onNiceToHavesTextChange: (t: string) => void
   dealBreakersText: string
   onDealBreakersTextChange: (t: string) => void
-  onSpacePhotosCommit: () => void
   onSpacePhotosSkip: () => void
   onConceptRenderSkip: () => void
+  /** True while the render→layout vision pass is in flight (confirm_look). */
+  layoutLoading: boolean
+  /** Render hypothesis — folds AI unit hints into the confirm tally (parity). */
+  builderHypothesis: BuilderHypothesis | null
+  /** Per-row unit edits from the contract card + their setter. */
+  unitEdits: UnitEdits | null
+  onUnitEditsChange: (e: UnitEdits) => void
+  /** Chosen render (preferred) or anchor photo — editor background at confirm_look. */
+  anchorRenderUrl?: string
 }
 
 function StepBody(props: StepBodyProps) {
@@ -817,6 +900,8 @@ function StepBody(props: StepBodyProps) {
     onSpaceVisionChange,
     floorPlan,
     onFloorPlanChange,
+    onContractPlanChange,
+    layoutEditNonce,
     inspirationStyles,
     onInspirationStylesChange,
     inspirationRefs,
@@ -843,17 +928,25 @@ function StepBody(props: StepBodyProps) {
     onNiceToHavesTextChange,
     dealBreakersText,
     onDealBreakersTextChange,
-    onSpacePhotosCommit,
     onSpacePhotosSkip,
     onConceptRenderSkip,
+    layoutLoading,
+    builderHypothesis,
+    unitEdits,
+    onUnitEditsChange,
+    anchorRenderUrl,
   } = props
   const { t, tDynamic } = useTranslations()
+  // "Korak {n}" computed from FLOW order — the old per-step eyebrow strings
+  // went stale every time a step was added or removed.
+  const stepEyebrow = (id: FlowStepId) =>
+    t('funnel.stepEyebrow').replace('{n}', String(stepNumber(id)))
 
   switch (stepId) {
     case 'space_photos':
       return (
         <StepFrame
-          eyebrow={t('funnel.space_photos.eyebrow')}
+          eyebrow={stepEyebrow('space_photos')}
           title={t('funnel.space_photos.title')}
           subtitle={t('funnel.space_photos.subtitle')}
         >
@@ -862,10 +955,8 @@ function StepBody(props: StepBodyProps) {
             onPhotosChange={onSpacePhotosChange}
             visionResult={spaceVision}
             onVisionResult={onSpaceVisionChange}
-            floorPlan={floorPlan}
-            onFloorPlanChange={onFloorPlanChange}
             onSkip={onSpacePhotosSkip}
-            onConfirm={onSpacePhotosCommit}
+            captureOnly
           />
         </StepFrame>
       )
@@ -873,7 +964,7 @@ function StepBody(props: StepBodyProps) {
     case 'inspiration':
       return (
         <StepFrame
-          eyebrow={t('funnel.inspiration.eyebrow')}
+          eyebrow={stepEyebrow('inspiration')}
           title={t('funnel.inspiration.title')}
           subtitle={t('funnel.inspiration.subtitle')}
         >
@@ -892,7 +983,7 @@ function StepBody(props: StepBodyProps) {
     case 'concept_render':
       return (
         <StepFrame
-          eyebrow={t('funnel.concept_render.eyebrow')}
+          eyebrow={stepEyebrow('concept_render')}
           title={t('funnel.concept_render.title')}
           subtitle={t('funnel.concept_render.subtitle')}
         >
@@ -913,57 +1004,48 @@ function StepBody(props: StepBodyProps) {
       )
 
     case 'confirm_look': {
-      const confirmPlan = planFromProfile(profile)
-      const confirmContract = confirmPlan ? floorPlanToLayout(validate(confirmPlan)) : null
+      // The contract tally derived from the CURRENT edited plan — shown
+      // read-only below the editor so the homeowner sees exactly what we'll
+      // price before the footer Continue freezes it and records the sign-off.
+      const reviewContract = floorPlan ? floorPlanToLayout(validate(floorPlan)) : null
       return (
         <StepFrame
-          eyebrow={t('funnel.confirm_look.eyebrow')}
+          eyebrow={stepEyebrow('confirm_look')}
           title={t('funnel.confirm_look.title')}
           subtitle={t('funnel.confirm_look.subtitle')}
         >
-          {confirmContract && <LayoutConfirm contract={confirmContract} />}
-          <ConfirmLook
-            profile={profile}
-            onChange={onPatchProfile}
-            // Vision-only: the banner claims AI prefilled these fields, so the
-            // homeowner's own taps (styles, manual chips) must not trigger it.
-            hasPrefills={visionPrefilledLook(inspirationVision, spaceVision)}
+          {/* The layout DERIVED FROM THE RENDER — the homeowner adjusts walls,
+              sizes, appliances, island and the per-wall upper/tall toggles right
+              here; the footer Continue freezes it and locks the contract. Decor
+              (door/worktop/hardware) is NOT here — it belongs to the builder. */}
+          <LayoutReview
+            key={layoutEditNonce}
+            floorPlan={floorPlan}
+            onFloorPlanChange={onFloorPlanChange}
+            anchorPhotoUrl={anchorRenderUrl}
+            isLoading={layoutLoading}
           />
+          {/* The contract we'll price — appliances + the per-wall cabinet
+              sequence. EDITABLE here (lengths, walls, rows) and on the plan
+              above; both stay in sync. The footer Continue locks it. */}
+          {reviewContract && (
+            <LayoutConfirm
+              contract={reviewContract}
+              hypothesis={builderHypothesis}
+              plan={floorPlan}
+              onPlanChange={onContractPlanChange}
+              edits={unitEdits}
+              onEditsChange={onUnitEditsChange}
+            />
+          )}
         </StepFrame>
       )
     }
 
-    case 'type':
-      return (
-        <StepFrame
-          eyebrow={t('funnel.type.eyebrow')}
-          title={t('funnel.type.title')}
-          subtitle={t('funnel.type.subtitle')}
-        >
-          <div className="flex flex-wrap gap-2">
-            {PROJECT_TYPE_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onPatchProfile({ projectType: opt.value })}
-                className={cn(
-                  'rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all',
-                  profile.projectType === opt.value
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-card hover:border-primary/40'
-                )}
-              >
-                {tDynamic(`option.projectType.${opt.value}`)}
-              </button>
-            ))}
-          </div>
-        </StepFrame>
-      )
-
     case 'scope':
       return (
         <StepFrame
-          eyebrow={t('funnel.scope.eyebrow')}
+          eyebrow={stepEyebrow('scope')}
           title={t('funnel.scope.title')}
           subtitle={t('funnel.scope.subtitle')}
         >
@@ -984,7 +1066,7 @@ function StepBody(props: StepBodyProps) {
     case 'wishlist':
       return (
         <StepFrame
-          eyebrow={t('funnel.wishlist.eyebrow')}
+          eyebrow={stepEyebrow('wishlist')}
           title={t('funnel.wishlist.title')}
           subtitle={t('funnel.wishlist.subtitle')}
         >
@@ -1017,7 +1099,7 @@ function StepBody(props: StepBodyProps) {
     case 'logistics':
       return (
         <StepFrame
-          eyebrow={t('funnel.logistics.eyebrow')}
+          eyebrow={stepEyebrow('logistics')}
           title={t('funnel.logistics.title')}
           subtitle={t('funnel.logistics.subtitle')}
         >
@@ -1175,6 +1257,8 @@ function FooterNav({
   hasInspirationInput,
   hasContactDraft,
   scopeCount,
+  hasFloorPlan,
+  hasSpacePhotos,
 }: {
   stepId: FlowStepId
   canGoBack: boolean
@@ -1185,6 +1269,8 @@ function FooterNav({
   hasInspirationInput: boolean
   hasContactDraft: boolean
   scopeCount: number
+  hasFloorPlan: boolean
+  hasSpacePhotos: boolean
 }) {
   const { t } = useTranslations()
   // Per-step continue gating + label.
@@ -1192,8 +1278,6 @@ function FooterNav({
 
   const canContinue = (() => {
     switch (stepId) {
-      case 'type':
-        return Boolean(profile.projectType)
       case 'space_photos':
         // SpaceCapture handles its own internal "Confirm" button when a vision result
         // is ready. The footer Continue is a "skip and move on" — always enabled.
@@ -1206,13 +1290,9 @@ function FooterNav({
       case 'concept_render':
         return true
       case 'confirm_look':
-        return Boolean(
-          profile.stylePreferences?.length ||
-            profile.doorMaterial ||
-            profile.worktopPreference ||
-            profile.backsplashPreference ||
-            profile.hardwareTier
-        )
+        // The layout is the lock (it freezes the contract the builder prices);
+        // decor below is optional. Gate on having a plan to confirm.
+        return hasFloorPlan
       case 'scope':
         return scopeCount > 0
       case 'wishlist':
@@ -1226,9 +1306,10 @@ function FooterNav({
     }
   })()
 
-  // For the space_photos step, the Continue button is redundant (SpaceCapture has
-  // its own Confirm) but we keep a Skip pathway via the footer.
+  // Step 1 (anchor capture) advances via the footer: "Continue" once photos
+  // are in, "Skip" when the homeowner has none.
   const isSpaceStep = stepId === 'space_photos'
+  const spaceLabel = hasSpacePhotos ? ctaLabel : t('nav.skip')
 
   return (
     <div className="flex items-center justify-between gap-3 pt-4">
@@ -1264,7 +1345,7 @@ function FooterNav({
             </>
           ) : (
             <>
-              {isSpaceStep ? t('nav.skip') : ctaLabel}
+              {isSpaceStep ? spaceLabel : ctaLabel}
               <ArrowRight className="size-3.5 stroke-[2]" aria-hidden />
             </>
           )}
@@ -1325,6 +1406,8 @@ function BuilderEntryBody({
                 <span className="inline-block size-1.5 animate-pulse rounded-full bg-primary-foreground/80" />
                 {t('funnel.builderEntry.loading')}
               </>
+            ) : error ? (
+              <>{t('common.retry')}</>
             ) : hasRender ? (
               <>{t('funnel.builderEntry.ctaWithAI')}</>
             ) : (
@@ -1364,30 +1447,40 @@ function BuilderEntryBody({
  * Phase-1 captures. Surfaced under the Builder's persistent preview so the
  * user always sees the room context without needing to re-edit it.
  */
-function summariseLayoutFromProfile(p: LeadProfile, locale: Locale): string | undefined {
-  const shape = p.layoutShape ?? p.spaceVisionResult?.layoutShape
-  const length = p.spaceLengthCm ?? p.spaceVisionResult?.lengthCm
-  const width = p.spaceWidthCm ?? p.spaceVisionResult?.widthCm
+function summariseLayoutFromProfile(
+  p: LeadProfile,
+  locale: Locale,
+  plan?: FloorPlan | null
+): string | undefined {
+  // Prefer the LIVE plan (the same source the contract derives from) so the
+  // anchor card can never contradict the "what we counted" card — e.g. anchor
+  // saying "L-shape" while the contract reads "U-shape". Fall back to the
+  // profile only before any plan exists.
+  const shape = plan?.layoutShape ?? p.layoutShape ?? p.spaceVisionResult?.layoutShape
+  const length = plan ? Math.round(plan.room.lengthCm) : p.spaceLengthCm ?? p.spaceVisionResult?.lengthCm
+  const width = plan ? Math.round(plan.room.widthCm) : p.spaceWidthCm ?? p.spaceVisionResult?.widthCm
+  const hasIsland = plan ? plan.hasIsland : p.hasIsland
   const parts: string[] = []
   if (shape && shape !== 'unsure') {
     parts.push(tDynamic(`layout.shape.${shape}`, locale))
   }
   if (length && width) parts.push(`${length} × ${width} cm`)
   else if (length) parts.push(`${length} cm`)
-  if (p.hasIsland) parts.push(tDynamic('layout.suffix.island', locale))
+  if (hasIsland) parts.push(tDynamic('layout.suffix.island', locale))
   return parts.length > 0 ? parts.join(' · ') : undefined
 }
 
-function buildFallbackSummary(profile: LeadProfile): string[] {
+function buildFallbackSummary(profile: LeadProfile, locale: Locale): string[] {
+  const fill = (key: string, v: string) => tDynamic(key, locale).replace('{v}', v.replace(/_/g, ' '))
   const lines: string[] = []
-  if (profile.projectType) lines.push(`Project type: ${profile.projectType.replace(/_/g, ' ')}.`)
-  if (profile.timeline) lines.push(`Timeline: ${profile.timeline.replace(/_/g, ' ')}.`)
-  if (profile.budgetRange) lines.push(`Budget band: ${profile.budgetRange.replace(/_/g, ' ')}.`)
+  if (profile.projectType) lines.push(fill('fallback.projectType', profile.projectType))
+  if (profile.timeline) lines.push(fill('fallback.timeline', profile.timeline))
+  if (profile.budgetRange) lines.push(fill('fallback.budget', profile.budgetRange))
   if (profile.stylePreferences?.length) {
-    lines.push(`Style direction: ${profile.stylePreferences.join(', ').replace(/_/g, ' ')}.`)
+    lines.push(fill('fallback.style', profile.stylePreferences.join(', ')))
   }
-  if (profile.doorMaterial) lines.push(`Door material: ${profile.doorMaterial.replace(/_/g, ' ')}.`)
-  if (profile.worktopPreference) lines.push(`Worktop: ${profile.worktopPreference.replace(/_/g, ' ')}.`)
-  while (lines.length < 3) lines.push('See the brief below for the full capture.')
+  if (profile.doorMaterial) lines.push(fill('fallback.door', profile.doorMaterial))
+  if (profile.worktopPreference) lines.push(fill('fallback.worktop', profile.worktopPreference))
+  while (lines.length < 3) lines.push(tDynamic('fallback.more', locale))
   return lines.slice(0, 6)
 }

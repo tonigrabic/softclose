@@ -10,7 +10,7 @@
  */
 import { describe, expect, test } from 'vitest'
 import { schachermayerProducts } from '@/lib/catalog/hardware'
-import { contractSeedOptions, suggestCabinetsForRun } from '@/lib/builder/cabinet-suggest'
+import { assembleUnits } from '@/lib/builder/unit-assembly'
 import { CONTRACT_FIXTURES } from '@/lib/builder/fixtures'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import { hydrateFromHypothesis } from '@/lib/builder/state'
@@ -89,9 +89,7 @@ describe('picked hardware tightens the works line', () => {
     // Seed units the way the builder does, so the unit model is in play.
     const f = CONTRACT_FIXTURES.find((x) => x.id === 'l-shape')!
     const contract = floorPlanToLayout(f.build())
-    base.cabinetBoxes.units = contract.runs.flatMap((run) =>
-      suggestCabinetsForRun(run, contractSeedOptions(contract, run))
-    )
+    base.cabinetBoxes.units = assembleUnits({ contract }).units
     const before = computeBom(base)
     const hwBefore = before.lineItems.find((l) => l.key === 'hardware')!
 

@@ -122,6 +122,15 @@ export interface CabinetUnit {
   positionPctAlongRun: number
   /** Maker-trade pattern. Drives drawer count, corner flag, accessories, BOM. */
   pattern: CabinetPattern
+  /**
+   * Set when this unit exists BECAUSE of a measured appliance (sink cut-out,
+   * dishwasher front, oven housing, integrated-fridge housing). Bound units
+   * always re-derive from the appliance — they're never stored in UnitEdits,
+   * and removing one means removing the appliance from the plan.
+   */
+  boundTo?: 'sink' | 'hob' | 'fridge' | 'dishwasher' | 'oven' | 'hood'
+  /** Confidence + provenance of the PATTERN choice (heuristic / AI hint / homeowner). */
+  meta?: FieldMeta
 }
 
 export interface CabinetBoxesGroup {
@@ -181,7 +190,7 @@ export interface WorktopGroup {
   totalLengthM: number
   /** Mitre joins (each adds labor cost). */
   mitreJoinCount: number
-  meta: { family: FieldMeta; decorCode: FieldMeta }
+  meta: { family: FieldMeta; decorCode: FieldMeta; edge?: FieldMeta; thickness?: FieldMeta }
 }
 
 /* ─────────────────────────── 5. Backsplash ─────────────────────────────── */
@@ -235,8 +244,6 @@ export interface HardwareGroup {
   hingePriceEur?: number
   handleStyle: HandleStyle
   handleFinish: HandleFinish
-  /** Internal organisers selected (cutlery insert, magic corner, pull-out larder, etc). */
-  organisers: string[]
   meta: {
     drawerSystemTier: FieldMeta
     hingeType: FieldMeta

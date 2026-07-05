@@ -2,6 +2,8 @@ import { generateText, tool } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 import { rateLimit } from '@/lib/rate-limit'
+import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
+import { mockTranslate } from '@/lib/api/mock-fixtures/translate-wishlist'
 import type { TranslatedField } from '@/lib/types'
 
 const MAX_CHARS_PER_BUCKET = 600
@@ -47,6 +49,16 @@ interface RequestBody {
 }
 
 export async function POST(req: Request) {
+  // Mock-AI mode: deterministic echo-translation before rate limiting.
+  if (mockAiEnabled()) {
+    await mockDelay()
+    try {
+      const body = (await req.json()) as RequestBody
+      return Response.json({ result: mockTranslate(body) })
+    } catch {
+      return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+    }
+  }
   const limit = rateLimit(req, 'translate-wishlist', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
   if (!limit.ok) {
     return Response.json(

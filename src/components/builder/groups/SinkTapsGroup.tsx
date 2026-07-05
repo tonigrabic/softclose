@@ -5,7 +5,7 @@ import { useTranslations } from '@/lib/i18n'
 import { PickerSlot } from '../PickerSlot'
 import { ChipRow } from '../ChipRow'
 import { SchachermayerBrowse } from '../SchachermayerBrowse'
-import { searchSchachermayer } from '@/lib/catalog/hardware'
+import { sinksFromCatalog, tapsFromCatalog } from '@/lib/catalog/hardware'
 import { inferSinkAttributes, inferTapAttributes } from '@/lib/builder/pick-inference'
 import type {
   BuilderState,
@@ -148,8 +148,8 @@ function SinkTapBrowsePanel({
   onPatch: (patch: Partial<BuilderState['sinkTaps']>) => void
 }) {
   const { t } = useTranslations()
-  const sinks = searchSchachermayer('sink_tap', { anyKeyword: ['sudoper', 'umival'] })
-  const taps = searchSchachermayer('sink_tap', { anyKeyword: ['slavin', 'mješalic', 'mjesalic'] })
+  const sinks = sinksFromCatalog()
+  const taps = tapsFromCatalog()
   if (sinks.length === 0 && taps.length === 0) return null
 
   return (
