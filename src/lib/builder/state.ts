@@ -351,21 +351,30 @@ function seedApplianceSelections(
   }
 
   // Floor-plan-known appliances: Part 1 geometry is authoritative for *presence*,
-  // so guarantee hob/fridge/dishwasher exist and backfill the measured width. The
+  // so guarantee they exist in the builder and backfill the measured width. The
   // AI's richer config (induction/gas, integrated) wins when it already seeded one.
-  // Sink lives in the sink/taps group, so it's excluded here.
+  // Sink lives in the sink/taps group, so it's excluded. The floor plan calls the
+  // extractor "hood"; the builder appliance group calls it "extractor".
+  const FEATURE_TO_APPLIANCE: Partial<Record<string, ApplianceSelection['type']>> = {
+    hob: 'hob',
+    oven: 'oven',
+    fridge: 'fridge',
+    dishwasher: 'dishwasher',
+    hood: 'extractor',
+  }
   for (const a of contract?.appliances ?? []) {
-    if (a.kind === 'sink') continue
+    const type = FEATURE_TO_APPLIANCE[a.kind]
+    if (!type) continue // sink + anything not represented in the builder group
     const widthMm = Math.round(a.widthCm * 10)
-    const existing = out.find((s) => s.type === a.kind)
+    const existing = out.find((s) => s.type === type)
     if (existing) {
       if (existing.widthMm === undefined) existing.widthMm = widthMm
       continue
     }
     out.push({
-      type: a.kind,
-      config: a.kind === 'hob' ? 'induction' : 'standard',
-      integrated: a.kind === 'dishwasher',
+      type,
+      config: type === 'hob' ? 'induction' : 'standard',
+      integrated: type === 'dishwasher',
       widthMm,
     })
   }

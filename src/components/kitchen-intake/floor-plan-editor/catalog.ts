@@ -10,6 +10,8 @@ import {
   CookingPot,
   DoorOpen,
   Droplet,
+  Fan,
+  Flame,
   Square,
   SquareSquare,
   Wind,
@@ -130,10 +132,35 @@ export const ELEMENT_CATALOG: Record<string, ElementCatalogEntry> = {
     ],
     defaultCm: 60,
   },
+  oven: {
+    article: 'an oven',
+    label: 'Oven',
+    shortLabel: 'Oven',
+    icon: Flame,
+    sizes: [
+      { id: 'small', label: '45 cm', cm: 45 },
+      { id: 'medium', label: '60 cm', cm: 60 },
+      { id: 'large', label: '90 cm', cm: 90 },
+    ],
+    defaultCm: 60,
+  },
+  hood: {
+    article: 'a hood',
+    label: 'Hood',
+    shortLabel: 'Hood',
+    icon: Fan,
+    sizes: [
+      { id: 'small', label: '60 cm', cm: 60 },
+      { id: 'medium', label: '75 cm', cm: 75 },
+      { id: 'large', label: '90 cm', cm: 90 },
+    ],
+    defaultCm: 60,
+  },
 }
 
 export const OPENING_KINDS: OpeningKind[] = ['window', 'door', 'passage']
-export const FEATURE_KINDS: FeatureKind[] = ['sink', 'hob', 'fridge', 'dishwasher']
+// Cooking cluster grouped together: sink, hob, oven, hood, then cold + dishwasher.
+export const FEATURE_KINDS: FeatureKind[] = ['sink', 'hob', 'oven', 'hood', 'fridge', 'dishwasher']
 
 export function entryForOpening(kind: OpeningKind): ElementCatalogEntry {
   return ELEMENT_CATALOG[kind]

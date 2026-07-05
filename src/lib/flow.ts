@@ -12,7 +12,6 @@
  */
 
 export type FlowStepId =
-  | 'type'
   | 'space_photos'
   | 'inspiration'
   | 'concept_render'
@@ -34,15 +33,8 @@ export interface FlowStepMeta {
 }
 
 export const FLOW: FlowStepMeta[] = [
-  // `type` opens Act 1 — "what are we doing" frames the whole flow
-  // (handoff/IMPLEMENTATION.md §1; the timeline half of the old
-  // project-basics step lives with logistics in Act 3).
-  {
-    id: 'type',
-    label: 'Project type',
-    why: "What we're doing — it frames everything else.",
-    group: 'space',
-  },
+  // The journey opens straight into capturing the space — for an AI kitchen
+  // renderer the old "project type" question was friction, so it was removed.
   {
     id: 'space_photos',
     label: 'Your space',

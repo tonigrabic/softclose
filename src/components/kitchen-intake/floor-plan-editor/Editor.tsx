@@ -46,7 +46,6 @@ import {
   OPENING_DEFAULTS,
   counterSegmentsForWall,
   defaultHasCounter,
-  detectDefaultUnit,
   effectiveCounterDepth,
   effectiveCounterLength,
   effectiveCounterStart,
@@ -134,7 +133,10 @@ export function FloorPlanEditor({ initialPlan, anchorPhotoUrl: _anchor, onChange
   }, [editor.plan, onChange])
 
   useEffect(() => {
-    editor.setUnits(detectDefaultUnit())
+    // Croatian / metric market: default to cm. The UnitToggle lets anyone switch
+    // to ft+in; we no longer key off navigator.language (an en-US browser was
+    // wrongly forcing feet+inches even on the Croatian default).
+    editor.setUnits('cm')
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -1684,6 +1686,16 @@ function SideEditor({ editor, side }: { editor: EditorApi; side: WallSide }) {
   const counterStart = effectiveCounterStart(plan, side)
   const counterMaxStart = Math.max(0, wallLen - counterLen)
   const counterCenterStart = snap(counterMaxStart / 2)
+
+  // Cabinet ROWS this run carries — the contract fields the homeowner edits here
+  // (geometry can't see them). Upper-row default mirrors the layout contract:
+  // perimeter runs carry uppers unless the run is mostly window. Tall default no.
+  const windowCmOnSide = plan.openings
+    .filter((o) => o.wall === side && o.kind === 'window')
+    .reduce((sum, o) => sum + o.widthCm, 0)
+  const upperGeomDefault = counterLen > 0 ? windowCmOnSide / counterLen <= 0.5 : true
+  const upperOn = typeof sideSpec.hasWall === 'boolean' ? sideSpec.hasWall : upperGeomDefault
+  const tallOn = sideSpec.hasTall === true
   // Anchor mode is derived from the current start offset relative to the
   // available "free" space along the wall. We tolerate a tiny window so
   // mild snap drift doesn't bump us out of "centered".
@@ -1842,6 +1854,34 @@ function SideEditor({ editor, side }: { editor: EditorApi; side: WallSide }) {
                 />
               </>
             )}
+            .
+          </>
+        )}
+        {sideSpec.kind === 'closed' && counterOn && (
+          <>
+            <br />
+            Cabinets:{' '}
+            <ChipSelect<'yes' | 'no'>
+              label="Upper cabinets"
+              value={upperOn ? 'yes' : 'no'}
+              options={[
+                { value: 'yes', label: 'with upper cabinets', hint: upperGeomDefault ? 'default' : undefined },
+                { value: 'no', label: 'no uppers', hint: !upperGeomDefault ? 'default' : undefined },
+              ]}
+              display={upperOn ? 'with upper cabinets' : 'no uppers'}
+              onChange={(v) => editor.patchSide(side, { hasWall: v === 'yes' })}
+            />
+            {' '}and{' '}
+            <ChipSelect<'yes' | 'no'>
+              label="Tall / oven tower"
+              value={tallOn ? 'yes' : 'no'}
+              options={[
+                { value: 'yes', label: 'a tall / oven tower' },
+                { value: 'no', label: 'no tall unit', hint: 'default' },
+              ]}
+              display={tallOn ? 'a tall / oven tower' : 'no tall unit'}
+              onChange={(v) => editor.patchSide(side, { hasTall: v === 'yes' })}
+            />
             .
           </>
         )}
@@ -2286,7 +2326,7 @@ function Toolbar({ editor }: { editor: EditorApi }) {
         )
       })}
       <span className="mx-1 h-4 w-px bg-border" aria-hidden />
-      {(['sink', 'hob', 'fridge', 'dishwasher'] as FeatureKind[]).map((k) => {
+      {FEATURE_KINDS.map((k) => {
         const e = ELEMENT_CATALOG[k]
         const Icon = e.icon
         return (

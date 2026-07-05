@@ -64,6 +64,10 @@ export interface SpaceFeatures {
   hob?: FeaturePosition
   fridge?: FeaturePosition
   dishwasher?: FeaturePosition
+  /** Built-in oven (separate from the hob). */
+  oven?: FeaturePosition
+  /** Extractor hood / cooker hood over the hob. */
+  hood?: FeaturePosition
   island?: IslandPosition
 }
 

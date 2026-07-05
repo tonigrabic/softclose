@@ -58,6 +58,59 @@ describe('spaceVisionWithRenderLayout', () => {
     expect(merged!.layoutShape).toBe('l_shape')
     expect(merged!.hasIsland).toBe(true)
   })
+
+  // The phantom-island bug: the photo read thought there was an island, the
+  // render does NOT confirm one, and the old merge let the stale flag through.
+  test('render silent on island ⇒ NO island (kills the phantom)', () => {
+    const photoThoughtIsland: SpaceVisionResult = {
+      lookedLikeKitchen: true,
+      layoutShape: 'island',
+      hasIsland: true,
+      lengthCm: 480,
+      widthCm: 380,
+      features: { island: { positionPct: { x: 50, y: 50 }, sizePct: { w: 30, h: 25 } } },
+    }
+    const renderNoIslandField: BuilderHypothesis = {
+      usable: true,
+      layout: { shape: { value: 'l_shape', confidence: 'M' } }, // no hasIsland
+    }
+    const merged = spaceVisionWithRenderLayout(photoThoughtIsland, renderNoIslandField)
+    expect(merged!.hasIsland).toBe(false)
+    expect(merged!.features?.island).toBeUndefined()
+    // …and it carries through to the plan: no island object, no island run.
+    const plan = renderDerivedFloorPlan(photoThoughtIsland, renderNoIslandField)
+    expect(plan.hasIsland).toBe(false)
+    expect(plan.island).toBeUndefined()
+  })
+
+  test('render explicitly says island:false ⇒ no island', () => {
+    const merged = spaceVisionWithRenderLayout(photoVision, {
+      usable: true,
+      layout: { shape: { value: 'l_shape', confidence: 'M' }, hasIsland: { value: false, confidence: 'H' } },
+    })
+    expect(merged!.hasIsland).toBe(false)
+  })
+
+  // The "always missing hood + stove" fix: the render's appliance read seeds the
+  // oven + extractor hood when the photo read didn't place them.
+  test('seeds oven + hood from the render appliance read', () => {
+    const renderWithCooking: BuilderHypothesis = {
+      usable: true,
+      layout: { shape: { value: 'l_shape', confidence: 'M' } },
+      appliances: {
+        oven: { value: 'single', confidence: 'M' },
+        extractor: { value: 'chimney', confidence: 'M' },
+      },
+    }
+    const merged = spaceVisionWithRenderLayout(photoVision, renderWithCooking)
+    expect(merged!.features?.oven).toBeDefined()
+    expect(merged!.features?.hood).toBeDefined()
+
+    const plan = renderDerivedFloorPlan(photoVision, renderWithCooking)
+    expect(plan.features.map((f) => f.kind)).toEqual(
+      expect.arrayContaining(['oven', 'hood'])
+    )
+  })
 })
 
 describe('renderDerivedFloorPlan', () => {

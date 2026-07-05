@@ -84,6 +84,19 @@ export interface SideSpec {
    * offset. Ignored when the counter spans the full wall.
    */
   counterStartCm?: number
+  /**
+   * Whether this side carries WALL (upper) cabinets. `undefined` means "use the
+   * geometry default" (resolved by the layout contract: yes on perimeter runs
+   * not mostly fronted by glass). The contract-confirmation card lets the
+   * homeowner override it per wall. Open sides never carry upper cabinets.
+   */
+  hasWall?: boolean
+  /**
+   * Whether this side carries a full-height TALL run (tower / oven column).
+   * `undefined` means "no tall run" — the default the contract assumed before
+   * this was editable. Set true from the per-wall contract card.
+   */
+  hasTall?: boolean
 }
 
 export interface RoomSides {
@@ -96,7 +109,7 @@ export interface RoomSides {
 // ─── Element types ───────────────────────────────────────────────────────────
 
 export type OpeningKind = 'window' | 'door' | 'passage'
-export type FeatureKind = 'sink' | 'hob' | 'fridge' | 'dishwasher'
+export type FeatureKind = 'sink' | 'hob' | 'fridge' | 'dishwasher' | 'oven' | 'hood'
 
 export interface RoomSpec {
   lengthCm: number
@@ -180,6 +193,10 @@ export const FEATURE_DEFAULTS: Record<
   hob: { widthCm: 75, depthCm: 60, label: 'Hob' },
   fridge: { widthCm: 75, depthCm: 65, label: 'Fridge' },
   dishwasher: { widthCm: 60, depthCm: 60, label: 'DW' },
+  // Built-in oven, typically a 60 cm housing under the counter or in a tower.
+  oven: { widthCm: 60, depthCm: 60, label: 'Oven' },
+  // Extractor hood — wall/ceiling mounted over the hob; shallow footprint.
+  hood: { widthCm: 60, depthCm: 35, label: 'Hood' },
 }
 
 export const OPENING_DEFAULTS: Record<
@@ -262,6 +279,40 @@ export function defaultHasCounter(wall: WallSide, layoutShape: LayoutShape): boo
     default:
       return wall === 'top'
   }
+}
+
+/** The four walls, in a stable order. */
+const ALL_WALLS: WallSide[] = ['top', 'bottom', 'left', 'right']
+
+/** Two walls are adjacent (share a corner) when one is horizontal, one vertical. */
+function wallsAdjacent(a: WallSide, b: WallSide): boolean {
+  const horizontal = (w: WallSide) => w === 'top' || w === 'bottom'
+  return horizontal(a) !== horizontal(b)
+}
+
+/**
+ * Derive the layout-shape LABEL from the set of counter-bearing walls:
+ *   ≥3 walls → U-shape, 2 adjacent → L-shape, 2 opposite → galley, ≤1 → seed.
+ * Shape is a read-out of what the homeowner configured, never an authoritative
+ * input — so it can never contradict the walls ("says L-oblik but it's wrong").
+ */
+function shapeFromCounterWalls(walls: WallSide[], fallback: LayoutShape): LayoutShape {
+  if (walls.length >= 3) return 'u_shape'
+  if (walls.length === 2) return wallsAdjacent(walls[0], walls[1]) ? 'l_shape' : 'galley'
+  return fallback
+}
+
+/**
+ * Shape derived from the current plan. Open-plan / peninsula layouts keep their
+ * seeded shape (an open side carries meaning a wall-count can't express);
+ * everything else follows the counter-bearing walls. Recomputed in `validate`,
+ * so the stored `layoutShape` always reflects the actual layout.
+ */
+export function deriveShape(plan: FloorPlan): LayoutShape {
+  const hasOpenSide = ALL_WALLS.some((w) => plan.room.sides[w].kind === 'open')
+  if (hasOpenSide) return plan.layoutShape ?? 'unsure'
+  const counterWalls = ALL_WALLS.filter((w) => effectiveHasCounter(plan, w))
+  return shapeFromCounterWalls(counterWalls, plan.layoutShape ?? 'unsure')
 }
 
 /** Standard kitchen counter depth in cm (60 cm worktop). */
@@ -505,8 +556,8 @@ export function fromVision(
   vision: SpaceVisionResult | null | undefined,
   opts: { units?: DisplayUnit } = {}
 ): FloorPlan {
-  const layoutShape = (vision?.layoutShape as LayoutShape | undefined) ?? 'unsure'
-  const fallback = DEFAULT_ROOM_BY_SHAPE[layoutShape] ?? DEFAULT_ROOM_BY_SHAPE.unsure
+  const seedShape = (vision?.layoutShape as LayoutShape | undefined) ?? 'unsure'
+  const fallback = DEFAULT_ROOM_BY_SHAPE[seedShape] ?? DEFAULT_ROOM_BY_SHAPE.unsure
 
   let lengthCm = vision?.lengthCm ?? fallback.lengthCm
   let widthCm = vision?.widthCm ?? fallback.widthCm
@@ -517,18 +568,36 @@ export function fromVision(
   const dimsConfidence: ConfidenceLevel = dimsCameFromVision ? 'M' : 'L'
   const dimsSource: ElementSource = dimsCameFromVision ? 'ai_vision' : 'preset'
 
+  const sides = defaultSides()
+  // Open-side detection from layout shape — peninsulas usually open on one
+  // short side, true open-plan opens on one long side. Conservative defaults.
+  if (seedShape === 'peninsula') sides.right = { kind: 'open' }
+  if (seedShape === 'open') sides.bottom = { kind: 'open' }
+
+  // Resolve which walls bear counter to EXPLICIT booleans — preferring the
+  // walls the AI actually saw runs on (`vision.wallRuns`), which is the signal
+  // that fixes "the run is on the wrong wall". Fall back to the shape's
+  // conventional walls only when vision gave no runs. Storing explicit values
+  // (rather than the old layout-shape default) is what lets `deriveShape` read
+  // the layout back without circularity.
+  const visionCounterWalls = vision?.wallRuns?.length
+    ? new Set<WallSide>(vision.wallRuns.map((r) => r.wall))
+    : null
+  const counterWalls: WallSide[] = []
+  for (const w of ALL_WALLS) {
+    if (sides[w].kind === 'open') continue
+    const has = visionCounterWalls ? visionCounterWalls.has(w) : defaultHasCounter(w, seedShape)
+    sides[w] = { ...sides[w], hasCounter: has }
+    if (has) counterWalls.push(w)
+  }
+
   const room: RoomSpec = {
     lengthCm,
     widthCm,
-    sides: defaultSides(),
+    sides,
     confidence: dimsConfidence,
     source: dimsSource,
   }
-
-  // Open-side detection from layout shape — peninsulas usually open on one
-  // short side, true open-plan opens on one long side. Conservative defaults.
-  if (layoutShape === 'peninsula') room.sides.right = { kind: 'open' }
-  if (layoutShape === 'open') room.sides.bottom = { kind: 'open' }
 
   const openings: Opening[] = []
   for (const w of vision?.windows ?? []) {
@@ -544,16 +613,25 @@ export function fromVision(
     if (vision.features.hob) features.push(visionFeatureToFeature('hob', vision.features.hob, lengthCm, widthCm))
     if (vision.features.fridge) features.push(visionFeatureToFeature('fridge', vision.features.fridge, lengthCm, widthCm))
     if (vision.features.dishwasher) features.push(visionFeatureToFeature('dishwasher', vision.features.dishwasher, lengthCm, widthCm))
+    if (vision.features.oven) features.push(visionFeatureToFeature('oven', vision.features.oven, lengthCm, widthCm))
+    if (vision.features.hood) features.push(visionFeatureToFeature('hood', vision.features.hood, lengthCm, widthCm))
   }
 
+  // Island only when there's POSITIVE evidence — real geometry or an explicit
+  // hasIsland:true. We never fabricate one from a layout-shape guess (that was
+  // the phantom-island bug); the homeowner can always add one in the editor.
   let island: Island | undefined
   if (vision?.features?.island) {
     island = visionIslandToIsland(vision.features.island, lengthCm, widthCm)
-  } else if (vision?.hasIsland) {
+  } else if (vision?.hasIsland === true) {
     island = defaultIsland(lengthCm, widthCm)
   }
+  const hasIsland = Boolean(island)
 
-  const hasIsland = Boolean(island) || layoutShape === 'island' || Boolean(vision?.hasIsland)
+  // Shape is a LABEL derived from the counter-bearing walls (open-plan keeps the
+  // seed). Never an authoritative input, so it can't contradict the layout.
+  const hasOpenSide = ALL_WALLS.some((w) => sides[w].kind === 'open')
+  const layoutShape = hasOpenSide ? seedShape : shapeFromCounterWalls(counterWalls, seedShape)
 
   return {
     schemaVersion: 1,
@@ -587,6 +665,12 @@ export function fromShapePreset(
   }
   if (layoutShape === 'peninsula') room.sides.right = { kind: 'open' }
   if (layoutShape === 'open') room.sides.bottom = { kind: 'open' }
+  // Resolve counters to explicit booleans from the picked shape, so `deriveShape`
+  // reads them back consistently once the homeowner starts editing.
+  for (const w of ALL_WALLS) {
+    if (room.sides[w].kind === 'open') continue
+    room.sides[w] = { ...room.sides[w], hasCounter: defaultHasCounter(w, layoutShape) }
+  }
 
   const island = opts.hasIsland || layoutShape === 'island' ? defaultIsland(dims.lengthCm, dims.widthCm) : undefined
 
@@ -720,7 +804,10 @@ export function validate(plan: FloorPlan): FloorPlan {
   const features = plan.features.map((f) => clampFeature(f, room))
   const island = plan.island ? clampIsland(plan.island, room) : undefined
 
-  return { ...plan, room, openings, features, island, hasIsland: Boolean(island) }
+  const next: FloorPlan = { ...plan, room, openings, features, island, hasIsland: Boolean(island) }
+  // Shape always follows the walls — recompute it here so no edit can leave a
+  // stale label (the "still says L-oblik" bug).
+  return { ...next, layoutShape: deriveShape(next) }
 }
 
 function isClosedSide(plan: FloorPlan, wall: WallSide): boolean {

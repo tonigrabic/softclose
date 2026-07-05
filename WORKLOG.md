@@ -693,3 +693,29 @@ Full screen pass (survey + fixes), three batches, gate green throughout (79 test
   localized and given real alt text; SpaceCapture photo thumbnails get alt text.
 - Reviewed ContactForm — already well-localized + accessible; skipped phone
   regex validation deliberately (would reject valid +385/spaced numbers).
+
+### Confirm-screen rework — editable contract card v1, walls-derived shape, oven+hood
+User-testing feedback batch ("AI added a wall I can't remove", "says L-oblik but
+it's wrong", "always missing the hood + stove", phantom island):
+- **Shape is now DERIVED from the counter-bearing walls** (`deriveShape`,
+  recomputed in `validate`) — never a stale stored label. `fromVision` places
+  counters on the walls the AI actually saw runs on (`vision.wallRuns`), stored
+  as explicit booleans; `fromShapePreset` same.
+- **Island only with positive evidence** (geometry or explicit hasIsland:true);
+  render silent on island ⇒ NO island (kills the phantom leaking from the photo
+  read). Covered in derive-layout tests.
+- **Oven + hood extraction end-to-end**: space-vision schema + prompt ask for
+  them explicitly; new FeatureKinds (editor toolbar, defaults); render-derived
+  seeding anchors them at the hob; contract → oven_housing base slot mirrors the
+  dishwasher slot; hood maps to the builder's 'extractor'.
+- **LayoutConfirm is now the editable contract card (v1)**: per-wall length
+  input, upper/tall toggle chips, "Remove wall", per-row unit sequences
+  (base/upper/tall) with appliance pills. Edits write the FloorPlan and re-seed
+  the canvas via layoutEditNonce, so card and canvas can't disagree.
+- **`type` step removed** (friction; scope step covers it) — flow opens at
+  space_photos. ConfirmLook (decor) dropped from confirm_look: the step is
+  layout-only; decor lives in the builder. Readback reports shape + dims.
+- Editor: per-wall upper/tall chips; metric default (no navigator.language
+  sniffing). New tests: contract-layout-edits (10 cases).
+- Gate: 89 tests · tsc · build green (eslint gate fixed in the next commit —
+  it trips on .claude/worktrees, not project code).

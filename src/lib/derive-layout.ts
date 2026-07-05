@@ -16,9 +16,16 @@
  *
  * Pure functions, no AI calls — easy to unit-test.
  */
-import type { SpaceVisionResult } from '@/lib/types'
+import type { SpaceVisionResult, SpaceFeatures, FeaturePosition, WallSide } from '@/lib/types'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import { fromVision, type FloorPlan, type LayoutShape } from '@/lib/floor-plan'
+
+/** A guessed feature position, anchored to the hob when we know it. */
+function anchoredFeature(anchor: FeaturePosition | undefined, primaryWall: WallSide): FeaturePosition {
+  return anchor
+    ? { wall: anchor.wall, positionPct: anchor.positionPct, confidence: 'L' }
+    : { wall: primaryWall, positionPct: 50, confidence: 'L' }
+}
 
 /**
  * Overlay the render's layout configuration onto the photo's scale + shell,
@@ -32,8 +39,7 @@ export function spaceVisionWithRenderLayout(
   photoVision: SpaceVisionResult | null | undefined,
   hypothesis: BuilderHypothesis | null | undefined
 ): SpaceVisionResult | null {
-  const renderLayout = hypothesis?.layout
-  if (!renderLayout) return photoVision ?? null
+  if (!hypothesis) return photoVision ?? null
 
   // Base on the photo read (scale + shell). When there were no photos we still
   // synthesise a minimal result so the render's shape drives a preset-sized plan.
@@ -41,18 +47,41 @@ export function spaceVisionWithRenderLayout(
     ? { ...photoVision }
     : { lookedLikeKitchen: true }
 
-  const renderShape = renderLayout.shape?.value
-  if (renderShape && renderShape !== 'unsure') {
-    base.layoutShape = renderShape as LayoutShape
+  const renderLayout = hypothesis.layout
+  if (renderLayout) {
+    const renderShape = renderLayout.shape?.value
+    if (renderShape && renderShape !== 'unsure') {
+      base.layoutShape = renderShape as LayoutShape
+    }
+    // The render is authoritative for the DESIGN, including the island: render
+    // says island ⇒ island, render silent ⇒ NO island. This is the phantom-island
+    // fix — a stale island from the photo read can no longer leak through.
+    if (renderLayout.hasIsland?.value === true) {
+      base.hasIsland = true
+    } else {
+      base.hasIsland = false
+      if (base.features?.island) base.features = { ...base.features, island: undefined }
+    }
+    // Ceiling height: the photo read wins (it can anchor to references); fall
+    // back to the render's guess only when the photo didn't capture one.
+    if (base.ceilingHeightCm == null && renderLayout.ceilingHeightCm?.value) {
+      base.ceilingHeightCm = renderLayout.ceilingHeightCm.value
+    }
   }
-  if (typeof renderLayout.hasIsland?.value === 'boolean') {
-    base.hasIsland = renderLayout.hasIsland.value
+
+  // Seed the appliances homeowners always forget — the OVEN and the extractor
+  // HOOD — from the render's appliance read when the photo read didn't place
+  // them. They sit at the hob (oven below, hood above), so we co-locate; the
+  // homeowner can nudge either on the canvas.
+  const ap = hypothesis.appliances
+  if (ap) {
+    const features: SpaceFeatures = { ...(base.features ?? {}) }
+    const primaryWall: WallSide = base.wallRuns?.[0]?.wall ?? 'top'
+    if (ap.oven && !features.oven) features.oven = anchoredFeature(features.hob, primaryWall)
+    if (ap.extractor && !features.hood) features.hood = anchoredFeature(features.hob, primaryWall)
+    base.features = features
   }
-  // Ceiling height: the photo read wins (it can anchor to references); fall
-  // back to the render's guess only when the photo didn't capture one.
-  if (base.ceilingHeightCm == null && renderLayout.ceilingHeightCm?.value) {
-    base.ceilingHeightCm = renderLayout.ceilingHeightCm.value
-  }
+
   return base
 }
 

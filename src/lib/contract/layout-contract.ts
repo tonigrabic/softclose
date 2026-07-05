@@ -196,18 +196,22 @@ export function floorPlanToLayout(plan: FloorPlan): LayoutContract {
   }
 
   // 4. Complete runs — geometry + defaults for render-silent fields.
-  const runs: ContractRun[] = baseWalls.map(({ wall, lengthCm, windowCm }) => ({
-    id: wall,
-    label: plan.room.sides[wall].label ?? capitalize(wall),
-    lengthCm,
-    hasBase: true,
-    // Perimeter runs carry uppers by default — unless the run is mostly
-    // window (no wall to hang them on). Deterministic, homeowner refines.
-    hasWall: windowCm / lengthCm <= 0.5,
-    hasTall: false,
-    hasCorner: cornerOwners.has(wall),
-    confidence: plan.room.confidence,
-  }))
+  const runs: ContractRun[] = baseWalls.map(({ wall, lengthCm, windowCm }) => {
+    const side = plan.room.sides[wall]
+    return {
+      id: wall,
+      label: side.label ?? capitalize(wall),
+      lengthCm,
+      hasBase: true,
+      // Homeowner override wins (set on the contract card); otherwise perimeter
+      // runs carry uppers by default — unless the run is mostly window (no wall
+      // to hang them on). Deterministic, homeowner refines.
+      hasWall: typeof side.hasWall === 'boolean' ? side.hasWall : windowCm / lengthCm <= 0.5,
+      hasTall: side.hasTall === true,
+      hasCorner: cornerOwners.has(wall),
+      confidence: plan.room.confidence,
+    }
+  })
 
   if (plan.island) {
     runs.push({

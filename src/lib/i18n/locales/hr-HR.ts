@@ -57,18 +57,21 @@ export const hrHR = {
   'builder.confirm.eyebrow': 'Prije nego krenemo',
   'builder.confirm.title': 'Provjeri što smo izmjerili',
   'builder.confirm.subtitle':
-    'Ovo smo iščitali iz tvog tlocrta. Potvrdi da je točno — svaki detalj biraš u sljedećim koracima.',
-  'builder.confirm.runsHeading': 'Zidovi i dužine',
+    'Ovo ćemo izraditi i izračunati. Uredi dužine, zidove i police ovdje ili na tlocrtu iznad — sve ostaje usklađeno. Kad je točno, zaključaj.',
+  'builder.confirm.runsHeading': 'Zidovi i elementi',
   'builder.confirm.cabinetsUnit': 'ormarića',
   'builder.confirm.totalPrefix': 'Ukupno:',
   'builder.confirm.cornersHeading': 'kutna elementa',
   'builder.confirm.appliancesHeading': 'Uređaji',
   'builder.confirm.none': 'nema',
+  'builder.confirm.baseRow': 'Dolje',
+  'builder.confirm.wallRow': 'Gore',
+  'builder.confirm.tallRow': 'Visoko',
   'builder.confirm.layoutPrefix': 'Raspored:',
   'builder.confirm.ceilingPrefix': 'Strop:',
-  'builder.confirm.cta': 'Točno — nastavi',
+  'builder.confirm.cta': 'Točno — zaključaj',
   'builder.confirm.editHint':
-    'Nešto nije u redu? Možeš urediti svaki dio — broj ormarića, dužine i uređaje — u koracima koji slijede.',
+    'Nešto nije u redu? Uredi zidove, dužine, uređaje i raspored ormarića izravno na tlocrtu iznad.',
 
   // ---- Group labels & "why" copy ----------------------------------------
   'builder.groups.layout.label': 'Tlocrt i dimenzije',

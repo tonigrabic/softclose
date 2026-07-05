@@ -125,6 +125,13 @@ export interface ContractSummaryRow {
   base: number
   wall: number
   tall: number
+  /**
+   * The ordered cabinet units for this run (base first, then wall, then tall) —
+   * the same list the builder seeds from. Lets the contract card render the
+   * per-row sequence ("dolje: perilica, ladica, pećnica, kut · gore: …"), not
+   * just counts.
+   */
+  units: CabinetUnit[]
 }
 
 /**
@@ -152,6 +159,7 @@ export function summarizeContract(contract: LayoutContract): ContractSummary {
       id: run.id,
       label: run.label,
       lengthCm: run.lengthCm,
+      units,
       base: units.filter((u) => u.type === 'base').length,
       wall: units.filter((u) => u.type === 'wall').length,
       tall: units.filter((u) => u.type === 'tall').length,
@@ -188,14 +196,19 @@ export function suggestCabinetsForRun(
     .filter((s) => s.kind === 'fridge')
     .reduce((sum, s) => sum + s.widthMm, 0)
   const dishwasherSpans = spans.filter((s) => s.kind === 'dishwasher')
+  const ovenSpans = spans.filter((s) => s.kind === 'oven')
   const DISHWASHER_SLOT_MM = 600
+  const OVEN_SLOT_MM = 600
 
   const out: CabinetUnit[] = []
 
   if (run.hasBase) {
     const fillMm = Math.max(
       0,
-      totalMm - fridgeMm - dishwasherSpans.length * DISHWASHER_SLOT_MM
+      totalMm -
+        fridgeMm -
+        dishwasherSpans.length * DISHWASHER_SLOT_MM -
+        ovenSpans.length * OVEN_SLOT_MM
     )
     const widths = fillRunWithWidths(fillMm, STANDARD_WIDTHS_BASE, cornerReservedMm)
     const lastIdx = widths.length - 1
@@ -232,13 +245,30 @@ export function suggestCabinetsForRun(
         pattern: 'appliance_slot',
       })
     }
+    // Built-in oven → a 600 mm base housing at the measured position. Mirrors the
+    // dishwasher slot above; the fill already skipped its width, so no overlap.
+    for (const ov of ovenSpans) {
+      out.push({
+        id: newId(),
+        type: 'base',
+        widthMm: OVEN_SLOT_MM,
+        heightMm: baseHeight,
+        depthMm: baseDepth,
+        runId: run.id,
+        positionPctAlongRun: totalMm > 0 ? clampPctNum((ov.startMm / totalMm) * 100) : 0,
+        pattern: 'oven_housing',
+      })
+    }
   }
 
   if (run.hasWall) {
     const fillMm = Math.max(0, totalMm - fridgeMm)
     const widths = fillRunWithWidths(fillMm, STANDARD_WIDTHS_WALL, cornerReservedMm)
     let positionMm = 0
-    widths.forEach((w) => {
+    widths.forEach((w, i) => {
+      // First wall unit of a corner run is the upper corner cabinet → tag it so
+      // the run reads "… + kut" on its wall row too.
+      const isCornerUnit = i === 0 && Boolean(opts.hasCorner)
       out.push({
         id: newId(),
         type: 'wall',
@@ -247,7 +277,7 @@ export function suggestCabinetsForRun(
         depthMm: wallDepth,
         runId: run.id,
         positionPctAlongRun: totalMm > 0 ? (positionMm / totalMm) * 100 : 0,
-        pattern: 'doors_shelf',
+        pattern: isCornerUnit ? 'corner_lazy' : 'doors_shelf',
       })
       positionMm += w
     })
