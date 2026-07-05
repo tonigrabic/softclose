@@ -114,7 +114,8 @@ export function BuilderHarness() {
 
       {/* ── Floating, collapsible dev harness (never overlaps the app) ──── */}
       {open ? (
-        <div className="fixed bottom-4 right-4 z-[60] flex max-h-[80vh] w-80 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
+        // bottom-14, not bottom-4 — the MOCK AI badge owns the corner below.
+        <div className="fixed bottom-14 right-4 z-[60] flex max-h-[80vh] w-80 flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl">
           <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
             <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-primary">
               <FlaskConical className="size-3.5 stroke-[2.5]" aria-hidden />
@@ -250,7 +251,7 @@ export function BuilderHarness() {
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="fixed bottom-4 right-4 z-[60] inline-flex items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground shadow-lg backdrop-blur hover:text-foreground"
+          className="fixed bottom-14 right-4 z-[60] inline-flex items-center gap-1.5 rounded-full border border-border bg-card/95 px-3 py-1.5 text-[11px] font-semibold text-muted-foreground shadow-lg backdrop-blur hover:text-foreground"
         >
           <FlaskConical className="size-3.5 stroke-[2.5]" aria-hidden />
           {imported ? imported.label : `${fixture.label} · ${hypFixture.label}`}
