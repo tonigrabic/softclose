@@ -200,11 +200,6 @@ export const hrHR = {
   'cabinetBoxes.carcass.moisture_resistant_p3': 'Otporna na vlagu (P3)',
   'cabinetBoxes.carcass.matched_to_door': 'Uskladi s vratima',
   'cabinetBoxes.cornerLabel': 'Kutni element',
-  'cabinetBoxes.corner.magic_corner': 'Magic corner (puna iskoristivost)',
-  'cabinetBoxes.corner.lazy_susan': 'Lazy susan (rotirajuća)',
-  'cabinetBoxes.corner.diagonal_corner': 'Dijagonalni',
-  'cabinetBoxes.corner.dead_corner': 'Mrtvi kut',
-  'cabinetBoxes.corner.none': 'Nema kuta',
   'cabinetBoxes.sectionsLabel': 'Po sekcijama',
   'cabinetBoxes.runLabel': 'Zid',
   'cabinetBoxes.cornerSection': 'Kut',
@@ -343,7 +338,6 @@ export const hrHR = {
   'finishing.openShelvingLabel': 'Otvoreno polica (m)',
 
   // ---- Funnel flow: nav rail step labels ---------------------------------
-  'flow.type.label': 'Vrsta projekta',
   'flow.space_photos.label': 'Vaš prostor',
   'flow.inspiration.label': 'Inspiracija',
   'flow.concept_render.label': 'AI koncept',
@@ -355,9 +349,6 @@ export const hrHR = {
   'flow.contact.label': 'Kontakt',
 
   // ---- Funnel step headers (eyebrow / title / subtitle) ------------------
-  'funnel.type.eyebrow': 'Korak 1',
-  'funnel.type.title': 'Što radimo?',
-  'funnel.type.subtitle': 'Vrsta projekta — okvir za sve ostalo.',
   'funnel.space_photos.eyebrow': 'Korak 2',
   'funnel.space_photos.title': 'Slikaj svoju kuhinju — mi čitamo raspored.',
   'funnel.space_photos.subtitle':

@@ -276,7 +276,7 @@ export function LayoutConfirm({
         {t('builder.confirm.layoutPrefix')}{' '}
         <span className="font-semibold text-foreground">{tDynamic(`layout.shape.${summary.shape}`)}</span>
         {summary.hasIsland && (
-          <span className="font-semibold text-foreground"> + {tDynamic('layout.shape.island')}</span>
+          <span className="font-semibold text-foreground"> {tDynamic('layout.suffix.island')}</span>
         )}
         {' · '}
         {t('builder.confirm.ceilingPrefix')}{' '}

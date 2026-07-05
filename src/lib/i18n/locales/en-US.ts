@@ -193,11 +193,6 @@ export const enUS: Record<TranslationKey, string> = {
   'cabinetBoxes.carcass.moisture_resistant_p3': 'Moisture-resistant (P3)',
   'cabinetBoxes.carcass.matched_to_door': 'Match the door',
   'cabinetBoxes.cornerLabel': 'Corner solution',
-  'cabinetBoxes.corner.magic_corner': 'Magic corner (full reach)',
-  'cabinetBoxes.corner.lazy_susan': 'Lazy Susan (rotating)',
-  'cabinetBoxes.corner.diagonal_corner': 'Diagonal',
-  'cabinetBoxes.corner.dead_corner': 'Dead corner',
-  'cabinetBoxes.corner.none': 'No corner',
   'cabinetBoxes.sectionsLabel': 'By section',
   'cabinetBoxes.runLabel': 'Wall',
   'cabinetBoxes.cornerSection': 'Corner',
@@ -330,7 +325,6 @@ export const enUS: Record<TranslationKey, string> = {
   'finishing.openShelvingLabel': 'Open shelving (m)',
 
   // ---- Funnel flow: nav rail step labels ---------------------------------
-  'flow.type.label': 'Project type',
   'flow.space_photos.label': 'Your space',
   'flow.inspiration.label': 'Inspiration',
   'flow.concept_render.label': 'AI concept',
@@ -342,9 +336,6 @@ export const enUS: Record<TranslationKey, string> = {
   'flow.contact.label': 'Contact',
 
   // ---- Funnel step headers (eyebrow / title / subtitle) ------------------
-  'funnel.type.eyebrow': 'Step 1',
-  'funnel.type.title': 'What are we doing?',
-  'funnel.type.subtitle': 'The project type — it frames everything else.',
   'funnel.space_photos.eyebrow': 'Step 2',
   'funnel.space_photos.title': "Snap your kitchen — we'll read the layout.",
   'funnel.space_photos.subtitle':
