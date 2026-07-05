@@ -14,6 +14,9 @@ export interface RailStep {
   id: string
   label: string
   status: RailStatus
+  /** Journey-wide step number (matches the step eyebrow). Omitted for builder
+   *  sub-groups, which keep the plain dot marker. */
+  num?: number
   readback?: string | null
   onSelect?: () => void
 }
@@ -86,7 +89,7 @@ function StepRow({ step }: { step: RailStep }) {
   )
   const inner = (
     <>
-      <StepMarker status={step.status} />
+      <StepMarker status={step.status} num={step.num} />
       <span className="min-w-0 flex-1">
         <span className="block truncate">{step.label}</span>
         {step.readback && (
@@ -122,9 +125,27 @@ function ActMarker({ status, num }: { status: RailStatus; num: number }) {
   )
 }
 
-function StepMarker({ status }: { status: RailStatus }) {
+function StepMarker({ status, num }: { status: RailStatus; num?: number }) {
+  // Numbered funnel steps: the number in a small circle (✓ once done). The
+  // width matches the dot variant's column so mixed lists stay aligned.
+  if (num !== undefined && status !== 'done') {
+    return (
+      <span className="flex w-4 shrink-0 justify-center">
+        <span
+          className={cn(
+            'flex size-4 items-center justify-center rounded-full text-[9px] font-bold leading-none tabular-nums',
+            status === 'current'
+              ? 'bg-primary text-primary-foreground'
+              : 'border border-muted-foreground/40 text-muted-foreground/60'
+          )}
+        >
+          {num}
+        </span>
+      </span>
+    )
+  }
   return (
-    <span className="flex w-3 shrink-0 justify-center">
+    <span className={cn('flex shrink-0 justify-center', num !== undefined ? 'w-4' : 'w-3')}>
       {status === 'done' ? (
         <span className="text-[11px] font-bold leading-none text-primary">✓</span>
       ) : status === 'current' ? (

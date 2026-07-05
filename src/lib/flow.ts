@@ -37,7 +37,9 @@ export const FLOW: FlowStepMeta[] = [
   // renderer the old "project type" question was friction, so it was removed.
   {
     id: 'space_photos',
-    label: 'Your space',
+    // "Space photos", not "Your space" — the act heading above it in the rail
+    // is already "Your space" (journey.act.space); identical labels read broken.
+    label: 'Space photos',
     why: 'Photos so we can read your existing kitchen.',
     group: 'space',
   },
@@ -101,6 +103,16 @@ export const FLOW: FlowStepMeta[] = [
 
 export function flowIndex(id: FlowStepId): number {
   return FLOW.findIndex((s) => s.id === id)
+}
+
+/**
+ * 1-based homeowner-visible step number, shared by the step eyebrows and the
+ * journey rail so the two can never disagree. The `builder` step is excluded —
+ * in the UI it expands into its component groups and carries the act label
+ * instead of a number. Returns 0 for `builder`.
+ */
+export function stepNumber(id: FlowStepId): number {
+  return FLOW.filter((s) => s.id !== 'builder').findIndex((s) => s.id === id) + 1
 }
 
 export function nextStepId(id: FlowStepId): FlowStepId | null {

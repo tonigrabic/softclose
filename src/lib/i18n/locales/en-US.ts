@@ -52,6 +52,7 @@ export const enUS: Record<TranslationKey, string> = {
   'journey.act.space': 'Your space',
   'journey.act.build': 'Build it',
   'journey.act.offer': 'Your offer',
+  'nav.startOver': 'Start over',
 
   // Layout-counts confirmation gate
   'builder.confirm.eyebrow': 'Before we begin',
@@ -325,7 +326,7 @@ export const enUS: Record<TranslationKey, string> = {
   'finishing.openShelvingLabel': 'Open shelving (m)',
 
   // ---- Funnel flow: nav rail step labels ---------------------------------
-  'flow.space_photos.label': 'Your space',
+  'flow.space_photos.label': 'Space photos',
   'flow.inspiration.label': 'Inspiration',
   'flow.concept_render.label': 'AI concept',
   'flow.confirm_look.label': 'Confirm the look',
@@ -336,30 +337,24 @@ export const enUS: Record<TranslationKey, string> = {
   'flow.contact.label': 'Contact',
 
   // ---- Funnel step headers (eyebrow / title / subtitle) ------------------
-  'funnel.space_photos.eyebrow': 'Step 2',
+  'funnel.stepEyebrow': 'Step {n}',
   'funnel.space_photos.title': "Snap your kitchen — we'll read the layout.",
   'funnel.space_photos.subtitle':
     'A few wide shots are perfect. We use them to anchor the AI render and pre-fill the floor plan.',
-  'funnel.inspiration.eyebrow': 'Step 3',
   'funnel.inspiration.title': 'What feels right?',
   'funnel.inspiration.subtitle':
     "Pick a direction or upload a few inspiration shots. We'll read what you're drawn to and pre-fill the rest.",
-  'funnel.concept_render.eyebrow': 'Step 4',
   'funnel.concept_render.title': 'A first AI sketch of your space.',
   'funnel.concept_render.subtitle':
     'Anchored to your photo. Tap a tweak chip and re-render, or pick this one and move on.',
-  'funnel.confirm_look.eyebrow': 'Step 5',
   'funnel.confirm_look.title': 'Confirm & lock it in.',
   'funnel.confirm_look.subtitle':
     "This is what we'll build on — your space, the look, and the plan we'll price. Confirm to lock it; you can fine-tune every part next.",
-  'funnel.scope.eyebrow': 'Step 6',
   'funnel.scope.title': "What's actually being touched?",
   'funnel.scope.subtitle': "Tap everything in scope. We won't ask about anything you skip.",
-  'funnel.wishlist.eyebrow': 'Step 7',
   'funnel.wishlist.title': 'In your own words.',
   'funnel.wishlist.subtitle':
     "No need to be precise — write the way you think. We'll translate to trade-grade and keep your phrasing for the designer.",
-  'funnel.logistics.eyebrow': 'Step 8',
   'funnel.logistics.title': 'Logistics.',
   'funnel.logistics.subtitle':
     'Roughly when — and a couple of practical things so the maker can plan around your life.',

@@ -52,6 +52,7 @@ export const hrHR = {
   'journey.act.space': 'Vaš prostor',
   'journey.act.build': 'Gradnja',
   'journey.act.offer': 'Vaša ponuda',
+  'nav.startOver': 'Počni ispočetka',
 
   // Layout-counts confirmation gate
   'builder.confirm.eyebrow': 'Prije nego krenemo',
@@ -338,7 +339,7 @@ export const hrHR = {
   'finishing.openShelvingLabel': 'Otvoreno polica (m)',
 
   // ---- Funnel flow: nav rail step labels ---------------------------------
-  'flow.space_photos.label': 'Vaš prostor',
+  'flow.space_photos.label': 'Fotografije prostora',
   'flow.inspiration.label': 'Inspiracija',
   'flow.concept_render.label': 'AI koncept',
   'flow.confirm_look.label': 'Potvrdi izgled',
@@ -349,30 +350,26 @@ export const hrHR = {
   'flow.contact.label': 'Kontakt',
 
   // ---- Funnel step headers (eyebrow / title / subtitle) ------------------
-  'funnel.space_photos.eyebrow': 'Korak 2',
+  // One computed eyebrow for every numbered step (n from flow.ts stepNumber),
+  // so the numbers can't go stale when steps are added/removed.
+  'funnel.stepEyebrow': 'Korak {n}',
   'funnel.space_photos.title': 'Slikaj svoju kuhinju — mi čitamo raspored.',
   'funnel.space_photos.subtitle':
     'Nekoliko širokih kadrova je idealno. Pomažu nam da usidrimo AI render i unaprijed ispunimo tlocrt.',
-  'funnel.inspiration.eyebrow': 'Korak 3',
   'funnel.inspiration.title': 'Što ti se sviđa?',
   'funnel.inspiration.subtitle':
     'Odaberi smjer ili dodaj nekoliko inspiracijskih slika. Pročitat ćemo što te privlači i ispuniti ostalo.',
-  'funnel.concept_render.eyebrow': 'Korak 4',
   'funnel.concept_render.title': 'Prva AI skica tvog prostora.',
   'funnel.concept_render.subtitle':
     'Usidrena na tvoju fotografiju. Dodirni oznaku za izmjenu i ponovno renderiraj, ili odaberi ovu i nastavi.',
-  'funnel.confirm_look.eyebrow': 'Korak 5',
   'funnel.confirm_look.title': 'Potvrdi i zaključaj.',
   'funnel.confirm_look.subtitle':
     'Ovo je temelj na kojem gradimo — tvoj prostor, izgled i plan koji ćemo izračunati. Potvrdi da zaključaš; svaki dio fino podešavaš dalje.',
-  'funnel.scope.eyebrow': 'Korak 6',
   'funnel.scope.title': 'Što se zapravo radi?',
   'funnel.scope.subtitle': 'Dodirni sve što je u opsegu. Nećemo pitati za ono što preskočiš.',
-  'funnel.wishlist.eyebrow': 'Korak 7',
   'funnel.wishlist.title': 'Svojim riječima.',
   'funnel.wishlist.subtitle':
     'Ne moraš biti precizan — piši kako razmišljaš. Mi prevodimo u stručni jezik i čuvamo tvoje riječi za dizajnera.',
-  'funnel.logistics.eyebrow': 'Korak 8',
   'funnel.logistics.title': 'Logistika.',
   'funnel.logistics.subtitle':
     'Otprilike kada — i nekoliko praktičnih stvari da izrađivač može planirati oko tvog života.',

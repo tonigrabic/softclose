@@ -24,6 +24,7 @@ import {
   flowIndex,
   nextStepId,
   prevStepId,
+  stepNumber,
   type FlowStepId,
 } from '@/lib/flow'
 import { BuilderShell } from '@/components/builder/BuilderShell'
@@ -531,18 +532,15 @@ export function KitchenIntake() {
         })}
         nav={
           <>
-            <header className="mb-5 flex items-center justify-between gap-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                {DESIGNER_NAME}
-              </p>
+            <header className="mb-5 flex items-center justify-end">
               <button
                 type="button"
                 onClick={resetAll}
                 className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                title="Start over"
+                title={tDynamic('nav.startOver', locale)}
               >
                 <RotateCcw className="size-3 stroke-[2]" aria-hidden />
-                Start over
+                {tDynamic('nav.startOver', locale)}
               </button>
             </header>
             <JourneyNavRail funnelStepId="contact" profile={profile} journeyDone locale={locale} />
@@ -648,22 +646,19 @@ export function KitchenIntake() {
       }
       nav={
         <>
-          <header className="mb-5 flex items-center justify-between gap-3">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-              {DESIGNER_NAME}
-            </p>
-            {Object.keys(profile).length > 0 && (
+          {Object.keys(profile).length > 0 && (
+            <header className="mb-5 flex items-center justify-end">
               <button
                 type="button"
                 onClick={resetAll}
                 className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                title="Start over"
+                title={tDynamic('nav.startOver', locale)}
               >
                 <RotateCcw className="size-3 stroke-[2]" aria-hidden />
-                Start over
+                {tDynamic('nav.startOver', locale)}
               </button>
-            )}
-          </header>
+            </header>
+          )}
           <JourneyNavRail funnelStepId={state.currentStepId} profile={profile} locale={locale} />
         </>
       }
@@ -914,12 +909,16 @@ function StepBody(props: StepBodyProps) {
     anchorRenderUrl,
   } = props
   const { t, tDynamic } = useTranslations()
+  // "Korak {n}" computed from FLOW order — the old per-step eyebrow strings
+  // went stale every time a step was added or removed.
+  const stepEyebrow = (id: FlowStepId) =>
+    t('funnel.stepEyebrow').replace('{n}', String(stepNumber(id)))
 
   switch (stepId) {
     case 'space_photos':
       return (
         <StepFrame
-          eyebrow={t('funnel.space_photos.eyebrow')}
+          eyebrow={stepEyebrow('space_photos')}
           title={t('funnel.space_photos.title')}
           subtitle={t('funnel.space_photos.subtitle')}
         >
@@ -937,7 +936,7 @@ function StepBody(props: StepBodyProps) {
     case 'inspiration':
       return (
         <StepFrame
-          eyebrow={t('funnel.inspiration.eyebrow')}
+          eyebrow={stepEyebrow('inspiration')}
           title={t('funnel.inspiration.title')}
           subtitle={t('funnel.inspiration.subtitle')}
         >
@@ -956,7 +955,7 @@ function StepBody(props: StepBodyProps) {
     case 'concept_render':
       return (
         <StepFrame
-          eyebrow={t('funnel.concept_render.eyebrow')}
+          eyebrow={stepEyebrow('concept_render')}
           title={t('funnel.concept_render.title')}
           subtitle={t('funnel.concept_render.subtitle')}
         >
@@ -983,7 +982,7 @@ function StepBody(props: StepBodyProps) {
       const reviewContract = floorPlan ? floorPlanToLayout(validate(floorPlan)) : null
       return (
         <StepFrame
-          eyebrow={t('funnel.confirm_look.eyebrow')}
+          eyebrow={stepEyebrow('confirm_look')}
           title={t('funnel.confirm_look.title')}
           subtitle={t('funnel.confirm_look.subtitle')}
         >
@@ -1015,7 +1014,7 @@ function StepBody(props: StepBodyProps) {
     case 'scope':
       return (
         <StepFrame
-          eyebrow={t('funnel.scope.eyebrow')}
+          eyebrow={stepEyebrow('scope')}
           title={t('funnel.scope.title')}
           subtitle={t('funnel.scope.subtitle')}
         >
@@ -1036,7 +1035,7 @@ function StepBody(props: StepBodyProps) {
     case 'wishlist':
       return (
         <StepFrame
-          eyebrow={t('funnel.wishlist.eyebrow')}
+          eyebrow={stepEyebrow('wishlist')}
           title={t('funnel.wishlist.title')}
           subtitle={t('funnel.wishlist.subtitle')}
         >
@@ -1069,7 +1068,7 @@ function StepBody(props: StepBodyProps) {
     case 'logistics':
       return (
         <StepFrame
-          eyebrow={t('funnel.logistics.eyebrow')}
+          eyebrow={stepEyebrow('logistics')}
           title={t('funnel.logistics.title')}
           subtitle={t('funnel.logistics.subtitle')}
         >
