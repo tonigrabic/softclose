@@ -2,6 +2,8 @@ import { generateText, tool } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 import { rateLimit } from '@/lib/rate-limit'
+import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
+import { MOCK_SPACE_VISION } from '@/lib/api/mock-fixtures/space-vision'
 import type { SpaceVisionResult } from '@/lib/types'
 
 const MAX_PHOTOS = 4
@@ -191,6 +193,11 @@ Dimensions — be honest about what you can and cannot scale:
   Outside those bands, omit rather than report.`
 
 export async function POST(req: Request) {
+  // Mock-AI mode: canned fixture before rate limiting, so devs can spam freely.
+  if (mockAiEnabled()) {
+    await mockDelay()
+    return Response.json({ result: MOCK_SPACE_VISION })
+  }
   const limit = rateLimit(req, 'space-vision', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
   if (!limit.ok) {
     return Response.json(

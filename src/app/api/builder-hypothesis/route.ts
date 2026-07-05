@@ -14,6 +14,8 @@ import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
 import { rateLimit } from '@/lib/rate-limit'
 import { decors } from '@/lib/catalog'
+import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
+import { mockHypothesis } from '@/lib/api/mock-fixtures/builder-hypothesis'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
 
@@ -374,6 +376,18 @@ CATALOG (Croatian decors available via Elgrad):
 ${CATALOG_HINT}`
 
 export async function POST(req: Request) {
+  // Mock-AI mode: the decor hypothesis fixture built against the request's
+  // contract (run ids must echo or seeding silently ignores the hints).
+  if (mockAiEnabled()) {
+    await mockDelay(800)
+    let contract: LayoutContract | undefined
+    try {
+      contract = ((await req.json()) as { layoutContract?: LayoutContract }).layoutContract
+    } catch {
+      // contract is optional for the mock
+    }
+    return Response.json({ hypothesis: mockHypothesis(contract) })
+  }
   const limit = rateLimit(req, 'builder-hypothesis', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
   if (!limit.ok) {
     return Response.json(
