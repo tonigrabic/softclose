@@ -122,6 +122,15 @@ export interface CabinetUnit {
   positionPctAlongRun: number
   /** Maker-trade pattern. Drives drawer count, corner flag, accessories, BOM. */
   pattern: CabinetPattern
+  /**
+   * Set when this unit exists BECAUSE of a measured appliance (sink cut-out,
+   * dishwasher front, oven housing, integrated-fridge housing). Bound units
+   * always re-derive from the appliance — they're never stored in UnitEdits,
+   * and removing one means removing the appliance from the plan.
+   */
+  boundTo?: 'sink' | 'hob' | 'fridge' | 'dishwasher' | 'oven' | 'hood'
+  /** Confidence + provenance of the PATTERN choice (heuristic / AI hint / homeowner). */
+  meta?: FieldMeta
 }
 
 export interface CabinetBoxesGroup {

@@ -65,7 +65,7 @@ interface SuggestOptions {
   tallHeightMm?: number
 }
 
-function fillRunWithWidths(
+export function fillRunWithWidths(
   totalMm: number,
   widths: readonly number[],
   reservedFirstMm = 0
@@ -317,7 +317,7 @@ export function suggestCabinetsForRun(
   return out
 }
 
-function pickBasePattern(args: {
+export function pickBasePattern(args: {
   index: number
   lastIndex: number
   widthMm: number
@@ -335,7 +335,7 @@ function clampPctNum(n: number): number {
   return Math.max(0, Math.min(100, n))
 }
 
-function clampWidth(mm: number): CabinetUnit['widthMm'] {
+export function clampWidth(mm: number): CabinetUnit['widthMm'] {
   const allowed: CabinetUnit['widthMm'][] = [300, 400, 450, 500, 600, 800, 900, 1000, 1200]
   let best = allowed[0]
   let bestDist = Infinity
