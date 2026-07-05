@@ -73,6 +73,18 @@ export const hrHR = {
   'builder.confirm.cta': 'Točno — zaključaj',
   'builder.confirm.editHint':
     'Nešto nije u redu? Uredi zidove, dužine, uređaje i raspored ormarića izravno na tlocrtu iznad.',
+  'builder.confirm.unitEditor.add': 'Dodaj element',
+  'builder.confirm.unitEditor.remove': 'Ukloni',
+  'builder.confirm.unitEditor.widthAuto': 'Širina ~{mm} mm — određuje se automatski',
+  'builder.confirm.unitEditor.boundExplain':
+    'Postavljeno prema izmjerenoj poziciji uređaja. Pomakni ga po zidu ili ukloni uređaj — element ide s njim.',
+  'builder.confirm.unitEditor.nudgeLeft': 'Pomakni ulijevo',
+  'builder.confirm.unitEditor.nudgeRight': 'Pomakni udesno',
+  'builder.confirm.unitEditor.removeAppliance': 'Ukloni: {name}',
+  'builder.confirm.unitEditor.confirmRemove': 'Sigurno ukloni?',
+  'builder.confirm.unitEditor.warnTruncated':
+    'Zid je prekratak za sve elemente — višak je uklonjen s kraja.',
+  'builder.confirm.unitEditor.warnTooShort': 'Zid je prekratak za izmjerene uređaje.',
 
   // ---- Group labels & "why" copy ----------------------------------------
   'builder.groups.layout.label': 'Tlocrt i dimenzije',

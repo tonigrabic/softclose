@@ -13,6 +13,7 @@ import {
   type BuilderState,
 } from '@/lib/builder/inventory'
 import { confirmGroupMetas, hydrateFromHypothesis, useBuilderState } from '@/lib/builder/state'
+import type { UnitEdits } from '@/lib/builder/unit-assembly'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
 import { LiveBOMPanel } from './LiveBOMPanel'
@@ -39,6 +40,12 @@ export interface BuilderShellProps {
    * See context/layout-contract.md.
    */
   layoutContract: LayoutContract
+  /**
+   * The homeowner's per-row cabinet-unit edits from the Part-1 contract card
+   * (see UnitEdits in lib/builder/unit-assembly). Replayed through the one
+   * assembler at hydration so the seed equals the confirmed tally.
+   */
+  unitEdits?: UnitEdits | null
   /** The render the hypothesis was derived from, if any. Shown in the left preview pane. */
   renderImageDataUrl?: string
   /** Anchor photo (Phase-1 space upload) shown when no render is available. */
@@ -80,6 +87,7 @@ export interface BuilderShellProps {
 export function BuilderShell({
   hypothesis,
   layoutContract,
+  unitEdits,
   renderImageDataUrl,
   anchorPhotoDataUrl,
   layoutSummary,
@@ -93,10 +101,10 @@ export function BuilderShell({
     if (savedState) {
       return layoutPreconfirmed ? { ...savedState, layoutConfirmed: true } : savedState
     }
-    const s = hydrateFromHypothesis(hypothesis, { layoutContract })
+    const s = hydrateFromHypothesis(hypothesis, { layoutContract, unitEdits })
     if (layoutPreconfirmed) s.layoutConfirmed = true
     return s
-  }, [hypothesis, layoutContract, layoutPreconfirmed, savedState])
+  }, [hypothesis, layoutContract, unitEdits, layoutPreconfirmed, savedState])
   const [state, dispatch] = useBuilderState(initial)
   // Builder now opens on Cabinet Boxes — Layout/dimensions are owned by Phase 1.
   const [currentId, setCurrentId] = useState<BuilderScreenId>('cabinetBoxes')

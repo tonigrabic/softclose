@@ -31,6 +31,7 @@ import { BuilderShell } from '@/components/builder/BuilderShell'
 import { LayoutConfirm } from '@/components/builder/LayoutConfirm'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { BuilderState } from '@/lib/builder/inventory'
+import type { UnitEdits } from '@/lib/builder/unit-assembly'
 import { derivePrefills } from '@/lib/derive-prefills'
 import { renderDerivedFloorPlan } from '@/lib/derive-layout'
 import { DESIGNER_NAME } from '@/lib/system-prompt'
@@ -126,6 +127,9 @@ export function KitchenIntake() {
     setFloorPlan(p)
     setLayoutEditNonce((n) => n + 1)
   }
+  // Per-row cabinet-unit edits from the contract card (sparse pattern
+  // sequences). Frozen into the profile with the plan at commitConfirmLook.
+  const [unitEdits, setUnitEdits] = useState<UnitEdits | null>(null)
   const [inspirationStyles, setInspirationStyles] = useState<string[]>([])
   const [inspirationRefs, setInspirationRefs] = useState<UploadedReference[]>([])
   const [inspirationVision, setInspirationVision] = useState<InspirationVisionResult | null>(null)
@@ -256,6 +260,9 @@ export function KitchenIntake() {
         hasIsland: frozen.hasIsland,
         spaceLengthCm: Math.round(frozen.room.lengthCm),
         spaceWidthCm: Math.round(frozen.room.widthCm),
+        // The per-unit sequence edits lock WITH the plan — the builder replays
+        // them through the same assembler that rendered the confirmed tally.
+        unitEdits: unitEdits ?? undefined,
         contractConfirmedAt: nowMs(),
       })
       logTurn(
@@ -414,6 +421,7 @@ export function KitchenIntake() {
     setSpacePhotos([])
     setSpaceVision(null)
     setFloorPlan(null)
+    setUnitEdits(null)
     setInspirationStyles([])
     setInspirationRefs([])
     setInspirationVision(null)
@@ -577,6 +585,7 @@ export function KitchenIntake() {
       <BuilderShell
         hypothesis={builderHypothesis}
         layoutContract={layoutContract}
+        unitEdits={(profile.unitEdits as UnitEdits | undefined) ?? unitEdits}
         savedState={builderSavedState}
         renderImageDataUrl={chosenRender?.imageDataUrl}
         anchorPhotoDataUrl={spacePhotos[0]}
@@ -733,6 +742,8 @@ export function KitchenIntake() {
                 }}
                 layoutLoading={layoutPending || isLoadingHypothesis}
                 builderHypothesis={builderHypothesis}
+                unitEdits={unitEdits}
+                onUnitEditsChange={setUnitEdits}
                 anchorRenderUrl={funnelRenderSrc}
               />
               )}
@@ -863,6 +874,9 @@ interface StepBodyProps {
   layoutLoading: boolean
   /** Render hypothesis — folds AI unit hints into the confirm tally (parity). */
   builderHypothesis: BuilderHypothesis | null
+  /** Per-row unit edits from the contract card + their setter. */
+  unitEdits: UnitEdits | null
+  onUnitEditsChange: (e: UnitEdits) => void
   /** Chosen render (preferred) or anchor photo — editor background at confirm_look. */
   anchorRenderUrl?: string
 }
@@ -910,6 +924,8 @@ function StepBody(props: StepBodyProps) {
     onConceptRenderSkip,
     layoutLoading,
     builderHypothesis,
+    unitEdits,
+    onUnitEditsChange,
     anchorRenderUrl,
   } = props
   const { t, tDynamic } = useTranslations()
@@ -1010,6 +1026,8 @@ function StepBody(props: StepBodyProps) {
               hypothesis={builderHypothesis}
               plan={floorPlan}
               onPlanChange={onContractPlanChange}
+              edits={unitEdits}
+              onEditsChange={onUnitEditsChange}
             />
           )}
         </StepFrame>

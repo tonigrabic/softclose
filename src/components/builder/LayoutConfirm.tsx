@@ -1,27 +1,41 @@
 'use client'
 
-import { useMemo } from 'react'
-import { Check, Ruler, CornerUpRight, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Check, ChevronLeft, ChevronRight, CornerUpRight, Plus, Ruler, Trash2, X } from 'lucide-react'
 import { useTranslations, type Locale } from '@/lib/i18n'
 import { formatLength, validate, wallLengthCm } from '@/lib/floor-plan'
 import type { FeatureKind, FloorPlan } from '@/lib/floor-plan'
 import type { WallSide } from '@/lib/types'
-import type { LayoutContract } from '@/lib/contract/layout-contract'
-import { assembleUnits, hintsFromHypothesis, summarizeAssembly } from '@/lib/builder/unit-assembly'
+import type { LayoutContract, RunId } from '@/lib/contract/layout-contract'
+import {
+  assembleUnits,
+  displayedSequence,
+  hintsFromHypothesis,
+  isCornerPattern,
+  summarizeAssembly,
+  withPatternChanged,
+  withUnitAdded,
+  withUnitRemoved,
+  FREE_PATTERNS_BY_ROW,
+  type RowKind,
+  type UnitEdits,
+} from '@/lib/builder/unit-assembly'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { CabinetPattern, CabinetUnit } from '@/lib/builder/inventory'
 
 /**
  * The contract — what we'll build and price — and the place the homeowner
- * confirms it. When given a `plan` + `onPlanChange` it is fully EDITABLE: per
- * wall they change the length, toggle the upper / tall rows, or drop the wall
- * entirely (the fix for "the AI added a wall I can't remove"). Every edit writes
- * the FloorPlan and re-derives the contract — and re-seeds the canvas above —
- * so the two views can never disagree. Without those props it's a read-only
- * tally (the builder's confirm gate).
+ * confirms it. When given a `plan` + `onPlanChange` (+ `onEditsChange`) it is
+ * fully EDITABLE: per wall they change the length, toggle the upper / tall
+ * rows, drop the wall entirely, and — per UNIT — tap any chip in the sequence
+ * to change its type, remove it, or add one (the fix for "I can't edit the
+ * number of drawers"). Appliance-bound chips (sink / dishwasher / oven /
+ * fridge) re-derive from the measured appliance: they can be nudged along the
+ * wall or removed WITH their appliance, so no orphan units exist. Every edit
+ * writes the FloorPlan / UnitEdits and re-derives the tally through the ONE
+ * assembler the builder seeds from — parity by construction.
  *
- * The per-run tally goes through the same `summarizeContract` →
- * `suggestCabinetsForRun` the builder seeds from (confirm-tally-parity test).
+ * Without the editing props it's a read-only tally (the builder's confirm gate).
  */
 const APPLIANCE_LABEL: Record<Locale, Record<FeatureKind, string>> = {
   'hr-HR': {
@@ -82,6 +96,11 @@ const UI: Record<Locale, { upper: string; tall: string; remove: string; cm: stri
   'en-US': { upper: 'Upper cabinets', tall: 'Tall / oven', remove: 'Remove wall', cm: 'cm' },
 }
 
+/** Module-scope so the render-purity lint can see edits stamp time only on click. */
+function nowMs(): number {
+  return Date.now()
+}
+
 type SidePatch = Partial<FloorPlan['room']['sides']['top']>
 
 /** Patch one wall's spec and re-validate (recomputes shape + island). */
@@ -102,11 +121,49 @@ function withWallLength(plan: FloorPlan, wall: WallSide, cm: number): FloorPlan 
   return validate({ ...plan, room })
 }
 
-/** One labelled item in a row sequence (cabinet unit OR a floor appliance). */
+function findFeature(plan: FloorPlan, wall: WallSide, kind: FeatureKind) {
+  return plan.features.find((f) => f.wall === wall && f.kind === kind)
+}
+
+/** Nudge a measured appliance along its wall (validate clamps to the wall). */
+function withFeatureNudged(plan: FloorPlan, wall: WallSide, kind: FeatureKind, deltaCm: number): FloorPlan {
+  const f = findFeature(plan, wall, kind)
+  if (!f) return plan
+  return validate({
+    ...plan,
+    features: plan.features.map((x) =>
+      x.id === f.id
+        ? { ...x, centerCm: x.centerCm + deltaCm, confidence: 'H' as const, source: 'homeowner' as const }
+        : x
+    ),
+  })
+}
+
+/** Removing a bound unit = removing its appliance from the plan (no orphans). */
+function withFeatureRemoved(plan: FloorPlan, wall: WallSide, kind: FeatureKind): FloorPlan {
+  const f = findFeature(plan, wall, kind)
+  if (!f) return plan
+  return validate({ ...plan, features: plan.features.filter((x) => x.id !== f.id) })
+}
+
+/** One labelled chip in a row sequence (cabinet unit OR a floor appliance). */
 interface RowItem {
   id: string
   label: string
   pos: number
+  pattern?: CabinetPattern
+  /** Appliance this chip derives from (bound units + the fridge pseudo-chip). */
+  boundTo?: FeatureKind
+  /** Index within the row's FILLABLE sequence — undefined for bound chips. */
+  seqIndex?: number
+}
+
+/** Which chip's inline editor panel is open. */
+interface OpenPanel {
+  runId: string
+  row: RowKind
+  /** Unit id, `add`, or `appl:<kind>` for appliance-bound chips/pills. */
+  itemId: string
 }
 
 export function LayoutConfirm({
@@ -114,6 +171,8 @@ export function LayoutConfirm({
   hypothesis,
   plan,
   onPlanChange,
+  edits,
+  onEditsChange,
   onConfirm,
 }: {
   contract: LayoutContract
@@ -127,31 +186,80 @@ export function LayoutConfirm({
   plan?: FloorPlan | null
   /** Persist an edit (and re-seed the canvas). Omit for a read-only tally. */
   onPlanChange?: (plan: FloorPlan) => void
+  /** The homeowner's per-row unit edits (persisted to the profile on lock). */
+  edits?: UnitEdits | null
+  /** With this, every unit chip becomes editable (change type / remove / add). */
+  onEditsChange?: (edits: UnitEdits) => void
   /** When provided, renders a confirm CTA; omit to render a read-only summary. */
   onConfirm?: () => void
 }) {
   const { t, tDynamic, locale } = useTranslations()
   const editable = Boolean(plan && onPlanChange)
+  const unitsEditable = editable && Boolean(onEditsChange)
+  const [open, setOpen] = useState<OpenPanel | null>(null)
 
   // THE assembler — same call as builder seeding and computeBom (parity by
-  // construction). Edits arrive via the per-unit editor.
-  const summary = useMemo(
-    () =>
-      summarizeAssembly(
-        contract,
-        assembleUnits({ contract, hints: hintsFromHypothesis(hypothesis ?? null) })
-      ),
-    [contract, hypothesis]
-  )
+  // construction), edits applied last.
+  const { assembled, summary } = useMemo(() => {
+    const assembled = assembleUnits({
+      contract,
+      hints: hintsFromHypothesis(hypothesis ?? null),
+      edits: edits ?? null,
+    })
+    return { assembled, summary: summarizeAssembly(contract, assembled) }
+  }, [contract, hypothesis, edits])
   const { rows, totalCabinets, cornerCount } = summary
   const applianceWords = APPLIANCE_LABEL[locale]
   const patternWords = PATTERN_LABEL[locale]
   const ui = UI[locale]
 
-  function unitItems(units: CabinetUnit[]): RowItem[] {
-    return units
-      .map((u) => ({ id: u.id, label: patternWords[u.pattern], pos: u.positionPctAlongRun }))
-      .sort((a, b) => a.pos - b.pos)
+  const toggle = (panel: OpenPanel) =>
+    setOpen((cur) =>
+      cur && cur.runId === panel.runId && cur.row === panel.row && cur.itemId === panel.itemId
+        ? null
+        : panel
+    )
+
+  /** Row units → chips, with fillable sequence indices matching displayedSequence. */
+  function rowItems(units: CabinetUnit[], row: RowKind): RowItem[] {
+    const sorted = units
+      .filter((u) => u.type === row)
+      .sort((a, b) => a.positionPctAlongRun - b.positionPctAlongRun)
+    let seq = 0
+    return sorted.map((u) => ({
+      id: u.id,
+      label: patternWords[u.pattern],
+      pos: u.positionPctAlongRun,
+      pattern: u.pattern,
+      boundTo: u.boundTo,
+      seqIndex: u.boundTo ? undefined : seq++,
+    }))
+  }
+
+  function changePattern(runId: RunId, row: RowKind, seqIndex: number, pattern: CabinetPattern) {
+    onEditsChange!(
+      withPatternChanged(
+        edits,
+        displayedSequence(assembled.units, runId, row),
+        runId,
+        row,
+        seqIndex,
+        pattern,
+        nowMs()
+      )
+    )
+  }
+  function addUnit(runId: RunId, row: RowKind, pattern: CabinetPattern) {
+    onEditsChange!(
+      withUnitAdded(edits, displayedSequence(assembled.units, runId, row), runId, row, pattern, nowMs())
+    )
+    setOpen(null)
+  }
+  function removeUnit(runId: RunId, row: RowKind, seqIndex: number) {
+    onEditsChange!(
+      withUnitRemoved(edits, displayedSequence(assembled.units, runId, row), runId, row, seqIndex, nowMs())
+    )
+    setOpen(null)
   }
 
   return (
@@ -180,24 +288,108 @@ export function LayoutConfirm({
             const isWall = r.id !== 'island'
             const wall = r.id as WallSide
             const appliances = contract.appliances.filter((a) => a.runId === r.id)
+            const runWarnings = assembled.warnings.filter((w) => w.runId === r.id)
 
             // Base row = base units + any FRIDGE on this wall (full-height, sits on
             // the floor but carries no carcass — this is why it was "nowhere").
             const baseItems = [
-              ...unitItems(r.units.filter((u) => u.type === 'base')),
+              ...rowItems(r.units, 'base'),
               ...appliances
                 .filter((a) => a.kind === 'fridge')
                 .map((a, i) => ({
                   id: `fridge-${r.id}-${i}`,
                   label: applianceWords.fridge,
                   pos: a.positionPctAlongRun,
+                  boundTo: 'fridge' as FeatureKind,
                 })),
             ].sort((a, b) => a.pos - b.pos)
-            const wallItems = unitItems(r.units.filter((u) => u.type === 'wall'))
-            const tallItems = unitItems(r.units.filter((u) => u.type === 'tall'))
+            const wallItems = rowItems(r.units, 'wall')
+            const tallItems = rowItems(r.units, 'tall')
+            const rowStat = (row: RowKind) =>
+              assembled.rowStats.find((s) => s.runId === r.id && s.row === row)
+            const canAdd = (row: RowKind) => {
+              if (!unitsEditable) return false
+              if (row === 'tall') {
+                const count = tallItems.filter((it) => !it.boundTo).length
+                return count < Math.min(3, Math.floor((r.lengthCm * 10) / 600))
+              }
+              const s = rowStat(row)
+              return Boolean(s && s.fillableCapacityMm / (s.fillableCount + 1) >= 300)
+            }
 
             const wallLen =
               editable && plan && isWall ? Math.round(wallLengthCm(wall, plan.room)) : r.lengthCm
+
+            const renderRow = (row: RowKind, label: string, items: RowItem[]) => (
+              <UnitRow
+                label={label}
+                items={items}
+                editable={unitsEditable}
+                showAdd={canAdd(row)}
+                addLabel={t('builder.confirm.unitEditor.add')}
+                openItemId={open && open.runId === r.id && open.row === row ? open.itemId : null}
+                onItemTap={(it) =>
+                  toggle({
+                    runId: r.id,
+                    row,
+                    itemId: it.boundTo ? `appl:${it.boundTo}` : it.id,
+                  })
+                }
+                onAddTap={() => toggle({ runId: r.id, row, itemId: 'add' })}
+                panel={
+                  open && open.runId === r.id && open.row === row ? (
+                    open.itemId === 'add' ? (
+                      <PatternPanel
+                        patterns={FREE_PATTERNS_BY_ROW[row]}
+                        onPick={(p) => addUnit(r.id, row, p)}
+                        tDynamic={tDynamic}
+                      />
+                    ) : open.itemId.startsWith('appl:') ? (
+                      isWall && plan && onPlanChange ? (
+                        <BoundPanel
+                          kind={open.itemId.slice(5) as FeatureKind}
+                          explain={t('builder.confirm.unitEditor.boundExplain')}
+                          nudgeLeftLabel={t('builder.confirm.unitEditor.nudgeLeft')}
+                          nudgeRightLabel={t('builder.confirm.unitEditor.nudgeRight')}
+                          removeLabel={t('builder.confirm.unitEditor.removeAppliance').replace(
+                            '{name}',
+                            applianceWords[open.itemId.slice(5) as FeatureKind].toLowerCase()
+                          )}
+                          confirmLabel={t('builder.confirm.unitEditor.confirmRemove')}
+                          onNudge={(d) => onPlanChange(withFeatureNudged(plan, wall, open.itemId.slice(5) as FeatureKind, d))}
+                          onRemove={() => {
+                            onPlanChange(withFeatureRemoved(plan, wall, open.itemId.slice(5) as FeatureKind))
+                            setOpen(null)
+                          }}
+                        />
+                      ) : null
+                    ) : (
+                      (() => {
+                        const unit = assembled.units.find((u) => u.id === open.itemId)
+                        const item = items.find((it) => it.id === open.itemId)
+                        if (!unit || item?.seqIndex === undefined) return null
+                        const corner = isCornerPattern(unit.pattern)
+                        return (
+                          <PatternPanel
+                            patterns={corner ? ['corner_magic', 'corner_lazy'] : FREE_PATTERNS_BY_ROW[row]}
+                            selected={unit.pattern}
+                            widthMm={unit.widthMm}
+                            widthAutoLabel={t('builder.confirm.unitEditor.widthAuto').replace(
+                              '{mm}',
+                              String(unit.widthMm)
+                            )}
+                            onPick={(p) => changePattern(r.id, row, item.seqIndex!, p)}
+                            onRemove={corner ? undefined : () => removeUnit(r.id, row, item.seqIndex!)}
+                            removeLabel={t('builder.confirm.unitEditor.remove')}
+                            tDynamic={tDynamic}
+                          />
+                        )
+                      })()
+                    )
+                  ) : null
+                }
+              />
+            )
 
             return (
               <li key={r.id} className="space-y-2 rounded-2xl border border-border bg-background p-3.5">
@@ -232,20 +424,44 @@ export function LayoutConfirm({
 
                 {appliances.length > 0 && (
                   <div className="flex flex-wrap items-center gap-1.5">
-                    {appliances.map((a, i) => (
-                      <span
-                        key={`${a.kind}-${i}`}
-                        className="rounded-full bg-primary/10 px-2 py-0.5 text-[11.5px] font-medium text-primary"
-                      >
-                        {applianceWords[a.kind] ?? a.kind}
-                      </span>
-                    ))}
+                    {appliances.map((a, i) =>
+                      unitsEditable && isWall ? (
+                        <button
+                          key={`${a.kind}-${i}`}
+                          type="button"
+                          onClick={() => toggle({ runId: r.id, row: 'base', itemId: `appl:${a.kind}` })}
+                          className="rounded-full bg-primary/10 px-2 py-0.5 text-[11.5px] font-medium text-primary transition-colors hover:bg-primary/20"
+                        >
+                          {applianceWords[a.kind] ?? a.kind}
+                        </button>
+                      ) : (
+                        <span
+                          key={`${a.kind}-${i}`}
+                          className="rounded-full bg-primary/10 px-2 py-0.5 text-[11.5px] font-medium text-primary"
+                        >
+                          {applianceWords[a.kind] ?? a.kind}
+                        </span>
+                      )
+                    )}
                   </div>
                 )}
 
-                <UnitRow label={t('builder.confirm.baseRow')} items={baseItems} />
-                {wallItems.length > 0 && <UnitRow label={t('builder.confirm.wallRow')} items={wallItems} />}
-                {tallItems.length > 0 && <UnitRow label={t('builder.confirm.tallRow')} items={tallItems} />}
+                {renderRow('base', t('builder.confirm.baseRow'), baseItems)}
+                {(wallItems.length > 0 || canAdd('wall')) &&
+                  Boolean(run?.hasWall) &&
+                  renderRow('wall', t('builder.confirm.wallRow'), wallItems)}
+                {(tallItems.length > 0 || (unitsEditable && Boolean(run?.hasTall))) &&
+                  renderRow('tall', t('builder.confirm.tallRow'), tallItems)}
+
+                {runWarnings.length > 0 && (
+                  <p className="rounded-lg bg-amber-500/10 px-2.5 py-1.5 text-[11.5px] font-medium text-amber-700 dark:text-amber-400">
+                    {t(
+                      runWarnings.some((w) => w.kind === 'run_too_short')
+                        ? 'builder.confirm.unitEditor.warnTooShort'
+                        : 'builder.confirm.unitEditor.warnTruncated'
+                    )}
+                  </p>
+                )}
 
                 {editable && isWall && (
                   <div className="flex flex-wrap items-center gap-1.5 pt-1">
@@ -321,20 +537,201 @@ export function LayoutConfirm({
   )
 }
 
-/** One cabinet row (base / upper / tall) as an ordered sequence of item chips. */
-function UnitRow({ label, items }: { label: string; items: RowItem[] }) {
-  if (items.length === 0) return null
+/**
+ * One cabinet row (base / upper / tall) as an ordered sequence of chips. In
+ * editable mode every chip is a button (tap → inline panel below the row) and
+ * a "+" chip appends a unit. Appliance-bound chips render primary-tinted.
+ */
+function UnitRow({
+  label,
+  items,
+  editable,
+  showAdd,
+  addLabel,
+  openItemId,
+  onItemTap,
+  onAddTap,
+  panel,
+}: {
+  label: string
+  items: RowItem[]
+  editable: boolean
+  showAdd: boolean
+  addLabel: string
+  openItemId: string | null
+  onItemTap: (item: RowItem) => void
+  onAddTap: () => void
+  panel: React.ReactNode
+}) {
+  if (items.length === 0 && !showAdd) return null
   return (
-    <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-1 text-[12px]">
-      <span className="font-medium text-muted-foreground">
-        {label} ({items.length}):
-      </span>
-      {items.map((it, i) => (
-        <span key={it.id} className="text-foreground">
-          {it.label}
-          {i < items.length - 1 && <span className="text-muted-foreground/50"> ·</span>}
+    <div className="space-y-1.5">
+      <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[12px]">
+        <span className="font-medium text-muted-foreground">
+          {label} ({items.length}):
         </span>
-      ))}
+        {items.map((it) => {
+          const isOpen = openItemId === (it.boundTo ? `appl:${it.boundTo}` : it.id)
+          if (!editable) {
+            return (
+              <span key={it.id} className={it.boundTo ? 'font-medium text-primary' : 'text-foreground'}>
+                {it.label}
+              </span>
+            )
+          }
+          return (
+            <button
+              key={it.id}
+              type="button"
+              onClick={() => onItemTap(it)}
+              aria-expanded={isOpen}
+              className={
+                'rounded-full border px-2 py-0.5 transition-colors ' +
+                (isOpen
+                  ? 'border-primary bg-primary/15 text-foreground'
+                  : it.boundTo
+                    ? 'border-primary/30 bg-primary/10 font-medium text-primary hover:bg-primary/20'
+                    : 'border-border bg-card text-foreground hover:border-primary/40')
+              }
+            >
+              {it.label}
+            </button>
+          )
+        })}
+        {editable && showAdd && (
+          <button
+            type="button"
+            onClick={onAddTap}
+            aria-expanded={openItemId === 'add'}
+            title={addLabel}
+            className={
+              'inline-flex items-center gap-0.5 rounded-full border border-dashed px-2 py-0.5 transition-colors ' +
+              (openItemId === 'add'
+                ? 'border-primary bg-primary/15 text-foreground'
+                : 'border-border text-muted-foreground hover:border-primary/40 hover:text-foreground')
+            }
+          >
+            <Plus className="size-3 stroke-[2.5]" aria-hidden />
+          </button>
+        )}
+      </div>
+      {panel}
+    </div>
+  )
+}
+
+/** Inline pattern picker for a fillable unit (or the "+" add flow). */
+function PatternPanel({
+  patterns,
+  selected,
+  widthAutoLabel,
+  onPick,
+  onRemove,
+  removeLabel,
+  tDynamic,
+}: {
+  patterns: readonly CabinetPattern[]
+  selected?: CabinetPattern
+  widthMm?: number
+  widthAutoLabel?: string
+  onPick: (p: CabinetPattern) => void
+  onRemove?: () => void
+  removeLabel?: string
+  tDynamic: (key: string) => string
+}) {
+  return (
+    <div className="space-y-2 rounded-xl border border-border bg-card/80 p-2.5">
+      <div className="flex flex-wrap gap-1.5">
+        {patterns.map((p) => (
+          <button
+            key={p}
+            type="button"
+            onClick={() => onPick(p)}
+            className={
+              'rounded-full border px-2.5 py-1 text-[11.5px] font-medium transition-colors ' +
+              (p === selected
+                ? 'border-primary bg-primary text-primary-foreground'
+                : 'border-border bg-background text-muted-foreground hover:text-foreground')
+            }
+          >
+            {tDynamic(`builder.cabinetBoxes.pattern.${p}`)}
+          </button>
+        ))}
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        {widthAutoLabel && <p className="text-[11px] text-muted-foreground">{widthAutoLabel}</p>}
+        {onRemove && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="ml-auto inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11.5px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
+          >
+            <Trash2 className="size-3 stroke-[2.5]" aria-hidden />
+            {removeLabel}
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/** Panel for appliance-bound chips: nudge along the wall or remove the appliance. */
+function BoundPanel({
+  kind,
+  explain,
+  nudgeLeftLabel,
+  nudgeRightLabel,
+  removeLabel,
+  confirmLabel,
+  onNudge,
+  onRemove,
+}: {
+  kind: FeatureKind
+  explain: string
+  nudgeLeftLabel: string
+  nudgeRightLabel: string
+  removeLabel: string
+  confirmLabel: string
+  onNudge: (deltaCm: number) => void
+  onRemove: () => void
+}) {
+  const [armed, setArmed] = useState(false)
+  return (
+    <div className="space-y-2 rounded-xl border border-primary/25 bg-primary/5 p-2.5">
+      <p className="text-[11.5px] leading-relaxed text-muted-foreground">{explain}</p>
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={() => onNudge(-10)}
+          aria-label={nudgeLeftLabel}
+          className="inline-flex size-7 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronLeft className="size-3.5 stroke-[2.5]" aria-hidden />
+        </button>
+        <button
+          type="button"
+          onClick={() => onNudge(10)}
+          aria-label={nudgeRightLabel}
+          className="inline-flex size-7 items-center justify-center rounded-full border border-border bg-background text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ChevronRight className="size-3.5 stroke-[2.5]" aria-hidden />
+        </button>
+        <span className="text-[11px] text-muted-foreground">±10 cm</span>
+        <button
+          type="button"
+          data-kind={kind}
+          onClick={() => (armed ? onRemove() : setArmed(true))}
+          className={
+            'ml-auto inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11.5px] font-medium transition-colors ' +
+            (armed
+              ? 'border-destructive bg-destructive/10 text-destructive'
+              : 'border-border text-muted-foreground hover:border-destructive/40 hover:text-destructive')
+          }
+        >
+          <Trash2 className="size-3 stroke-[2.5]" aria-hidden />
+          {armed ? confirmLabel : removeLabel}
+        </button>
+      </div>
     </div>
   )
 }

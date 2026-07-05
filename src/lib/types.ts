@@ -287,6 +287,15 @@ export interface LeadProfile {
    */
   contractConfirmedAt?: number
 
+  /**
+   * Per-row cabinet-unit edits from the confirm-layout card (sparse pattern
+   * sequences — see `UnitEdits` in lib/builder/unit-assembly). Stored as
+   * `unknown` like `builderState` to keep builder types out of LeadProfile;
+   * the builder casts on read. Applied LAST in the one assembler, so the tally
+   * the homeowner locked is exactly what the builder prices.
+   */
+  unitEdits?: unknown
+
   // ---- Catch-all (also translated)
   additionalNotes?: TranslatedField
 }

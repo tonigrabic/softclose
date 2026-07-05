@@ -73,6 +73,18 @@ export const enUS: Record<TranslationKey, string> = {
   'builder.confirm.cta': 'Looks right — lock it',
   'builder.confirm.editHint':
     'Something off? Edit the walls, lengths, appliances and cabinet layout directly on the plan above.',
+  'builder.confirm.unitEditor.add': 'Add a unit',
+  'builder.confirm.unitEditor.remove': 'Remove',
+  'builder.confirm.unitEditor.widthAuto': 'Width ~{mm} mm — set automatically',
+  'builder.confirm.unitEditor.boundExplain':
+    'Placed from the measured appliance. Nudge it along the wall, or remove the appliance — the unit goes with it.',
+  'builder.confirm.unitEditor.nudgeLeft': 'Nudge left',
+  'builder.confirm.unitEditor.nudgeRight': 'Nudge right',
+  'builder.confirm.unitEditor.removeAppliance': 'Remove: {name}',
+  'builder.confirm.unitEditor.confirmRemove': 'Really remove?',
+  'builder.confirm.unitEditor.warnTruncated':
+    'The wall is too short for every unit — the extras were dropped from the end.',
+  'builder.confirm.unitEditor.warnTooShort': 'Too short for the measured appliances.',
 
   'builder.groups.layout.label': 'Layout & dimensions',
   'builder.groups.layout.why': 'Room shape and exact wall lengths.',
