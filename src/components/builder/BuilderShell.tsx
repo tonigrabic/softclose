@@ -12,7 +12,12 @@ import {
   type BuilderScreenId,
   type BuilderState,
 } from '@/lib/builder/inventory'
-import { confirmGroupMetas, hydrateFromHypothesis, useBuilderState } from '@/lib/builder/state'
+import {
+  confirmGroupMetas,
+  hydrateFromHypothesis,
+  relockBuilderState,
+  useBuilderState,
+} from '@/lib/builder/state'
 import type { UnitEdits } from '@/lib/builder/unit-assembly'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
@@ -99,7 +104,10 @@ export function BuilderShell({
 }: BuilderShellProps) {
   const initial = useMemo(() => {
     if (savedState) {
-      return layoutPreconfirmed ? { ...savedState, layoutConfirmed: true } : savedState
+      // Deterministic + idempotent, so every resume re-locks against the
+      // CURRENT contract: the escape-hatch return path re-derives units while
+      // every pick survives, and stale pre-assembler unit lists self-heal.
+      return relockBuilderState(savedState, { layoutContract, hypothesis, unitEdits })
     }
     const s = hydrateFromHypothesis(hypothesis, { layoutContract, unitEdits })
     if (layoutPreconfirmed) s.layoutConfirmed = true

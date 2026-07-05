@@ -600,6 +600,14 @@ export function KitchenIntake() {
           )
           goNext()
         }}
+        onEditLayout={(builderState) => {
+          // Escape hatch: keep every pick, reopen the layout. On re-lock the
+          // builder remounts with this savedState and relockBuilderState
+          // re-derives the units against the new contract.
+          patchProfile({ builderState })
+          logTurn('user', 'Went back to edit the layout from the builder.')
+          setState({ currentStepId: 'confirm_look' })
+        }}
       />
     )
   }

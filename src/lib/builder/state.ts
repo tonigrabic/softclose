@@ -84,26 +84,8 @@ export function hydrateFromHypothesis(
   // assembler (unit-assembly.ts) — the same call the Part-1 tally renders, so
   // what the homeowner confirmed is exactly what seeds here (tally parity).
   const hints = hintsFromHypothesis(hypothesis)
-  const renderTallRunIds = new Set<string>(hints?.tallRunIds ?? [])
-
-  const runs: WallRunDimensions[] = contract.runs.map((r) => ({
-    id: r.id,
-    label: r.label,
-    lengthCm: r.lengthCm,
-    hasBase: r.hasBase,
-    hasWall: r.hasWall,
-    hasTall: r.hasTall || renderTallRunIds.has(r.id),
-    hasCorner: r.hasCorner,
-    applianceFootprintCm: applianceFootprintCm(contract, r.id),
-  }))
-
-  // Worktop never runs over a fridge (full-height appliance), so its length is
-  // the base-bearing total minus measured fridge footprints. Dishwashers keep
-  // their worktop. Derived from the contract — the single layout truth.
-  const fridgeFootprintM = runs.reduce(
-    (sum, r) => sum + (r.applianceFootprintCm?.fridgeCm ?? 0) / 100,
-    0
-  )
+  const runs = runsFromContract(contract, new Set<string>(hints?.tallRunIds ?? []))
+  const worktopGeo = worktopGeometryFromRuns(runs)
 
   // Doors
   const doorsHy = hypothesis?.doors
@@ -189,17 +171,8 @@ export function hydrateFromHypothesis(
       decorStructure: initialWorktopStructure,
       thicknessMm: (worktopHy?.thicknessMm?.value ?? 38) as 38 | 20 | 12,
       edge: worktopHy?.edge?.value ?? 'square',
-      // Base-bearing run lengths minus fridge footprints (no worktop there).
-      totalLengthM: Math.max(
-        0,
-        runs.filter((r) => r.hasBase).reduce((s, r) => s + r.lengthCm / 100, 0) -
-          fridgeFootprintM
-      ),
-      // A freestanding island worktop isn't mitre-joined to the wall runs.
-      mitreJoinCount: Math.max(
-        0,
-        runs.filter((r) => r.hasBase && r.id !== 'island').length - 1
-      ),
+      totalLengthM: worktopGeo.totalLengthM,
+      mitreJoinCount: worktopGeo.mitreJoinCount,
       meta: {
         family: metaFromHint(worktopHy?.family),
         decorCode: metaFromHint(worktopHy?.decorCode),
@@ -302,6 +275,63 @@ export function hydrateFromHypothesis(
   }
 }
 
+/**
+ * The floor plan calls the extractor "hood"; the builder appliance group calls
+ * it "extractor". Sink is excluded (it lives in the sink/taps group).
+ */
+const FEATURE_TO_APPLIANCE: Partial<Record<string, ApplianceSelection['type']>> = {
+  hob: 'hob',
+  oven: 'oven',
+  fridge: 'fridge',
+  dishwasher: 'dishwasher',
+  hood: 'extractor',
+}
+
+/** Appliance types whose presence the floor plan can express. */
+const FLOOR_PLAN_APPLIANCE_TYPES: ReadonlySet<ApplianceSelection['type']> = new Set([
+  'hob',
+  'oven',
+  'fridge',
+  'dishwasher',
+  'extractor',
+])
+
+/** Contract runs → builder run dimensions (render-seen tall towers folded in). */
+function runsFromContract(contract: LayoutContract, renderTallRunIds: Set<string>): WallRunDimensions[] {
+  return contract.runs.map((r) => ({
+    id: r.id,
+    label: r.label,
+    lengthCm: r.lengthCm,
+    hasBase: r.hasBase,
+    hasWall: r.hasWall,
+    hasTall: r.hasTall || renderTallRunIds.has(r.id),
+    hasCorner: r.hasCorner,
+    applianceFootprintCm: applianceFootprintCm(contract, r.id),
+  }))
+}
+
+/**
+ * Worktop never runs over a fridge (full-height appliance), so its length is
+ * the base-bearing total minus measured fridge footprints. Dishwashers keep
+ * their worktop. A freestanding island worktop isn't mitre-joined to the runs.
+ */
+function worktopGeometryFromRuns(runs: WallRunDimensions[]): {
+  totalLengthM: number
+  mitreJoinCount: number
+} {
+  const fridgeFootprintM = runs.reduce(
+    (sum, r) => sum + (r.applianceFootprintCm?.fridgeCm ?? 0) / 100,
+    0
+  )
+  return {
+    totalLengthM: Math.max(
+      0,
+      runs.filter((r) => r.hasBase).reduce((s, r) => s + r.lengthCm / 100, 0) - fridgeFootprintM
+    ),
+    mitreJoinCount: Math.max(0, runs.filter((r) => r.hasBase && r.id !== 'island').length - 1),
+  }
+}
+
 function seedApplianceSelections(
   hy: BuilderHypothesis | null,
   contract?: LayoutContract
@@ -364,15 +394,7 @@ function seedApplianceSelections(
   // Floor-plan-known appliances: Part 1 geometry is authoritative for *presence*,
   // so guarantee they exist in the builder and backfill the measured width. The
   // AI's richer config (induction/gas, integrated) wins when it already seeded one.
-  // Sink lives in the sink/taps group, so it's excluded. The floor plan calls the
-  // extractor "hood"; the builder appliance group calls it "extractor".
-  const FEATURE_TO_APPLIANCE: Partial<Record<string, ApplianceSelection['type']>> = {
-    hob: 'hob',
-    oven: 'oven',
-    fridge: 'fridge',
-    dishwasher: 'dishwasher',
-    hood: 'extractor',
-  }
+  // Sink lives in the sink/taps group, so it's excluded.
   for (const a of contract?.appliances ?? []) {
     const type = FEATURE_TO_APPLIANCE[a.kind]
     if (!type) continue // sink + anything not represented in the builder group
@@ -391,6 +413,111 @@ function seedApplianceSelections(
   }
 
   return out
+}
+
+/**
+ * Re-lock a resumed builder state against a (possibly changed) contract — the
+ * escape-hatch return path, and the mount path for every saved session (it's
+ * idempotent, and it self-heals stale unit lists from before the assembler).
+ *
+ * REPLACED from the fresh contract: the layout group, `cabinetBoxes.units`
+ * (through the one assembler, hints + homeowner unit edits included) and the
+ * worktop's derived geometry (total length, mitre joins).
+ * SURVIVES: every specifics pick — doors, hardware, worktop decor/family/
+ * thickness/edge, backsplash, sink/taps, lighting, finishing, carcass, all
+ * metas, renders and timestamps.
+ * RE-SYNCED: appliance selections — measured widths update, newly drawn kinds
+ * appear, and floor-plan kinds DELETED from the plan drop out (a selection
+ * with `widthMm` came from the plan; AI-only extras without a measured width
+ * survive). The confirmed tally rules the estimate.
+ */
+export function relockBuilderState(
+  saved: BuilderState,
+  context: {
+    layoutContract: LayoutContract
+    hypothesis?: BuilderHypothesis | null
+    unitEdits?: UnitEdits | null
+  }
+): BuilderState {
+  const contract = context.layoutContract
+  const hints = hintsFromHypothesis(context.hypothesis ?? null)
+  const runs = runsFromContract(contract, new Set<string>(hints?.tallRunIds ?? []))
+  const worktopGeo = worktopGeometryFromRuns(runs)
+
+  const selections = syncSelectionsWithContract(saved.appliances.selections, contract)
+  const integratedFridge = selections.find((s) => s.type === 'fridge')?.integrated ?? false
+  const assembled = assembleUnits({
+    contract,
+    hints,
+    edits: context.unitEdits ?? null,
+    integratedFridge,
+  })
+
+  return {
+    ...saved,
+    lastUpdatedAt: new Date().toISOString(),
+    layoutConfirmed: true,
+    layout: {
+      shape: contract.shape,
+      hasIsland: contract.hasIsland,
+      runs,
+      ceilingHeightCm: contract.ceilingHeightCm,
+      meta: {
+        runs: {
+          confidence: contract.runs.reduce<ConfidenceLevel>(
+            (worst, r) => (RANK[r.confidence] > RANK[worst] ? r.confidence : worst),
+            'H'
+          ),
+          provenance: 'homeowner-confirmed',
+        },
+        shape: { confidence: 'H', provenance: 'homeowner-confirmed' },
+      },
+    },
+    cabinetBoxes: { ...saved.cabinetBoxes, units: assembled.units },
+    worktop: {
+      ...saved.worktop,
+      totalLengthM: worktopGeo.totalLengthM,
+      mitreJoinCount: worktopGeo.mitreJoinCount,
+    },
+    appliances: { ...saved.appliances, selections },
+  }
+}
+
+/**
+ * Bring appliance selections in line with a fresh contract: measured widths
+ * win, newly drawn kinds appear, and floor-plan kinds deleted from the plan
+ * drop out. A selection with `widthMm` came from the plan (only the contract
+ * backfill sets it); AI-seeded extras without one are left alone.
+ */
+function syncSelectionsWithContract(
+  selections: ApplianceSelection[],
+  contract: LayoutContract
+): ApplianceSelection[] {
+  const out = selections.map((s) => ({ ...s }))
+  const planTypes = new Set<ApplianceSelection['type']>()
+  for (const a of contract.appliances) {
+    const type = FEATURE_TO_APPLIANCE[a.kind]
+    if (!type) continue
+    planTypes.add(type)
+    const widthMm = Math.round(a.widthCm * 10)
+    const existing = out.find((s) => s.type === type)
+    if (existing) {
+      existing.widthMm = widthMm
+      continue
+    }
+    out.push({
+      type,
+      config: type === 'hob' ? 'induction' : 'standard',
+      integrated: type === 'dishwasher',
+      widthMm,
+    })
+  }
+  return out.filter(
+    (s) =>
+      !FLOOR_PLAN_APPLIANCE_TYPES.has(s.type) ||
+      planTypes.has(s.type) ||
+      s.widthMm === undefined
+  )
 }
 
 /**

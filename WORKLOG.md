@@ -749,3 +749,23 @@ seed but never the tally (second parity hole).
 - Parity test strengthened: hydrated units deep-equal the assembler across
   contract × hypothesis fixtures, incl. tall + pattern hints and a UnitEdits
   case. Gate: 126 tests · tsc · eslint · build green.
+
+### Per-unit editor + escape hatch — the layout is finally correctable
+- **LayoutConfirm is the design surface**: every chip in a wall's base/upper/
+  tall sequence is tappable — inline panel swaps the pattern (corner slot swaps
+  mechanism only), removes the unit, "+" appends while capacity allows; widths
+  redistribute automatically. Appliance-bound chips (sudoper/perilica/pećnica/
+  hladnjak) open a bound panel: nudge the measured appliance ±10 cm (canvas,
+  tally and price move together) or remove it with a two-tap confirm — the unit
+  goes with the appliance, no orphans. Amber warnings when a wall runs short.
+- Edits are sparse `UnitEdits` sequences: frozen into `profile.unitEdits` at
+  lock, replayed by the builder's hydration — the locked tally IS the priced
+  list.
+- **Escape hatch**: "Uredi raspored" on the builder's Cabinets recap saves the
+  LIVE state and returns to confirm_look; on re-lock, `relockBuilderState`
+  (run on every saved-state mount — idempotent, self-heals stale sessions)
+  re-derives layout/units/worktop geometry and re-syncs appliance presence
+  (plan-deleted kinds drop, AI-only extras survive, measured widths win) while
+  every specifics pick — doors, worktop decor, hardware, sink/taps, lighting,
+  finishing, carcass, renders — survives.
+- Gate: 131 tests · tsc · eslint · build green. New: tests/relock (5 cases).
