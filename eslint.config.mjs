@@ -14,6 +14,9 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Static design-reference package (hand-authored prototype, not app code).
     "handoff/**",
+    // Claude Code worktrees/session files — never lintable app code, and stray
+    // worktrees were failing `eslint .` (and with it `npm run gate`).
+    ".claude/**",
   ]),
 ]);
 
