@@ -41,6 +41,8 @@ export interface GroupBodyProps {
   hypothesis: BuilderHypothesis | null
   layoutContract: LayoutContract
   dispatch: React.Dispatch<BuilderAction>
+  /** Escape hatch back to Part 1's confirm_look (absent in the dev harness). */
+  onEditLayout?: () => void
 }
 
 export interface BuilderGroupModule {
@@ -52,14 +54,13 @@ export interface BuilderGroupModule {
 
 export const GROUP_MODULES: Record<BuilderScreenId, BuilderGroupModule> = {
   cabinetBoxes: {
-    Body: ({ state, hypothesis, layoutContract, dispatch }) => (
+    Body: ({ state, hypothesis, dispatch, onEditLayout }) => (
       <>
         <FactsRecap hypothesis={hypothesis} />
         <CabinetBoxesGroup
           state={state}
-          hypothesis={hypothesis}
-          layoutContract={layoutContract}
           onPatch={(patch) => dispatch({ type: 'patch_cabinetBoxes', patch })}
+          onEditLayout={onEditLayout}
         />
       </>
     ),

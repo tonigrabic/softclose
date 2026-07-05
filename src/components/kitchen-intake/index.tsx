@@ -732,6 +732,7 @@ export function KitchenIntake() {
                   goNext()
                 }}
                 layoutLoading={layoutPending || isLoadingHypothesis}
+                builderHypothesis={builderHypothesis}
                 anchorRenderUrl={funnelRenderSrc}
               />
               )}
@@ -860,6 +861,8 @@ interface StepBodyProps {
   onConceptRenderSkip: () => void
   /** True while the render→layout vision pass is in flight (confirm_look). */
   layoutLoading: boolean
+  /** Render hypothesis — folds AI unit hints into the confirm tally (parity). */
+  builderHypothesis: BuilderHypothesis | null
   /** Chosen render (preferred) or anchor photo — editor background at confirm_look. */
   anchorRenderUrl?: string
 }
@@ -906,6 +909,7 @@ function StepBody(props: StepBodyProps) {
     onSpacePhotosSkip,
     onConceptRenderSkip,
     layoutLoading,
+    builderHypothesis,
     anchorRenderUrl,
   } = props
   const { t, tDynamic } = useTranslations()
@@ -1003,6 +1007,7 @@ function StepBody(props: StepBodyProps) {
           {reviewContract && (
             <LayoutConfirm
               contract={reviewContract}
+              hypothesis={builderHypothesis}
               plan={floorPlan}
               onPlanChange={onContractPlanChange}
             />

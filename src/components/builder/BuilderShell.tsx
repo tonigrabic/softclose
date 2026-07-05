@@ -69,6 +69,12 @@ export interface BuilderShellProps {
   savedState?: BuilderState
   /** Callback fired when the user finishes the builder. */
   onComplete?: (state: BuilderState) => void
+  /**
+   * Escape hatch: persist the LIVE state and jump back to Part 1's
+   * confirm_look step so the homeowner can change the locked layout. On
+   * re-lock the units re-derive while every other pick survives.
+   */
+  onEditLayout?: (state: BuilderState) => void
 }
 
 export function BuilderShell({
@@ -81,6 +87,7 @@ export function BuilderShell({
   layoutPreconfirmed,
   savedState,
   onComplete,
+  onEditLayout,
 }: BuilderShellProps) {
   const initial = useMemo(() => {
     if (savedState) {
@@ -101,6 +108,7 @@ export function BuilderShell({
     // confirming the frozen contract BEFORE any builder chrome appears.
     <ConfirmScreen
       contract={layoutContract}
+      hypothesis={hypothesis}
       previewSrc={renderImageDataUrl ?? anchorPhotoDataUrl}
       onConfirm={() => dispatch({ type: 'confirm_layout' })}
     />
@@ -117,6 +125,7 @@ export function BuilderShell({
       layoutSummary={layoutSummary}
       profile={profile}
       onComplete={onComplete}
+      onEditLayout={onEditLayout}
     />
   )
 }
@@ -124,10 +133,12 @@ export function BuilderShell({
 /** The end-of-capture confirmation — its own screen, no builder chrome. */
 function ConfirmScreen({
   contract,
+  hypothesis,
   previewSrc,
   onConfirm,
 }: {
   contract: LayoutContract
+  hypothesis: BuilderHypothesis | null
   previewSrc?: string
   onConfirm: () => void
 }) {
@@ -142,7 +153,7 @@ function ConfirmScreen({
             className="mb-6 aspect-[4/3] w-full rounded-2xl border border-border object-cover shadow-sm"
           />
         )}
-        <LayoutConfirm contract={contract} onConfirm={onConfirm} />
+        <LayoutConfirm contract={contract} hypothesis={hypothesis} onConfirm={onConfirm} />
       </div>
     </div>
   )
@@ -160,6 +171,7 @@ function Shell({
   layoutSummary,
   profile,
   onComplete,
+  onEditLayout,
 }: {
   state: BuilderState
   dispatch: React.Dispatch<Parameters<ReturnType<typeof useBuilderState>[1]>[0]>
@@ -172,6 +184,7 @@ function Shell({
   layoutSummary?: string
   profile?: LeadProfile
   onComplete?: (state: BuilderState) => void
+  onEditLayout?: (state: BuilderState) => void
 }) {
   const { locale } = useTranslations()
   // The big preview always reads from `activeRenderId`: null = Phase-1
@@ -279,6 +292,7 @@ function Shell({
                 hypothesis={hypothesis}
                 layoutContract={layoutContract}
                 dispatch={dispatch}
+                onEditLayout={onEditLayout ? () => onEditLayout(state) : undefined}
               />
 
               <FooterNav currentId={currentId} onBack={goBack} onNext={goNext} />

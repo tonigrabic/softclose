@@ -719,3 +719,33 @@ it's wrong", "always missing the hood + stove", phantom island):
   sniffing). New tests: contract-layout-edits (10 cases).
 - Gate: 89 tests · tsc · build green (eslint gate fixed in the next commit —
   it trips on .claude/worktrees, not project code).
+
+### Single-assembler rework — what you confirm is what gets priced
+The improvement-plan core (see PR discussion 2026-07-05). Cabinet units were
+re-derived ad hoc: the Part-1 tally used the bare heuristic while the builder
+re-seeded with THREE stacked layers (heuristic → AI unitPatterns ±15% → forced
+sink/hob placement, CabinetBoxesGroup.tsx:79-143) whose candidate filter could
+mint 2+ read-only sink units ("sink extracted in multiple parts") and whose
+patterns moved the price AFTER sign-off. Render hasTall folded into the builder
+seed but never the tally (second parity hole).
+- **`unit-assembly.ts` — `assembleUnits({contract, hints, edits})`** is now the
+  ONE derivation: measured appliance slots (sink → exactly one bound
+  `sink_unit`; AI sink hints ignored), greedy fill, pattern heuristic, AI hints
+  applied once, homeowner `UnitEdits` (sparse per-row pattern sequences that
+  refit across geometry changes) applied last. Deterministic ids, per-unit
+  confidence/provenance meta.
+- **Consumers**: LayoutConfirm tally (`summarizeAssembly`, now hypothesis-aware),
+  `hydrateFromHypothesis` (materializes `cabinetBoxes.units`; tall folding moved
+  into the hints layer), and computeBom via the hydrated units. The
+  CabinetBoxesGroup seeding effect is DELETED.
+- **CabinetBoxes slims to specifics-only**: carcass material + a locked-layout
+  recap (`ContractRecap`, rendered from persisted state so it always equals
+  what's priced) with an "Uredi raspored" escape-hatch slot (wired next).
+  ~16 orphaned `cabinetBoxes.*` editor keys deleted; group renamed "Ormarići".
+- **Estimate snapshots regenerated once** (vitest -u): totals rise ~15-20 %
+  because every fixture now prices the real unit model (drawer counts, sink/
+  corner accessories) instead of the flat layout fallback; displayed bands
+  widen 1-3 pts but ALL stay ≤ the 15 % cap (assertions untouched, green).
+- Parity test strengthened: hydrated units deep-equal the assembler across
+  contract × hypothesis fixtures, incl. tall + pattern hints and a UnitEdits
+  case. Gate: 126 tests · tsc · eslint · build green.

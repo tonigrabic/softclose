@@ -9,7 +9,7 @@ import { describe, expect, test } from 'vitest'
 import type { SpaceVisionResult } from '@/lib/types'
 import { fromVision, fromShapePreset, validate } from '@/lib/floor-plan'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
-import { summarizeContract } from '@/lib/builder/cabinet-suggest'
+import { assembleUnits, summarizeAssembly } from '@/lib/builder/unit-assembly'
 
 describe('shape derived from the walls', () => {
   test('toggling which walls carry counter re-derives the shape label', () => {
@@ -136,7 +136,7 @@ describe('oven + hood reach the contract', () => {
 
   test('the oven shows up as a housing unit in the wall\'s base sequence', () => {
     const contract = floorPlanToLayout(fromVision(vision))
-    const summary = summarizeContract(contract)
+    const summary = summarizeAssembly(contract, assembleUnits({ contract }))
     const topRow = summary.rows.find((r) => r.id === 'top')!
     expect(topRow.units.some((u) => u.pattern === 'oven_housing')).toBe(true)
     // dishwasher still seeds its appliance-front slot alongside the oven.

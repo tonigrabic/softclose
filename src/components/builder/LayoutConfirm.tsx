@@ -7,7 +7,8 @@ import { formatLength, validate, wallLengthCm } from '@/lib/floor-plan'
 import type { FeatureKind, FloorPlan } from '@/lib/floor-plan'
 import type { WallSide } from '@/lib/types'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
-import { summarizeContract } from '@/lib/builder/cabinet-suggest'
+import { assembleUnits, hintsFromHypothesis, summarizeAssembly } from '@/lib/builder/unit-assembly'
+import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { CabinetPattern, CabinetUnit } from '@/lib/builder/inventory'
 
 /**
@@ -110,11 +111,18 @@ interface RowItem {
 
 export function LayoutConfirm({
   contract,
+  hypothesis,
   plan,
   onPlanChange,
   onConfirm,
 }: {
   contract: LayoutContract
+  /**
+   * The render hypothesis, so the tally folds in the AI's unit hints + render-
+   * seen tall towers — the SAME hints the builder seeds with. Without it the
+   * tally could show fewer units than get priced (the old parity hole).
+   */
+  hypothesis?: BuilderHypothesis | null
   /** The live FloorPlan. With `onPlanChange`, the card becomes editable. */
   plan?: FloorPlan | null
   /** Persist an edit (and re-seed the canvas). Omit for a read-only tally. */
@@ -125,7 +133,16 @@ export function LayoutConfirm({
   const { t, tDynamic, locale } = useTranslations()
   const editable = Boolean(plan && onPlanChange)
 
-  const summary = useMemo(() => summarizeContract(contract), [contract])
+  // THE assembler — same call as builder seeding and computeBom (parity by
+  // construction). Edits arrive via the per-unit editor.
+  const summary = useMemo(
+    () =>
+      summarizeAssembly(
+        contract,
+        assembleUnits({ contract, hints: hintsFromHypothesis(hypothesis ?? null) })
+      ),
+    [contract, hypothesis]
+  )
   const { rows, totalCabinets, cornerCount } = summary
   const applianceWords = APPLIANCE_LABEL[locale]
   const patternWords = PATTERN_LABEL[locale]

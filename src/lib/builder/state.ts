@@ -11,6 +11,7 @@
 
 import { useReducer } from 'react'
 import type { BuilderHypothesis } from './hypothesis'
+import { assembleUnits, hintsFromHypothesis, type UnitEdits } from './unit-assembly'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
 import { applianceFootprintCm } from '@/lib/contract/layout-contract'
 import type {
@@ -62,7 +63,13 @@ function applianceMeta(
  */
 export function hydrateFromHypothesis(
   hypothesis: BuilderHypothesis | null,
-  context: { renderId?: string; leadProfileRef?: string; layoutContract: LayoutContract }
+  context: {
+    renderId?: string
+    leadProfileRef?: string
+    layoutContract: LayoutContract
+    /** The homeowner's per-row unit edits from the Part-1 contract card. */
+    unitEdits?: UnitEdits | null
+  }
 ): BuilderState {
   const now = new Date().toISOString()
 
@@ -73,20 +80,11 @@ export function hydrateFromHypothesis(
   // See context/layout-contract.md.
   const contract = context.layoutContract
 
-  // Tall towers (full-height units) the render shows. The floor plan / contract
-  // can't model them — they're a builder concept — so the contract always says
-  // hasTall=false and a render with a clear pantry/oven tower would otherwise
-  // seed ZERO towers (a real under-count on L/U kitchens). Fold in the render
-  // hypothesis's per-run hasTall + any tall pantry it pinned to a run. Run ids
-  // line up because the render reuses the contract's ids. Without a hypothesis
-  // (the fixture path) this is a no-op, so the contract stays the sole layout
-  // authority there and the band/parity fixtures are unaffected.
-  const renderTallRunIds = new Set<string>()
-  for (const r of hypothesis?.layout?.runs ?? []) {
-    if (r.hasTall?.value) renderTallRunIds.add(r.id)
-  }
-  const tallPantry = hypothesis?.features?.tallPantry
-  if (tallPantry?.present?.value && tallPantry.runId) renderTallRunIds.add(tallPantry.runId)
+  // Render-seen tall towers + per-unit pattern hints, folded through the ONE
+  // assembler (unit-assembly.ts) — the same call the Part-1 tally renders, so
+  // what the homeowner confirmed is exactly what seeds here (tally parity).
+  const hints = hintsFromHypothesis(hypothesis)
+  const renderTallRunIds = new Set<string>(hints?.tallRunIds ?? [])
 
   const runs: WallRunDimensions[] = contract.runs.map((r) => ({
     id: r.id,
@@ -120,6 +118,19 @@ export function hydrateFromHypothesis(
   // Backsplash
   const backsplashHy = hypothesis?.backsplash
 
+  // Appliance selections first — the fridge's integrated flag feeds the unit
+  // assembly (an integrated fridge gets a tall housing carcass).
+  const selections = seedApplianceSelections(hypothesis, contract)
+  const integratedFridge = selections.find((s) => s.type === 'fridge')?.integrated ?? false
+
+  // THE unit list — same assembler as the Part-1 tally card and computeBom.
+  const assembled = assembleUnits({
+    contract,
+    hints,
+    edits: context.unitEdits ?? null,
+    integratedFridge,
+  })
+
   return {
     version: 1,
     startedAt: now,
@@ -151,9 +162,9 @@ export function hydrateFromHypothesis(
 
     cabinetBoxes: {
       carcassMaterial: hypothesis?.cabinetBoxes?.carcassMaterial?.value ?? 'white_melamine_standard',
-      // Corners are modelled as the corner unit's pattern (seeded by
-      // suggestCabinetsForRun on hasCorner runs), edited in the corner section.
-      units: [],
+      // Materialized from the ONE assembler at hydration — the builder never
+      // re-seeds or re-layers units (that divergence was the multi-sink bug).
+      units: assembled.units,
       meta: {
         carcassMaterial: metaFromHint(hypothesis?.cabinetBoxes?.carcassMaterial),
       },
@@ -222,7 +233,7 @@ export function hydrateFromHypothesis(
 
     appliances: {
       supply: 'maker_supplies',
-      selections: seedApplianceSelections(hypothesis, contract),
+      selections,
       meta: {
         supply: { ...META_DEFAULT, provenance: 'ai-default' },
         hob: applianceMeta('hob', contract, hypothesis?.appliances?.hob),
