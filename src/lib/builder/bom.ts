@@ -70,6 +70,7 @@ export interface BomLineItem {
     | 'design'
     | 'assembly'
     | 'install'
+    | 'walls'
     // Project-scope allowances (trades / structural / flooring) — rough
     // domain bands, only present when the homeowner scopes them IN.
     | 'flooring'
@@ -578,12 +579,19 @@ export function computeBom(
     state.hardware.handleStyle === 'integrated_jpull' || state.hardware.handleStyle === 'integrated_groove'
   if (!handleless) {
     const fronts = usingUnitModel ? units.filter((u) => u.type !== 'tall').length : Math.round(unitEquivalents)
+    // Style sets the base (a knob is cheaper than a bar), finish scales it.
+    // Before the 2026-09-19 audit every style priced the same, so switching
+    // bars → knobs → cups visibly did nothing.
+    const HANDLE_STYLE_BASE: Record<string, number> = { bar: 8, knob: 4.5, cup: 6.5 }
+    const HANDLE_FINISH_MUL: Record<string, number> = {
+      brass: 1.7,
+      chrome: 1.2,
+      brushed_steel: 1.25,
+      matte_black: 1.0,
+      matched_to_door: 1.1,
+    }
     const handleRate =
-      state.hardware.handleFinish === 'brass'
-        ? 14
-        : state.hardware.handleFinish === 'chrome' || state.hardware.handleFinish === 'brushed_steel'
-          ? 9
-          : 7
+      (HANDLE_STYLE_BASE[state.hardware.handleStyle] ?? 7) * (HANDLE_FINISH_MUL[state.hardware.handleFinish] ?? 1)
     hwLow += fronts * handleRate * 0.8
     hwHigh += fronts * handleRate * 1.3
   }
@@ -653,8 +661,17 @@ export function computeBom(
         : state.sinkTaps.tap.type === 'pull_out'
           ? 130
           : 80
-  const tapLow = tapBaseLow
-  const tapHigh = tapBaseLow * (state.sinkTaps.tap.pickedName ? 1.15 : 1.5)
+  // Finish moves the tap price too (brass is a premium line, chrome the base).
+  const TAP_FINISH_MUL: Record<string, number> = {
+    brass: 1.5,
+    matte_black: 1.15,
+    brushed_steel: 1.1,
+    chrome: 1.0,
+    matched_to_door: 1.05,
+  }
+  const tapFinishMul = TAP_FINISH_MUL[state.sinkTaps.tap.finish] ?? 1
+  const tapLow = tapBaseLow * tapFinishMul
+  const tapHigh = tapLow * (state.sinkTaps.tap.pickedName ? 1.15 : 1.5)
   const sinkPicked = state.sinkTaps.sink.pickedName
     ? `${state.sinkTaps.sink.pickedBrand ?? ''} ${state.sinkTaps.sink.pickedName}`.trim()
     : null
@@ -711,6 +728,11 @@ export function computeBom(
     // model still overrides with its exact price at quote time.
     // Re-grounded 2026-09-19 against REAL Elgrad shelf prices (ovens 225–599,
     // dishwashers 399) merged into the catalog — see tests/class-band-grounding.
+    const APPLIANCE_CONFIG_FACTOR: Record<string, Record<string, number>> = {
+      hob: { induction: 1.0, gas: 0.75, ceramic: 0.7 },
+      oven: { single: 1.0, double: 1.8, combi: 1.6 },
+      extractor: { wall: 1.0, island: 1.7, downdraft: 2.3, recirculating: 0.9, ceiling_recessed: 1.9 },
+    }
     const APPLIANCE_PRICE: Record<string, { low: number; high: number }> = {
       hob: { low: 280, high: 470 },
       oven: { low: 230, high: 780 },
@@ -755,6 +777,13 @@ export function computeBom(
         lo = mid - (mid - p.low) * 0.55
         hi = mid + (p.high - mid) * 0.55
       }
+      // The chosen variant moves the money, not just the band width. Audit
+      // 2026-09-19: gas vs induction, island vs wall hood, double oven — the
+      // homeowner picked them and the range did not budge. Factors are market
+      // ratios against the type's default class (induction / single / wall).
+      const cfgFactor = APPLIANCE_CONFIG_FACTOR[sel.type]?.[sel.config ?? ''] ?? 1
+      lo *= cfgFactor
+      hi *= cfgFactor
       apLow += lo
       apHigh += hi
       const m = applianceMetaMap[sel.type]
@@ -831,8 +860,11 @@ export function computeBom(
         : state.finishing.plinthMaterial === 'black_recessed'
           ? 12
           : 9
-  let finLow = baseM * plinthRate * 0.9
-  let finHigh = baseM * plinthRate * 1.15
+  // Plinth height scales the plinth board: 100/120/150 mm are real choices with
+  // a real (small) cost difference — 120 mm is the reference.
+  const plinthHeightFactor = (state.finishing.plinthHeightMm || 120) / 120
+  let finLow = baseM * plinthRate * plinthHeightFactor * 0.9
+  let finHigh = baseM * plinthRate * plinthHeightFactor * 1.15
   if (state.finishing.corniceStyle !== 'none') {
     const corniceRate =
       state.finishing.corniceStyle === 'crown' ? 22 : state.finishing.corniceStyle === 'custom_match_door' ? 18 : 12
@@ -936,6 +968,7 @@ export function computeBom(
     { key: 'electrical', scopeKey: 'electricalWork', low: 600, high: 2200, en: 'Electrical work', hr: 'Elektroinstalacije' },
     { key: 'plumbing', scopeKey: 'plumbingRelocation', low: 500, high: 1800, en: 'Plumbing relocation', hr: 'Premještanje vodovoda' },
     { key: 'structural', scopeKey: 'structural', low: 1500, high: 6000, en: 'Structural work', hr: 'Građevinski radovi' },
+    { key: 'walls', scopeKey: 'walls', low: 300, high: 1200, en: 'Wall prep + paint', hr: 'Priprema i bojanje zidova' },
   ]
   for (const a of ALLOWANCE) {
     if (opts.scope?.[a.scopeKey] !== true) continue

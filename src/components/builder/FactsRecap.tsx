@@ -1,7 +1,7 @@
 'use client'
 
 import { Sparkles } from 'lucide-react'
-import { useTranslations } from '@/lib/i18n'
+import { useTranslations, tDynamic, type Locale } from '@/lib/i18n'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 
 /**
@@ -10,9 +10,9 @@ import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
  * before they start refining.
  */
 export function FactsRecap({ hypothesis }: { hypothesis: BuilderHypothesis | null }) {
-  const { t } = useTranslations()
+  const { t, locale } = useTranslations()
   if (!hypothesis) return null
-  const facts = collectFacts(hypothesis)
+  const facts = collectFacts(hypothesis, locale)
   if (facts.length === 0) return null
 
   return (
@@ -35,7 +35,7 @@ export function FactsRecap({ hypothesis }: { hypothesis: BuilderHypothesis | nul
   )
 }
 
-function collectFacts(h: BuilderHypothesis): string[] {
+function collectFacts(h: BuilderHypothesis, locale: Locale): string[] {
   const out: string[] = []
 
   // Layout summary — shape + total run length when high confidence.
@@ -79,9 +79,9 @@ function collectFacts(h: BuilderHypothesis): string[] {
   }
   if (appliances.length > 0) out.push(appliances.join(' + '))
 
-  if (h.features?.tallPantry?.present?.value) out.push('Tall pantry visible')
-  if (h.features?.corniceVisible?.value) out.push('Cornice visible')
-  if (h.features?.openShelving?.value) out.push('Open shelving')
+  if (h.features?.tallPantry?.present?.value) out.push(tDynamic('facts.tallPantry', locale))
+  if (h.features?.corniceVisible?.value) out.push(tDynamic('facts.cornice', locale))
+  if (h.features?.openShelving?.value) out.push(tDynamic('facts.openShelving', locale))
   if (h.features?.floorColorHint) out.push(h.features.floorColorHint)
 
   return out.slice(0, 5)

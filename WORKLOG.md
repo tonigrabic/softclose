@@ -848,3 +848,24 @@ pages. Immediate findings, all fixed the same hour:
 - Phantom island from a zero-size island object → fromVision guard + prompt rule.
 Vision + render (90 s) + layout lock worked on prod before the 413; full run to
 a persisted brief on prod is the next check after this deploy.
+
+### 2026-09-19 — Usefulness audit: every control must move something
+Static trace (each builder/funnel field → estimate / render / maker / wrap-up)
+plus a live click-through of every chip in mock mode. Findings and fixes:
+- Appliance variants (gas/induction/ceramic hob, single/double/combi oven,
+  wall/island/downdraft/recirculating/ceiling hood) changed nothing → per-type
+  config factors in bom (gas ×0.75, island hood ×1.7, double oven ×1.8 …).
+- Handle style (bar/knob/cup) all priced the same → style base × finish
+  multiplier. Tap finish (brass vs chrome) did nothing → finish multiplier.
+- Plinth height 100/120/150 did nothing → scales the plinth board.
+- Scope chip "Zidovi" was wired to nothing → 300–1,200 € wall prep/paint
+  allowance in the project section; chip relabelled.
+- RerenderPanel and FactsRecap had hardcoded English in the HR UI → i18n.
+- Confirmed working (no change needed): door style + decor (boards line moves,
+  render flagged), worktop family/decor/edge/thickness, backsplash kind (+height
+  only when a backsplash exists — already hidden for "none"), sink bowls/mount/
+  material, tap type, hinge/drawer tier, carcass material, lighting toggles,
+  cornice/end panels/open shelving, all other scope chips → allowances or line
+  drops. Door "family" chips are filters, not picks (by design).
+- Not wired anywhere and never asked: LeadProfile.priorities (invest/flex) —
+  still an open product question (LOOP Q2), left as is.

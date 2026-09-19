@@ -1,5 +1,7 @@
 'use client'
 
+import { useTranslations } from '@/lib/i18n'
+
 import { useEffect, useRef, useState } from 'react'
 import { Sparkles, RefreshCw, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -65,6 +67,7 @@ export function RerenderPanel({
   currentRenderDataUrl,
   onRendered,
 }: RerenderPanelProps) {
+  const { t, tDynamic } = useTranslations()
   // Baseline = the signature at the moment of the *last* render the user
   // accepted. Diff measures "since the render you're looking at," not "since
   // you opened the builder." Stored as state so re-renders settle correctly.
@@ -157,7 +160,9 @@ export function RerenderPanel({
       <div className="flex items-start gap-2">
         <Sparkles className="mt-0.5 size-3.5 shrink-0 text-amber-700 dark:text-amber-300" aria-hidden />
         <p className="text-[12px] leading-relaxed text-amber-900 dark:text-amber-100">
-          You changed: <span className="font-semibold">{changes.join(', ')}</span>. The render above doesn&apos;t reflect this yet.
+          {t('builder.rerender.changedPrefix')}{' '}
+          <span className="font-semibold">{changes.map((c) => tDynamic(`builder.rerender.change.${c.replace(/ /g, '_')}`)).join(', ')}</span>
+          {t('builder.rerender.changedSuffix')}
         </p>
       </div>
       <button
@@ -172,12 +177,12 @@ export function RerenderPanel({
         {isRendering ? (
           <>
             <span className="inline-block size-1.5 animate-pulse rounded-full bg-background/80" />
-            Re-rendering…
+            {t('builder.rerender.rendering')}
           </>
         ) : (
           <>
             <RefreshCw className="size-3 stroke-[2]" aria-hidden />
-            Re-render with these picks ({MAX_RERENDERS_PER_SESSION - renderCount} left)
+            {t('builder.rerender.button').replace('{n}', String(MAX_RERENDERS_PER_SESSION - renderCount))}
           </>
         )}
       </button>
