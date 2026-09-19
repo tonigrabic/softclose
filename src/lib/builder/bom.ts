@@ -709,12 +709,14 @@ export function computeBom(
     // domain estimates pending the maker's B2B pricelist (LOOP.md Q7).
     // These remain REFERENCE RRPs, not the maker's account price — a picked
     // model still overrides with its exact price at quote time.
+    // Re-grounded 2026-09-19 against REAL Elgrad shelf prices (ovens 225–599,
+    // dishwashers 399) merged into the catalog — see tests/class-band-grounding.
     const APPLIANCE_PRICE: Record<string, { low: number; high: number }> = {
       hob: { low: 280, high: 470 },
-      oven: { low: 340, high: 780 },
+      oven: { low: 230, high: 780 },
       extractor: { low: 150, high: 470 },
       fridge: { low: 600, high: 1150 },
-      dishwasher: { low: 420, high: 760 },
+      dishwasher: { low: 380, high: 760 },
       microwave: { low: 200, high: 380 },
       wine_fridge: { low: 750, high: 1200 },
       coffee: { low: 1100, high: 2000 },

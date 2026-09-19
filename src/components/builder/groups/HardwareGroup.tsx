@@ -124,10 +124,14 @@ function HardwareBrowsePanel({
   onPatch: (patch: Partial<BuilderState['hardware']>) => void
 }) {
   const { t } = useTranslations()
+  // Keywords cover both suppliers' naming: Schachermayer (Blum lines) and
+  // Elgrad (Grass/Hettich/generic Croatian trade names).
   const drawers = searchSchachermayer('hardware', {
-    anyKeyword: ['ladic', 'tandem', 'legrabox', 'movento', 'nova pro'],
+    anyKeyword: ['ladic', 'tandem', 'legrabox', 'movento', 'nova pro', 'vodilic', 'atira', 'actro', 'quadro'],
   })
-  const hinges = searchSchachermayer('hardware', { anyKeyword: ['šarka', 'sarka', 'hinge', 'clip'] })
+  const hinges = searchSchachermayer('hardware', {
+    anyKeyword: ['šarka', 'sarka', 'hinge', 'clip', 'šarnir', 'sarnir', 'spojnic'],
+  })
   if (drawers.length === 0 && hinges.length === 0) return null
 
   return (

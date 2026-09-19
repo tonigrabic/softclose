@@ -18,9 +18,9 @@ import { appliancesForType } from '@/lib/catalog/hardware'
 // loudly if a band drifts off the real catalog, which is the whole point).
 const APPLIANCE_PRICE: Record<string, { low: number; high: number }> = {
   hob: { low: 280, high: 470 },
-  oven: { low: 340, high: 780 },
+  oven: { low: 230, high: 780 },
   extractor: { low: 150, high: 470 },
-  dishwasher: { low: 420, high: 760 },
+  dishwasher: { low: 380, high: 760 },
   microwave: { low: 200, high: 380 },
 }
 

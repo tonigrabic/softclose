@@ -101,6 +101,20 @@ function ProductCard({
             </p>
           )}
         </div>
+        {product.priceEur != null && (
+          // Honesty tag: a real shelf price (with its date + supplier) must never
+          // look the same as our own reference estimate.
+          <p
+            className={cn(
+              'mt-0.5 text-[9px] font-medium tracking-wide',
+              product.priceBasis === 'retail_incl_vat' ? 'text-emerald-700 dark:text-emerald-300' : 'text-muted-foreground/60'
+            )}
+          >
+            {product.priceBasis === 'retail_incl_vat'
+              ? `${product.supplier === 'elgrad' ? 'Elgrad' : product.supplier ?? ''} · ${product.observedAt ?? ''}`.trim()
+              : 'procjena · ref. cijena'}
+          </p>
+        )}
       </div>
       <div className="flex items-center justify-between gap-2">
         {onPick && (

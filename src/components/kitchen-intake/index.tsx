@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react'
 import { JourneyNavRail, journeyPillLabel } from '@/components/JourneyNavRail'
@@ -34,6 +34,7 @@ import type { BuilderState } from '@/lib/builder/inventory'
 import type { UnitEdits } from '@/lib/builder/unit-assembly'
 import { derivePrefills } from '@/lib/derive-prefills'
 import { renderDerivedFloorPlan } from '@/lib/derive-layout'
+import { clearSnapshot, loadSnapshot, saveSnapshot, type StoredSnapshot } from '@/lib/session-store'
 import { DESIGNER_NAME } from '@/lib/system-prompt'
 import type { UploadedReference } from './ImageSelect'
 import type { FloorPlan } from '@/lib/floor-plan'
@@ -158,6 +159,163 @@ export function KitchenIntake() {
   const [hypothesisError, setHypothesisError] = useState<string | null>(null)
   // True once the user explicitly starts building without the AI suggestion.
   const [builderStartedNoAI, setBuilderStartedNoAI] = useState(false)
+
+  // ── Session persistence (AGENTS.md rule 7/8: reload must not wipe the journey).
+  // Everything `resetAll` clears is snapshotted to IndexedDB (debounced) and
+  // offered back on the next visit. Saving is held until the load attempt has
+  // settled, so the empty initial state can never clobber a stored journey.
+  type IntakeSnapshot = {
+    currentStepId: FlowStepId
+    profile: LeadProfile
+    transcript: ClientMessage[]
+    isDone: boolean
+    wrapUpData: WrapUpData | null
+    spacePhotos: string[]
+    spaceVision: SpaceVisionResult | null
+    floorPlan: FloorPlan | null
+    unitEdits: UnitEdits | null
+    inspirationStyles: string[]
+    inspirationRefs: UploadedReference[]
+    inspirationVision: InspirationVisionResult | null
+    conceptRenders: ConceptRender[]
+    chosenRenderId: string | null
+    productReferences: ProductReference[]
+    scopeSelected: string[]
+    siteAccess: string | null
+    livingPlan: string | null
+    contactDraft: ContactValue
+    mustHavesText: string
+    niceToHavesText: string
+    dealBreakersText: string
+    builderHypothesis: BuilderHypothesis | null
+    builderStartedNoAI: boolean
+  }
+  const [resumeOffer, setResumeOffer] = useState<StoredSnapshot<IntakeSnapshot> | null>(null)
+  const persistenceReady = useRef(false)
+
+  useEffect(() => {
+    let cancelled = false
+    void loadSnapshot<IntakeSnapshot>().then((rec) => {
+      if (cancelled) return
+      const d = rec?.data
+      const worthResuming =
+        d && (d.currentStepId !== 'space_photos' || Object.keys(d.profile ?? {}).length > 0 || d.spacePhotos?.length > 0)
+      if (worthResuming) setResumeOffer(rec)
+      else persistenceReady.current = true
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  function applySnapshot(d: IntakeSnapshot) {
+    setState({ currentStepId: d.currentStepId })
+    setProfile(d.profile ?? {})
+    setTranscript(d.transcript ?? [])
+    setIsDone(Boolean(d.isDone))
+    setWrapUpData(d.wrapUpData ?? null)
+    setSpacePhotos(d.spacePhotos ?? [])
+    setSpaceVision(d.spaceVision ?? null)
+    setFloorPlan(d.floorPlan ?? null)
+    setLayoutEditNonce((n) => n + 1)
+    setUnitEdits(d.unitEdits ?? null)
+    setInspirationStyles(d.inspirationStyles ?? [])
+    setInspirationRefs(d.inspirationRefs ?? [])
+    setInspirationVision(d.inspirationVision ?? null)
+    setConceptRenders(d.conceptRenders ?? [])
+    setChosenRenderId(d.chosenRenderId ?? null)
+    setProductReferences(d.productReferences ?? [])
+    setScopeSelected(d.scopeSelected ?? [])
+    setSiteAccess(d.siteAccess ?? null)
+    setLivingPlan(d.livingPlan ?? null)
+    setContactDraft(d.contactDraft ?? { name: '', contactType: 'email', contactValue: '' })
+    setMustHavesText(d.mustHavesText ?? '')
+    setNiceToHavesText(d.niceToHavesText ?? '')
+    setDealBreakersText(d.dealBreakersText ?? '')
+    setBuilderHypothesis(d.builderHypothesis ?? null)
+    setBuilderStartedNoAI(Boolean(d.builderStartedNoAI))
+  }
+
+  function resumeSession() {
+    if (resumeOffer) applySnapshot(resumeOffer.data)
+    setResumeOffer(null)
+    persistenceReady.current = true
+  }
+
+  function discardSavedSession() {
+    void clearSnapshot()
+    setResumeOffer(null)
+    persistenceReady.current = true
+  }
+
+  useEffect(() => {
+    if (!persistenceReady.current) return
+    const hasSomething =
+      state.currentStepId !== 'space_photos' || Object.keys(profile).length > 0 || spacePhotos.length > 0
+    if (!hasSomething) return
+    const snapshot: IntakeSnapshot = {
+      currentStepId: state.currentStepId,
+      profile,
+      transcript,
+      isDone,
+      wrapUpData,
+      spacePhotos,
+      spaceVision,
+      floorPlan,
+      unitEdits,
+      inspirationStyles,
+      inspirationRefs,
+      inspirationVision,
+      conceptRenders,
+      chosenRenderId,
+      productReferences,
+      scopeSelected,
+      siteAccess,
+      livingPlan,
+      contactDraft,
+      mustHavesText,
+      niceToHavesText,
+      dealBreakersText,
+      builderHypothesis,
+      builderStartedNoAI,
+    }
+    const t = setTimeout(() => void saveSnapshot(snapshot), 800)
+    return () => clearTimeout(t)
+  }, [
+    state.currentStepId, profile, transcript, isDone, wrapUpData, spacePhotos, spaceVision, floorPlan,
+    unitEdits, inspirationStyles, inspirationRefs, inspirationVision, conceptRenders, chosenRenderId,
+    productReferences, scopeSelected, siteAccess, livingPlan, contactDraft, mustHavesText,
+    niceToHavesText, dealBreakersText, builderHypothesis, builderStartedNoAI,
+  ])
+
+  const resumeBanner = resumeOffer ? (
+    <div
+      role="dialog"
+      aria-labelledby="resume-title"
+      className="mb-6 rounded-2xl border border-primary/30 bg-primary/5 p-4 text-left shadow-sm"
+    >
+      <p id="resume-title" className="text-sm font-semibold text-foreground">{tDynamic('resume.title', locale)}</p>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {tDynamic('resume.body', locale).replace('{when}', new Date(resumeOffer.savedAt).toLocaleString(locale))}
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={resumeSession}
+          className="rounded-full bg-primary px-4 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+        >
+          {tDynamic('resume.continue', locale)}
+        </button>
+        <button
+          type="button"
+          onClick={discardSavedSession}
+          className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold text-foreground transition-colors hover:bg-accent/40"
+        >
+          {tDynamic('resume.restart', locale)}
+        </button>
+      </div>
+    </div>
+  ) : null
 
   /** Patch the central LeadProfile (replace strategy at top-level keys). */
   function patchProfile(patch: Partial<LeadProfile>) {
@@ -411,6 +569,7 @@ export function KitchenIntake() {
   }
 
   function resetAll() {
+    void clearSnapshot()
     setState({ currentStepId: 'space_photos' })
     setProfile({})
     setTranscript([])
@@ -680,6 +839,7 @@ export function KitchenIntake() {
         </>
       }
     >
+          {resumeBanner}
           <AnimatePresence mode="wait">
             <motion.section
               key={state.currentStepId}
