@@ -869,3 +869,20 @@ plus a live click-through of every chip in mock mode. Findings and fixes:
   drops. Door "family" chips are filters, not picks (by design).
 - Not wired anywhere and never asked: LeadProfile.priorities (invest/flex) —
   still an open product question (LOOP Q2), left as is.
+
+### 2026-09-19 — Next-step trio shipped
+- **Hardware tiers from real prices**: runner sets / hinges / knobs / bars cut
+  from the Elgrad distribution (budget p10–p25, mid p40–p60, premium p75–p90,
+  each tier ≤ ±20% of its midpoint). Budget runners are 12–31 € in reality, not
+  the 21–26 € we had guessed; bars ≈5 € not 8. Side effect: fixtures' total
+  band settled at ±17% (was ±13%) because the over-priced hardware line had
+  been padding it — band-invariant cap returned to the ±20 promise, reasoning
+  in the test header.
+- **Media → Supabase Storage**: private bucket softclose-media; handoff offloads
+  every data URL (dedup by content) to briefs/<id>/NNN.jpg, row keeps
+  storage:// refs (471 KB request → 1 KB row + 1 object in the probe); maker
+  page signs URLs for 1 h. Homeowner JSON download keeps inline images.
+- **Maker email (Resend)**: subject "Novi sažetak kuhinje — {name} · {range}",
+  link to /maker/<id>; dormant until RESEND_API_KEY + MAKER_NOTIFY_EMAIL exist
+  (local + Vercel). maker_notified_at stamped when sent.
+- Vision summary now returned in the homeowner's language (locale passed).
