@@ -32,7 +32,7 @@ export function dbEnabled(): boolean {
   return supabaseAdmin() !== null
 }
 
-/** Table names live in one place so a move to a dedicated project is a one-line rename. */
+/** Table names live in one place (dedicated Supabase project "softclose", ref elowaiqwadmazwchzaft). */
 export const TABLES = {
   sessions: 'softclose_sessions',
   briefs: 'softclose_briefs',

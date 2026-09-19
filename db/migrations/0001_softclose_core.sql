@@ -1,12 +1,12 @@
 -- softclose — core tables (v1, 2026-09-19)
 --
--- Lives in the shared "eksakt" Supabase project for now, so every object is
--- prefixed softclose_ and RLS is ON with NO policies: only the service role
+-- Supabase project "softclose" (ref elowaiqwadmazwchzaft, eu-west-1). Objects
+-- keep the softclose_ prefix; RLS is ON with NO policies: only the service role
 -- (server-side API routes) can read or write. Nothing here is reachable from
--- the browser with the anon key. Moving to a dedicated project later is a
--- dump/restore of these four tables.
+-- the browser with the anon/publishable key.
 --
--- Apply:  supabase --workdir <linked project dir> db query --linked -f db/migrations/0001_softclose_core.sql
+-- Apply (repo is linked via `supabase link --project-ref elowaiqwadmazwchzaft`):
+--   supabase db query --linked -f db/migrations/0001_softclose_core.sql
 
 create extension if not exists pgcrypto;
 

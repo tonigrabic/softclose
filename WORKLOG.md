@@ -778,9 +778,12 @@ Rule change (Toni): Claude now runs the dev server and clicks through itself; ev
   present since be6f11f 2026-06-04. New import-graph guard test. Swatch 404s gone.
 - **Deployed**: main merged + pushed → Vercel production (Vercel Authentication on;
   OPENAI_API_KEY on Vercel still unverified — needs a Vercel token or Toni).
-- **Supabase (reusing the eksakt project, softclose_-prefixed tables, RLS on, no
-  policies → service role only)**: sessions, briefs, products, price_history.
-  Migrations in db/migrations/, applied with `supabase db query --linked`.
+- **Supabase**: first built in the shared eksakt project, then (same day) Toni
+  created a dedicated `softclose` project (ref elowaiqwadmazwchzaft); migrations
+  re-applied there, repo linked (`supabase link`, no DB password needed for
+  `db query`). softclose_-prefixed tables, RLS on, no policies → service role
+  only: sessions, briefs, products, price_history. Migrations in db/migrations/.
+  The four scratch tables left in eksakt can be dropped.
 - **Two-sided for real**: handoff persists the bundle → `/maker/[id]` renders the
   saved brief (stamps viewed). Wrap-up gains "Što slijedi" + maker link; honest
   "not saved" copy when no DB. Single-flight guard (was 2 briefs per submit).
