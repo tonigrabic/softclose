@@ -793,3 +793,28 @@ Rule change (Toni): Claude now runs the dev server and clicks through itself; ev
   Schachermayer confirmed login-walled.
 - Gate: 139 tests · tsc · eslint green. Open: session resume, Storage for photos
   (bundle ≈ 0.5 MB/brief as base64), BOM reading DB prices, maker email notify.
+
+### 2026-09-19 — First REAL-model end-to-end run (not mock) — findings + fixes
+Anchor: public/sample-renders/matte-black-l-kitchen.jpg (a photoreal render of an
+L-kitchen; a true homeowner photo is still owed). Every AI seam ran live:
+space-vision ~20s, gpt-image-2 render ~75s (copy said 20–40s → now "1–2 min"),
+builder-hypothesis (gpt-5.4), translate-wishlist, summarize-brief, handoff → row
+in Supabase → /maker/<id> rendered. Three real problems found and fixed:
+1. **Phantom walls → U-shape.** Vision labelled `l_shape` but listed wallRuns on
+   all four walls; fromVision trusted the list, deriveShape made a U, 36 units,
+   estimate 11–18k for an L kitchen. Fix: `reconcileCounterWalls` (model.ts) —
+   the shape label bounds the wall count, walls ranked by feature evidence +
+   span; plus wall-discipline rules in the space-vision prompt. Two live re-runs
+   of the same photo now return exactly two walls with the sink on the window
+   wall. tests/vision-wall-reconcile (6 cases).
+2. **±22% displayed at builder entry** (all fields L on a big read) — beyond the
+   ±20% promise the fixture gate can't see. Fix: `capBand` narrows works toward
+   the midpoint at 40% width and flags `bandCapped`; total = capped works +
+   goods + project. tests/band-cap.
+3. **summarize-brief 500, unlogged.** Direct replay of the same brief WITHOUT
+   renders passed; the live payload carried each render's `inputs` manifest
+   (anchor/refs/previous render as base64 — MB of it) past the shallow strip.
+   Fix: deep `stripDataUrls`; both failure branches now console.error.
+Also noted, not yet fixed: vision `summary` comes back in English in the HR UI;
+5/6 API routes log nothing on failure; dims vary run to run (320×240 / 360×260 /
+420×260) — the "confirm layout" step is doing real work.

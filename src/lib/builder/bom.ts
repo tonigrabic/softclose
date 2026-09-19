@@ -117,6 +117,8 @@ export interface BomEstimate {
       low: number
       high: number
       bandWidthPct: number
+      /** True when the raw line spreads exceeded the ±20% promise and the range was narrowed to it. */
+      bandCapped: boolean
       /** Material + make + install — sums to the works range. */
       breakdown: Record<'material' | 'make' | 'install', { low: number; high: number }>
     }
@@ -229,6 +231,25 @@ function widenByConfidence(low: number, high: number, missingSource: boolean): {
 const CONFIDENCE_RANK: Record<'H' | 'M' | 'L', number> = { H: 0, M: 1, L: 2 }
 /** Half-width multiplier by worst confidence: H tightens hard, M a little,
  * L keeps the full legacy spread. Midpoint-preserving. */
+/** Displayed ±20% ⇒ full band width 40% of the midpoint. */
+export const MAX_WORKS_BAND_WIDTH_PCT = 40
+
+/**
+ * Narrow a range symmetrically toward its midpoint so its full width is at most
+ * `maxWidthPct` of that midpoint. Returns whether narrowing happened.
+ */
+export function capBand(
+  r: { low: number; high: number },
+  maxWidthPct: number
+): { range: { low: number; high: number }; capped: boolean } {
+  const mid = (r.low + r.high) / 2
+  if (mid <= 0) return { range: r, capped: false }
+  const widthPct = ((r.high - r.low) / mid) * 100
+  if (widthPct <= maxWidthPct) return { range: r, capped: false }
+  const half = (mid * maxWidthPct) / 200
+  return { range: { low: mid - half, high: mid + half }, capped: true }
+}
+
 const CONFIDENCE_HALF_WIDTH = [0.6, 0.85, 1] as const
 
 function effectiveConfidence(m: FieldMeta | undefined): 'H' | 'M' | 'L' {
@@ -930,15 +951,10 @@ export function computeBom(
   // homeowner supplies appliances). Default (no scope yet) keeps everything.
   const visibleLines = lineItems.filter((l) => lineInScope(l.key, opts.scope))
 
-  const total = visibleLines.reduce(
-    (acc, l) => ({ low: acc.low + l.low, high: acc.high + l.high }),
-    { low: 0, high: 0 }
-  )
   // Band width relative to the MIDPOINT, so displayed ±(bandWidthPct/2) reads
   // symmetrically; dividing by `low` overstated the band by ~3 points.
   const bandPct = (r: { low: number; high: number }) =>
     r.low + r.high > 0 ? Math.round(((r.high - r.low) / ((r.low + r.high) / 2)) * 100) : 0
-  const bandWidthPct = bandPct(total)
 
   // Homeowner-facing split: the kitchen (works) stays a range — the ±20%
   // promise applies to it; the goods (appliances, sink + tap) ride alongside
@@ -947,7 +963,13 @@ export function computeBom(
     visibleLines
       .filter(pred)
       .reduce((acc, l) => ({ low: acc.low + l.low, high: acc.high + l.high }), { low: 0, high: 0 })
-  const works = sumWhere((l) => l.section === 'works')
+  const worksRaw = sumWhere((l) => l.section === 'works')
+  // The ±20% promise is a product rule (foundations #6, LOOP B1): the kitchen
+  // range never DISPLAYS wider than ±20%, whatever the line spreads sum to. A
+  // real-path run (2026-09-19, 36-unit U read with every field at L) reached
+  // ±22%, which the fixture gate could not see. Narrow symmetrically toward the
+  // midpoint and flag it, so the maker dashboard can still say "capped".
+  const { range: works, capped: worksBandCapped } = capBand(worksRaw, MAX_WORKS_BAND_WIDTH_PCT)
   const goods = sumWhere((l) => l.section === 'goods')
   const project = sumWhere((l) => l.section === 'project')
   const goodsLines = visibleLines.filter((l) => l.section === 'goods')
@@ -955,6 +977,14 @@ export function computeBom(
     const s = sumWhere((l) => l.worksKind === k)
     return { low: round(s.low), high: round(s.high) }
   }
+
+  // Total = (capped) works + goods + project, so the all-in figure agrees with
+  // the headline it sits under.
+  const total = {
+    low: works.low + goods.low + project.low,
+    high: works.high + goods.high + project.high,
+  }
+  const bandWidthPct = bandPct(total)
 
   return {
     lineItems: visibleLines,
@@ -965,6 +995,7 @@ export function computeBom(
         low: round(works.low),
         high: round(works.high),
         bandWidthPct: bandPct(works),
+        bandCapped: worksBandCapped,
         breakdown: { material: kind('material'), make: kind('make'), install: kind('install') },
       },
       goods: {

@@ -619,7 +619,7 @@ export const hrHR = {
   'concept.badge': 'AI koncept',
   'concept.chosen': 'Odabrano',
   'concept.iteration': 'Iteracija:',
-  'concept.rendering': 'Renderiram tvoj koncept (može potrajati 20–40s)…',
+  'concept.rendering': 'Renderiram tvoj koncept (obično 1–2 minute)…',
   'concept.generate': 'Generiraj koncept render',
   'concept.generateHint': 'Usidreno na fotografiju prostora + tvoj odabir stila',
   'concept.sending': 'Što šaljemo rendereru',

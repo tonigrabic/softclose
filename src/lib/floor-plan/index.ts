@@ -54,6 +54,7 @@ export {
   counterSegmentsForWall,
   DEFAULT_COUNTER_DEPTH_CM,
   COUNTER_DEPTH_OPTIONS_CM,
+  reconcileCounterWalls,
 } from './model'
 
 export { renderFloorPlanSvg } from './svg'

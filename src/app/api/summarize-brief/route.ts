@@ -91,34 +91,44 @@ export async function POST(req: Request) {
 
     const toolCall = result.toolCalls[0]
     if (!toolCall) {
+      // Seen once in a real run (2026-09-19) with nothing in the server log —
+      // log the model's text so the next occurrence is diagnosable.
+      console.error('[summarize-brief] no tool call; finishReason=%s text=%s', result.finishReason, result.text.slice(0, 300))
       return Response.json({ error: 'No structured result returned' }, { status: 500 })
     }
     return Response.json({ result: toolCall.input })
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Summarise call failed'
+    console.error('[summarize-brief] failed:', message)
     return Response.json({ error: message }, { status: 500 })
   }
 }
 
 /**
- * Strip noisy / heavy fields (raw photo data URLs, base64 renders) before
- * shipping the profile to the model. Keeps context tight and fast.
+ * Strip noisy / heavy fields before shipping the profile to the model.
+ *
+ * Not just `spacePhotos` and `conceptRenders[].imageDataUrl`: every render also
+ * carries an `inputs` manifest (anchor photo, style refs, previous render) as
+ * base64 data URLs — several MB that the old shallow strip let through. That is
+ * the most likely cause of the intermittent 500 seen on the real path
+ * (2026-09-19). Walk the whole object and replace any data: URL string.
  */
 function slimProfile(p: LeadProfile): Partial<LeadProfile> {
-  const { spacePhotos, conceptRenders, ...rest } = p
-  return {
-    ...rest,
-    // Replace heavy fields with simple presence flags.
-    ...(spacePhotos && spacePhotos.length > 0
-      ? { spacePhotos: [`<<${spacePhotos.length} photos attached>>`] }
-      : {}),
-    ...(conceptRenders && conceptRenders.length > 0
-      ? {
-          conceptRenders: conceptRenders.map((r) => ({
-            ...r,
-            imageDataUrl: '<<image omitted>>',
-          })),
-        }
-      : {}),
-  } as Partial<LeadProfile>
+  const { spacePhotos, ...rest } = p
+  const slim = stripDataUrls(rest) as Partial<LeadProfile>
+  if (spacePhotos && spacePhotos.length > 0) {
+    slim.spacePhotos = [`<<${spacePhotos.length} photos attached>>`]
+  }
+  return slim
+}
+
+function stripDataUrls(value: unknown): unknown {
+  if (typeof value === 'string') return value.startsWith('data:') ? '<<image omitted>>' : value
+  if (Array.isArray(value)) return value.map(stripDataUrls)
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = stripDataUrls(v)
+    return out
+  }
+  return value
 }

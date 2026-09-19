@@ -284,6 +284,47 @@ export function defaultHasCounter(wall: WallSide, layoutShape: LayoutShape): boo
 /** The four walls, in a stable order. */
 const ALL_WALLS: WallSide[] = ['top', 'bottom', 'left', 'right']
 
+/**
+ * Which walls actually carry counter, reconciling the vision's `wallRuns` with
+ * its own `layoutShape` label.
+ *
+ * Real-run finding (2026-09-19): from one photo of an L-shaped kitchen the
+ * model labelled `l_shape` but listed runs on all FOUR walls; `fromVision`
+ * trusted the list, `deriveShape` turned it into a U with 36 cabinets and the
+ * estimate inflated by ~60%. The label is the model's considered answer; the
+ * run list over-reads perspective. So when the list implies MORE walls than the
+ * shape allows, keep only the walls the shape admits, ranked by evidence
+ * (features placed on the wall, weighted by confidence, plus how much of the
+ * wall the run spans). Fewer walls than the shape suggests are left alone —
+ * never invent a run the model did not see. Ambiguous shapes (peninsula,
+ * island, open, unsure) are never trimmed.
+ */
+export function reconcileCounterWalls(vision: SpaceVisionResult): WallSide[] {
+  const runs = vision.wallRuns ?? []
+  const listed = ALL_WALLS.filter((w) => runs.some((r) => r.wall === w))
+  const shape = (vision.layoutShape as LayoutShape | undefined) ?? 'unsure'
+  const limit = shape === 'l_shape' || shape === 'galley' ? 2 : shape === 'u_shape' ? 3 : Infinity
+  if (listed.length <= limit) return listed
+
+  const CONF_WEIGHT: Record<ConfidenceLevel, number> = { H: 3, M: 2, L: 1 }
+  const score = (w: WallSide): number => {
+    let s = 0
+    const f = vision.features
+    for (const pos of [f?.sink, f?.hob, f?.fridge, f?.dishwasher, f?.oven, f?.hood]) {
+      if (pos?.wall === w) s += CONF_WEIGHT[pos.confidence] ?? 1
+    }
+    for (const r of runs) {
+      if (r.wall === w) s += (2 * Math.max(0, (r.spanPct?.end ?? 100) - (r.spanPct?.start ?? 0))) / 100
+    }
+    return s
+  }
+  const ranked = [...listed].sort((a, b) => score(b) - score(a))
+  const first = ranked[0]
+  if (shape === 'u_shape') return ranked.slice(0, 3)
+  const partner = ranked.slice(1).find((w) => (shape === 'l_shape' ? wallsAdjacent(first, w) : !wallsAdjacent(first, w)))
+  return partner ? [first, partner] : [first]
+}
+
 /** Two walls are adjacent (share a corner) when one is horizontal, one vertical. */
 function wallsAdjacent(a: WallSide, b: WallSide): boolean {
   const horizontal = (w: WallSide) => w === 'top' || w === 'bottom'
@@ -581,7 +622,7 @@ export function fromVision(
   // (rather than the old layout-shape default) is what lets `deriveShape` read
   // the layout back without circularity.
   const visionCounterWalls = vision?.wallRuns?.length
-    ? new Set<WallSide>(vision.wallRuns.map((r) => r.wall))
+    ? new Set<WallSide>(reconcileCounterWalls(vision))
     : null
   const counterWalls: WallSide[] = []
   for (const w of ALL_WALLS) {

@@ -604,7 +604,7 @@ export const enUS: Record<TranslationKey, string> = {
   'concept.badge': 'AI Concept',
   'concept.chosen': 'Chosen',
   'concept.iteration': 'Iteration:',
-  'concept.rendering': 'Rendering your concept (this can take 20–40s)…',
+  'concept.rendering': 'Rendering your concept (usually 1–2 minutes)…',
   'concept.generate': 'Generate concept render',
   'concept.generateHint': 'Anchored to your space photo + your style picks',
   'concept.sending': "What we're sending the renderer",
