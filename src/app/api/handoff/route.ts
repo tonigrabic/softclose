@@ -2,6 +2,7 @@ import { hasPlan, planFromProfile, renderFloorPlanSvg, validate } from '@/lib/fl
 import { buildStubEstimate } from '@/lib/stub-estimate'
 import { computeBom } from '@/lib/builder/bom'
 import { makerPricingEntryCount } from '@/lib/catalog/maker-pricing'
+import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import type { BuilderState } from '@/lib/builder/inventory'
 import type {
   ClientMessage,
@@ -14,6 +15,10 @@ import type {
 
 interface HandoffRequest {
   brief?: LeadProfile
+  /** Active UI locale, stored with the brief so the maker sees the homeowner's language. */
+  locale?: string
+  /** false = build the bundle but do not store it (previews, tests). */
+  persist?: boolean
   moodBoard?: MoodBoardItem[]
   explorationRefs?: { url: string; prompt: string; reaction?: string }[]
   transcript?: ClientMessage[]
@@ -93,6 +98,49 @@ export async function POST(req: Request) {
       estimate,
       transcript,
       generatedAt: new Date().toISOString(),
+    }
+
+    // Persist the artifact so the maker can actually receive it. Failure here
+    // must not cost the homeowner their summary: log, and return the bundle
+    // without briefId — the wrap-up copy then says it was NOT saved.
+    const db = supabaseAdmin()
+    if (db && body.persist !== false) {
+      try {
+        const { data: session, error: sErr } = await db
+          .from(TABLES.sessions)
+          .insert({
+            locale: body.locale ?? null,
+            step: 'contact',
+            status: 'submitted',
+            profile: brief,
+            submitted_at: new Date().toISOString(),
+          })
+          .select('id')
+          .single()
+        if (sErr) throw sErr
+        const { data: row, error: bErr } = await db
+          .from(TABLES.briefs)
+          .insert({
+            session_id: session.id,
+            locale: body.locale ?? null,
+            contact_name: brief.name ?? null,
+            contact_type: brief.contactValue?.includes('@') ? 'email' : brief.contactValue ? 'phone' : null,
+            contact_value: brief.contactValue ?? null,
+            estimate_low: estimate?.low ?? null,
+            estimate_high: estimate?.high ?? null,
+            estimate_all_in_low: estimate?.withAppliances?.low ?? null,
+            estimate_all_in_high: estimate?.withAppliances?.high ?? null,
+            band_pct: estimate?.bandPct ?? null,
+            bundle,
+          })
+          .select('id')
+          .single()
+        if (bErr) throw bErr
+        bundle.briefId = row.id as string
+        bundle.makerPath = `/maker/${row.id}`
+      } catch (persistErr) {
+        console.error('[handoff] persist failed', persistErr)
+      }
     }
     return Response.json(bundle)
   } catch (err) {

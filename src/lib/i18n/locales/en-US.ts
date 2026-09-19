@@ -449,6 +449,12 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.actions.download': 'Download brief (JSON)',
   'wrapup.actions.preparing': 'Preparing…',
   'wrapup.actions.makerDemo': 'Demo: see what the maker sees',
+  'wrapup.next.title': 'What happens next',
+  'wrapup.next.saved': 'Your brief is saved. Your designer can open it right now — nothing more for you to do.',
+  'wrapup.next.contact': 'The designer reviews your plan and range and gets back to you at {contact}.',
+  'wrapup.next.ref': 'Brief reference: {id}',
+  'wrapup.next.unsaved': 'This brief was not saved to a server (no database configured here). Download the JSON below and send it yourself.',
+  'wrapup.actions.openMaker': 'Open the maker view (saved brief)',
   'wrapup.yes': 'Yes',
   'wrapup.no': 'No',
 

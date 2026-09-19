@@ -464,6 +464,12 @@ export const hrHR = {
   'wrapup.actions.download': 'Preuzmi sažetak (JSON)',
   'wrapup.actions.preparing': 'Pripremam…',
   'wrapup.actions.makerDemo': 'Demo: pogledaj što vidi izrađivač',
+  'wrapup.next.title': 'Što slijedi',
+  'wrapup.next.saved': 'Tvoj sažetak je spremljen. Dizajner ga može otvoriti odmah — ti više ne moraš ništa.',
+  'wrapup.next.contact': 'Dizajner pregledava tvoj plan i raspon te ti se javlja na {contact}.',
+  'wrapup.next.ref': 'Oznaka sažetka: {id}',
+  'wrapup.next.unsaved': 'Ovaj sažetak nije spremljen na poslužitelj (ovdje nema baze). Preuzmi JSON ispod i pošalji ga sam.',
+  'wrapup.actions.openMaker': 'Otvori pogled izrađivača (spremljeni sažetak)',
   'wrapup.yes': 'Da',
   'wrapup.no': 'Ne',
 

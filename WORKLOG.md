@@ -769,3 +769,24 @@ seed but never the tally (second parity hole).
   every specifics pick — doors, worktop decor, hardware, sink/taps, lighting,
   finishing, carcass, renders — survives.
 - Gate: 131 tests · tsc · eslint · build green. New: tests/relock (5 cases).
+
+### 2026-09-19 — Revival: browser-verified, deployed, persisted
+Rule change (Toni): Claude now runs the dev server and clicks through itself; every
+"done" below was driven in the browser, not inferred from tests.
+- **Found + fixed the reason nothing ever worked end to end**: /api/handoff 500 on
+  the last step (server route importing the 'use client' i18n module via bom.ts),
+  present since be6f11f 2026-06-04. New import-graph guard test. Swatch 404s gone.
+- **Deployed**: main merged + pushed → Vercel production (Vercel Authentication on;
+  OPENAI_API_KEY on Vercel still unverified — needs a Vercel token or Toni).
+- **Supabase (reusing the eksakt project, softclose_-prefixed tables, RLS on, no
+  policies → service role only)**: sessions, briefs, products, price_history.
+  Migrations in db/migrations/, applied with `supabase db query --linked`.
+- **Two-sided for real**: handoff persists the bundle → `/maker/[id]` renders the
+  saved brief (stamps viewed). Wrap-up gains "Što slijedi" + maker link; honest
+  "not saved" copy when no DB. Single-flight guard (was 2 briefs per submit).
+- **Prices**: Elgrad VPC 2026-09-09 parsed + curated refreshed (178/206 rows up).
+  Elgrad webshop scraped into softclose_products: 2,335 SKUs with retail prices
+  (2,238 hardware, 97 appliances) via scripts/scrape-elgrad-webshop.mjs.
+  Schachermayer confirmed login-walled.
+- Gate: 139 tests · tsc · eslint green. Open: session resume, Storage for photos
+  (bundle ≈ 0.5 MB/brief as base64), BOM reading DB prices, maker email notify.

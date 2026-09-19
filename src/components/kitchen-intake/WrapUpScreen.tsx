@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Download, ExternalLink, Sparkles, AlertCircle } from 'lucide-react'
 import type {
@@ -60,14 +60,19 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
 
   // Wrap-up renders after the flow completes, so the bundle inputs are frozen —
   // loadBundle captures them once (deps []) and is reused for the manual retry.
+  // Single-flight: the mount effect double-fires under React StrictMode (dev),
+  // which persisted TWO briefs per submit. The ref makes a retry explicit.
+  const inflight = useRef(false)
   const loadBundle = useCallback(async () => {
+    if (inflight.current) return
+    inflight.current = true
     setIsLoadingBundle(true)
     setBundleError(null)
     try {
       const res = await fetch('/api/handoff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brief: profile, moodBoard, explorationRefs, transcript }),
+        body: JSON.stringify({ brief: profile, moodBoard, explorationRefs, transcript, locale }),
       })
       if (!res.ok) throw new Error(`Bundle build failed (${res.status})`)
       const data = (await res.json()) as HandoffBundle
@@ -75,6 +80,7 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
     } catch (err) {
       setBundleError(err instanceof Error ? err.message : 'Could not assemble brief')
     } finally {
+      inflight.current = false
       setIsLoadingBundle(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -192,6 +198,29 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
           <p className="text-sm text-muted-foreground">{t('wrapup.estimate.unavailable')}</p>
         )}
       </section>
+
+      {/* What happens next — status visibility is a P0 (AGENTS.md rule 8).
+          Honest about persistence: only claims "saved" when the server said so. */}
+      {!isLoadingBundle && bundle && (
+        <section className="rounded-2xl border border-border bg-card p-5 text-left shadow-sm">
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {t('wrapup.next.title')}
+          </p>
+          {bundle.briefId ? (
+            <ul className="space-y-1.5 text-sm text-foreground/85">
+              <li>{t('wrapup.next.saved')}</li>
+              {profile.contactValue && (
+                <li>{t('wrapup.next.contact').replace('{contact}', profile.contactValue)}</li>
+              )}
+              <li className="font-mono text-[11px] text-muted-foreground">
+                {t('wrapup.next.ref').replace('{id}', bundle.briefId.slice(0, 8))}
+              </li>
+            </ul>
+          ) : (
+            <p className="text-sm text-amber-800 dark:text-amber-200">{t('wrapup.next.unsaved')}</p>
+          )}
+        </section>
+      )}
 
       {/* Chosen concept render */}
       {chosenRender && (
@@ -462,6 +491,18 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
               {t('common.retry')}
             </button>
           </div>
+        )}
+
+        {bundle?.makerPath && (
+          <a
+            href={bundle.makerPath}
+            target="_blank"
+            rel="noreferrer"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-accent/40"
+          >
+            <ExternalLink className="size-4 stroke-[1.75]" aria-hidden />
+            {t('wrapup.actions.openMaker')}
+          </a>
         )}
 
         {/* Demo-only link to the maker dashboard preview. Production removes this. */}

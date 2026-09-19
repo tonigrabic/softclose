@@ -1,0 +1,41 @@
+/**
+ * Server-only Supabase admin client.
+ *
+ * Uses the service-role key, so this module must NEVER be imported from a
+ * client component (tests/server-client-boundary guards the other direction;
+ * the env var has no NEXT_PUBLIC_ prefix so the bundler can't leak it).
+ *
+ * Returns null when the env is missing so every caller degrades to the
+ * pre-database behaviour (in-memory bundle, JSON download) instead of 500ing —
+ * the funnel must keep working on a laptop with no DB configured.
+ */
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+
+let cached: SupabaseClient | null | undefined
+
+export function supabaseAdmin(): SupabaseClient | null {
+  if (cached !== undefined) return cached
+  const url = process.env.SUPABASE_URL
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !key) {
+    cached = null
+    return cached
+  }
+  cached = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { 'x-application-name': 'softclose' } },
+  })
+  return cached
+}
+
+export function dbEnabled(): boolean {
+  return supabaseAdmin() !== null
+}
+
+/** Table names live in one place so a move to a dedicated project is a one-line rename. */
+export const TABLES = {
+  sessions: 'softclose_sessions',
+  briefs: 'softclose_briefs',
+  products: 'softclose_products',
+  priceHistory: 'softclose_price_history',
+} as const

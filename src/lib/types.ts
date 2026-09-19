@@ -437,4 +437,11 @@ export interface HandoffBundle {
   estimate: StubEstimate | null
   transcript: ClientMessage[]
   generatedAt: string
+  /**
+   * Set when the brief was persisted (Supabase configured): the row id and the
+   * maker-facing path (`/maker/<id>`). Absent in DB-less dev — the wrap-up then
+   * says so and offers the JSON download instead of pretending it was sent.
+   */
+  briefId?: string
+  makerPath?: string
 }

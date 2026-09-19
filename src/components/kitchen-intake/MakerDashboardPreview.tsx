@@ -11,7 +11,8 @@ type Confidence = 'H' | 'M' | 'L' | null
 
 interface MakerDashboardPreviewProps {
   bundle: HandoffBundle
-  onBack: () => void
+  /** Present only in the in-funnel demo; the real /maker/[id] page passes nothing and gets no DEMO banner. */
+  onBack?: () => void
 }
 
 // EUR everywhere (AGENTS.md): the maker sees the same currency as the
@@ -109,18 +110,20 @@ export function MakerDashboardPreview({ bundle, onBack }: MakerDashboardPreviewP
 
   return (
     <div className="-mx-5 mt-2 flex min-h-[80dvh] flex-col bg-slate-100 text-slate-900 sm:-mx-8">
-      {/* Demo banner */}
-      <div className="border-b border-amber-300 bg-amber-100 px-4 py-2 text-center text-[11px] font-semibold text-amber-900">
-        DEMO — this is the maker view of the same brief. The homeowner does not see this surface.
-        <button
-          type="button"
-          onClick={onBack}
-          className="ml-3 inline-flex items-center gap-1 rounded border border-amber-400 bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-900 hover:bg-amber-300"
-        >
-          <ArrowLeft className="size-3 stroke-[2]" aria-hidden />
-          Back to homeowner view
-        </button>
-      </div>
+      {/* Demo banner — only when embedded in the homeowner funnel */}
+      {onBack && (
+        <div className="border-b border-amber-300 bg-amber-100 px-4 py-2 text-center text-[11px] font-semibold text-amber-900">
+          DEMO — this is the maker view of the same brief. The homeowner does not see this surface.
+          <button
+            type="button"
+            onClick={onBack}
+            className="ml-3 inline-flex items-center gap-1 rounded border border-amber-400 bg-amber-200 px-2 py-0.5 text-[10px] font-bold text-amber-900 hover:bg-amber-300"
+          >
+            <ArrowLeft className="size-3 stroke-[2]" aria-hidden />
+            Back to homeowner view
+          </button>
+        </div>
+      )}
 
       {/* App-like header */}
       <header className="border-b border-slate-300 bg-white px-5 py-4 shadow-sm">
