@@ -834,3 +834,17 @@ Also noted, not yet fixed: vision `summary` comes back in English in the HR UI;
   hardware/handle bands still use hand-set tier RRPs (Elgrad bands exist in the
   JSON — wire next), and prices refresh only when the scrape + build scripts run.
 - **Session resume**: IndexedDB snapshot + banner; verified reload at confirm step.
+
+### 2026-09-19 — First run on PRODUCTION (bypass secret from Toni)
+Toni generated a Protection Bypass secret → Claude can finally load deployed
+pages. Immediate findings, all fixed the same hour:
+- OPENAI_API_KEY on Vercel existed but was EMPTY → every AI call on the live
+  site had always failed ("Incorrect API key provided: ''" shown raw to the
+  homeowner). Set from .env.local via REST, redeployed; vision on prod: 6 s, L-shape.
+- Raw provider errors reached the UI → lib/api/errors.ts, all 6 AI routes.
+- /api/builder-hypothesis → 413 (Vercel 4.5 MB body cap: photo + PNG render as
+  base64). lib/image.ts compresses every image at entry; renders stored as JPEG.
+- `Unexpected token 'R'` from res.json() on a text 413 → lib/api/client.ts readJson.
+- Phantom island from a zero-size island object → fromVision guard + prompt rule.
+Vision + render (90 s) + layout lock worked on prod before the 413; full run to
+a persisted brief on prod is the next check after this deploy.
