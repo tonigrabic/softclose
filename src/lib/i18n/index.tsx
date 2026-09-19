@@ -13,32 +13,13 @@
 'use client'
 
 import { createContext, useContext, useSyncExternalStore } from 'react'
-import { hrHR, type TranslationKey } from './locales/hr-HR'
-import { enUS } from './locales/en-US'
+import { DEFAULT_LOCALE, isLocale, t, tDynamic, type Locale, type TranslationKey } from './core'
 
-export type Locale = 'hr-HR' | 'en-US'
-
-export const DEFAULT_LOCALE: Locale = 'hr-HR'
-export const SUPPORTED_LOCALES: Locale[] = ['hr-HR', 'en-US']
-
-const DICTS: Record<Locale, Record<TranslationKey, string>> = {
-  'hr-HR': hrHR,
-  'en-US': enUS,
-}
-
-export function t(key: TranslationKey, locale: Locale = DEFAULT_LOCALE): string {
-  return DICTS[locale]?.[key] ?? DICTS[DEFAULT_LOCALE][key] ?? String(key)
-}
-
-/**
- * Translate a key that comes from a constants file (where the literal-string
- * type would otherwise widen). Falls back to the raw key if it's not a known
- * translation — useful for dynamic keys built up like `doors.style.${style}`.
- */
-export function tDynamic(key: string, locale: Locale = DEFAULT_LOCALE): string {
-  const dict = DICTS[locale] as Record<string, string>
-  return dict[key] ?? (DICTS[DEFAULT_LOCALE] as Record<string, string>)[key] ?? key
-}
+// The framework-free core (dictionaries, t/tDynamic, Locale, DEFAULT_LOCALE)
+// lives in ./core so server code can import it. Re-exported here so existing
+// client call sites keep working unchanged.
+export { DEFAULT_LOCALE, SUPPORTED_LOCALES, t, tDynamic } from './core'
+export type { Locale, TranslationKey } from './core'
 
 /* ───────────────────────── React context ────────────────────────────── */
 
@@ -47,9 +28,6 @@ const SetLocaleContext = createContext<(locale: Locale) => void>(() => {})
 
 const STORAGE_KEY = 'softclose.locale'
 
-function isLocale(value: unknown): value is Locale {
-  return value === 'hr-HR' || value === 'en-US'
-}
 
 /* ── Tiny external store for the active locale ──────────────────────────────
  * Backed by localStorage so the homeowner's choice survives reloads, read via

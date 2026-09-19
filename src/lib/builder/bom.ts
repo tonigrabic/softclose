@@ -19,7 +19,7 @@ import { makerPriceForSku } from '@/lib/catalog/maker-pricing'
 import { PATTERN_SPECS, unitDrawerCount } from './cabinet-patterns'
 import type { BuilderState, CabinetUnit, DrawerSystemTier, FieldMeta } from './inventory'
 import type { LeadProfile } from '@/lib/types'
-import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n'
+import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/core'
 
 /**
  * Which scope toggle (from the scope step) controls each BOM line. A line is
