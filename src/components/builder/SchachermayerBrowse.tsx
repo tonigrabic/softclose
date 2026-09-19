@@ -131,7 +131,7 @@ function ProductCard({
                 : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-foreground'
             )}
           >
-            {selected ? t('builder.browse.picked') : t('builder.browse.pick')}
+            {selected ? t('builder.browse.pickedBadge') : t('builder.browse.pick')}
           </button>
         )}
         {product.productUrl && (
