@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, RotateCcw, Check, AlertCircle, Camera, ImagePlus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from '@/lib/i18n'
+import { readJson } from '@/lib/api/client'
+import { compressImageDataUrl, fileToCompressedDataUrl } from '@/lib/image'
 import type {
   ConceptRender as ConceptRenderRecord,
   ConceptRenderInput,
@@ -111,9 +113,7 @@ export function ConceptRender({
   )
 
   function addProductRefFromFile(file: File) {
-    const reader = new FileReader()
-    reader.onload = () => {
-      const url = typeof reader.result === 'string' ? reader.result : ''
+    void fileToCompressedDataUrl(file, { maxDim: 1024 }).then((url) => {
       if (!url.startsWith('data:image/')) return
       const label = (pendingLabel || t('concept.refItemFallback')).trim().slice(0, 60)
       onProductReferencesChange([
@@ -125,8 +125,7 @@ export function ConceptRender({
         },
       ])
       setPendingLabel('')
-    }
-    reader.readAsDataURL(file)
+    })
   }
 
   function removeProductRef(id: string) {
@@ -174,11 +173,27 @@ export function ConceptRender({
           previousRenderId: currentRender?.id,
         }),
       })
-      const data = await res.json()
+      const data = await readJson<{
+        id: string
+        imageDataUrl: string
+        prompt: string
+        modelVersion: string
+        quality?: string
+        styleRefCount?: number
+        productRefCount?: number
+        iteratedFromPreviousRender?: boolean
+        nudges?: string[]
+        freeTextNudge?: string
+        inputs?: ConceptRenderInput[]
+        generatedAt: string
+      }>(res)
       if (!res.ok || data.error) throw new Error(data.error ?? 'Render failed')
+      // gpt-image returns a ~2 MB PNG; stored + re-sent as JPEG so the next
+      // hypothesis / re-render / handoff request stays under Vercel's limit.
+      const compressedRender = await compressImageDataUrl(String(data.imageDataUrl), { maxDim: 1024, quality: 0.85 })
       const record: ConceptRenderRecord = {
         id: data.id,
-        imageDataUrl: data.imageDataUrl,
+        imageDataUrl: compressedRender,
         prompt: data.prompt,
         modelVersion: data.modelVersion,
         anchorPhotoIndex: anchorIndex,

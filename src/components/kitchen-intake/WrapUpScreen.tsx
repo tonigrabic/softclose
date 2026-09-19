@@ -15,6 +15,7 @@ import { hasPlan, planFromProfile } from '@/lib/floor-plan'
 import { useTranslations } from '@/lib/i18n'
 import { FloorPlanStatic } from './FloorPlanStatic'
 import { MakerDashboardPreview } from './MakerDashboardPreview'
+import { readJson } from '@/lib/api/client'
 
 interface WrapUpScreenProps {
   data: WrapUpData
@@ -75,7 +76,8 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
         body: JSON.stringify({ brief: profile, moodBoard, explorationRefs, transcript, locale }),
       })
       if (!res.ok) throw new Error(`Bundle build failed (${res.status})`)
-      const data = (await res.json()) as HandoffBundle
+      const data = await readJson<HandoffBundle>(res)
+      if (data.error) throw new Error(data.error)
       setBundle(data)
     } catch (err) {
       setBundleError(err instanceof Error ? err.message : 'Could not assemble brief')

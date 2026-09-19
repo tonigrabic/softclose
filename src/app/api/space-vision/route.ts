@@ -174,6 +174,7 @@ Rules:
 - Positional fields use percentages along the room walls. Treat the longer wall run as 'top' (or 'bottom') and the shorter as 'left'/'right'.
 - wallRuns: list ONLY walls where you can actually SEE base cabinets / a worktop. Never add a wall you cannot see. The number of walls MUST agree with layoutShape: galley = 2 facing walls, l_shape = exactly 2 walls that meet at a corner, u_shape = 3 walls, island/open = the wall(s) you see. A single photo of an L-shaped kitchen shows two runs — do not infer a third or fourth.
 - Keep features consistent with openings: a sink under a window sits on the SAME wall as that window.
+- Island: only when a free-standing island is clearly visible. Otherwise omit features.island entirely (do not send zeros) and set hasIsland:false.
 - Identify EVERY fixed appliance you can see — homeowners often forget these, so be thorough. In particular, report the OVEN and the extractor HOOD as their own features (do not fold them into the hob): the hob is the cooktop surface, the oven is the built-in baking unit (often below the hob or in a tall column), and the hood is the extractor above the hob. Place the hood at the hob's position along its wall.
 - For style and material hints, use trade language (shaker, slab, quartz, butcher block, brushed brass, etc.) — short fragments, not sentences.
 - Skip a field rather than fabricate it.

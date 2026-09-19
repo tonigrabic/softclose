@@ -5,6 +5,7 @@ import { ImagePlus, Link2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SelectOption } from '@/lib/types'
 import { getOptionFallbackImage } from '@/lib/option-visuals'
+import { fileToCompressedDataUrl } from '@/lib/image'
 
 interface UploadedReference {
   id: string
@@ -43,18 +44,10 @@ export function ImageSelect({
 
   function handleFiles(files: FileList | null) {
     if (!files || !onUploadedRefsChange) return
-    const promises = Array.from(files).map(
-      (file) =>
-        new Promise<UploadedReference>((resolve) => {
-          const reader = new FileReader()
-          reader.onload = (e) => {
-            const dataUrl = e.target?.result
-            if (typeof dataUrl !== 'string') return
-            resolve({ id: newId('upload'), imageUrl: dataUrl, source: 'upload' })
-          }
-          reader.readAsDataURL(file)
-        })
-    )
+    const promises = Array.from(files).map(async (file) => {
+      const dataUrl = await fileToCompressedDataUrl(file, { maxDim: 1024 })
+      return { id: newId('upload'), imageUrl: dataUrl, source: 'upload' } as UploadedReference
+    })
     Promise.all(promises).then((added) => {
       onUploadedRefsChange([...refs, ...added])
     })

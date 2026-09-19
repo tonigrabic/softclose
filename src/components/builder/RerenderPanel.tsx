@@ -5,6 +5,8 @@ import { Sparkles, RefreshCw, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { findDecor } from '@/lib/catalog'
 import type { BuilderState } from '@/lib/builder/inventory'
+import { readJson } from '@/lib/api/client'
+import { compressImageDataUrl } from '@/lib/image'
 
 /**
  * Re-render panel.
@@ -124,9 +126,9 @@ export function RerenderPanel({
           nudges: changes,
         }),
       })
-      const data = await res.json()
+      const data = await readJson<Record<string, unknown>>(res)
       if (!res.ok || data.error) throw new Error(data.error ?? `Render failed (${res.status})`)
-      onRendered(data.imageDataUrl as string, changes.join(', '))
+      onRendered(await compressImageDataUrl(String(data.imageDataUrl), { maxDim: 1024, quality: 0.85 }), changes.join(', '))
       setBaseline(current)
       setRenderCount((c) => c + 1)
     } catch (err) {

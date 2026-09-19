@@ -82,3 +82,23 @@ describe('reconcileCounterWalls', () => {
     expect(reconcileCounterWalls({ lookedLikeKitchen: true, layoutShape: 'open', wallRuns: four })).toHaveLength(4)
   })
 })
+
+describe('phantom island guard', () => {
+  test('a zero-sized island object with hasIsland:false yields no island', () => {
+    const plan = fromVision({
+      ...realRead,
+      hasIsland: false,
+      features: { ...realRead.features, island: { positionPct: { x: 0, y: 0 }, sizePct: { w: 0, h: 0 } } },
+    })
+    expect(plan.hasIsland).toBe(false)
+    expect(plan.island).toBeUndefined()
+  })
+  test('a real island with geometry is kept', () => {
+    const plan = fromVision({
+      ...realRead,
+      hasIsland: true,
+      features: { ...realRead.features, island: { positionPct: { x: 50, y: 50 }, sizePct: { w: 40, h: 25 } } },
+    })
+    expect(plan.hasIsland).toBe(true)
+  })
+})

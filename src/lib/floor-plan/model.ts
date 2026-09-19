@@ -662,8 +662,13 @@ export function fromVision(
   // hasIsland:true. We never fabricate one from a layout-shape guess (that was
   // the phantom-island bug); the homeowner can always add one in the editor.
   let island: Island | undefined
-  if (vision?.features?.island) {
-    island = visionIslandToIsland(vision.features.island, lengthCm, widthCm)
+  const islandSrc = vision?.features?.island
+  // A zero-sized island object is the model's way of saying "none" (seen in
+  // production: hasIsland:false with island {0,0,0,0} → a phantom 80 cm island
+  // after clamping). Require real geometry and no explicit veto.
+  const islandHasGeometry = Boolean(islandSrc && islandSrc.sizePct && islandSrc.sizePct.w > 0 && islandSrc.sizePct.h > 0)
+  if (islandSrc && islandHasGeometry && vision?.hasIsland !== false) {
+    island = visionIslandToIsland(islandSrc, lengthCm, widthCm)
   } else if (vision?.hasIsland === true) {
     island = defaultIsland(lengthCm, widthCm)
   }

@@ -9,6 +9,7 @@ import { ImageSelect, type UploadedReference } from './ImageSelect'
 import { STYLE_OPTIONS } from '@/lib/style-options'
 import type { SpaceVisionResult } from '@/lib/types'
 import type { InspirationVisionResult } from '@/app/api/inspiration-vision/route'
+import { readJson } from '@/lib/api/client'
 
 interface InspirationProps {
   selectedStyles: string[]
@@ -66,7 +67,7 @@ export function Inspiration({
           spaceSummary: spaceVisionResult?.summary,
         }),
       })
-      const data = await res.json()
+      const data = await readJson(res)
       if (!res.ok || data.error) {
         throw new Error(data.error ?? `Vision call failed (${res.status})`)
       }

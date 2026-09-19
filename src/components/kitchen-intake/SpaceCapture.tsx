@@ -9,6 +9,8 @@ import { fromVision } from '@/lib/floor-plan'
 import type { FloorPlan } from '@/lib/floor-plan'
 import { FloorPlanEditor, ShapePicker } from './floor-plan-editor'
 import type { SpaceVisionResult } from '@/lib/types'
+import { readJson } from '@/lib/api/client'
+import { fileToCompressedDataUrl } from '@/lib/image'
 
 const MAX_PHOTOS = 4
 const MAX_BYTES_PER_PHOTO = 5 * 1024 * 1024
@@ -104,14 +106,10 @@ export function SpaceCapture({
       }
       return true
     })
-    const promises = valid.map(
-      (file) =>
-        new Promise<string>((resolve) => {
-          const reader = new FileReader()
-          reader.onload = (e) => resolve(e.target?.result as string)
-          reader.readAsDataURL(file)
-        })
-    )
+    // Compressed at upload: a phone photo is 1–5 MB; every later request
+    // (vision, render anchor, hypothesis, final handoff) carries it as base64
+    // and Vercel rejects bodies over 4.5 MB.
+    const promises = valid.map((file) => fileToCompressedDataUrl(file))
     Promise.all(promises).then((results) => {
       onPhotosChange([...photos, ...results].slice(0, MAX_PHOTOS))
     })
@@ -134,7 +132,7 @@ export function SpaceCapture({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ photos }),
       })
-      const data = await res.json()
+      const data = await readJson(res)
       if (!res.ok || data.error) {
         throw new Error(data.error ?? `Vision call failed (${res.status})`)
       }

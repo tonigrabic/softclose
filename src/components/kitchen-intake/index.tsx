@@ -48,6 +48,7 @@ import type {
   WrapUpData,
 } from '@/lib/types'
 import type { InspirationVisionResult } from '@/app/api/inspiration-vision/route'
+import { readJson } from '@/lib/api/client'
 
 /** Sign-off timestamp, read through a module-level helper so the React purity
  * lint doesn't flag `Date.now()` in the component's event handlers. */
@@ -459,7 +460,7 @@ export function KitchenIntake() {
           dealBreakers: dealBreakersText,
         }),
       })
-      const data = await res.json()
+      const data = await readJson(res)
       if (!res.ok || data.error) {
         throw new Error(data.error ?? `Translate failed (${res.status})`)
       }
@@ -543,7 +544,7 @@ export function KitchenIntake() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ profile: finalProfile }),
       })
-      const data = await res.json()
+      const data = await readJson(res)
       if (!res.ok || data.error) {
         throw new Error(data.error ?? `Summarise failed (${res.status})`)
       }
@@ -632,7 +633,7 @@ export function KitchenIntake() {
           layoutContract,
         }),
       })
-      const data = await res.json()
+      const data = await readJson(res)
       if (!res.ok || data.error) throw new Error(data.error ?? `Hypothesis failed (${res.status})`)
       setBuilderHypothesis(data.hypothesis as BuilderHypothesis)
     } catch (err) {
