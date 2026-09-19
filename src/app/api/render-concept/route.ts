@@ -3,6 +3,7 @@ import { openai } from '@ai-sdk/openai'
 import { rateLimit } from '@/lib/rate-limit'
 import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
 import { mockRenderDataUrl } from '@/lib/api/mock-fixtures/render-concept'
+import { providerFailure, AI_UNAVAILABLE } from '@/lib/api/errors'
 
 // Per-session render cap (product rule: renders capped at 5/session — they cost
 // real image-gen money). Defaults to 5; override via env for local testing
@@ -367,9 +368,7 @@ export async function POST(req: Request) {
       generatedAt: new Date().toISOString(),
     })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Render failed'
-    // Surface the prompt back so the UI can still render an explanation if we
-    // need to fall back to the source photo with an overlay.
-    return Response.json({ error: message, prompt }, { status: 500 })
+    // Keep the prompt so the UI can still explain what it tried; never the raw provider text.
+    return Response.json({ ...providerFailure('render-concept', err, AI_UNAVAILABLE), prompt }, { status: 500 })
   }
 }

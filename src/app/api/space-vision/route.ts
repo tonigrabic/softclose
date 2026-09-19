@@ -5,6 +5,7 @@ import { rateLimit } from '@/lib/rate-limit'
 import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
 import { MOCK_SPACE_VISION } from '@/lib/api/mock-fixtures/space-vision'
 import type { SpaceVisionResult } from '@/lib/types'
+import { providerFailure, AI_UNAVAILABLE } from '@/lib/api/errors'
 
 const MAX_PHOTOS = 4
 const MAX_BYTES_PER_PHOTO = 5 * 1024 * 1024 // 5 MB
@@ -291,7 +292,6 @@ export async function POST(req: Request) {
 
     return Response.json({ result: inferred })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Vision call failed'
-    return Response.json({ error: message }, { status: 500 })
+    return Response.json(providerFailure('space-vision', err, AI_UNAVAILABLE), { status: 500 })
   }
 }

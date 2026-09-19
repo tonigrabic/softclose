@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { rateLimit } from '@/lib/rate-limit'
 import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
 import { MOCK_INSPIRATION } from '@/lib/api/mock-fixtures/inspiration-vision'
+import { providerFailure, AI_UNAVAILABLE } from '@/lib/api/errors'
 
 const MAX_PHOTOS = 6
 const MAX_BYTES_PER_PHOTO = 5 * 1024 * 1024
@@ -198,7 +199,6 @@ export async function POST(req: Request) {
     }
     return Response.json({ result: toolCall.input as InspirationVisionResult })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Vision call failed'
-    return Response.json({ error: message }, { status: 500 })
+    return Response.json(providerFailure('inspiration-vision', err, AI_UNAVAILABLE), { status: 500 })
   }
 }

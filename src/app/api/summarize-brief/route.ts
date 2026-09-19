@@ -5,6 +5,7 @@ import { rateLimit } from '@/lib/rate-limit'
 import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
 import { MOCK_SUMMARY } from '@/lib/api/mock-fixtures/summarize-brief'
 import type { LeadProfile } from '@/lib/types'
+import { providerFailure, AI_UNAVAILABLE } from '@/lib/api/errors'
 
 const MAX_CALLS_PER_SESSION_WINDOW = 5
 const SESSION_WINDOW_MS = 30 * 60 * 1000
@@ -98,9 +99,7 @@ export async function POST(req: Request) {
     }
     return Response.json({ result: toolCall.input })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Summarise call failed'
-    console.error('[summarize-brief] failed:', message)
-    return Response.json({ error: message }, { status: 500 })
+    return Response.json(providerFailure('summarize-brief', err, AI_UNAVAILABLE), { status: 500 })
   }
 }
 

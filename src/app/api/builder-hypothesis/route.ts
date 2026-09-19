@@ -18,6 +18,7 @@ import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
 import { mockHypothesis } from '@/lib/api/mock-fixtures/builder-hypothesis'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
+import { providerFailure, AI_UNAVAILABLE } from '@/lib/api/errors'
 
 const MAX_BYTES_PER_PHOTO = 6 * 1024 * 1024
 const MAX_CALLS_PER_SESSION_WINDOW = 4
@@ -453,7 +454,6 @@ export async function POST(req: Request) {
     const hypothesis = toolCall.input as BuilderHypothesis
     return Response.json({ hypothesis })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Builder hypothesis call failed'
-    return Response.json({ error: message }, { status: 500 })
+    return Response.json(providerFailure('builder-hypothesis', err, AI_UNAVAILABLE), { status: 500 })
   }
 }

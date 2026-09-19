@@ -5,6 +5,7 @@ import { rateLimit } from '@/lib/rate-limit'
 import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
 import { mockTranslate } from '@/lib/api/mock-fixtures/translate-wishlist'
 import type { TranslatedField } from '@/lib/types'
+import { providerFailure, AI_UNAVAILABLE } from '@/lib/api/errors'
 
 const MAX_CHARS_PER_BUCKET = 600
 const MAX_CALLS_PER_SESSION_WINDOW = 10
@@ -136,7 +137,6 @@ export async function POST(req: Request) {
     }
     return Response.json({ result: out })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Translate call failed'
-    return Response.json({ error: message }, { status: 500 })
+    return Response.json(providerFailure('translate-wishlist', err, AI_UNAVAILABLE), { status: 500 })
   }
 }
