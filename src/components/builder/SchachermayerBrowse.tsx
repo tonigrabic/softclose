@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useTranslations } from '@/lib/i18n'
 import { ExternalLink } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { SchachermayerProduct } from '@/lib/catalog/hardware'
@@ -27,6 +28,7 @@ export function SchachermayerBrowse({
   emptyMessage?: string
   initialLimit?: number
 }) {
+  const { t } = useTranslations()
   const [showAll, setShowAll] = useState(false)
   const visible = showAll ? products : products.slice(0, initialLimit)
 
@@ -52,7 +54,7 @@ export function SchachermayerBrowse({
           onClick={() => setShowAll((v) => !v)}
           className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
         >
-          {showAll ? 'Show less' : `Show all ${products.length}`}
+          {showAll ? t('builder.browse.showLess') : t('builder.browse.showAll').replace('{n}', String(products.length))}
         </button>
       )}
     </div>
@@ -68,6 +70,7 @@ function ProductCard({
   selected: boolean
   onPick?: () => void
 }) {
+  const { t } = useTranslations()
   return (
     <div
       className={cn(
@@ -128,7 +131,7 @@ function ProductCard({
                 : 'bg-muted text-muted-foreground hover:bg-primary/10 hover:text-foreground'
             )}
           >
-            {selected ? '✓ Picked' : 'Pick'}
+            {selected ? t('builder.browse.picked') : t('builder.browse.pick')}
           </button>
         )}
         {product.productUrl && (
@@ -137,8 +140,7 @@ function ProductCard({
             target="_blank"
             rel="noopener noreferrer"
             className="inline-flex items-center gap-0.5 text-[10px] font-medium text-muted-foreground hover:text-foreground"
-          >
-            View <ExternalLink className="size-2.5" aria-hidden />
+          >{t('builder.browse.view')}<ExternalLink className="size-2.5" aria-hidden />
           </a>
         )}
       </div>

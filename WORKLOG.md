@@ -818,3 +818,19 @@ in Supabase → /maker/<id> rendered. Three real problems found and fixed:
 Also noted, not yet fixed: vision `summary` comes back in English in the HR UI;
 5/6 API routes log nothing on failure; dims vary run to run (320×240 / 360×260 /
 420×260) — the "confirm layout" step is doing real work.
+
+### 2026-09-19 — Dimensions → estimate verified; real prices in pickers; resume
+- **Toni's question: what happens after the homeowner locks dimensions?** Verified
+  in-browser: Top wall 380→250 cm on the confirm card → tally 20→16 units → builder
+  recap "Top · 250 cm 3 dolje / 3 gore" → live range 6,077–8,025 → 4,999–6,598 €
+  (±14%). The contract drives unit count, drawers, board area, labour; homeowner
+  edits stamp H confidence, which narrows the band. Dimensions are the lever.
+- **Vercel**: SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY set via REST (token is
+  project-scoped; CLI whoami fails, API works); production redeployed → briefs
+  now persist on the live site. Bypass secret still needed for Claude to verify.
+- **Real prices**: elgrad-products.json (1,164 pickable rows, dated retail
+  prices) merged into every picker with a green "Elgrad · date" tag vs grey
+  "procjena · ref. cijena". Appliance bands re-grounded. Not yet: the UNPICKED
+  hardware/handle bands still use hand-set tier RRPs (Elgrad bands exist in the
+  JSON — wire next), and prices refresh only when the scrape + build scripts run.
+- **Session resume**: IndexedDB snapshot + banner; verified reload at confirm step.

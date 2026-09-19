@@ -38,12 +38,16 @@ export const hrHR = {
   'builder.shell.factsRecap.title': 'AI je već vidio',
 
   // Product browse panels (Schachermayer)
-  'builder.browse.title': 'Pregled Schachermayer (HR)',
+  'builder.browse.title': 'Katalozi dobavljača — Elgrad (stvarne cijene) · Schachermayer (referentne)',
+  'builder.browse.showAll': 'Prikaži sve ({n})',
+  'builder.browse.showLess': 'Prikaži manje',
+  'builder.browse.picked': '✓ Odabrano',
+  'builder.browse.pick': 'Odaberi',
+  'builder.browse.view': 'Pogledaj',
   'builder.browse.drawers': 'Sustavi ladica',
   'builder.browse.hinges': 'Šarke',
   'builder.browse.sinks': 'Sudoperi',
   'builder.browse.taps': 'Slavine',
-  'builder.browse.picked': 'Odabrano:',
   'builder.browse.clearPick': 'Ukloni odabir',
   'appliances.included': 'Uključeno',
   'appliances.notIncluded': 'Nije u ovoj kuhinji',

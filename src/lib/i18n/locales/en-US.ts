@@ -38,12 +38,16 @@ export const enUS: Record<TranslationKey, string> = {
   'builder.shell.factsRecap.title': 'AI already saw',
 
   // Product browse panels (Schachermayer)
-  'builder.browse.title': 'Browse Schachermayer (HR)',
+  'builder.browse.title': 'Supplier catalogs — Elgrad (real prices) · Schachermayer (reference)',
+  'builder.browse.showAll': 'Show all {n}',
+  'builder.browse.showLess': 'Show less',
+  'builder.browse.picked': '✓ Picked',
+  'builder.browse.pick': 'Pick',
+  'builder.browse.view': 'View',
   'builder.browse.drawers': 'Drawer systems',
   'builder.browse.hinges': 'Hinges',
   'builder.browse.sinks': 'Sinks',
   'builder.browse.taps': 'Taps',
-  'builder.browse.picked': 'Picked:',
   'builder.browse.clearPick': 'Clear pick',
   'appliances.included': 'Included',
   'appliances.notIncluded': 'Not in this kitchen',
