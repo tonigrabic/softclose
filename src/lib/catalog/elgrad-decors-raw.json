@@ -4,9 +4,9 @@
     "currency": "EUR"
   },
   "source": {
-    "file": "data/elgrad-cjenik-2026-03-30.pdf",
-    "validFrom": "2026-03-30",
-    "parsedAt": "2026-05-03T00:46:48.127Z"
+    "file": "data/elgrad-cjenik-2026-09-09.pdf",
+    "validFrom": "2026-09-09",
+    "parsedAt": "2026-09-19T07:33:32.855Z"
   },
   "rowCount": 206,
   "notes": "Section: Oplemenjena iverica (decorative chipboard) + matching worktops. Prices in €/m² for boards, €/m' for worktops. Columns detected by positional snap to header labels with ±6 char tolerance.",
@@ -19,7 +19,7 @@
       "prices": {
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 15.69,
+        "iverica18": 17.3,
         "iverica25": null,
         "worktop600": null,
         "worktop650": null
@@ -33,7 +33,7 @@
       "prices": {
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 18.22,
+        "iverica18": 20.09,
         "iverica25": null,
         "iverica38": null
       }
@@ -44,11 +44,11 @@
       "structure": "ST9",
       "name": "Bijela premium",
       "prices": {
-        "iverica10": 20.18,
+        "iverica10": 21.83,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.3,
-        "iverica25": 26.38,
+        "iverica18": 23.04,
+        "iverica25": 28.53,
         "iverica38": null,
         "worktop600": null,
         "worktop650": null,
@@ -64,7 +64,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -81,7 +81,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 30.85,
+        "iverica18": 33.37,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -98,7 +98,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -112,7 +112,7 @@
       "structure": "ST9",
       "name": "Porculan bijela",
       "prices": {
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "worktop600": null,
         "worktop650": null
       }
@@ -123,11 +123,11 @@
       "structure": "ST9",
       "name": "Alabaster",
       "prices": {
-        "iverica10": 17.11,
+        "iverica10": 18.51,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 17.32,
-        "iverica25": 23.15,
+        "iverica18": 18.73,
+        "iverica25": 25.04,
         "iverica38": null,
         "worktop600": null,
         "worktop650": null,
@@ -143,7 +143,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 19.04,
+        "iverica18": 20.59,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -157,7 +157,7 @@
       "structure": "ST9",
       "name": "Karat bež",
       "prices": {
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "worktop600": null,
         "worktop650": null
       }
@@ -168,7 +168,7 @@
       "structure": "ST9",
       "name": "Pješčano žuta",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "worktop600": null,
         "worktop650": null
       }
@@ -182,7 +182,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 19.04,
+        "iverica18": 20.59,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -196,7 +196,7 @@
       "structure": "ST9",
       "name": "Curry žuta",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "worktop600": null,
         "worktop650": null
       }
@@ -210,7 +210,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -224,7 +224,7 @@
       "structure": "ST9",
       "name": "Badem bež",
       "prices": {
-        "iverica18": 22.64,
+        "iverica18": 24.49,
         "worktop600": null,
         "worktop650": null
       }
@@ -238,7 +238,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 19.04,
+        "iverica18": 20.59,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -252,7 +252,7 @@
       "structure": "ST9",
       "name": "Nježna bež - NOVO",
       "prices": {
-        "iverica18": 17.7
+        "iverica18": 22.95
       }
     },
     {
@@ -264,7 +264,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 19.04,
+        "iverica18": 20.59,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -278,7 +278,7 @@
       "structure": "ST9",
       "name": "Karamel bež",
       "prices": {
-        "iverica18": null
+        "iverica18": 22.77
       }
     },
     {
@@ -290,7 +290,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 22.64,
+        "iverica18": 24.49,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -307,7 +307,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 22.64,
+        "iverica18": 24.49,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -324,7 +324,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 22.64,
+        "iverica18": 24.49,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -338,7 +338,7 @@
       "structure": "ST9",
       "name": "Hrđavo crvena",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "worktop600": null,
         "worktop650": null
       }
@@ -360,7 +360,7 @@
       "structure": "ST9",
       "name": "Misty plava",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "worktop600": null,
         "worktop650": null
       }
@@ -374,7 +374,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 22.64,
+        "iverica18": 24.49,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -391,7 +391,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 22.64,
+        "iverica18": 24.49,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -405,7 +405,7 @@
       "structure": "ST9",
       "name": "Denim plava",
       "prices": {
-        "iverica18": 22.64,
+        "iverica18": 24.49,
         "worktop600": null,
         "worktop650": null
       }
@@ -416,7 +416,7 @@
       "structure": "ST9",
       "name": "Indigo plava",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "worktop600": null,
         "worktop650": null
       }
@@ -427,7 +427,7 @@
       "structure": "ST9",
       "name": "Eukaliptus zelena",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "worktop600": null,
         "worktop650": null
       }
@@ -441,7 +441,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 22.64,
+        "iverica18": 24.49,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -455,7 +455,7 @@
       "structure": "ST9",
       "name": "Fjord zelena",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "worktop600": null,
         "worktop650": null
       }
@@ -466,7 +466,7 @@
       "structure": "ST9",
       "name": "Sage zelena",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "worktop600": null,
         "worktop650": null
       }
@@ -477,7 +477,7 @@
       "structure": "ST9",
       "name": "Stone zelena",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "worktop600": null,
         "worktop650": null
       }
@@ -488,7 +488,7 @@
       "structure": "ST9",
       "name": "Estate zelena",
       "prices": {
-        "iverica18": null
+        "iverica18": 21.9
       }
     },
     {
@@ -497,7 +497,7 @@
       "structure": "ST9",
       "name": "Jela zelena",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "worktop600": null,
         "worktop650": null
       }
@@ -508,11 +508,11 @@
       "structure": "ST9",
       "name": "Kašmir siva",
       "prices": {
-        "iverica10": 16.21,
+        "iverica10": 17.53,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 19.04,
-        "iverica25": 20.45,
+        "iverica18": 20.59,
+        "iverica25": 25.04,
         "iverica38": null,
         "worktop600": null,
         "worktop650": null,
@@ -525,8 +525,8 @@
       "structure": "ST9",
       "name": "Angora siva",
       "prices": {
-        "iverica10": 16.55,
-        "iverica18": 21.21,
+        "iverica10": 23.37,
+        "iverica18": 22.94,
         "worktop600": null,
         "worktop650": null
       }
@@ -539,7 +539,7 @@
       "prices": {
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -553,11 +553,11 @@
       "structure": "ST9",
       "name": "Svijetlo siva",
       "prices": {
-        "iverica10": 17.11,
+        "iverica10": 18.51,
         "iverica12": null,
-        "iverica16": 17.31,
-        "iverica18": 17.32,
-        "iverica25": 23.15,
+        "iverica16": 18.72,
+        "iverica18": 18.73,
+        "iverica25": 25.04,
         "iverica38": null,
         "worktop600": null,
         "worktop650": null,
@@ -570,7 +570,8 @@
       "structure": "ST9",
       "name": "",
       "prices": {
-        "iverica18": 22.19
+        "iverica18": 24,
+        "worktop920": null
       }
     },
     {
@@ -579,11 +580,11 @@
       "structure": "ST9",
       "name": "Kamen siva",
       "prices": {
-        "iverica10": 20.59,
+        "iverica10": 22.27,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
-        "iverica25": 26.24,
+        "iverica18": 22.94,
+        "iverica25": 28.38,
         "iverica38": null,
         "worktop600": null,
         "worktop650": null,
@@ -598,7 +599,7 @@
       "prices": {
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 19.04,
+        "iverica18": 20.59,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -612,7 +613,7 @@
       "structure": "ST9",
       "name": "Taupe tamna",
       "prices": {
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "worktop600": null,
         "worktop650": null
       }
@@ -626,7 +627,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -643,7 +644,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -660,7 +661,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -674,7 +675,7 @@
       "structure": "ST9",
       "name": "Havana siva - NOVO",
       "prices": {
-        "iverica18": 17.7
+        "iverica18": 22.95
       }
     },
     {
@@ -686,7 +687,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 19.04,
+        "iverica18": 20.59,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -703,7 +704,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -720,7 +721,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 19.04,
+        "iverica18": 20.59,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -737,7 +738,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -754,7 +755,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -788,7 +789,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -805,7 +806,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -822,7 +823,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -836,8 +837,8 @@
       "structure": "ST7",
       "name": "Grafitno crna",
       "prices": {
-        "iverica18": 17.1,
-        "iverica25": 22.07,
+        "iverica18": 18.5,
+        "iverica25": 23.87,
         "worktop600": null,
         "worktop650": null
       }
@@ -848,11 +849,11 @@
       "structure": "ST9",
       "name": "Dijamant siva",
       "prices": {
-        "iverica10": 18.13,
+        "iverica10": 19.61,
         "iverica12": null,
-        "iverica16": 18.13,
-        "iverica18": 17.1,
-        "iverica25": 24.62,
+        "iverica16": 19.61,
+        "iverica18": 18.5,
+        "iverica25": 26.63,
         "iverica38": null,
         "worktop600": null,
         "worktop650": null,
@@ -868,7 +869,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -885,7 +886,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 30.85,
+        "iverica18": 33.37,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -899,7 +900,7 @@
       "structure": "ST7",
       "name": "Crna",
       "prices": {
-        "iverica18": 15.48,
+        "iverica18": 16.74,
         "iverica25": null,
         "worktop600": null,
         "worktop650": null
@@ -914,7 +915,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -928,11 +929,11 @@
       "structure": "ST9",
       "name": "Chicago beton svijetlo sivi",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
-        "worktop600": 35.91,
+        "worktop600": 38.1,
         "worktop650": null,
-        "worktop920": 54.28
+        "worktop920": 57.59
       }
     },
     {
@@ -943,12 +944,12 @@
       "prices": {
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
         "iverica38": null,
-        "worktop600": 35.91,
+        "worktop600": 38.1,
         "worktop650": null,
-        "worktop920": 54.28
+        "worktop920": 57.59
       }
     },
     {
@@ -960,12 +961,12 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
         "iverica38": null,
-        "worktop600": 35.91,
+        "worktop600": 38.1,
         "worktop650": null,
-        "worktop920": 54.28
+        "worktop920": 57.59
       }
     },
     {
@@ -974,11 +975,11 @@
       "structure": "ST76",
       "name": "Scivaro škriljevac",
       "prices": {
-        "iverica18": 24.48,
+        "iverica18": 26.48,
         "iverica25": null,
-        "worktop600": 34.51,
+        "worktop600": 36.61,
         "worktop650": null,
-        "worktop920": 60.8
+        "worktop920": 64.5
       }
     },
     {
@@ -987,9 +988,9 @@
       "structure": "ST76",
       "name": "Candela mramor svijetlo sivi",
       "prices": {
-        "iverica18": 24.48,
+        "iverica18": 26.48,
         "iverica25": null,
-        "worktop600": 34.51,
+        "worktop600": 36.61,
         "worktop650": null
       }
     },
@@ -999,7 +1000,7 @@
       "structure": "ST20",
       "name": "Cobra bronca",
       "prices": {
-        "iverica18": 24.48,
+        "iverica18": 26.48,
         "iverica25": null,
         "worktop600": null,
         "worktop650": null
@@ -1011,10 +1012,10 @@
       "structure": "ST10",
       "name": "Laneno bež",
       "prices": {
-        "iverica10": 19.36,
+        "iverica10": 23.37,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 19.04,
+        "iverica18": 20.59,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1031,7 +1032,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1045,7 +1046,7 @@
       "structure": "ST20",
       "name": "Brušeni metal bronca",
       "prices": {
-        "iverica18": 24.48,
+        "iverica18": 26.48,
         "iverica25": null,
         "worktop600": null,
         "worktop650": null
@@ -1057,7 +1058,7 @@
       "structure": "ST10",
       "name": "Acapulco",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
         "worktop600": null,
         "worktop650": null
@@ -1069,7 +1070,7 @@
       "structure": "ST20",
       "name": "Srebrno siva četkana",
       "prices": {
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "worktop600": null,
         "worktop650": null
       }
@@ -1080,11 +1081,11 @@
       "structure": "ST9",
       "name": "Kristalni mramor",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
-        "worktop600": 34.51,
+        "worktop600": 36.61,
         "worktop650": null,
-        "worktop920": 62.62
+        "worktop920": 66.43
       }
     },
     {
@@ -1093,9 +1094,9 @@
       "structure": "ST12",
       "name": "Tonsberg hrast natur",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
-        "worktop600": 34.51,
+        "worktop600": 36.61,
         "worktop650": null
       }
     },
@@ -1105,7 +1106,7 @@
       "structure": "ST12",
       "name": "Tonsberg hrast smeđi",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
         "worktop600": null,
         "worktop650": null
@@ -1120,7 +1121,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1134,7 +1135,7 @@
       "structure": "ST36",
       "name": "Sacramento hrast smeđi *",
       "prices": {
-        "iverica18": 30.85,
+        "iverica18": 33.37,
         "iverica25": null,
         "worktop600": null,
         "worktop650": null
@@ -1146,14 +1147,14 @@
       "structure": "ST10",
       "name": "Hrast Bardolino natur",
       "prices": {
-        "iverica10": 15.37,
+        "iverica10": 16.62,
         "iverica16": null,
-        "iverica18": 17.32,
-        "iverica25": 23.71,
-        "iverica38": 31.45,
-        "worktop600": 32.25,
+        "iverica18": 18.73,
+        "iverica25": 25.64,
+        "iverica38": 34.02,
+        "worktop600": 34.21,
         "worktop650": null,
-        "worktop920": 54
+        "worktop920": 57.29
       }
     },
     {
@@ -1165,7 +1166,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 33.12,
+        "iverica18": 35.82,
         "iverica25": null,
         "iverica38": null,
         "worktop650": null,
@@ -1178,14 +1179,14 @@
       "structure": "ST37",
       "name": "Halifax hrast natur ^ * °",
       "prices": {
-        "iverica10": 29.38,
+        "iverica10": 31.78,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 33.12,
-        "iverica25": 39.6,
+        "iverica18": 35.82,
+        "iverica25": 42.83,
         "iverica38": null,
-        "worktop650": 73.9,
-        "worktop920": 110.67
+        "worktop650": 78.4,
+        "worktop920": 117.41
       }
     },
     {
@@ -1194,14 +1195,14 @@
       "structure": "ST37",
       "name": "Halifax hrast tobacco ^ * °",
       "prices": {
-        "iverica10": 29.38,
+        "iverica10": 31.78,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 33.12,
+        "iverica18": 35.82,
         "iverica25": null,
         "iverica38": null,
-        "worktop650": 71.75,
-        "worktop920": 110.67
+        "worktop650": 76.12,
+        "worktop920": 117.41
       }
     },
     {
@@ -1213,7 +1214,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1228,7 +1229,7 @@
       "name": "Sevilla jasen",
       "prices": {
         "iverica10": 23.4,
-        "iverica18": 24.48,
+        "iverica18": 26.48,
         "worktop600": null,
         "worktop650": null
       }
@@ -1239,7 +1240,7 @@
       "structure": "ST12",
       "name": "Trondheim jasen",
       "prices": {
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "worktop600": null,
         "worktop650": null
@@ -1251,7 +1252,7 @@
       "structure": "ST10",
       "name": "Sheffield bagrem natur",
       "prices": {
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
         "worktop600": null,
         "worktop650": null
@@ -1266,7 +1267,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 30.85,
+        "iverica18": 33.37,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1283,8 +1284,8 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 19.04,
-        "iverica25": 24.62,
+        "iverica18": 20.59,
+        "iverica25": 26.63,
         "iverica38": null,
         "worktop600": null,
         "worktop650": null,
@@ -1297,8 +1298,8 @@
       "structure": "ST12",
       "name": "Belmont hrast smeđi",
       "prices": {
-        "iverica18": 22.64,
-        "worktop600": 32.93,
+        "iverica18": 24.49,
+        "worktop600": 34.94,
         "worktop650": null
       }
     },
@@ -1308,7 +1309,7 @@
       "structure": "ST19",
       "name": "Warmia orah smeđi",
       "prices": {
-        "iverica18": 24.48,
+        "iverica18": 26.48,
         "worktop600": null,
         "worktop650": null
       }
@@ -1322,7 +1323,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1339,10 +1340,10 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
         "iverica38": null,
-        "worktop600": 35.91,
+        "worktop600": 38.1,
         "worktop650": null,
         "worktop920": null
       }
@@ -1353,7 +1354,7 @@
       "structure": "ST17",
       "name": "Bookmatch hrast - NOVO",
       "prices": {
-        "iverica18": 18.75
+        "iverica18": 22.94
       }
     },
     {
@@ -1365,12 +1366,12 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
-        "worktop600": 35.91,
+        "worktop600": 38.1,
         "worktop650": null,
-        "worktop920": 54.28
+        "worktop920": 57.59
       }
     },
     {
@@ -1382,7 +1383,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1399,12 +1400,12 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 33.12,
+        "iverica18": 35.82,
         "iverica25": null,
         "iverica38": null,
-        "worktop600": 66.71,
-        "worktop650": 73.9,
-        "worktop920": 110.67
+        "worktop600": null,
+        "worktop650": 78.4,
+        "worktop920": 117.41
       }
     },
     {
@@ -1416,7 +1417,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 33.12,
+        "iverica18": null,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1430,7 +1431,7 @@
       "structure": "ST12",
       "name": "Baronia hrast svijetli",
       "prices": {
-        "iverica18": 22.64,
+        "iverica18": 24.49,
         "worktop600": null,
         "worktop650": null
       }
@@ -1441,7 +1442,7 @@
       "structure": "ST40",
       "name": "Casella hrast svijetli natur *",
       "prices": {
-        "iverica18": 30.7,
+        "iverica18": 33.21,
         "worktop600": null,
         "worktop650": null
       }
@@ -1452,11 +1453,11 @@
       "structure": "ST40",
       "name": "Casella hrast natur *",
       "prices": {
-        "iverica10": 26.55,
-        "iverica18": 30.7,
-        "iverica25": 32.28,
+        "iverica10": 31.78,
+        "iverica18": 33.21,
+        "iverica25": 34.91,
         "worktop600": null,
-        "worktop650": 75.25
+        "worktop650": 79.83
       }
     },
     {
@@ -1466,10 +1467,10 @@
       "name": "Casella hrast smeđi *",
       "prices": {
         "iverica10": null,
-        "iverica18": 30.7,
+        "iverica18": 33.21,
         "iverica25": null,
         "worktop600": null,
-        "worktop650": 75.25
+        "worktop650": 79.83
       }
     },
     {
@@ -1481,7 +1482,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1498,10 +1499,10 @@
         "iverica10": 20.59,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
-        "iverica25": 26.24,
+        "iverica18": 22.94,
+        "iverica25": null,
         "iverica38": null,
-        "worktop600": 35.91,
+        "worktop600": null,
         "worktop650": null,
         "worktop920": null
       }
@@ -1515,7 +1516,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1532,7 +1533,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1546,7 +1547,7 @@
       "structure": "ST17",
       "name": "Brighton kesten - NOVO",
       "prices": {
-        "iverica18": 17.7
+        "iverica18": 22.95
       }
     },
     {
@@ -1558,7 +1559,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1575,7 +1576,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 24.48,
+        "iverica18": 26.48,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1589,7 +1590,7 @@
       "structure": "ST12",
       "name": "Parona orah",
       "prices": {
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "worktop600": null
       }
     },
@@ -1599,8 +1600,8 @@
       "structure": "ST9",
       "name": "Breza pijesak",
       "prices": {
-        "iverica18": 16.48,
-        "iverica25": 22.07,
+        "iverica18": 17.82,
+        "iverica25": 23.87,
         "worktop600": null
       }
     },
@@ -1610,8 +1611,8 @@
       "structure": "ST9",
       "name": "Willow bukva",
       "prices": {
-        "iverica18": 16.48,
-        "iverica25": 22.07,
+        "iverica18": 17.82,
+        "iverica25": 23.87,
         "worktop600": null
       }
     },
@@ -1624,11 +1625,11 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 23.28,
+        "iverica18": 25.18,
         "iverica25": null,
         "iverica38": null,
-        "worktop600": 37,
-        "worktop650": 56,
+        "worktop600": 39.25,
+        "worktop650": 59.41,
         "worktop920": null
       }
     },
@@ -1638,7 +1639,7 @@
       "structure": "ST19",
       "name": "Norwich hrast",
       "prices": {
-        "iverica18": 24.48,
+        "iverica18": null,
         "iverica25": null,
         "worktop600": null
       }
@@ -1652,7 +1653,7 @@
         "iverica10": 20.59,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1667,7 +1668,7 @@
       "name": "Eukaliptus tamno smeđi",
       "prices": {
         "iverica10": null,
-        "iverica18": 16.48,
+        "iverica18": 17.82,
         "iverica25": null,
         "worktop600": null
       }
@@ -1681,7 +1682,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1698,10 +1699,10 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
-        "worktop600": 35.91,
+        "worktop600": 38.1,
         "worktop650": null,
         "worktop920": null
       }
@@ -1715,7 +1716,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 24.48,
+        "iverica18": 26.48,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1730,7 +1731,7 @@
       "name": "Vicenza hrast bijeljeni",
       "prices": {
         "iverica10": null,
-        "iverica18": 24.48,
+        "iverica18": 26.48,
         "worktop600": null
       }
     },
@@ -1743,7 +1744,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 30.85,
+        "iverica18": 33.37,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1760,7 +1761,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1774,13 +1775,13 @@
       "structure": "ST12",
       "name": "Vicenza hrast",
       "prices": {
-        "iverica10": 17.75,
+        "iverica10": 23.37,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
-        "iverica25": 23.27,
+        "iverica18": 22.94,
+        "iverica25": 28.38,
         "iverica38": null,
-        "worktop600": 32.93,
+        "worktop600": 34.94,
         "worktop650": null,
         "worktop920": null
       }
@@ -1794,7 +1795,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 22.64,
+        "iverica18": 24.49,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1811,7 +1812,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 33.12,
+        "iverica18": 35.82,
         "iverica25": null,
         "iverica38": null,
         "worktop600": 66.71,
@@ -1828,7 +1829,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 25.12,
+        "iverica18": null,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1842,8 +1843,8 @@
       "structure": "ST19",
       "name": "Fineline bijeli",
       "prices": {
-        "iverica10": 23.4,
-        "iverica18": 24.48,
+        "iverica10": 25.31,
+        "iverica18": 26.48,
         "worktop600": null
       }
     },
@@ -1854,7 +1855,7 @@
       "name": "Fineline srednje sivi",
       "prices": {
         "iverica10": null,
-        "iverica18": 24.48,
+        "iverica18": 26.48,
         "worktop600": null
       }
     },
@@ -1865,7 +1866,7 @@
       "name": "Fineline tamno sivi",
       "prices": {
         "iverica10": null,
-        "iverica18": 24.48,
+        "iverica18": 26.48,
         "worktop600": null
       }
     },
@@ -1875,15 +1876,15 @@
       "structure": "ST10",
       "name": "Hamilton hrast natur",
       "prices": {
-        "iverica10": 21.61,
+        "iverica10": 23.37,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 22.64,
-        "iverica25": 25.28,
+        "iverica18": 24.49,
+        "iverica25": 27.34,
         "iverica38": null,
-        "worktop600": 32.25,
-        "worktop650": 50.87,
-        "worktop920": 9.75
+        "worktop600": 34.21,
+        "worktop650": 53.97,
+        "worktop920": 10.34
       }
     },
     {
@@ -1895,7 +1896,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 33.12,
+        "iverica18": 35.82,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1910,7 +1911,7 @@
       "name": "Cuneo hrast smeđi *",
       "prices": {
         "iverica10": null,
-        "iverica18": 30.7,
+        "iverica18": 33.21,
         "worktop600": null
       }
     },
@@ -1920,7 +1921,7 @@
       "structure": "ST17",
       "name": "Rovato hrast svijetli natur - NOVO",
       "prices": {
-        "iverica18": 17.7
+        "iverica18": 22.95
       }
     },
     {
@@ -1932,7 +1933,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 33.12,
+        "iverica18": 35.82,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1946,13 +1947,13 @@
       "structure": "ST10",
       "name": "Nebraska hrast natur",
       "prices": {
-        "iverica10": 21.61,
+        "iverica10": 23.37,
         "iverica16": null,
-        "iverica18": 22.64,
+        "iverica18": 24.49,
         "iverica25": null,
         "iverica38": null,
-        "worktop600": 35.91,
-        "worktop650": 54.28,
+        "worktop600": 38.1,
+        "worktop650": 57.59,
         "worktop920": null
       }
     },
@@ -1963,7 +1964,7 @@
       "name": "Davenport hrast svijetli natur *",
       "prices": {
         "iverica10": null,
-        "iverica18": 30.7,
+        "iverica18": 33.21,
         "worktop600": null
       }
     },
@@ -1976,7 +1977,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 19.04,
+        "iverica18": 20.59,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -1993,7 +1994,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -2010,7 +2011,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -2027,7 +2028,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": 22.94,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -2044,7 +2045,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": null,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -2061,7 +2062,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 22.64,
+        "iverica18": 24.49,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -2078,12 +2079,12 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 22.64,
-        "iverica25": 26.55,
+        "iverica18": 24.49,
+        "iverica25": 28.72,
         "iverica38": null,
         "worktop600": null,
         "worktop650": null,
-        "worktop920": 9.75
+        "worktop920": 10.34
       }
     },
     {
@@ -2095,7 +2096,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 22.64,
+        "iverica18": 24.49,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -2112,11 +2113,11 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 22.64,
+        "iverica18": 24.49,
         "iverica25": null,
         "iverica38": null,
-        "worktop600": 35.91,
-        "worktop650": 54.28,
+        "worktop600": 38.1,
+        "worktop650": 57.59,
         "worktop920": null
       }
     },
@@ -2128,7 +2129,7 @@
       "prices": {
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 16.48,
+        "iverica18": 17.82,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -2141,7 +2142,7 @@
       "structure": "ST19",
       "name": "Bolivar Wood natur - NOVO",
       "prices": {
-        "iverica18": 22.2
+        "iverica18": 26.48
       }
     },
     {
@@ -2150,7 +2151,7 @@
       "structure": "ST19",
       "name": "Bolivar Wood smeđi - NOVO",
       "prices": {
-        "iverica18": 22.2
+        "iverica18": 26.48
       }
     },
     {
@@ -2162,7 +2163,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 19.04,
+        "iverica18": 20.59,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -2179,7 +2180,7 @@
         "iverica10": null,
         "iverica12": null,
         "iverica16": null,
-        "iverica18": 21.21,
+        "iverica18": null,
         "iverica25": null,
         "iverica38": null,
         "worktop600": null,
@@ -2193,7 +2194,7 @@
       "structure": "ST17",
       "name": "Alba orah tobacco",
       "prices": {
-        "iverica18": null
+        "iverica18": 22.94
       }
     },
     {
@@ -2204,7 +2205,7 @@
       "prices": {
         "iverica18": null,
         "iverica25": null,
-        "worktop600": 37,
+        "worktop600": 39.25,
         "worktop650": null,
         "worktop920": null
       }
@@ -2215,7 +2216,7 @@
       "structure": "ST76",
       "name": "Solid Alpine bijela - COMPACT",
       "prices": {
-        "iverica18": 155.94,
+        "iverica18": 165.44,
         "iverica25": null,
         "worktop600": null,
         "worktop650": null,
@@ -2228,7 +2229,7 @@
       "structure": "ST78",
       "name": "Kašmir siva",
       "prices": {
-        "worktop600": 33.5,
+        "worktop600": 35.54,
         "worktop650": null
       }
     },
@@ -2240,9 +2241,9 @@
       "prices": {
         "iverica18": null,
         "iverica25": null,
-        "worktop600": 32.75,
+        "worktop600": 34.74,
         "worktop650": null,
-        "worktop920": 54.59
+        "worktop920": 57.91
       }
     },
     {
@@ -2253,7 +2254,7 @@
       "prices": {
         "iverica18": null,
         "iverica25": null,
-        "worktop600": 37,
+        "worktop600": 39.25,
         "worktop650": null,
         "worktop920": null
       }
@@ -2264,7 +2265,7 @@
       "structure": "ST76",
       "name": "Crna - COMPACT",
       "prices": {
-        "iverica18": 119.6,
+        "iverica18": 126.88,
         "iverica25": null,
         "worktop600": null,
         "worktop650": null,
@@ -2277,7 +2278,7 @@
       "structure": "ST78",
       "name": "Crna",
       "prices": {
-        "worktop600": 33.5,
+        "worktop600": 35.54,
         "worktop650": null
       }
     },
@@ -2287,7 +2288,7 @@
       "structure": "ST76",
       "name": "Solid svijetlo siva - COMPACT",
       "prices": {
-        "iverica18": 155.94,
+        "iverica18": 165.44,
         "iverica25": null,
         "worktop600": null,
         "worktop650": null,
@@ -2302,7 +2303,7 @@
       "prices": {
         "iverica18": null,
         "iverica25": null,
-        "worktop600": 38.11,
+        "worktop600": 40.43,
         "worktop650": null,
         "worktop920": null
       }
@@ -2313,9 +2314,9 @@
       "structure": "ST75",
       "name": "Margalida Travertin",
       "prices": {
-        "worktop600": 34.51,
+        "worktop600": 36.61,
         "worktop650": null,
-        "worktop920": 60.8
+        "worktop920": 64.5
       }
     },
     {
@@ -2324,7 +2325,7 @@
       "structure": "ST78",
       "name": "Cascia granit svijetlo sivi",
       "prices": {
-        "worktop600": 33.5,
+        "worktop600": 35.54,
         "worktop650": null
       }
     },
@@ -2334,7 +2335,7 @@
       "structure": "ST78",
       "name": "Cascia granit sivi",
       "prices": {
-        "worktop600": 33.5,
+        "worktop600": 35.54,
         "worktop650": null
       }
     },
@@ -2344,7 +2345,7 @@
       "structure": "ST75",
       "name": "Calais Travertine",
       "prices": {
-        "worktop600": 33.5,
+        "worktop600": 35.54,
         "worktop650": null
       }
     },
@@ -2354,7 +2355,7 @@
       "structure": "ST7",
       "name": "Cipollino mramor sivi",
       "prices": {
-        "worktop600": 30.45,
+        "worktop600": 32.3,
         "worktop650": null
       }
     },
@@ -2377,7 +2378,7 @@
       "structure": "ST9",
       "name": "San Luca mramor",
       "prices": {
-        "worktop600": 32.93,
+        "worktop600": 34.94,
         "worktop650": null
       }
     },
@@ -2389,147 +2390,147 @@
       "prices": {
         "iverica18": null,
         "iverica25": null,
-        "worktop600": 37,
+        "worktop600": 39.25,
         "worktop650": null,
         "worktop920": null
       }
     },
     {
-      "rowNum": 22,
+      "rowNum": 23,
       "code": "F205",
       "structure": "ST9",
       "name": "Pietra Grigia antracit",
       "prices": {
         "iverica18": null,
         "iverica25": null,
-        "worktop600": 35.91,
+        "worktop600": 38.1,
         "worktop650": null,
         "worktop920": null
       }
     },
     {
-      "rowNum": 24,
+      "rowNum": 25,
       "code": "F206",
       "structure": "ST9",
       "name": "Pietra Grigia crni - COMPACT",
       "prices": {
-        "iverica18": 116.11,
+        "iverica18": 123.18,
         "worktop600": null,
         "worktop650": null
       }
     },
     {
-      "rowNum": 25,
+      "rowNum": 26,
       "code": "F208",
       "structure": "ST75",
-      "name": "Pietra Fenano sivi",
+      "name": "Pietra Fanano sivi",
       "prices": {
         "iverica18": null,
-        "worktop600": 33.5,
+        "worktop600": 35.54,
         "worktop650": null
       }
     },
     {
-      "rowNum": 26,
+      "rowNum": 27,
       "code": "F221",
       "structure": "ST87",
       "name": "Tessina Ceramic krema - COMPACT",
       "prices": {
-        "iverica18": 103.24,
-        "iverica25": 160.55
+        "iverica18": 109.53,
+        "iverica25": 170.33
       }
     },
     {
-      "rowNum": 27,
+      "rowNum": 28,
       "code": "F226",
       "structure": "ST78",
       "name": "Titanit pješčano bež",
       "prices": {
         "iverica18": null,
-        "worktop600": 33.5,
-        "worktop650": null
-      }
-    },
-    {
-      "rowNum": 28,
-      "code": "F227",
-      "structure": "ST78",
-      "name": "Titanit sivi",
-      "prices": {
-        "iverica18": null,
-        "worktop600": 33.5,
+        "worktop600": 35.54,
         "worktop650": null
       }
     },
     {
       "rowNum": 29,
-      "code": "F228",
+      "code": "F227",
       "structure": "ST78",
-      "name": "Titanit antracit",
+      "name": "Titanit sivi",
       "prices": {
         "iverica18": null,
-        "worktop600": 34.51,
+        "worktop600": 35.54,
         "worktop650": null
       }
     },
     {
       "rowNum": 30,
+      "code": "F228",
+      "structure": "ST78",
+      "name": "Titanit antracit",
+      "prices": {
+        "iverica18": null,
+        "worktop600": 36.61,
+        "worktop650": null
+      }
+    },
+    {
+      "rowNum": 31,
       "code": "F229",
       "structure": "ST75",
       "name": "Cremona mramor",
       "prices": {
         "iverica18": null,
-        "worktop600": 34.51,
+        "worktop600": 36.61,
         "worktop650": null,
-        "worktop920": 62.62
+        "worktop920": 66.43
       }
     },
     {
-      "rowNum": 31,
+      "rowNum": 32,
       "code": "F230",
       "structure": "ST75",
       "name": "Pietra Fanano svijetlo sivi",
       "prices": {
         "iverica18": null,
-        "worktop600": 33.5,
-        "worktop650": null
-      }
-    },
-    {
-      "rowNum": 32,
-      "code": "F234",
-      "structure": "ST76",
-      "name": "Scivaro škriljevac svijetlo sivi",
-      "prices": {
-        "iverica18": null,
-        "worktop600": 33.5,
+        "worktop600": 35.54,
         "worktop650": null
       }
     },
     {
       "rowNum": 33,
-      "code": "F237",
+      "code": "F234",
       "structure": "ST76",
-      "name": "Cupria škriljevac",
+      "name": "Scivaro škriljevac svijetlo sivi",
       "prices": {
         "iverica18": null,
-        "worktop600": 33.5,
+        "worktop600": 35.54,
         "worktop650": null
       }
     },
     {
       "rowNum": 34,
+      "code": "F237",
+      "structure": "ST76",
+      "name": "Cupria škriljevac",
+      "prices": {
+        "iverica18": null,
+        "worktop600": 35.54,
+        "worktop650": null
+      }
+    },
+    {
+      "rowNum": 35,
       "code": "F244",
       "structure": "ST76",
       "name": "Candela mramor antracit - COMPACT",
       "prices": {
-        "iverica18": 103.24,
+        "iverica18": 109.53,
         "worktop650": null,
         "worktop920": null
       }
     },
     {
-      "rowNum": 35,
+      "rowNum": 36,
       "code": "F251",
       "structure": "ST9",
       "name": "Gavi kamen taupe",
@@ -2541,41 +2542,41 @@
       }
     },
     {
-      "rowNum": 36,
+      "rowNum": 37,
       "code": "F267",
       "structure": "ST76",
       "name": "Bellisara kamen lava sivi - COMPACT",
       "prices": {
-        "iverica18": null
+        "iverica18": 109.63
       }
     },
     {
-      "rowNum": 37,
+      "rowNum": 38,
       "code": "F302",
       "structure": "ST87",
       "name": "Ferro bronca",
       "prices": {
         "iverica18": null,
         "iverica25": null,
-        "worktop600": 38.11,
-        "worktop650": null,
-        "worktop920": null
-      }
-    },
-    {
-      "rowNum": 38,
-      "code": "F311",
-      "structure": "ST87",
-      "name": "Ceramic antrazit - COMPACT",
-      "prices": {
-        "iverica18": 103.24,
-        "iverica25": null,
+        "worktop600": 40.43,
         "worktop650": null,
         "worktop920": null
       }
     },
     {
       "rowNum": 39,
+      "code": "F311",
+      "structure": "ST87",
+      "name": "Ceramic antrazit - COMPACT",
+      "prices": {
+        "iverica18": 109.53,
+        "iverica25": null,
+        "worktop650": null,
+        "worktop920": null
+      }
+    },
+    {
+      "rowNum": 40,
       "code": "F352",
       "structure": "ST76",
       "name": "Terra Basaltino",
@@ -2587,89 +2588,89 @@
       }
     },
     {
-      "rowNum": 40,
+      "rowNum": 41,
       "code": "F486",
       "structure": "ST76",
       "name": "Sparkle Grain bijeli",
       "prices": {
         "iverica18": null,
-        "worktop600": 33.5,
+        "worktop600": 35.54,
         "worktop650": null,
-        "worktop920": 60.8
+        "worktop920": 64.5
       }
     },
     {
-      "rowNum": 41,
+      "rowNum": 42,
       "code": "F502",
       "structure": "ST7",
       "name": "Aluminij fino četkani",
       "prices": {
         "iverica18": null,
-        "worktop600": 31.36,
-        "worktop650": null
-      }
-    },
-    {
-      "rowNum": 42,
-      "code": "F620",
-      "structure": "ST87",
-      "name": "Čelik sivi antracit",
-      "prices": {
-        "iverica18": null,
-        "worktop600": 33.5,
+        "worktop600": 33.27,
         "worktop650": null
       }
     },
     {
       "rowNum": 43,
-      "code": "F638",
-      "structure": "ST10",
-      "name": "Chromix srebrni",
+      "code": "F620",
+      "structure": "ST87",
+      "name": "Čelik sivi antracit",
       "prices": {
         "iverica18": null,
-        "worktop600": 32.93,
+        "worktop600": 35.54,
         "worktop650": null
       }
     },
     {
       "rowNum": 44,
+      "code": "F638",
+      "structure": "ST10",
+      "name": "Chromix srebrni",
+      "prices": {
+        "iverica18": null,
+        "worktop600": 34.94,
+        "worktop650": null
+      }
+    },
+    {
+      "rowNum": 45,
       "code": "F661",
       "structure": "ST76",
       "name": "Calcit Stone pješčano bež - NOVO",
       "prices": {}
     },
     {
-      "rowNum": 45,
+      "rowNum": 46,
       "code": "F662",
       "structure": "ST76",
       "name": "Calcit Stone šljunak siva - NOVO",
       "prices": {}
     },
     {
-      "rowNum": 46,
+      "rowNum": 47,
       "code": "F675",
       "structure": "ST75",
       "name": "Calvia kamen svijetlo sivi",
       "prices": {
         "iverica18": null,
-        "worktop600": 32.93,
+        "worktop600": 34.94,
         "worktop650": null
       }
     },
     {
-      "rowNum": 47,
+      "rowNum": 48,
       "code": "F676",
       "structure": "ST75",
       "name": "Calvia kamen pješčano sivi",
       "prices": {
         "iverica18": null,
-        "worktop600": 32.93,
+        "worktop600": 34.94,
         "worktop650": null,
-        "worktop920": 60.08
+        "worktop920": 63.74
       }
     },
     {
-      "rowNum": 48,
+      "rowNum": 49,
       "code": "F836",
       "structure": "ST75",
       "name": "Formello mramor bijeli - NOVO",
@@ -2679,26 +2680,26 @@
       }
     },
     {
-      "rowNum": 49,
+      "rowNum": 50,
       "code": "F1861",
       "structure": "ST9",
       "name": "Chicago beton solid svijetlo sivi - COMPACT",
       "prices": {
-        "iverica18": 155.94,
+        "iverica18": 165.44,
         "worktop600": null
       }
     },
     {
-      "rowNum": 50,
+      "rowNum": 51,
       "code": "F8001",
       "structure": "ST9",
       "name": "Solid kristalni mramor - COMPACT - NOVO",
       "prices": {
-        "iverica18": 150.21
+        "iverica18": 159.36
       }
     },
     {
-      "rowNum": 52,
+      "rowNum": 53,
       "code": "H193",
       "structure": "ST12",
       "name": "Hrast Butcherblock",
@@ -2711,7 +2712,7 @@
       }
     },
     {
-      "rowNum": 53,
+      "rowNum": 54,
       "code": "H197",
       "structure": "ST10",
       "name": "Vintage wood natur",
@@ -2724,17 +2725,17 @@
       }
     },
     {
-      "rowNum": 54,
+      "rowNum": 55,
       "code": "H1318",
       "structure": "ST10",
       "name": "Divlji hrast natur - COMPACT",
       "prices": {
-        "iverica18": 103.24,
+        "iverica18": 109.53,
         "worktop650": null
       }
     },
     {
-      "rowNum": 55,
+      "rowNum": 56,
       "code": "H1330",
       "structure": "ST10",
       "name": "Santa Fe hrast vintage - COMPACT",
@@ -2744,36 +2745,36 @@
       }
     },
     {
-      "rowNum": 56,
+      "rowNum": 57,
       "code": "H1357",
       "structure": "ST10",
       "name": "Spree hrast bež-sivi",
       "prices": {
         "iverica18": null,
-        "worktop600": 32.93,
+        "worktop600": 34.94,
         "worktop650": null
       }
     },
     {
-      "rowNum": 57,
+      "rowNum": 58,
       "code": "H2032",
       "structure": "ST10",
       "name": "Hunton hrast svijetli",
       "prices": {
         "iverica18": null,
         "iverica25": null,
-        "worktop600": 37,
+        "worktop600": 39.25,
         "worktop650": null,
         "worktop920": null
       }
     },
     {
-      "rowNum": 59,
+      "rowNum": 60,
       "code": "H3730",
       "structure": "ST10",
       "name": "Hikori natur - COMPACT",
       "prices": {
-        "iverica18": null
+        "iverica18": 109.63
       }
     },
     {
@@ -2782,7 +2783,7 @@
       "structure": "ST9",
       "name": "",
       "prices": {
-        "iverica12": 33.19
+        "iverica12": 35.21
       }
     },
     {
@@ -2792,7 +2793,7 @@
       "name": "",
       "prices": {
         "iverica12": null,
-        "iverica18": 171.24
+        "iverica18": 181.67
       }
     },
     {
@@ -2801,7 +2802,7 @@
       "structure": "ST37",
       "name": "",
       "prices": {
-        "iverica18": 169.34
+        "iverica18": 179.65
       }
     }
   ]

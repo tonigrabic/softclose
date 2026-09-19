@@ -12,9 +12,9 @@
     "supplier": "Elgrad d.o.o.",
     "supplierWebsite": "https://www.elgrad.hr",
     "pricelist": "Veleprodajni cjenik",
-    "pdfFile": "data/elgrad-cjenik-2026-03-30.pdf",
-    "validFrom": "2026-03-26",
-    "extractedAt": "2026-05-02",
+    "pdfFile": "data/elgrad-cjenik-2026-09-09.pdf",
+    "validFrom": "2026-09-09",
+    "extractedAt": "2026-09-19",
     "note": "MVP curated subset of ~32 popular EGGER decors. Full 206-row dump in elgrad-decors-raw.json."
   },
   "defaults": {
@@ -34,8 +34,17 @@
       "tone": "light",
       "finish": "smooth-matte",
       "hexHint": "#F4F1EA",
-      "uses": ["door", "carcass", "wall"],
-      "prices": { "iverica18": 21.30, "iverica25": 26.38, "worktop600": null, "worktop920": null }
+      "uses": [
+        "door",
+        "carcass",
+        "wall"
+      ],
+      "prices": {
+        "iverica18": 23.04,
+        "iverica25": 28.53,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "W1100",
@@ -46,8 +55,17 @@
       "tone": "light",
       "finish": "smooth-matte",
       "hexHint": "#F1EFE8",
-      "uses": ["door", "carcass", "wall"],
-      "prices": { "iverica18": 21.21, "worktop600": null, "worktop920": null }
+      "uses": [
+        "door",
+        "carcass",
+        "wall"
+      ],
+      "prices": {
+        "iverica18": 22.94,
+        "iverica25": null,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "W1200",
@@ -58,8 +76,16 @@
       "tone": "light",
       "finish": "smooth-matte",
       "hexHint": "#EEEAE0",
-      "uses": ["door", "carcass"],
-      "prices": { "iverica18": 21.21, "worktop600": null, "worktop920": null }
+      "uses": [
+        "door",
+        "carcass"
+      ],
+      "prices": {
+        "iverica18": 22.94,
+        "iverica25": null,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "U104",
@@ -70,8 +96,17 @@
       "tone": "light",
       "finish": "smooth-matte",
       "hexHint": "#E8E2D2",
-      "uses": ["door", "carcass", "wall"],
-      "prices": { "iverica18": 17.32, "iverica25": 23.15, "worktop600": null, "worktop920": null }
+      "uses": [
+        "door",
+        "carcass",
+        "wall"
+      ],
+      "prices": {
+        "iverica18": 18.73,
+        "iverica25": 25.04,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "U156",
@@ -82,8 +117,15 @@
       "tone": "light",
       "finish": "smooth-matte",
       "hexHint": "#D6C7AB",
-      "uses": ["door"],
-      "prices": { "iverica18": 19.04, "worktop600": null, "worktop920": null }
+      "uses": [
+        "door"
+      ],
+      "prices": {
+        "iverica18": 20.59,
+        "iverica25": null,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "U222",
@@ -94,8 +136,16 @@
       "tone": "light",
       "finish": "smooth-matte",
       "hexHint": "#E2D7BD",
-      "uses": ["door", "carcass"],
-      "prices": { "iverica18": 19.04 }
+      "uses": [
+        "door",
+        "carcass"
+      ],
+      "prices": {
+        "iverica18": 20.59,
+        "iverica25": null,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "U702",
@@ -106,8 +156,16 @@
       "tone": "light",
       "finish": "smooth-matte",
       "hexHint": "#B5AEA0",
-      "uses": ["door", "carcass"],
-      "prices": { "iverica18": 19.04, "iverica25": 20.45 }
+      "uses": [
+        "door",
+        "carcass"
+      ],
+      "prices": {
+        "iverica18": 20.59,
+        "iverica25": 25.04,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "U708",
@@ -118,8 +176,17 @@
       "tone": "light",
       "finish": "smooth-matte",
       "hexHint": "#C7C7C5",
-      "uses": ["door", "carcass", "wall"],
-      "prices": { "iverica18": 17.32, "iverica25": 23.15 }
+      "uses": [
+        "door",
+        "carcass",
+        "wall"
+      ],
+      "prices": {
+        "iverica18": 17.32,
+        "iverica25": 23.15,
+        "worktop600": 34.74,
+        "worktop920": 57.91
+      }
     },
     {
       "code": "U727",
@@ -130,8 +197,16 @@
       "tone": "medium",
       "finish": "smooth-matte",
       "hexHint": "#9D9C97",
-      "uses": ["door", "carcass"],
-      "prices": { "iverica18": 21.21, "iverica25": 26.24 }
+      "uses": [
+        "door",
+        "carcass"
+      ],
+      "prices": {
+        "iverica18": 22.94,
+        "iverica25": 28.38,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "U740",
@@ -142,8 +217,15 @@
       "tone": "medium",
       "finish": "smooth-matte",
       "hexHint": "#7B7770",
-      "uses": ["door"],
-      "prices": { "iverica18": 21.21 }
+      "uses": [
+        "door"
+      ],
+      "prices": {
+        "iverica18": 22.94,
+        "iverica25": null,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "U750",
@@ -154,8 +236,16 @@
       "tone": "medium",
       "finish": "smooth-matte",
       "hexHint": "#8B8A88",
-      "uses": ["door", "carcass"],
-      "prices": { "iverica18": 21.21 }
+      "uses": [
+        "door",
+        "carcass"
+      ],
+      "prices": {
+        "iverica18": 22.94,
+        "iverica25": null,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "U780",
@@ -166,8 +256,15 @@
       "tone": "dark",
       "finish": "smooth-matte",
       "hexHint": "#5D5C5A",
-      "uses": ["door"],
-      "prices": { "iverica18": 21.21 }
+      "uses": [
+        "door"
+      ],
+      "prices": {
+        "iverica18": 22.94,
+        "iverica25": null,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "U788",
@@ -178,8 +275,16 @@
       "tone": "medium",
       "finish": "smooth-matte",
       "hexHint": "#A9ADAE",
-      "uses": ["door", "carcass"],
-      "prices": { "iverica18": 21.21 }
+      "uses": [
+        "door",
+        "carcass"
+      ],
+      "prices": {
+        "iverica18": 22.94,
+        "iverica25": null,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "U961",
@@ -190,8 +295,15 @@
       "tone": "dark",
       "finish": "fine-grain",
       "hexHint": "#2D2D2C",
-      "uses": ["door"],
-      "prices": { "iverica18": 17.10, "iverica25": 22.07 }
+      "uses": [
+        "door"
+      ],
+      "prices": {
+        "iverica18": 18.5,
+        "iverica25": 23.87,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "U963",
@@ -202,8 +314,15 @@
       "tone": "dark",
       "finish": "smooth-matte",
       "hexHint": "#3F4347",
-      "uses": ["door"],
-      "prices": { "iverica18": 17.10, "iverica25": 24.62 }
+      "uses": [
+        "door"
+      ],
+      "prices": {
+        "iverica18": 18.5,
+        "iverica25": 26.63,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "U899",
@@ -214,8 +333,15 @@
       "tone": "dark",
       "finish": "smooth-matte",
       "hexHint": "#22211F",
-      "uses": ["door"],
-      "prices": { "iverica18": 21.21 }
+      "uses": [
+        "door"
+      ],
+      "prices": {
+        "iverica18": 22.94,
+        "iverica25": null,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "U999",
@@ -226,8 +352,16 @@
       "tone": "dark",
       "finish": "fine-grain",
       "hexHint": "#1B1B1A",
-      "uses": ["door", "carcass"],
-      "prices": { "iverica18": 15.48 }
+      "uses": [
+        "door",
+        "carcass"
+      ],
+      "prices": {
+        "iverica18": 16.74,
+        "iverica25": null,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "U998",
@@ -238,8 +372,15 @@
       "tone": "dark",
       "finish": "soft-textured",
       "hexHint": "#1F1E1D",
-      "uses": ["door"],
-      "prices": { "iverica18": 30.85 }
+      "uses": [
+        "door"
+      ],
+      "prices": {
+        "iverica18": 33.37,
+        "iverica25": null,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "H1145",
@@ -250,8 +391,17 @@
       "tone": "medium",
       "finish": "wood-grain",
       "hexHint": "#A88B65",
-      "uses": ["door", "carcass", "worktop"],
-      "prices": { "iverica18": 17.32, "iverica25": 23.71, "iverica38": 31.45, "worktop600": 32.25, "worktop920": 54.00 }
+      "uses": [
+        "door",
+        "carcass",
+        "worktop"
+      ],
+      "prices": {
+        "iverica18": 18.73,
+        "iverica25": 25.64,
+        "worktop600": 34.21,
+        "worktop920": 57.29
+      }
     },
     {
       "code": "H1180",
@@ -262,8 +412,16 @@
       "tone": "medium",
       "finish": "wood-grain",
       "hexHint": "#A78463",
-      "uses": ["door", "worktop"],
-      "prices": { "iverica18": 33.12, "iverica25": 39.60, "worktop650": 73.90, "worktop920": 110.67 }
+      "uses": [
+        "door",
+        "worktop"
+      ],
+      "prices": {
+        "iverica18": 179.65,
+        "iverica25": 39.6,
+        "worktop600": null,
+        "worktop920": 110.67
+      }
     },
     {
       "code": "H1199",
@@ -274,8 +432,15 @@
       "tone": "dark",
       "finish": "wood-grain",
       "hexHint": "#3E2E22",
-      "uses": ["door"],
-      "prices": { "iverica18": 21.21 }
+      "uses": [
+        "door"
+      ],
+      "prices": {
+        "iverica18": 22.94,
+        "iverica25": null,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "H1318",
@@ -286,8 +451,16 @@
       "tone": "medium",
       "finish": "wood-grain",
       "hexHint": "#9A7E5A",
-      "uses": ["door", "worktop"],
-      "prices": { "iverica18": 21.21, "worktop600": 35.91, "worktop920": 54.28 }
+      "uses": [
+        "door",
+        "worktop"
+      ],
+      "prices": {
+        "iverica18": 109.53,
+        "iverica25": null,
+        "worktop600": 35.91,
+        "worktop920": 54.28
+      }
     },
     {
       "code": "H1330",
@@ -298,8 +471,15 @@
       "tone": "dark",
       "finish": "wood-grain",
       "hexHint": "#6E513A",
-      "uses": ["door"],
-      "prices": { "iverica18": 23.28 }
+      "uses": [
+        "door"
+      ],
+      "prices": {
+        "iverica18": 103.24,
+        "iverica25": null,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "H1346",
@@ -310,8 +490,15 @@
       "tone": "dark",
       "finish": "wood-grain",
       "hexHint": "#3A3331",
-      "uses": ["door"],
-      "prices": { "iverica18": 33.12 }
+      "uses": [
+        "door"
+      ],
+      "prices": {
+        "iverica18": 33.12,
+        "iverica25": null,
+        "worktop600": null,
+        "worktop920": null
+      }
     },
     {
       "code": "H3303",
@@ -322,8 +509,16 @@
       "tone": "medium",
       "finish": "wood-grain",
       "hexHint": "#B89770",
-      "uses": ["door", "worktop"],
-      "prices": { "iverica18": 22.64, "iverica25": 25.28, "worktop600": 32.25, "worktop650": 50.87 }
+      "uses": [
+        "door",
+        "worktop"
+      ],
+      "prices": {
+        "iverica18": 24.49,
+        "iverica25": 27.34,
+        "worktop600": 34.21,
+        "worktop920": 10.34
+      }
     },
     {
       "code": "H3331",
@@ -334,8 +529,16 @@
       "tone": "medium",
       "finish": "wood-grain",
       "hexHint": "#B0916A",
-      "uses": ["door", "worktop"],
-      "prices": { "iverica18": 22.64, "worktop600": 35.91, "worktop650": 54.28 }
+      "uses": [
+        "door",
+        "worktop"
+      ],
+      "prices": {
+        "iverica18": 24.49,
+        "iverica25": null,
+        "worktop600": 38.1,
+        "worktop920": null
+      }
     },
     {
       "code": "H3702",
@@ -346,8 +549,15 @@
       "tone": "dark",
       "finish": "wood-grain",
       "hexHint": "#574031",
-      "uses": ["door"],
-      "prices": { "iverica18": 22.64, "iverica25": 26.55 }
+      "uses": [
+        "door"
+      ],
+      "prices": {
+        "iverica18": 24.49,
+        "iverica25": 28.72,
+        "worktop600": null,
+        "worktop920": 10.34
+      }
     },
     {
       "code": "F186",
@@ -358,8 +568,17 @@
       "tone": "medium",
       "finish": "stone-texture",
       "hexHint": "#9C9893",
-      "uses": ["door", "worktop", "backsplash"],
-      "prices": { "iverica18": 23.28, "worktop600": 35.91, "worktop920": 54.28 }
+      "uses": [
+        "door",
+        "worktop",
+        "backsplash"
+      ],
+      "prices": {
+        "iverica18": 25.18,
+        "iverica25": null,
+        "worktop600": 38.1,
+        "worktop920": 57.59
+      }
     },
     {
       "code": "F206",
@@ -370,8 +589,17 @@
       "tone": "dark",
       "finish": "stone-texture",
       "hexHint": "#3A3937",
-      "uses": ["door", "worktop", "backsplash"],
-      "prices": { "iverica18": 23.28, "worktop600": 35.91, "worktop920": 54.28 }
+      "uses": [
+        "door",
+        "worktop",
+        "backsplash"
+      ],
+      "prices": {
+        "iverica18": 123.18,
+        "iverica25": null,
+        "worktop600": 35.91,
+        "worktop920": 54.28
+      }
     },
     {
       "code": "F235",
@@ -382,8 +610,17 @@
       "tone": "dark",
       "finish": "stone-texture",
       "hexHint": "#535653",
-      "uses": ["door", "worktop", "backsplash"],
-      "prices": { "iverica18": 24.48, "worktop600": 34.51, "worktop920": 60.80 }
+      "uses": [
+        "door",
+        "worktop",
+        "backsplash"
+      ],
+      "prices": {
+        "iverica18": 26.48,
+        "iverica25": null,
+        "worktop600": 36.61,
+        "worktop920": 64.5
+      }
     },
     {
       "code": "F243",
@@ -394,8 +631,17 @@
       "tone": "light",
       "finish": "stone-texture",
       "hexHint": "#D8D2C8",
-      "uses": ["door", "worktop", "backsplash"],
-      "prices": { "iverica18": 24.48, "worktop600": 34.51 }
+      "uses": [
+        "door",
+        "worktop",
+        "backsplash"
+      ],
+      "prices": {
+        "iverica18": 26.48,
+        "iverica25": null,
+        "worktop600": 36.61,
+        "worktop920": null
+      }
     },
     {
       "code": "F800",
@@ -406,8 +652,17 @@
       "tone": "light",
       "finish": "stone-texture",
       "hexHint": "#E5E1DA",
-      "uses": ["door", "worktop", "backsplash"],
-      "prices": { "iverica18": 23.28, "worktop600": 34.51, "worktop920": 62.62 }
+      "uses": [
+        "door",
+        "worktop",
+        "backsplash"
+      ],
+      "prices": {
+        "iverica18": 25.18,
+        "iverica25": null,
+        "worktop600": 36.61,
+        "worktop920": 66.43
+      }
     }
   ]
 }
