@@ -105,10 +105,25 @@ async function main() {
   for (const p of products) counts[`${p.kind}/${p.type}`] = (counts[`${p.kind}/${p.type}`] ?? 0) + 1
   console.log('> classification:', Object.fromEntries(Object.entries(counts).sort()))
 
+  // Tier-grounding subsets (cleaned of accessories) — the estimate's UNPICKED
+  // hardware bands read these percentiles instead of hand-set RRPs.
+  const lower = (p) => p.name.toLowerCase()
+  const subsets = {
+    'hardware/runner_set': products.filter((p) => p.type === 'drawer_system' && ['vodilic', 'ladic', 'set', 'komplet'].some((k) => lower(p).includes(k)) && p.priceEur >= 8),
+    'hardware/hinge_unit': products.filter((p) => p.type === 'hinge' && ['šarnir', 'sarnir', 'spojnic'].some((k) => lower(p).includes(k)) && p.priceEur >= 1.5 && p.priceEur <= 40),
+    'hardware/knob': products.filter((p) => p.type === 'handle' && lower(p).includes('gumb') && p.priceEur >= 0.8),
+    'hardware/bar': products.filter((p) => p.type === 'handle' && (lower(p).includes('ručk') || lower(p).includes('rucka')) && !lower(p).includes('gumb') && p.priceEur >= 0.8 && p.priceEur <= 60),
+  }
   const bands = {}
+  for (const [key, items] of Object.entries(subsets)) {
+    const prices = items.map((p) => p.priceEur).sort((a, b) => a - b)
+    if (prices.length < 10) continue
+    bands[key] = { n: prices.length, min: prices[0], p10: percentile(prices, 10), p20: percentile(prices, 20), p25: percentile(prices, 25), p40: percentile(prices, 40), median: percentile(prices, 50), p60: percentile(prices, 60), p75: percentile(prices, 75), p80: percentile(prices, 80), p90: percentile(prices, 90), max: prices[prices.length - 1] }
+    console.log('  tier band', key, bands[key])
+  }
   for (const key of new Set(products.map((p) => `${p.kind}/${p.type}`))) {
     const prices = products.filter((p) => `${p.kind}/${p.type}` === key).map((p) => p.priceEur).sort((a, b) => a - b)
-    bands[key] = { n: prices.length, min: prices[0], p20: percentile(prices, 20), median: percentile(prices, 50), p80: percentile(prices, 80), max: prices[prices.length - 1] }
+    bands[key] = { n: prices.length, min: prices[0], p10: percentile(prices, 10), p20: percentile(prices, 20), p25: percentile(prices, 25), p40: percentile(prices, 40), median: percentile(prices, 50), p60: percentile(prices, 60), p75: percentile(prices, 75), p80: percentile(prices, 80), p90: percentile(prices, 90), max: prices[prices.length - 1] }
   }
   for (const [k, b] of Object.entries(bands)) if (k.startsWith('appliance/') || ['hardware/drawer_system', 'hardware/hinge', 'hardware/handle'].includes(k)) console.log('  band', k, b)
 

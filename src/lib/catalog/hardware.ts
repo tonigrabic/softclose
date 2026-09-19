@@ -58,7 +58,7 @@ const catalog = schachermayerJson as unknown as SchachermayerCatalog
 interface ElgradCatalog {
   schema: { version: string }
   source: { supplier: string; url: string; priceBasis: string; generatedAt: string }
-  bands: Record<string, { n: number; min: number; p20: number; median: number; p80: number; max: number }>
+  bands: Record<string, PriceBand>
   products: Array<{
     supplier: 'elgrad'
     sku: string
@@ -74,10 +74,47 @@ interface ElgradCatalog {
     imageUrl?: string
   }>
 }
+export interface PriceBand {
+  n: number
+  min: number
+  p10?: number
+  p20: number
+  p25?: number
+  p40?: number
+  median: number
+  p60?: number
+  p75?: number
+  p80: number
+  p90?: number
+  max: number
+}
+
 const elgrad = elgradJson as unknown as ElgradCatalog
 
 /** Real-price bands per `kind/type` from the Elgrad webshop (p20–p80 etc.). */
 export const elgradPriceBands = elgrad.bands
+
+/**
+ * A tier's price band for an UNPICKED component, cut from the real Elgrad
+ * distribution: budget = p10–p25, mid = p40–p60, premium = p75–p90. Returns
+ * null when the catalog has no usable subset, so callers keep their fallback.
+ */
+export function elgradTierBand(
+  key: 'hardware/runner_set' | 'hardware/hinge_unit' | 'hardware/knob' | 'hardware/bar',
+  tier: 'budget' | 'mid' | 'premium'
+): { low: number; high: number } | null {
+  const b = elgrad.bands[key]
+  if (!b || b.n < 10) return null
+  const pick =
+    tier === 'budget' ? [b.p10, b.p25] : tier === 'mid' ? [b.p40, b.p60] : [b.p75, b.p90]
+  if (pick[0] == null || pick[1] == null) return null
+  // A tier is a class estimate, not a whole distribution: keep it inside ±20%
+  // of its midpoint so one wide tier (budget runners span 12–31 €) cannot push
+  // the kitchen band past the promise.
+  const mid = (pick[0] + pick[1]) / 2
+  const half = Math.min((pick[1] - pick[0]) / 2, mid * 0.2)
+  return { low: mid - half, high: mid + half }
+}
 export const elgradGeneratedAt = elgrad.source.generatedAt
 
 /**

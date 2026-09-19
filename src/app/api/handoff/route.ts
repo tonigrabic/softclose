@@ -3,6 +3,8 @@ import { buildStubEstimate } from '@/lib/stub-estimate'
 import { computeBom } from '@/lib/builder/bom'
 import { makerPricingEntryCount } from '@/lib/catalog/maker-pricing'
 import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
+import { offloadMedia, storageUploader } from '@/lib/db/media'
+import { notifyMakerOfBrief } from '@/lib/notify/maker-email'
 import type { BuilderState } from '@/lib/builder/inventory'
 import type {
   ClientMessage,
@@ -106,38 +108,52 @@ export async function POST(req: Request) {
     const db = supabaseAdmin()
     if (db && body.persist !== false) {
       try {
+        const briefId = crypto.randomUUID()
+        // Images leave the row: every data URL in the bundle becomes a private
+        // Storage object under briefs/<id>/; the homeowner's own response keeps
+        // the inline images (their download must work offline).
+        const upload = storageUploader()
+        const stored = upload
+          ? await offloadMedia(bundle, `briefs/${briefId}`, upload)
+          : { value: bundle, count: 0, bytes: 0 }
         const { data: session, error: sErr } = await db
           .from(TABLES.sessions)
           .insert({
             locale: body.locale ?? null,
             step: 'contact',
             status: 'submitted',
-            profile: brief,
+            profile: stored.value.brief,
             submitted_at: new Date().toISOString(),
           })
           .select('id')
           .single()
         if (sErr) throw sErr
-        const { data: row, error: bErr } = await db
-          .from(TABLES.briefs)
-          .insert({
-            session_id: session.id,
-            locale: body.locale ?? null,
-            contact_name: brief.name ?? null,
-            contact_type: brief.contactValue?.includes('@') ? 'email' : brief.contactValue ? 'phone' : null,
-            contact_value: brief.contactValue ?? null,
-            estimate_low: estimate?.low ?? null,
-            estimate_high: estimate?.high ?? null,
-            estimate_all_in_low: estimate?.withAppliances?.low ?? null,
-            estimate_all_in_high: estimate?.withAppliances?.high ?? null,
-            band_pct: estimate?.bandPct ?? null,
-            bundle,
-          })
-          .select('id')
-          .single()
+        const { error: bErr } = await db.from(TABLES.briefs).insert({
+          id: briefId,
+          session_id: session.id,
+          locale: body.locale ?? null,
+          contact_name: brief.name ?? null,
+          contact_type: brief.contactValue?.includes('@') ? 'email' : brief.contactValue ? 'phone' : null,
+          contact_value: brief.contactValue ?? null,
+          estimate_low: estimate?.low ?? null,
+          estimate_high: estimate?.high ?? null,
+          estimate_all_in_low: estimate?.withAppliances?.low ?? null,
+          estimate_all_in_high: estimate?.withAppliances?.high ?? null,
+          band_pct: estimate?.bandPct ?? null,
+          bundle: stored.value,
+          media_object_count: stored.count,
+          media_bytes: stored.bytes,
+        })
         if (bErr) throw bErr
-        bundle.briefId = row.id as string
-        bundle.makerPath = `/maker/${row.id}`
+        bundle.briefId = briefId
+        bundle.makerPath = `/maker/${briefId}`
+
+        // Tell the maker. Origin from APP_URL, else the request itself.
+        const baseUrl = process.env.APP_URL?.replace(/\/$/, '') || new URL(req.url).origin
+        const notified = await notifyMakerOfBrief({ briefId, bundle, locale: body.locale, baseUrl })
+        if (notified) {
+          await db.from(TABLES.briefs).update({ maker_notified_at: new Date().toISOString() }).eq('id', briefId)
+        }
       } catch (persistErr) {
         console.error('[handoff] persist failed', persistErr)
       }

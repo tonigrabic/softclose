@@ -213,9 +213,9 @@ export async function POST(req: Request) {
     )
   }
 
-  let body: { photos?: string[] }
+  let body: { photos?: string[]; locale?: string }
   try {
-    body = (await req.json()) as { photos?: string[] }
+    body = (await req.json()) as { photos?: string[]; locale?: string }
   } catch {
     return Response.json({ error: 'Invalid JSON' }, { status: 400 })
   }
@@ -242,10 +242,15 @@ export async function POST(req: Request) {
     }
   }
 
+  const langNote =
+    body.locale === 'hr-HR'
+      ? "\n\nWrite the 'summary' sentence in Croatian (hr-HR); keep every other field in the schema's English enum values."
+      : ''
+
   try {
     const result = await generateText({
       model: openai('gpt-5.4-mini'),
-      system: SYSTEM,
+      system: SYSTEM + langNote,
       messages: [
         {
           role: 'user',

@@ -20,11 +20,16 @@ import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import { hydrateFromHypothesis } from '@/lib/builder/state'
 import { computeBom } from '@/lib/builder/bom'
 
-// Tightened from 20 → 15 in iteration 3 (WORKLOG 2026-06-21): once the goods
-// bands were grounded in real catalog products the displayed band settled at
-// 11–13% across every fixture, so the ±20% AGENTS.md promise holds with margin
-// to spare and we assert the tighter, real invariant the model actually meets.
-const BAND_CAP_PCT = 15
+// History: 20 → 15 (2026-06-21) when goods bands were first grounded and the
+// fixtures settled at 11–13%. Back to 20 (2026-09-19): once hardware moved to
+// REAL Elgrad prices (bar handles ≈5 € not 8, budget runners 12–31 € not
+// 21–26), the narrow, over-priced hardware line stopped padding the total and
+// the wide material lines (boards ±24%, corner accessories ±40%) weigh more —
+// l-shape and u-shape land at ±17%. 20 is the product promise (foundations
+// #6, AGENTS.md rule 6); the works range is additionally hard-capped at ±20 in
+// bom.ts. Tightening again means narrowing boards/accessories honestly, not
+// inflating hardware.
+const BAND_CAP_PCT = 20
 
 function estimateForFixture(id: string) {
   const fixture = CONTRACT_FIXTURES.find((f) => f.id === id)

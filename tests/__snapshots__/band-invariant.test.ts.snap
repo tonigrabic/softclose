@@ -2,9 +2,9 @@
 
 exports[`estimate drift — totals per fixture > galley: total range snapshot 1`] = `
 {
-  "confirmedBandPct": 10,
-  "displayedBandPct": 13,
-  "high": 9215,
+  "confirmedBandPct": 12,
+  "displayedBandPct": 15,
+  "high": 7850,
   "lines": [
     "boards",
     "worktop",
@@ -21,15 +21,15 @@ exports[`estimate drift — totals per fixture > galley: total range snapshot 1`
     "assembly",
     "install",
   ],
-  "low": 7079,
+  "low": 5865,
 }
 `;
 
 exports[`estimate drift — totals per fixture > island: total range snapshot 1`] = `
 {
-  "confirmedBandPct": 8,
-  "displayedBandPct": 11,
-  "high": 6642,
+  "confirmedBandPct": 9,
+  "displayedBandPct": 12,
+  "high": 5522,
   "lines": [
     "boards",
     "worktop",
@@ -46,15 +46,15 @@ exports[`estimate drift — totals per fixture > island: total range snapshot 1`
     "assembly",
     "install",
   ],
-  "low": 5330,
+  "low": 4333,
 }
 `;
 
 exports[`estimate drift — totals per fixture > l-shape: total range snapshot 1`] = `
 {
-  "confirmedBandPct": 13,
-  "displayedBandPct": 15,
-  "high": 9595,
+  "confirmedBandPct": 14,
+  "displayedBandPct": 17,
+  "high": 8467,
   "lines": [
     "boards",
     "worktop",
@@ -71,15 +71,15 @@ exports[`estimate drift — totals per fixture > l-shape: total range snapshot 1
     "assembly",
     "install",
   ],
-  "low": 7070,
+  "low": 6068,
 }
 `;
 
 exports[`estimate drift — totals per fixture > peninsula: total range snapshot 1`] = `
 {
-  "confirmedBandPct": 9,
-  "displayedBandPct": 12,
-  "high": 9095,
+  "confirmedBandPct": 10,
+  "displayedBandPct": 13,
+  "high": 7509,
   "lines": [
     "boards",
     "worktop",
@@ -96,15 +96,15 @@ exports[`estimate drift — totals per fixture > peninsula: total range snapshot
     "assembly",
     "install",
   ],
-  "low": 7215,
+  "low": 5810,
 }
 `;
 
 exports[`estimate drift — totals per fixture > single: total range snapshot 1`] = `
 {
-  "confirmedBandPct": 10,
-  "displayedBandPct": 13,
-  "high": 4284,
+  "confirmedBandPct": 11,
+  "displayedBandPct": 15,
+  "high": 3573,
   "lines": [
     "boards",
     "worktop",
@@ -120,15 +120,15 @@ exports[`estimate drift — totals per fixture > single: total range snapshot 1`
     "assembly",
     "install",
   ],
-  "low": 3297,
+  "low": 2670,
 }
 `;
 
 exports[`estimate drift — totals per fixture > u-shape: total range snapshot 1`] = `
 {
-  "confirmedBandPct": 13,
-  "displayedBandPct": 15,
-  "high": 14020,
+  "confirmedBandPct": 14,
+  "displayedBandPct": 17,
+  "high": 12188,
   "lines": [
     "boards",
     "worktop",
@@ -145,6 +145,6 @@ exports[`estimate drift — totals per fixture > u-shape: total range snapshot 1
     "assembly",
     "install",
   ],
-  "low": 10352,
+  "low": 8730,
 }
 `;

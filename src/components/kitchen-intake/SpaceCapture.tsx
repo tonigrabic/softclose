@@ -60,7 +60,7 @@ export function SpaceCapture({
   onConfirm,
   captureOnly = false,
 }: SpaceCaptureProps) {
-  const { t } = useTranslations()
+  const { t, locale } = useTranslations()
   const inputRef = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -130,7 +130,7 @@ export function SpaceCapture({
       const res = await fetch('/api/space-vision', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photos }),
+        body: JSON.stringify({ photos, locale }),
       })
       const data = await readJson(res)
       if (!res.ok || data.error) {

@@ -16,6 +16,7 @@
 
 import { decors as catalogDecors, services, doorPricePerM2, worktopPricePerM, findDecor } from '@/lib/catalog'
 import { makerPriceForSku } from '@/lib/catalog/maker-pricing'
+import { elgradTierBand } from '@/lib/catalog/hardware'
 import { PATTERN_SPECS, unitDrawerCount } from './cabinet-patterns'
 import type { BuilderState, CabinetUnit, DrawerSystemTier, FieldMeta } from './inventory'
 import type { LeadProfile } from '@/lib/types'
@@ -279,13 +280,48 @@ function narrowByMeta(
  * for every internal drawer (which is the chunk that scales most strongly
  * with user choices).
  */
-const HARDWARE_TIER_RRP: Record<
+const HARDWARE_TIER_RRP_FALLBACK: Record<
   DrawerSystemTier,
   { perBaseUnit: { low: number; high: number }; perDrawer: { low: number; high: number } }
 > = {
   budget: { perBaseUnit: { low: 42, high: 52 }, perDrawer: { low: 21, high: 26 } },
   mid: { perBaseUnit: { low: 88, high: 112 }, perDrawer: { low: 50, high: 64 } }, // Grass Nova Pro
   premium: { perBaseUnit: { low: 160, high: 205 }, perDrawer: { low: 105, high: 138 } }, // Blum Legrabox
+}
+
+/** Fittings share of a base unit beyond its two hinges (plates, connectors, shelf supports). */
+const FITTINGS_PER_UNIT = { low: 14, high: 24 }
+
+/**
+ * Per-tier hardware RRP for UNPICKED components. Grounded on the real Elgrad
+ * webshop distribution when the catalog carries it (runner sets, hinges:
+ * budget = p10–p25, mid = p40–p60, premium = p75–p90 — see
+ * scripts/build-elgrad-catalog.mjs); the hand-set constants remain the
+ * fallback so a missing catalog never blanks the estimate.
+ */
+export function hardwareTierRrp(tier: DrawerSystemTier): {
+  perBaseUnit: { low: number; high: number }
+  perDrawer: { low: number; high: number }
+  source: 'elgrad' | 'reference'
+} {
+  const runner = elgradTierBand('hardware/runner_set', tier)
+  const hinge = elgradTierBand('hardware/hinge_unit', tier)
+  if (!runner || !hinge) return { ...HARDWARE_TIER_RRP_FALLBACK[tier], source: 'reference' }
+  return {
+    perDrawer: runner,
+    perBaseUnit: { low: hinge.low * 2 + FITTINGS_PER_UNIT.low, high: hinge.high * 2 + FITTINGS_PER_UNIT.high },
+    source: 'elgrad',
+  }
+}
+
+/** Handle base prices per style, from Elgrad medians when available (knob ≈1.5 €, bar ≈5.3 €). */
+export function handleStyleBase(): Record<string, number> {
+  const knob = elgradTierBand('hardware/knob', 'mid')
+  const bar = elgradTierBand('hardware/bar', 'mid')
+  if (!knob || !bar) return { bar: 8, knob: 4.5, cup: 6.5 }
+  const k = (knob.low + knob.high) / 2
+  const b = (bar.low + bar.high) / 2
+  return { knob: k, bar: b, cup: (k + b) / 2 }
 }
 
 /**
@@ -516,7 +552,7 @@ export function computeBom(
     ? units.filter((u) => u.type === 'tall').reduce((s, u) => s + u.widthMm / 1000, 0)
     : state.layout.runs.filter((r) => r.hasTall).reduce((s, r) => s + r.lengthCm / 100, 0)
 
-  const tierRRP = HARDWARE_TIER_RRP[state.hardware.drawerSystemTier]
+  const tierRRP = hardwareTierRrp(state.hardware.drawerSystemTier)
   const hingeMultiplier =
     state.hardware.hingeType === 'soft_close' ? 1.0 : state.hardware.hingeType === 'push_to_open' ? 1.15 : 0.85
   // Picked catalog prices pin the two dominant hardware components:
@@ -582,7 +618,7 @@ export function computeBom(
     // Style sets the base (a knob is cheaper than a bar), finish scales it.
     // Before the 2026-09-19 audit every style priced the same, so switching
     // bars → knobs → cups visibly did nothing.
-    const HANDLE_STYLE_BASE: Record<string, number> = { bar: 8, knob: 4.5, cup: 6.5 }
+    const HANDLE_STYLE_BASE = handleStyleBase()
     const HANDLE_FINISH_MUL: Record<string, number> = {
       brass: 1.7,
       chrome: 1.2,
