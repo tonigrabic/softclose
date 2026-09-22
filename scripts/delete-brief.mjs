@@ -15,8 +15,8 @@ for (const id of ids) {
   const { data: objs } = await db.storage.from('softclose-media').list(`briefs/${id}`)
   const paths = (objs ?? []).map((o) => `briefs/${id}/${o.name}`)
   if (paths.length) { const { error } = await db.storage.from('softclose-media').remove(paths); if (error) throw error }
-  const { data: row } = await db.from('softclose_briefs').select('session_id').eq('id', id).maybeSingle()
+  const { data: row } = await db.from('softclose_briefs').select('project_id').eq('id', id).maybeSingle()
   await db.from('softclose_briefs').delete().eq('id', id)
-  if (row?.session_id) await db.from('softclose_sessions').delete().eq('id', row.session_id)
+  if (row?.project_id) await db.from('softclose_projects').delete().eq('id', row.project_id)
   console.log(`> deleted brief ${id} (${paths.length} objects)`)
 }

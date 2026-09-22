@@ -9,7 +9,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "gate": "vitest run && tsc --noEmit && eslint . && next build"
+    "gate": "vitest run && tsc --noEmit && eslint . && next build",
+    "maker": "node scripts/maker.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.58",

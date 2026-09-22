@@ -35,8 +35,8 @@ export async function POST(req: Request) {
         const stored = upload
           ? await offloadMedia(bundle, `briefs/${briefId}`, upload)
           : { value: bundle, count: 0, bytes: 0 }
-        const { data: session, error: sErr } = await db
-          .from(TABLES.sessions)
+        const { data: project, error: sErr } = await db
+          .from(TABLES.projects)
           .insert({
             locale: body.locale ?? null,
             step: 'contact',
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
         if (sErr) throw sErr
         const { error: bErr } = await db.from(TABLES.briefs).insert({
           id: briefId,
-          session_id: session.id,
+          project_id: project.id,
           locale: body.locale ?? null,
           contact_name: brief.name ?? null,
           contact_type: brief.contactValue?.includes('@') ? 'email' : brief.contactValue ? 'phone' : null,

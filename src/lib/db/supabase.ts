@@ -34,8 +34,12 @@ export function dbEnabled(): boolean {
 
 /** Table names live in one place (dedicated Supabase project "softclose", ref elowaiqwadmazwchzaft). */
 export const TABLES = {
-  sessions: 'softclose_sessions',
+  /** One customer's one kitchen. Renamed from softclose_sessions in 0004 —
+   *  "session" already meant three other things in this codebase. */
+  projects: 'softclose_projects',
   briefs: 'softclose_briefs',
+  accounts: 'softclose_accounts',
+  authTokens: 'softclose_auth_tokens',
   products: 'softclose_products',
   priceHistory: 'softclose_price_history',
 } as const
