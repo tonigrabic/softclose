@@ -678,4 +678,26 @@ export const enUS: Record<TranslationKey, string> = {
   'product.tile_sample': 'tile sample',
   'product.sink': 'sink',
   'product.pendant_light': 'pendant light',
+
+  // ---- Auth: sign in, invite links, sign out -----------------------------
+  'auth.login.title': 'Sign in',
+  'auth.login.subtitle': "Enter your email and we'll send you a sign-in link. No password needed.",
+  'auth.login.email': 'Email address',
+  'auth.login.submit': 'Send the link',
+  'auth.login.sending': 'Sending…',
+  'auth.login.sent.title': 'Check your email',
+  'auth.login.sent.body':
+    'If an account exists for {email}, a sign-in link is on its way. It lasts 15 minutes and works once.',
+  'auth.login.noAccount': 'No account? Your kitchen maker sends the invite.',
+  'auth.login.invalidEmail': 'Enter a valid email address.',
+  'auth.login.error': "We can't send the link right now. Try again in a minute.",
+  'auth.login.notConfigured': 'Sign-in is not configured on this server yet.',
+  'auth.login.devLink': 'Development mode — no email provider configured',
+  'auth.verify.working': 'Signing you in…',
+  'auth.verify.submit': 'Continue',
+  'auth.verify.failed.title': 'That link is invalid or has expired',
+  'auth.verify.failed.body':
+    'Sign-in links are short-lived and work only once. Ask for a new one and it will arrive straight away.',
+  'auth.verify.failed.cta': 'Send me a new link',
+  'auth.logout': 'Sign out',
 }

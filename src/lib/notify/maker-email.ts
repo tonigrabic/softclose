@@ -1,16 +1,17 @@
 /**
  * "End the ghosting" (AGENTS.md rule 8) starts with the maker actually hearing
- * that a brief arrived. One transactional email per persisted brief via the
- * Resend REST API (no SDK — one fetch). Dormant unless RESEND_API_KEY and
- * MAKER_NOTIFY_EMAIL are set; never throws into the handoff path.
+ * that a brief arrived. One transactional email per persisted brief. Dormant
+ * unless a provider and a recipient exist; never throws into the handoff path.
  *
- * Env:
- *   RESEND_API_KEY      — from resend.com
- *   RESEND_FROM         — e.g. "softclose <brief@yourdomain.hr>" (verified domain);
- *                         defaults to Resend's onboarding sender, which only
- *                         delivers to the account owner's own address.
- *   MAKER_NOTIFY_EMAIL  — where new briefs go (comma-separated allowed)
+ * Sending itself lives in ./send (Resend / Mailpit / console); this module only
+ * decides what to say and to whom.
+ *
+ * `MAKER_NOTIFY_EMAIL` is the pre-accounts fallback: once a brief has an owner,
+ * `to` is that project's maker and this variable is only a BCC for our own
+ * monitoring.
  */
+import { escapeHtml } from './html'
+import { emailSendingEnabled, sendEmail } from './send'
 import type { HandoffBundle } from '@/lib/types'
 
 export interface MakerNotifyInput {
@@ -19,10 +20,12 @@ export interface MakerNotifyInput {
   locale?: string | null
   /** Absolute origin of the app, e.g. https://softclose-lyart.vercel.app */
   baseUrl: string
+  /** The owning maker's address. Falls back to MAKER_NOTIFY_EMAIL. */
+  to?: string | null
 }
 
 export function makerNotifyEnabled(): boolean {
-  return Boolean(process.env.RESEND_API_KEY && process.env.MAKER_NOTIFY_EMAIL)
+  return emailSendingEnabled() && Boolean(process.env.MAKER_NOTIFY_EMAIL)
 }
 
 function eur(n: number | null | undefined): string {
@@ -61,33 +64,11 @@ ${rows.map(([k, v]) => `<tr><td style="padding:6px 0;color:#666;width:44%">${esc
   return { subject, html, text }
 }
 
-function escapeHtml(s: string): string {
-  return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string)
-}
-
-/** Send. Resolves to true when Resend accepted the message. Never throws. */
+/** Send. Resolves to true when the provider accepted the message. Never throws. */
 export async function notifyMakerOfBrief(input: MakerNotifyInput): Promise<boolean> {
-  if (!makerNotifyEnabled()) return false
-  try {
-    const { subject, html, text } = buildMakerEmail(input)
-    const res = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        from: process.env.RESEND_FROM || 'softclose <onboarding@resend.dev>',
-        to: String(process.env.MAKER_NOTIFY_EMAIL).split(',').map((s) => s.trim()).filter(Boolean),
-        subject,
-        html,
-        text,
-      }),
-    })
-    if (!res.ok) {
-      console.error('[maker-email] resend rejected:', res.status, (await res.text()).slice(0, 300))
-      return false
-    }
-    return true
-  } catch (err) {
-    console.error('[maker-email] failed:', err instanceof Error ? err.message : err)
-    return false
-  }
+  const to = input.to ?? process.env.MAKER_NOTIFY_EMAIL
+  if (!to || !emailSendingEnabled()) return false
+  const { subject, html, text } = buildMakerEmail(input)
+  const result = await sendEmail({ to, subject, html, text })
+  return result.ok
 }

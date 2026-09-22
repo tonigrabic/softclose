@@ -2,13 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "home-designer",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "port": 3000
-    },
-    {
-      "name": "home-designer-mock",
+      "name": "softclose",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:mock"],
       "port": 3000

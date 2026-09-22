@@ -693,6 +693,31 @@ export const hrHR = {
   'product.tile_sample': 'uzorak pločica',
   'product.sink': 'sudoper',
   'product.pendant_light': 'viseća svjetiljka',
+
+  // ---- Auth: sign in, invite links, sign out -----------------------------
+  'auth.login.title': 'Prijava',
+  'auth.login.subtitle':
+    'Upiši svoju e-mail adresu i poslat ćemo ti link za prijavu. Lozinka ti ne treba.',
+  'auth.login.email': 'E-mail adresa',
+  'auth.login.submit': 'Pošalji link',
+  'auth.login.sending': 'Šaljem…',
+  'auth.login.sent.title': 'Provjeri poštu',
+  // Says "if an account exists" on purpose: softclose is invite-only, and
+  // confirming which addresses are registered would map every studio's clients.
+  'auth.login.sent.body':
+    'Ako za {email} postoji račun, link za prijavu je na putu. Vrijedi 15 minuta i može se upotrijebiti jednom.',
+  'auth.login.noAccount': 'Nemaš račun? Pozivnicu ti šalje tvoj izrađivač kuhinje.',
+  'auth.login.invalidEmail': 'Upiši ispravnu e-mail adresu.',
+  'auth.login.error': 'Trenutno ne možemo poslati link. Pokušaj ponovno za koju minutu.',
+  'auth.login.notConfigured': 'Prijava još nije konfigurirana na ovom poslužitelju.',
+  'auth.login.devLink': 'Razvojni način — e-pošta nije konfigurirana',
+  'auth.verify.working': 'Prijavljujem te…',
+  'auth.verify.submit': 'Nastavi prijavu',
+  'auth.verify.failed.title': 'Link nije valjan ili je istekao',
+  'auth.verify.failed.body':
+    'Linkovi za prijavu vrijede kratko i mogu se upotrijebiti samo jednom. Zatraži novi i poslat ćemo ti ga odmah.',
+  'auth.verify.failed.cta': 'Zatraži novi link',
+  'auth.logout': 'Odjava',
 } as const
 
 export type TranslationKey = keyof typeof hrHR
