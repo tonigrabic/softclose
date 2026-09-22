@@ -105,7 +105,16 @@ interface IntakeFlowState {
   currentStepId: FlowStepId
 }
 
-export function KitchenIntake() {
+export interface KitchenIntakeProps {
+  /** Set when the journey belongs to a customer's project. Absent = the old
+   *  anonymous, local-only funnel, whose behaviour is unchanged. */
+  projectId?: string
+  /** The maker's display name, for the line telling the customer who can see
+   *  their progress. AGENTS.md rule 8 cuts both ways. */
+  makerName?: string | null
+}
+
+export function KitchenIntake({ projectId, makerName }: KitchenIntakeProps = {}) {
   const { locale } = useTranslations()
   const [state, setState] = useState<IntakeFlowState>({
     currentStepId: 'space_photos',
@@ -544,6 +553,14 @@ export function KitchenIntake() {
     }
   }
 
+  /**
+   * Wipe the journey and start again.
+   *
+   * Only reachable in the anonymous funnel. A customer working inside a project
+   * has exactly one kitchen and cannot start another without a new invite from
+   * their maker, so a one-click irreversible wipe has no safe meaning there —
+   * the callers pass `hidden` when projectId is set.
+   */
   function resetAll() {
     void clearSnapshot()
     setState({ currentStepId: 'space_photos' })
@@ -676,8 +693,10 @@ export function KitchenIntake() {
         nav={
           <>
             <header className="mb-5 flex items-center justify-end">
+              {/* Hidden in project mode: see the note on resetAll. */}
               <button
                 type="button"
+                hidden={Boolean(projectId)}
                 onClick={resetAll}
                 className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
                 title={tDynamic('nav.startOver', locale)}
@@ -800,8 +819,10 @@ export function KitchenIntake() {
         <>
           {Object.keys(profile).length > 0 && (
             <header className="mb-5 flex items-center justify-end">
+              {/* Hidden in project mode: see the note on resetAll. */}
               <button
                 type="button"
+                hidden={Boolean(projectId)}
                 onClick={resetAll}
                 className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
                 title={tDynamic('nav.startOver', locale)}
@@ -812,6 +833,11 @@ export function KitchenIntake() {
             </header>
           )}
           <JourneyNavRail funnelStepId={state.currentStepId} profile={profile} locale={locale} />
+          {projectId && makerName ? (
+            <p className="mt-5 text-[10px] leading-relaxed text-muted-foreground">
+              {tDynamic('kitchen.makerSees', locale).replace('{maker}', makerName)}
+            </p>
+          ) : null}
         </>
       }
     >

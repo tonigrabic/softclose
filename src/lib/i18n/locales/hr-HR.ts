@@ -752,6 +752,32 @@ export const hrHR = {
   'dashboard.invite.err.isMaker': 'Ta adresa već pripada izrađivaču.',
   'dashboard.invite.err.tooMany': 'Danas si poslao previše pozivnica. Pokušaj sutra.',
   'dashboard.invite.err.generic': 'Pozivnicu trenutno nije moguće stvoriti.',
+  // ---- The customer's project home (walkthrough + status) -----------------
+  'kitchen.home.eyebrow': 'Tvoja kuhinja',
+  'kitchen.home.yourMaker': 'Tvoj izrađivač',
+  'kitchen.home.title': '{maker} te pozvao da opišeš svoju kuhinju',
+  'kitchen.home.titleSubmitted': 'Tvoj sažetak je kod {maker}',
+  // Says plainly what this is NOT. The anxiety being reduced is "am I about to
+  // commit to something" (product-foundations, principle 7).
+  'kitchen.home.what':
+    'Zajedno ćemo opisati tvoju kuhinju. Na kraju tvoj izrađivač dobiva uredan sažetak, a ti okvirni raspon cijene (±20%). To nije ponuda i ništa se ne naplaćuje.',
+  'kitchen.home.act.space': 'Fotografiraj prostor — pročitat ćemo raspored i dimenzije.',
+  'kitchen.home.act.look': 'Pokaži inspiraciju — složimo izgled i vidiš ga u svom prostoru.',
+  'kitchen.home.act.build': 'Sastavi kuhinju — vrata, radna ploča, okovi, uređaji.',
+  'kitchen.home.act.details': 'Detalji — opseg radova, rokovi, pristup gradilištu.',
+  'kitchen.home.need.title': 'Pripremi',
+  'kitchen.home.need.body':
+    'Nekoliko fotografija kuhinje (i prazan zid ako ga mijenjaš) te slike koje ti se sviđaju — Pinterest, Instagram, bilo što.',
+  'kitchen.home.time': 'Traje petnaestak minuta. Možeš stati kad god i nastaviti gdje si stao.',
+  'kitchen.home.cta.start': 'Počni',
+  'kitchen.home.cta.continue': 'Nastavi · {step}',
+  'kitchen.home.cta.edit': 'Izmijeni kuhinju',
+  'kitchen.home.status.sent': 'Poslano {date}.',
+  'kitchen.home.status.seen': '{maker} je otvorio sažetak {date}.',
+  'kitchen.home.status.notSeen': '{maker} ga još nije otvorio — javit ćemo ti kad ga otvori.',
+  'kitchen.home.status.range': 'Procjena: {range}',
+  'kitchen.home.editNote': 'Ako nešto izmijeniš, {maker} dobiva obavijest o izmjeni.',
+  'kitchen.makerSees': '{maker} vidi tvoj napredak dok radiš.',
   'auth.logout': 'Odjava',
 } as const
 
