@@ -6,6 +6,7 @@ import { KitchenIntake } from '@/components/kitchen-intake'
 import { AuthShell } from '@/components/AuthShell'
 import { Button } from '@/components/ui/button'
 import { useTranslations } from '@/lib/i18n'
+import type { ProjectSnapshot } from '@/lib/project/snapshot'
 
 export interface KitchenHomeProps {
   projectId: string
@@ -21,6 +22,8 @@ export interface KitchenHomeProps {
   revision: number
   /** The maker is looking at their customer's kitchen: show it, never write. */
   readOnly: boolean
+  /** The journey as the server last saw it, for a resume on any device. */
+  snapshot: ProjectSnapshot | null
 }
 
 const ACTS = [
@@ -53,6 +56,8 @@ export function KitchenHome(props: KitchenHomeProps) {
         makerName={props.makerName}
         initialRevision={props.revision}
         readOnly={props.readOnly}
+        hasExistingBrief={Boolean(props.briefId)}
+        initialSnapshot={props.snapshot}
       />
     )
   }

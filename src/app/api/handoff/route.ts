@@ -15,6 +15,9 @@ interface HandoffRequest {
   moodBoard?: MoodBoardItem[]
   explorationRefs?: { url: string; prompt: string; reaction?: string }[]
   transcript?: ClientMessage[]
+  /** The project this brief belongs to. Without it the brief has no owner, and
+   *  an ownerless brief is unreadable by anyone — see the block below. */
+  projectId?: string
 }
 
 export async function POST(req: Request) {
@@ -32,7 +35,32 @@ export async function POST(req: Request) {
     const db = supabaseAdmin()
     if (db && body.persist !== false) {
       try {
+        // Ownership. The DAL refuses ownerless briefs on purpose, so resolving
+        // the maker here is not bookkeeping — it is what makes the brief exist
+        // for the person it was written for.
+        let projectId: string | null = null
+        let makerId: string | null = null
+        if (body.projectId) {
+          const { data: project } = await db
+            .from(TABLES.projects)
+            .select('id, customer_id, maker_id')
+            .eq('id', body.projectId)
+            .maybeSingle()
+          if (!project || project.customer_id !== session.accountId) {
+            return Response.json({ error: 'not_found' }, { status: 404 })
+          }
+          projectId = project.id as string
+          makerId = (project.maker_id as string | null) ?? null
+        }
+
         const briefId = crypto.randomUUID()
+        // One timestamp for the brief row AND the project's updated_at.
+        // Letting the database default created_at and then updating the project
+        // afterwards leaves updated_at a few milliseconds later, and the maker's
+        // list derives "changed since you got the brief" from exactly that
+        // comparison — so every fresh submit would arrive already flagged as an
+        // edit, and the flag would mean nothing.
+        const submittedAt = new Date().toISOString()
         // Images leave the row: every data URL in the bundle becomes a private
         // Storage object under briefs/<id>/; the homeowner's own response keeps
         // the inline images (their download must work offline).
@@ -40,21 +68,31 @@ export async function POST(req: Request) {
         const stored = upload
           ? await offloadMedia(bundle, `briefs/${briefId}`, upload)
           : { value: bundle, count: 0, bytes: 0 }
-        const { data: project, error: sErr } = await db
-          .from(TABLES.projects)
-          .insert({
-            locale: body.locale ?? null,
-            step: 'contact',
-            status: 'submitted',
-            profile: stored.value.brief,
-            submitted_at: new Date().toISOString(),
-          })
-          .select('id')
-          .single()
-        if (sErr) throw sErr
+
+        // Projects are created by an invite now. This only runs for the legacy
+        // path — a submit with no projectId — which keeps the old tests and any
+        // anonymous flow working.
+        if (!projectId) {
+          const { data: created, error: pErr } = await db
+            .from(TABLES.projects)
+            .insert({
+              locale: body.locale ?? null,
+              step: 'contact',
+              status: 'submitted',
+              profile: stored.value.brief,
+              submitted_at: submittedAt,
+            })
+            .select('id')
+            .single()
+          if (pErr) throw pErr
+          projectId = created.id as string
+        }
+
         const { error: bErr } = await db.from(TABLES.briefs).insert({
           id: briefId,
-          project_id: project.id,
+          created_at: submittedAt,
+          project_id: projectId,
+          maker_id: makerId,
           locale: body.locale ?? null,
           contact_name: brief.name ?? null,
           contact_type: brief.contactValue?.includes('@') ? 'email' : brief.contactValue ? 'phone' : null,
@@ -69,12 +107,34 @@ export async function POST(req: Request) {
           media_bytes: stored.bytes,
         })
         if (bErr) throw bErr
+
+        // Point the project at its current brief and denormalise the range, so
+        // the maker's list never has to load a snapshot to show a number.
+        await db
+          .from(TABLES.projects)
+          .update({
+            current_brief_id: briefId,
+            status: 'submitted',
+            submitted_at: submittedAt,
+            updated_at: submittedAt,
+            est_low: estimate?.low ?? null,
+            est_high: estimate?.high ?? null,
+            est_band_pct: estimate?.bandPct ?? null,
+          })
+          .eq('id', projectId)
+
         bundle.briefId = briefId
         bundle.makerPath = `/maker/${briefId}`
 
-        // Tell the maker. Origin from APP_URL, else the request itself.
+        // Tell the maker — their own address once the brief has an owner.
+        // MAKER_NOTIFY_EMAIL is only the pre-accounts fallback.
         const baseUrl = process.env.APP_URL?.replace(/\/$/, '') || new URL(req.url).origin
-        const notified = await notifyMakerOfBrief({ briefId, bundle, locale: body.locale, baseUrl })
+        let to: string | null = null
+        if (makerId) {
+          const { data: maker } = await db.from(TABLES.accounts).select('email').eq('id', makerId).maybeSingle()
+          to = (maker?.email as string | null) ?? null
+        }
+        const notified = await notifyMakerOfBrief({ briefId, bundle, locale: body.locale, baseUrl, to })
         if (notified) {
           await db.from(TABLES.briefs).update({ maker_notified_at: new Date().toISOString() }).eq('id', briefId)
         }

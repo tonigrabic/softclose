@@ -778,6 +778,15 @@ export const hrHR = {
   'kitchen.home.status.range': 'Procjena: {range}',
   'kitchen.home.editNote': 'Ako nešto izmijeniš, {maker} dobiva obavijest o izmjeni.',
   'kitchen.makerSees': '{maker} vidi tvoj napredak dok radiš.',
+  'live.back': 'Natrag na popis',
+  'live.banner.title': 'U TIJEKU — kupac još radi',
+  'live.banner.body':
+    'Ovo nije poslani sažetak. Raspon je izračunat iz nedovršene kuhinje i još će se mijenjati — pričekaj da kupac pošalje prije nego što nudiš cijenu.',
+  'wrapup.resubmit.title': 'Izmijenio si nešto?',
+  'wrapup.resubmit.body':
+    'Tvoj izrađivač već ima sažetak ove kuhinje. Pošalji izmjene i dobit će obavijest da si nešto promijenio.',
+  'wrapup.resubmit.cta': 'Pošalji izmjene',
+  'wrapup.resubmit.sending': 'Šaljem…',
   'auth.logout': 'Odjava',
 } as const
 

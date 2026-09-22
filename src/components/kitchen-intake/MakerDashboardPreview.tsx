@@ -13,6 +13,15 @@ interface MakerDashboardPreviewProps {
   bundle: HandoffBundle
   /** Present only in the in-funnel demo; the real /maker/[id] page passes nothing and gets no DEMO banner. */
   onBack?: () => void
+  /**
+   * Hide quote / clarify / decline.
+   *
+   * Set on the live view of a brief the customer is still writing: that range
+   * comes from an incomplete build, and "Quote-ready" against it is precisely
+   * the committed number AGENTS.md rule 6 forbids. The decision belongs on a
+   * submitted brief and nowhere else.
+   */
+  hideActions?: boolean
 }
 
 // EUR everywhere (AGENTS.md): the maker sees the same currency as the
@@ -103,7 +112,7 @@ function listFromTrue(obj: Record<string, unknown> | undefined): string | null {
   return keys.length > 0 ? keys.join(', ') : null
 }
 
-export function MakerDashboardPreview({ bundle, onBack }: MakerDashboardPreviewProps) {
+export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: MakerDashboardPreviewProps) {
   const [actionTaken, setActionTaken] = useState<'quote' | 'clarify' | 'decline' | null>(null)
   const profile: LeadProfile = bundle.brief
   const summary = bundle.estimate
@@ -202,6 +211,8 @@ export function MakerDashboardPreview({ bundle, onBack }: MakerDashboardPreviewP
             ) : (
               <p className="text-sm text-slate-500">No estimate available.</p>
             )}
+            {!hideActions && (
+              <>
             <div className="mt-4 flex gap-2">
               <button
                 type="button"
@@ -250,6 +261,8 @@ export function MakerDashboardPreview({ bundle, onBack }: MakerDashboardPreviewP
               <p className="mt-2 font-mono text-[10px] text-slate-500">
                 Demo action: {actionTaken} (no-op).
               </p>
+            )}
+              </>
             )}
           </section>
 

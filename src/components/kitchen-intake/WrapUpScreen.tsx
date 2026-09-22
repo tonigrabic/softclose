@@ -22,6 +22,12 @@ interface WrapUpScreenProps {
   profile: LeadProfile
   explorationRefs: ConceptVisualRef[]
   transcript: ClientMessage[]
+  /** Ties the brief to its project, and so to a maker. Without it the brief is
+   *  ownerless and nobody — not even the maker who asked for it — can open it. */
+  projectId?: string
+  /** True when this project already has a brief with the maker. Submitting is
+   *  then an explicit act, not something that happens by arriving here. */
+  hasExistingBrief?: boolean
 }
 
 function humanize(v: string): string {
@@ -33,11 +39,20 @@ function listSummary(items: { trade: string }[] | undefined): string | null {
   return items.map((i) => i.trade).join(' · ')
 }
 
-export function WrapUpScreen({ data, profile, explorationRefs, transcript }: WrapUpScreenProps) {
+export function WrapUpScreen({
+  data,
+  profile,
+  explorationRefs,
+  transcript,
+  projectId,
+  hasExistingBrief = false,
+}: WrapUpScreenProps) {
   const { t, tDynamic: td, locale } = useTranslations()
   const [bundle, setBundle] = useState<HandoffBundle | null>(null)
   const [bundleError, setBundleError] = useState<string | null>(null)
-  const [isLoadingBundle, setIsLoadingBundle] = useState(true)
+  // Only "loading" when we are about to submit on mount; on a revisit there
+  // is nothing in flight until the customer asks for it.
+  const [isLoadingBundle, setIsLoadingBundle] = useState(!hasExistingBrief)
   const [isExporting, setIsExporting] = useState(false)
   const [exportError, setExportError] = useState<string | null>(null)
   const [showMakerView, setShowMakerView] = useState(false)
@@ -73,7 +88,7 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
       const res = await fetch('/api/handoff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brief: profile, moodBoard, explorationRefs, transcript, locale }),
+        body: JSON.stringify({ brief: profile, moodBoard, explorationRefs, transcript, locale, projectId }),
       })
       if (!res.ok) throw new Error(`Bundle build failed (${res.status})`)
       const data = await readJson<HandoffBundle>(res)
@@ -89,9 +104,18 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
   }, [])
 
   useEffect(() => {
+    // Submitting on mount is right the FIRST time — the homeowner has just
+    // finished and the brief is the point of the whole journey.
+    //
+    // It is wrong on every visit after that. Once a project has a brief, simply
+    // navigating back to this screen would insert another one and email the
+    // maker again, every time. So a re-submit is an explicit act: the button
+    // below. (The inflight ref only ever guarded StrictMode's double-fire
+    // within one mount; it cannot help across visits.)
+    if (hasExistingBrief) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadBundle()
-  }, [loadBundle])
+  }, [loadBundle, hasExistingBrief])
 
   async function downloadHandoff() {
     if (!bundle) return
@@ -200,6 +224,24 @@ export function WrapUpScreen({ data, profile, explorationRefs, transcript }: Wra
           <p className="text-sm text-muted-foreground">{t('wrapup.estimate.unavailable')}</p>
         )}
       </section>
+
+      {/* Re-submit, explicitly. The maker already has a brief for this kitchen;
+          sending changes is a decision the customer makes, not a side effect of
+          landing on this screen. */}
+      {hasExistingBrief && !bundle && (
+        <section className="rounded-2xl border border-border bg-card p-5 text-left shadow-sm">
+          <p className="mb-1 text-sm font-medium text-foreground">{t('wrapup.resubmit.title')}</p>
+          <p className="mb-3 text-xs leading-relaxed text-muted-foreground">{t('wrapup.resubmit.body')}</p>
+          <button
+            type="button"
+            onClick={() => void loadBundle()}
+            disabled={isLoadingBundle}
+            className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {isLoadingBundle ? t('wrapup.resubmit.sending') : t('wrapup.resubmit.cta')}
+          </button>
+        </section>
+      )}
 
       {/* What happens next — status visibility is a P0 (AGENTS.md rule 8).
           Honest about persistence: only claims "saved" when the server said so. */}

@@ -3,6 +3,7 @@ import { requireProjectAccess } from '@/lib/auth/dal'
 import { findAccountById } from '@/lib/auth/accounts'
 import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import { DEFAULT_LOCALE, isLocale, tDynamic } from '@/lib/i18n/core'
+import { migrateSnapshot } from '@/lib/project/snapshot'
 import { stepProgress } from '@/lib/project/status'
 import { KitchenHome } from './KitchenHome'
 
@@ -31,6 +32,15 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
 
   const db = supabaseAdmin()
   if (!db) notFound()
+
+  // The server's copy of the journey, so a sign-in on a different device picks
+  // up where the last one left off. migrateSnapshot refuses a snapshot written
+  // by newer code rather than reading it with older assumptions.
+  const { data: snapRow } = await db.from(TABLES.projects).select('snapshot').eq('id', project.id).maybeSingle()
+  const migrated = snapRow?.snapshot
+    ? migrateSnapshot(snapRow.snapshot, project.snapshotVersion)
+    : null
+  const snapshot = migrated && migrated.ok ? migrated.snapshot : null
 
   // The brief, when there is one — it drives the status panel.
   let brief: { createdAt: string; makerViewedAt: string | null; low: number | null; high: number | null } | null = null
@@ -71,6 +81,7 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
       range={money(brief?.low ?? null, brief?.high ?? null, locale)}
       revision={project.revision}
       readOnly={session.role !== 'customer'}
+      snapshot={snapshot}
     />
   )
 }

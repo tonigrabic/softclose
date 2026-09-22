@@ -118,6 +118,14 @@ export interface KitchenIntakeProps {
   /** True when the viewer is the maker looking in. The brief's whole value is
    *  that it is the homeowner's own answers, so the maker never writes to it. */
   readOnly?: boolean
+  /** The project already has a brief: re-submitting becomes explicit. */
+  hasExistingBrief?: boolean
+  /**
+   * The journey as the server last saw it. Image-free by design (checkpoints
+   * strip inline images), so it restores everything structural and nothing
+   * visual — which is exactly what a second device can be given today.
+   */
+  initialSnapshot?: IntakeSnapshot | null
 }
 
 export function KitchenIntake({
@@ -125,6 +133,8 @@ export function KitchenIntake({
   makerName,
   initialRevision = 0,
   readOnly = false,
+  hasExistingBrief = false,
+  initialSnapshot = null,
 }: KitchenIntakeProps = {}) {
   const { locale } = useTranslations()
   const [state, setState] = useState<IntakeFlowState>({
@@ -207,8 +217,17 @@ export function KitchenIntake({
       // of their own journey rather than a maybe-stranger's session. Restore it
       // and move on. Leaving the offer up would also hold persistenceReady
       // false, which silently blocks every checkpoint until it is answered.
-      if (worthResuming && projectId) applySnapshot(d)
-      else if (worthResuming) setResumeOffer(rec)
+      //
+      // Local wins over the server copy when it exists, because it is the same
+      // journey WITH its photos — the server copy is image-free. On a second
+      // device there is no local copy, and the server snapshot restores
+      // everything except the pictures.
+      if (projectId) {
+        if (worthResuming) applySnapshot(d)
+        else if (initialSnapshot) applySnapshot(initialSnapshot)
+      } else if (worthResuming) {
+        setResumeOffer(rec)
+      }
       persistenceReady.current = true
     })
     return () => {
@@ -740,6 +759,8 @@ export function KitchenIntake({
           profile={profile}
           explorationRefs={[]}
           transcript={transcript}
+          projectId={projectId}
+          hasExistingBrief={hasExistingBrief}
         />
       </AppShell>
     )

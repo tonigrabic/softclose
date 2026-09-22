@@ -758,5 +758,14 @@ export const enUS: Record<TranslationKey, string> = {
   'kitchen.home.status.range': 'Estimate: {range}',
   'kitchen.home.editNote': 'If you change anything, {maker} is notified of the change.',
   'kitchen.makerSees': '{maker} can see your progress as you work.',
+  'live.back': 'Back to the list',
+  'live.banner.title': 'IN PROGRESS — the customer is still working',
+  'live.banner.body':
+    'This is not a submitted brief. The range is computed from an unfinished kitchen and will still move — wait for them to send it before you quote.',
+  'wrapup.resubmit.title': 'Changed something?',
+  'wrapup.resubmit.body':
+    'Your maker already has a brief for this kitchen. Send your changes and they will be told something moved.',
+  'wrapup.resubmit.cta': 'Send the changes',
+  'wrapup.resubmit.sending': 'Sending…',
   'auth.logout': 'Sign out',
 }
