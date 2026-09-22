@@ -3,32 +3,30 @@
  * Maker accounts — add, list, disable, adopt.
  *
  * Invite-only means makers cannot sign themselves up, so this is how they come
- * into existence. It runs from a laptop straight against whatever database
- * .env.local points at, which is production — so it prints the target project
- * ref and asks before writing. Same shape as setup-storage.mjs / delete-brief.mjs.
+ * into existence. It runs from a laptop straight against whatever database the
+ * env file points at — .env.local, i.e. PRODUCTION, unless --local — so it
+ * prints the target and asks before writing.
  *
  * This is also the lockout recovery path. If nobody can sign in, this is the way
  * back: `add` prints a ready-to-use sign-in link, so a maker can be onboarded
  * before Resend is configured at all.
+ *
+ * Add --local to work against the `supabase start` stack instead of production.
  *
  *   npm run maker -- add --email ana@stolarija.hr --name "Stolarija Ana"
  *   npm run maker -- list
  *   npm run maker -- disable --email ana@stolarija.hr
  *   npm run maker -- adopt --email ana@stolarija.hr   # give them the pre-auth briefs
  *
- * Flags: --yes skips the confirmation, --url <origin> sets the link's origin.
+ * Flags: --local targets the local stack, --yes skips the confirmation,
+ * --url <origin> sets the sign-in link's origin.
  */
-import { readFileSync, existsSync } from 'node:fs'
-import { dirname, resolve } from 'node:path'
+import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createHash, randomBytes } from 'node:crypto'
 import { createInterface } from 'node:readline/promises'
 import { createClient } from '@supabase/supabase-js'
-
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-for (const line of existsSync(resolve(ROOT, '.env.local')) ? readFileSync(resolve(ROOT, '.env.local'), 'utf8').split('\n') : []) {
-  const m = line.match(/^([A-Z0-9_]+)=(.*)$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim()
-}
+import { loadEnv, targetLabel } from './_env.mjs'
 
 // Mirrors src/lib/auth/tokens.ts, which is the source of truth. tests/maker-script
 // imports both and asserts they agree, so these cannot drift apart silently.
@@ -56,13 +54,14 @@ async function confirm(question) {
 async function main() {
   const command = process.argv[2]
   if (!command || HAS('help')) {
-    die('usage: npm run maker -- <add|list|disable|adopt> [--email x] [--name y] [--url origin] [--yes]')
+    die('usage: npm run maker -- <add|list|disable|adopt> [--email x] [--name y] [--local] [--url origin] [--yes]')
   }
 
+  loadEnv()
   const url = process.env.SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) die('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing — check .env.local')
-  const ref = url.match(/https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1] ?? url
+  if (!url || !key) die('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing — check your env file')
+  const ref = targetLabel(url)
   const db = createClient(url, key, { auth: { persistSession: false } })
 
   if (command === 'list') {

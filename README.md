@@ -16,6 +16,27 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+### Local database
+
+`npm run dev` talks to a **local** Supabase stack, never production:
+
+```bash
+supabase start                              # Postgres + Storage in Docker
+for f in db/migrations/*.sql; do \
+  docker exec -i supabase_db_softclose psql -U postgres -d postgres -v ON_ERROR_STOP=1 -q < "$f"; done
+node scripts/setup-storage.mjs --local      # the private media bucket
+npm run maker -- add --email you@example.com --local   # prints a sign-in link
+```
+
+The wiring is `.env.development.local`, which Next loads ahead of `.env.local`
+in development. `.env.local` still points at production, and the scripts in
+`scripts/` read it directly — so the scrapers and `npm run maker` act on
+**production** unless you pass `--local`. Each of them prints its target before
+writing.
+
+Migrations go through `psql` in the container rather than `supabase db query
+--local`, which cannot execute multi-statement files.
+
 ### Dev without AI spend
 
 - `npm run dev:mock` — the whole funnel runs against canned AI responses
