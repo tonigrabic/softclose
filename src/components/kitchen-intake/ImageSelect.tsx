@@ -6,12 +6,8 @@ import { cn } from '@/lib/utils'
 import type { SelectOption } from '@/lib/types'
 import { getOptionFallbackImage } from '@/lib/option-visuals'
 import { fileToCompressedDataUrl } from '@/lib/image'
+import type { UploadedReference } from '@/lib/types'
 
-interface UploadedReference {
-  id: string
-  imageUrl: string
-  source: 'upload' | 'url'
-}
 
 interface ImageSelectProps {
   options: SelectOption[]

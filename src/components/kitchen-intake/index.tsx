@@ -35,6 +35,7 @@ import type { UnitEdits } from '@/lib/builder/unit-assembly'
 import { derivePrefills } from '@/lib/derive-prefills'
 import { renderDerivedFloorPlan } from '@/lib/derive-layout'
 import { clearSnapshot, loadSnapshot, saveSnapshot, type StoredSnapshot } from '@/lib/session-store'
+import type { ProjectSnapshot as IntakeSnapshot } from '@/lib/project/snapshot'
 import { DESIGNER_NAME } from '@/lib/system-prompt'
 import type { UploadedReference } from './ImageSelect'
 import type { FloorPlan } from '@/lib/floor-plan'
@@ -165,32 +166,6 @@ export function KitchenIntake() {
   // Everything `resetAll` clears is snapshotted to IndexedDB (debounced) and
   // offered back on the next visit. Saving is held until the load attempt has
   // settled, so the empty initial state can never clobber a stored journey.
-  type IntakeSnapshot = {
-    currentStepId: FlowStepId
-    profile: LeadProfile
-    transcript: ClientMessage[]
-    isDone: boolean
-    wrapUpData: WrapUpData | null
-    spacePhotos: string[]
-    spaceVision: SpaceVisionResult | null
-    floorPlan: FloorPlan | null
-    unitEdits: UnitEdits | null
-    inspirationStyles: string[]
-    inspirationRefs: UploadedReference[]
-    inspirationVision: InspirationVisionResult | null
-    conceptRenders: ConceptRender[]
-    chosenRenderId: string | null
-    productReferences: ProductReference[]
-    scopeSelected: string[]
-    siteAccess: string | null
-    livingPlan: string | null
-    contactDraft: ContactValue
-    mustHavesText: string
-    niceToHavesText: string
-    dealBreakersText: string
-    builderHypothesis: BuilderHypothesis | null
-    builderStartedNoAI: boolean
-  }
   const [resumeOffer, setResumeOffer] = useState<StoredSnapshot<IntakeSnapshot> | null>(null)
   const persistenceReady = useRef(false)
 

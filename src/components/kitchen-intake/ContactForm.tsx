@@ -1,12 +1,9 @@
 'use client'
 
 import { useTranslations } from '@/lib/i18n'
+import type { ContactValue } from '@/lib/types'
 
-export interface ContactValue {
-  name: string
-  contactType: 'phone' | 'email'
-  contactValue: string
-}
+export type { ContactValue }
 
 interface ContactFormProps {
   value: ContactValue

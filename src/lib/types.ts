@@ -17,6 +17,35 @@ export interface ConceptVisualRef {
 }
 
 /**
+ * An image the homeowner supplied as inspiration — uploaded from their device
+ * or pasted as a link.
+ *
+ * Declared here rather than in ImageSelect.tsx (its original home, re-exported
+ * there for back-compat) because the project snapshot carries these and is read
+ * by server code. A 'use client' module must never become a server module's
+ * import edge — see tests/server-client-boundary.test.ts for why.
+ */
+export interface UploadedReference {
+  id: string
+  imageUrl: string
+  source: 'upload' | 'url'
+}
+
+/** A specific product photo the homeowner wants the render to honour. */
+export interface ProductReference {
+  id: string
+  photo: string
+  label: string
+}
+
+/** How the homeowner wants their maker to reach them. */
+export interface ContactValue {
+  name: string
+  contactType: 'phone' | 'email'
+  contactValue: string
+}
+
+/**
  * Translation provenance: when the AI captures an informal homeowner phrase
  * as a trade-grade field, it must also store the originating verbatim quote
  * so the designer can cross-check the interpretation. Per Principle 6 of
