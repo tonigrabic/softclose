@@ -886,3 +886,65 @@ plus a live click-through of every chip in mock mode. Findings and fixes:
   link to /maker/<id>; dormant until RESEND_API_KEY + MAKER_NOTIFY_EMAIL exist
   (local + Vercel). maker_notified_at stamped when sent.
 - Vision summary now returned in the homeowner's language (locale passed).
+
+### 2026-09-22 — Invite-only auth: the app is closed, both sides work
+Branch `feat/invite-only-auth` (not merged, not deployed; production DB untouched).
+
+**The shape.** One passwordless system, two roles. A maker signs in with an
+emailed link. A customer's INVITE *is* their magic link: creating it creates a
+pending account on that email plus the one project it opens into. One invite =
+one kitchen; they sign back in with the same address to see and edit it.
+
+**What exists now that did not.**
+- `softclose_accounts`, `softclose_auth_tokens`, and `softclose_sessions`
+  renamed to `softclose_projects` — it always was the project row (status/step/
+  updated_at/profile, written once at submit), so `draft` and `step` were dead
+  columns waiting for exactly this.
+- `/login`, `/auth/verify`, `/logout`, `src/proxy.ts` (Next 16's name for
+  middleware), and a DAL that every page and route calls for itself.
+- **`/dashboard` — the first maker inbox this product has ever had.** Before
+  this the only way to a brief was the link in a notification email.
+- **`/kitchen/[projectId]` — the customer's home**: the walkthrough before they
+  start, the status page afterwards (sent / your maker opened it / the range).
+  The customer half of rule 8 did not exist at all.
+- Server checkpoints, so the maker sees "korak 2/8 · Inspiracija" as it happens
+  and a customer can resume on another device.
+- `npm run maker -- add|list|disable|adopt`, which is also the lockout recovery
+  path: `add` prints a working sign-in link.
+- A local Supabase stack (Toni's call), so schema work never touches production.
+
+**Decisions worth remembering.**
+- `/auth/verify` does NOT consume on GET. Outlook SafeLinks and corporate
+  gateways prefetch links to scan them, which would burn single-use tokens
+  before the human clicks — a failure indistinguishable from "it's broken". The
+  page auto-submits a form; the consume happens on POST, plus a 2-minute grace
+  window so double submits and two tabs also succeed.
+- Not-yours is `notFound()`, never 403. A 403 confirms the id exists.
+- Checkpoints are image-free (a real snapshot is ~700 bytes) and conditional on
+  a revision. A 409 whose fingerprint matches what we sent is our own write
+  landing, not a conflict — that is what stops StrictMode's double-mount showing
+  a conflict banner on every dev load.
+- Auth fails closed: no AUTH_SECRET means nobody signs in, including us. There
+  is deliberately no dev bypass flag.
+
+**Found by running it, not by the gate.**
+- The resume banner silently disabled every checkpoint — `persistenceReady`
+  stays false until it is answered. Gone in project mode.
+- The IndexedDB key was the global `'current'`: on a shared browser, customer B
+  would be offered customer A's journey, photos included. Keyed per project now.
+- Wrap-up submits on mount, so re-opening a finished kitchen would insert
+  another brief and re-email the maker on every visit. Re-submit is a button.
+- Every fresh brief arrived flagged "changed since you got it": the project is
+  updated just after the brief is inserted, and that comparison is what the flag
+  is derived from. 0005 makes the touch trigger honour an explicit updated_at.
+- A 404 was retried forever on a backoff; any 4xx is permanent now.
+
+**Still open.** Brief versioning on re-submit (supersedes / is_current / a
+change summary in the email) — a re-submit currently makes a new brief and
+repoints the project, which works but says nothing about what moved. Media at
+capture time, so a mid-flow device switch keeps its photos. And the ops step:
+verify a softclose sending domain in Resend, set AUTH_SECRET + RESEND_* on
+Vercel, apply 0004/0005 to production, then turn Vercel Deployment Protection
+OFF — or invited customers hit Vercel's SSO wall and never reach /login.
+
+Gate: 309 tests · tsc · eslint · build green (was 158 at the start).
