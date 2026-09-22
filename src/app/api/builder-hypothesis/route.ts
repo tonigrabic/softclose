@@ -12,13 +12,14 @@
 import { generateText, tool } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
-import { rateLimit } from '@/lib/rate-limit'
+import { rateLimitKey } from '@/lib/rate-limit'
 import { decors } from '@/lib/catalog'
+import { apiAccount } from '@/lib/auth/dal'
 import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
 import { mockHypothesis } from '@/lib/api/mock-fixtures/builder-hypothesis'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
-import { providerFailure, AI_UNAVAILABLE } from '@/lib/api/errors'
+import { providerFailure, unauthorized, AI_UNAVAILABLE } from '@/lib/api/errors'
 
 const MAX_BYTES_PER_PHOTO = 6 * 1024 * 1024
 const MAX_CALLS_PER_SESSION_WINDOW = 4
@@ -377,6 +378,12 @@ CATALOG (Croatian decors available via Elgrad):
 ${CATALOG_HINT}`
 
 export async function POST(req: Request) {
+  // Auth first, before the mock short-circuit — "fully protected" must not have
+  // an exception you have to remember. These routes spend real money (a render
+  // is ~75 s of gpt-image-2) and were open to the internet until now.
+  const session = await apiAccount()
+  if (!session) return unauthorized()
+
   // Mock-AI mode: the decor hypothesis fixture built against the request's
   // contract (run ids must echo or seeding silently ignores the hints).
   if (mockAiEnabled()) {
@@ -389,7 +396,7 @@ export async function POST(req: Request) {
     }
     return Response.json({ hypothesis: mockHypothesis(contract) })
   }
-  const limit = rateLimit(req, 'builder-hypothesis', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
+  const limit = rateLimitKey(session.accountId, 'builder-hypothesis', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
   if (!limit.ok) {
     return Response.json(
       { error: 'Too many builder calls — please wait a moment.', retryAfterMs: limit.retryAfterMs },

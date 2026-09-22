@@ -1,9 +1,10 @@
 import { generateImage } from 'ai'
 import { openai } from '@ai-sdk/openai'
-import { rateLimit } from '@/lib/rate-limit'
+import { rateLimitKey } from '@/lib/rate-limit'
+import { apiAccount } from '@/lib/auth/dal'
 import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
 import { mockRenderDataUrl } from '@/lib/api/mock-fixtures/render-concept'
-import { providerFailure, AI_UNAVAILABLE } from '@/lib/api/errors'
+import { providerFailure, unauthorized, AI_UNAVAILABLE } from '@/lib/api/errors'
 
 // Per-session render cap (product rule: renders capped at 5/session — they cost
 // real image-gen money). Defaults to 5; override via env for local testing
@@ -209,6 +210,12 @@ function sanitizeFreeText(text: unknown, maxLen = 240): string | null {
 }
 
 export async function POST(req: Request) {
+  // Auth first, before the mock short-circuit — "fully protected" must not have
+  // an exception you have to remember. These routes spend real money (a render
+  // is ~75 s of gpt-image-2) and were open to the internet until now.
+  const session = await apiAccount()
+  if (!session) return unauthorized()
+
   // Mock-AI mode: canned render (real data URL — downstream consumers validate
   // the data:image/ prefix) before rate limiting, so devs can iterate freely.
   if (mockAiEnabled()) {
@@ -234,7 +241,7 @@ export async function POST(req: Request) {
       generatedAt: new Date().toISOString(),
     })
   }
-  const limit = rateLimit(req, 'render-concept', MAX_RENDERS_PER_SESSION, SESSION_WINDOW_MS)
+  const limit = rateLimitKey(session.accountId, 'render-concept', MAX_RENDERS_PER_SESSION, SESSION_WINDOW_MS)
   if (!limit.ok) {
     return Response.json(
       {

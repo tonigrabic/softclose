@@ -699,5 +699,8 @@ export const enUS: Record<TranslationKey, string> = {
   'auth.verify.failed.body':
     'Sign-in links are short-lived and work only once. Ask for a new one and it will arrive straight away.',
   'auth.verify.failed.cta': 'Send me a new link',
+  'auth.noProject.title': 'No active kitchen',
+  'auth.noProject.body':
+    'Your maker sends you the link that opens your project. If you lost it, ask them for a new one.',
   'auth.logout': 'Sign out',
 }

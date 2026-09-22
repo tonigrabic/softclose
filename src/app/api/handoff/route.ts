@@ -1,3 +1,5 @@
+import { apiAccount } from '@/lib/auth/dal'
+import { unauthorized } from '@/lib/api/errors'
 import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import { offloadMedia, storageUploader } from '@/lib/db/media'
 import { notifyMakerOfBrief } from '@/lib/notify/maker-email'
@@ -16,6 +18,9 @@ interface HandoffRequest {
 }
 
 export async function POST(req: Request) {
+  const session = await apiAccount()
+  if (!session) return unauthorized()
+
   try {
     const body = (await req.json()) as HandoffRequest
     const bundle = buildHandoffBundle(body)

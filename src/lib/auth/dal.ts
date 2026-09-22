@@ -30,6 +30,8 @@ export interface Session {
   role: Role
   email: string
   name: string | null
+  /** The account's preferred locale, for server components that render copy. */
+  locale: string | null
 }
 
 /**
@@ -49,7 +51,13 @@ export const getSession = cache(async (): Promise<Session | null> => {
   if (account.status !== 'active') return null
   if (account.sessionEpoch !== claims.epoch) return null
 
-  return { accountId: account.id, role: account.role, email: account.email, name: account.name }
+  return {
+    accountId: account.id,
+    role: account.role,
+    email: account.email,
+    name: account.name,
+    locale: account.locale,
+  }
 })
 
 /** The path the proxy saw, so a redirect to /login can come back here afterwards. */

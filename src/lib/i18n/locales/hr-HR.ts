@@ -717,6 +717,9 @@ export const hrHR = {
   'auth.verify.failed.body':
     'Linkovi za prijavu vrijede kratko i mogu se upotrijebiti samo jednom. Zatraži novi i poslat ćemo ti ga odmah.',
   'auth.verify.failed.cta': 'Zatraži novi link',
+  'auth.noProject.title': 'Nema aktivne kuhinje',
+  'auth.noProject.body':
+    'Tvoj izrađivač ti šalje link kojim otvaraš svoj projekt. Ako si ga izgubio, zatraži novi od njega.',
   'auth.logout': 'Odjava',
 } as const
 

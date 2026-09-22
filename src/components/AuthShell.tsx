@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { LogoutButton } from '@/components/LogoutButton'
 import { MockBadge } from '@/components/MockBadge'
 import { cn } from '@/lib/utils'
 
@@ -16,10 +17,13 @@ import { cn } from '@/lib/utils'
 export function AuthShell({
   children,
   wide = false,
+  signedIn = false,
 }: {
   children: ReactNode
   /** The maker's list needs room; a sign-in form does not. */
   wide?: boolean
+  /** Shows the sign-out control. Off on /login, where it would be nonsense. */
+  signedIn?: boolean
 }) {
   return (
     <div className="flex min-h-dvh flex-col bg-background">
@@ -28,6 +32,7 @@ export function AuthShell({
         <div className="flex items-center gap-2">
           <MockBadge />
           <LanguageSwitcher />
+          {signedIn ? <LogoutButton /> : null}
         </div>
       </header>
       <main className={cn('mx-auto flex w-full flex-1 flex-col px-5 pb-16 sm:px-8', wide ? 'max-w-5xl' : 'max-w-md justify-center')}>
