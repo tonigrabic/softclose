@@ -69,6 +69,8 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
       makerViewedAt={date(brief?.makerViewedAt ?? null)}
       briefId={project.currentBriefId}
       range={money(brief?.low ?? null, brief?.high ?? null, locale)}
+      revision={project.revision}
+      readOnly={session.role !== 'customer'}
     />
   )
 }

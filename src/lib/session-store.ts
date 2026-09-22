@@ -12,8 +12,17 @@
 
 const DB_NAME = 'softclose'
 const STORE = 'session'
-const KEY = 'current'
 export const SNAPSHOT_VERSION = 1
+
+/**
+ * One key per project, so two kitchens on one browser cannot overwrite each
+ * other — and, more seriously, so a shared machine cannot offer customer B the
+ * journey (photos included) that customer A left behind. `anon` is the old
+ * unauthenticated funnel, whose behaviour is unchanged.
+ */
+function keyFor(projectId?: string): string {
+  return projectId ? `project:${projectId}` : 'anon'
+}
 
 export interface StoredSnapshot<T> {
   version: number
@@ -38,14 +47,14 @@ function openDb(): Promise<IDBDatabase | null> {
   })
 }
 
-export async function saveSnapshot<T>(data: T): Promise<boolean> {
+export async function saveSnapshot<T>(data: T, projectId?: string): Promise<boolean> {
   const db = await openDb()
   if (!db) return false
   return new Promise((resolve) => {
     try {
       const tx = db.transaction(STORE, 'readwrite')
       const rec: StoredSnapshot<T> = { version: SNAPSHOT_VERSION, savedAt: new Date().toISOString(), data }
-      tx.objectStore(STORE).put(rec, KEY)
+      tx.objectStore(STORE).put(rec, keyFor(projectId))
       tx.oncomplete = () => resolve(true)
       tx.onerror = () => resolve(false)
       tx.onabort = () => resolve(false)
@@ -55,12 +64,12 @@ export async function saveSnapshot<T>(data: T): Promise<boolean> {
   })
 }
 
-export async function loadSnapshot<T>(): Promise<StoredSnapshot<T> | null> {
+export async function loadSnapshot<T>(projectId?: string): Promise<StoredSnapshot<T> | null> {
   const db = await openDb()
   if (!db) return null
   return new Promise((resolve) => {
     try {
-      const req = db.transaction(STORE, 'readonly').objectStore(STORE).get(KEY)
+      const req = db.transaction(STORE, 'readonly').objectStore(STORE).get(keyFor(projectId))
       req.onsuccess = () => {
         const rec = req.result as StoredSnapshot<T> | undefined
         resolve(rec && rec.version === SNAPSHOT_VERSION ? rec : null)
@@ -72,13 +81,13 @@ export async function loadSnapshot<T>(): Promise<StoredSnapshot<T> | null> {
   })
 }
 
-export async function clearSnapshot(): Promise<void> {
+export async function clearSnapshot(projectId?: string): Promise<void> {
   const db = await openDb()
   if (!db) return
   await new Promise<void>((resolve) => {
     try {
       const tx = db.transaction(STORE, 'readwrite')
-      tx.objectStore(STORE).delete(KEY)
+      tx.objectStore(STORE).delete(keyFor(projectId))
       tx.oncomplete = () => resolve()
       tx.onerror = () => resolve()
       tx.onabort = () => resolve()

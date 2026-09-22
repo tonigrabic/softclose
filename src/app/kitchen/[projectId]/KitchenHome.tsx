@@ -17,6 +17,10 @@ export interface KitchenHomeProps {
   briefId: string | null
   range: string | null
   started: boolean
+  /** Concurrency token for checkpoint writes. */
+  revision: number
+  /** The maker is looking at their customer's kitchen: show it, never write. */
+  readOnly: boolean
 }
 
 const ACTS = [
@@ -43,7 +47,14 @@ export function KitchenHome(props: KitchenHomeProps) {
   const [entered, setEntered] = useState(false)
 
   if (entered) {
-    return <KitchenIntake projectId={props.projectId} makerName={props.makerName} />
+    return (
+      <KitchenIntake
+        projectId={props.projectId}
+        makerName={props.makerName}
+        initialRevision={props.revision}
+        readOnly={props.readOnly}
+      />
+    )
   }
 
   const submitted = Boolean(props.submittedAt)

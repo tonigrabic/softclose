@@ -36,6 +36,7 @@ import { derivePrefills } from '@/lib/derive-prefills'
 import { renderDerivedFloorPlan } from '@/lib/derive-layout'
 import { clearSnapshot, loadSnapshot, saveSnapshot, type StoredSnapshot } from '@/lib/session-store'
 import type { ProjectSnapshot as IntakeSnapshot } from '@/lib/project/snapshot'
+import { useProjectCheckpoint } from './useProjectCheckpoint'
 import { DESIGNER_NAME } from '@/lib/system-prompt'
 import type { UploadedReference } from './ImageSelect'
 import type { FloorPlan } from '@/lib/floor-plan'
@@ -112,9 +113,19 @@ export interface KitchenIntakeProps {
   /** The maker's display name, for the line telling the customer who can see
    *  their progress. AGENTS.md rule 8 cuts both ways. */
   makerName?: string | null
+  /** The project row's current revision, for optimistic-concurrency writes. */
+  initialRevision?: number
+  /** True when the viewer is the maker looking in. The brief's whole value is
+   *  that it is the homeowner's own answers, so the maker never writes to it. */
+  readOnly?: boolean
 }
 
-export function KitchenIntake({ projectId, makerName }: KitchenIntakeProps = {}) {
+export function KitchenIntake({
+  projectId,
+  makerName,
+  initialRevision = 0,
+  readOnly = false,
+}: KitchenIntakeProps = {}) {
   const { locale } = useTranslations()
   const [state, setState] = useState<IntakeFlowState>({
     currentStepId: 'space_photos',
@@ -177,20 +188,33 @@ export function KitchenIntake({ projectId, makerName }: KitchenIntakeProps = {})
   // settled, so the empty initial state can never clobber a stored journey.
   const [resumeOffer, setResumeOffer] = useState<StoredSnapshot<IntakeSnapshot> | null>(null)
   const persistenceReady = useRef(false)
+  // Dual write: IndexedDB stays the fast local cache, the server copy is what
+  // survives a different device and what the maker's dashboard reads.
+  const checkpoint = useProjectCheckpoint({
+    projectId: readOnly ? undefined : projectId,
+    initialRevision,
+  })
 
   useEffect(() => {
     let cancelled = false
-    void loadSnapshot<IntakeSnapshot>().then((rec) => {
+    void loadSnapshot<IntakeSnapshot>(projectId).then((rec) => {
       if (cancelled) return
       const d = rec?.data
       const worthResuming =
         d && (d.currentStepId !== 'space_photos' || Object.keys(d.profile ?? {}).length > 0 || d.spacePhotos?.length > 0)
-      if (worthResuming) setResumeOffer(rec)
-      else persistenceReady.current = true
+      // In project mode there is nothing to ask about: the customer already
+      // chose "continue" on their project home, and the local copy is a cache
+      // of their own journey rather than a maybe-stranger's session. Restore it
+      // and move on. Leaving the offer up would also hold persistenceReady
+      // false, which silently blocks every checkpoint until it is answered.
+      if (worthResuming && projectId) applySnapshot(d)
+      else if (worthResuming) setResumeOffer(rec)
+      persistenceReady.current = true
     })
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, [])
 
   function applySnapshot(d: IntakeSnapshot) {
@@ -228,7 +252,7 @@ export function KitchenIntake({ projectId, makerName }: KitchenIntakeProps = {})
   }
 
   function discardSavedSession() {
-    void clearSnapshot()
+    void clearSnapshot(projectId)
     setResumeOffer(null)
     persistenceReady.current = true
   }
@@ -264,16 +288,18 @@ export function KitchenIntake({ projectId, makerName }: KitchenIntakeProps = {})
       builderHypothesis,
       builderStartedNoAI,
     }
-    const t = setTimeout(() => void saveSnapshot(snapshot), 800)
+    const t = setTimeout(() => void saveSnapshot(snapshot, projectId), 800)
+    checkpoint.queue(snapshot)
     return () => clearTimeout(t)
   }, [
     state.currentStepId, profile, transcript, isDone, wrapUpData, spacePhotos, spaceVision, floorPlan,
     unitEdits, inspirationStyles, inspirationRefs, inspirationVision, conceptRenders, chosenRenderId,
     productReferences, scopeSelected, siteAccess, livingPlan, contactDraft, mustHavesText,
     niceToHavesText, dealBreakersText, builderHypothesis, builderStartedNoAI,
+    checkpoint, projectId,
   ])
 
-  const resumeBanner = resumeOffer ? (
+  const resumeBanner = resumeOffer && !projectId ? (
     <div
       role="dialog"
       aria-labelledby="resume-title"
@@ -562,7 +588,7 @@ export function KitchenIntake({ projectId, makerName }: KitchenIntakeProps = {})
    * the callers pass `hidden` when projectId is set.
    */
   function resetAll() {
-    void clearSnapshot()
+    void clearSnapshot(projectId)
     setState({ currentStepId: 'space_photos' })
     setProfile({})
     setTranscript([])
