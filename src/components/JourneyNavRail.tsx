@@ -25,9 +25,9 @@ import { GROUP_MODULES } from './builder/groups/registry'
  *  - `profile` — funnel read-backs (and `profile.builderState` once built).
  *  - `builderState` / `builderGroupId` — live builder position while in the builder.
  *
- * The Build act expands into the 9 component groups (between `confirm_look` and
- * `scope`); everything else maps from `FLOW`. Only the active act expands, so the
- * 9 groups are only visible once you're actually building.
+ * The Build act expands into the builder's component groups (between
+ * `confirm_look` and `wishlist`); everything else maps from `FLOW`. Only the
+ * active act expands, so the groups are only visible once you're actually building.
  */
 
 type Entry =

@@ -67,7 +67,8 @@ const STYLE_LANGUAGE: Record<string, string> = {
   industrial: 'industrial style, dark cabinets, exposed brick or steel accents, brushed black or steel hardware',
   transitional: 'transitional style, balance of traditional and modern, soft neutrals, elegant proportions',
   bold_dark: 'bold dark cabinetry, deep navy or charcoal, contrasting brass or matte-black hardware',
-  natural_organic: 'natural organic style, light wood tones, soft greens, hand-finished materials',
+  // Shown to the homeowner as "Rustic" (value kept for saved journeys).
+  natural_organic: 'rustic style, natural solid wood with visible grain, warm earthy tones, hand-finished textures',
 }
 
 const MATERIAL_LANGUAGE: Record<string, string> = {

@@ -47,9 +47,7 @@ export interface ProjectSnapshot {
   conceptRenders: ConceptRender[]
   chosenRenderId: string | null
   productReferences: ProductReference[]
-  scopeSelected: string[]
   siteAccess: string | null
-  livingPlan: string | null
   contactDraft: ContactValue
   mustHavesText: string
   niceToHavesText: string

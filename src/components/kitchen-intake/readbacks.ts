@@ -44,13 +44,6 @@ export function readbackFor(
     case 'builder': {
       return p.builderState ? td('readback.built') : null
     }
-    case 'scope': {
-      const trueKeys = Object.entries(p.scope ?? {})
-        .filter(([, v]) => v === true)
-        .map(([k]) => k)
-      if (trueKeys.length === 0) return null
-      return td('readback.scopeItems').replace('{n}', String(trueKeys.length))
-    }
     case 'wishlist': {
       const total =
         (p.mustHaves?.length ?? 0) +
@@ -63,9 +56,6 @@ export function readbackFor(
       const parts = [
         p.timeline ? td(`option.timeline.${p.timeline}`) : null,
         p.logistics?.siteAccess ? td(`option.siteAccess.${p.logistics.siteAccess}`) : null,
-        p.logistics?.livingDuringBuild
-          ? td(`option.living.${p.logistics.livingDuringBuild}`)
-          : null,
       ].filter(Boolean)
       return parts.length > 0 ? parts.join(' · ') : null
     }

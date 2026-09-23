@@ -13,7 +13,6 @@ import { SpaceCapture } from './SpaceCapture'
 import { Inspiration } from './Inspiration'
 import { ConceptRender as ConceptRenderUI, type ProductReference } from './ConceptRender'
 import { LayoutReview } from './LayoutReview'
-import { ChipMulti } from './ChipMulti'
 import { VisualScale } from './VisualScale'
 import { ContactForm, type ContactValue } from './ContactForm'
 import { WrapUpScreen } from './WrapUpScreen'
@@ -24,6 +23,7 @@ import {
   flowIndex,
   nextStepId,
   prevStepId,
+  resolveStepId,
   stepNumber,
   type FlowStepId,
 } from '@/lib/flow'
@@ -66,40 +66,12 @@ const TIMELINE_BANDS = [
   { value: 'no_rush', label: 'No rush', caption: 'Just exploring' },
 ]
 
-const SCOPE_OPTIONS = [
-  { value: 'cabinets', label: 'Cabinets', icon: 'palette' },
-  { value: 'worktops', label: 'Worktops', icon: 'gem' },
-  { value: 'sinkTaps', label: 'Sink + taps', icon: 'wrench' },
-  { value: 'appliancesSupply', label: 'Appliances', icon: 'refrigerator' },
-  { value: 'flooring', label: 'Flooring', icon: 'grid' },
-  { value: 'walls', label: 'Walls', icon: 'palette' },
-  { value: 'lighting', label: 'Lighting', icon: 'lightbulb' },
-  { value: 'plumbingRelocation', label: 'Move plumbing', icon: 'wrench' },
-  { value: 'electricalWork', label: 'New electrical', icon: 'zap' },
-  { value: 'structural', label: 'Move walls', icon: 'hammer' },
-  { value: 'demolitionDisposal', label: 'Demo + disposal', icon: 'hammer' },
-  { value: 'installation', label: 'Installation', icon: 'wrench' },
-]
-
-/** Selected scope chips → the scope flags object. The estimate (computeBom)
- * drops out-of-scope lines from these flags; see LINE_SCOPE_KEY in bom.ts. */
-function scopeFromSelected(selected: string[]): NonNullable<LeadProfile['scope']> {
-  const scope: Record<string, boolean> = {}
-  for (const opt of SCOPE_OPTIONS) scope[opt.value] = selected.includes(opt.value)
-  return scope as NonNullable<LeadProfile['scope']>
-}
-
 const SITE_ACCESS_OPTIONS = [
   { value: 'street_level', label: 'Street level' },
   { value: 'one_flight', label: 'One flight up' },
   { value: 'multi_flight', label: 'Multiple flights' },
   { value: 'lift', label: 'Lift / elevator' },
   { value: 'restricted', label: 'Restricted access' },
-]
-const LIVING_OPTIONS = [
-  { value: 'in_place', label: 'Stay in place' },
-  { value: 'partial_move', label: 'Partial move-out' },
-  { value: 'fully_relocate', label: 'Fully relocate' },
 ]
 
 interface IntakeFlowState {
@@ -169,9 +141,7 @@ export function KitchenIntake({
   const [conceptRenders, setConceptRenders] = useState<ConceptRender[]>([])
   const [chosenRenderId, setChosenRenderId] = useState<string | null>(null)
   const [productReferences, setProductReferences] = useState<ProductReference[]>([])
-  const [scopeSelected, setScopeSelected] = useState<string[]>([])
   const [siteAccess, setSiteAccess] = useState<string | null>(null)
-  const [livingPlan, setLivingPlan] = useState<string | null>(null)
   const [contactDraft, setContactDraft] = useState<ContactValue>({
     name: '',
     contactType: 'email',
@@ -237,7 +207,8 @@ export function KitchenIntake({
   }, [])
 
   function applySnapshot(d: IntakeSnapshot) {
-    setState({ currentStepId: d.currentStepId })
+    // A journey saved on a since-retired step resumes at its successor.
+    setState({ currentStepId: resolveStepId(d.currentStepId) ?? 'space_photos' })
     setProfile(d.profile ?? {})
     setTranscript(d.transcript ?? [])
     setIsDone(Boolean(d.isDone))
@@ -253,9 +224,7 @@ export function KitchenIntake({
     setConceptRenders(d.conceptRenders ?? [])
     setChosenRenderId(d.chosenRenderId ?? null)
     setProductReferences(d.productReferences ?? [])
-    setScopeSelected(d.scopeSelected ?? [])
     setSiteAccess(d.siteAccess ?? null)
-    setLivingPlan(d.livingPlan ?? null)
     setContactDraft(d.contactDraft ?? { name: '', contactType: 'email', contactValue: '' })
     setMustHavesText(d.mustHavesText ?? '')
     setNiceToHavesText(d.niceToHavesText ?? '')
@@ -297,9 +266,7 @@ export function KitchenIntake({
       conceptRenders,
       chosenRenderId,
       productReferences,
-      scopeSelected,
       siteAccess,
-      livingPlan,
       contactDraft,
       mustHavesText,
       niceToHavesText,
@@ -313,7 +280,7 @@ export function KitchenIntake({
   }, [
     state.currentStepId, profile, transcript, isDone, wrapUpData, spacePhotos, spaceVision, floorPlan,
     unitEdits, inspirationStyles, inspirationRefs, inspirationVision, conceptRenders, chosenRenderId,
-    productReferences, scopeSelected, siteAccess, livingPlan, contactDraft, mustHavesText,
+    productReferences, siteAccess, contactDraft, mustHavesText,
     niceToHavesText, dealBreakersText, builderHypothesis, builderStartedNoAI,
     checkpoint, projectId,
   ])
@@ -463,15 +430,6 @@ export function KitchenIntake({
     goNext()
   }
 
-  function commitScope() {
-    patchProfile({ scope: scopeFromSelected(scopeSelected) })
-    logTurn(
-      'user',
-      `Scope: ${scopeSelected.length === 0 ? '(none selected)' : scopeSelected.join(', ')}`
-    )
-    goNext()
-  }
-
   async function commitWishlist() {
     if (!mustHavesText.trim() && !niceToHavesText.trim() && !dealBreakersText.trim()) {
       goNext()
@@ -522,21 +480,16 @@ export function KitchenIntake({
   }
 
   function commitLogistics() {
-    if (!siteAccess && !livingPlan) {
+    if (!siteAccess) {
       goNext()
       return
     }
     patchProfile({
-      logistics: {
-        ...(siteAccess ? { siteAccess: siteAccess as NonNullable<LeadProfile['logistics']>['siteAccess'] } : {}),
-        ...(livingPlan
-          ? { livingDuringBuild: livingPlan as NonNullable<LeadProfile['logistics']>['livingDuringBuild'] }
-          : {}),
-      },
+      logistics: { siteAccess: siteAccess as NonNullable<LeadProfile['logistics']>['siteAccess'] },
     })
     logTurn(
       'user',
-      `Logistics: ${[profile.timeline, siteAccess, livingPlan].filter(Boolean).join(' · ') || '(skipped)'}`
+      `Logistics: ${[profile.timeline, siteAccess].filter(Boolean).join(' · ') || '(skipped)'}`
     )
     goNext()
   }
@@ -625,9 +578,7 @@ export function KitchenIntake({
     setConceptRenders([])
     setChosenRenderId(null)
     setProductReferences([])
-    setScopeSelected([])
     setSiteAccess(null)
-    setLivingPlan(null)
     setContactDraft({ name: '', contactType: 'email', contactValue: '' })
     setMustHavesText('')
     setNiceToHavesText('')
@@ -827,19 +778,13 @@ export function KitchenIntake({
   const rightRailSteps: FlowStepId[] = [
     'confirm_look',
     'builder',
-    'scope',
     'wishlist',
     'logistics',
     'contact',
   ]
-  // The live range respects scope. On the scope step itself it tracks the
-  // homeowner's live picks (so the range reacts as they tick items) — but only
-  // once at least one is picked, so arriving on an empty selection still shows
-  // the full kitchen, not €0. Elsewhere it uses the committed profile.scope.
-  const liveScope =
-    state.currentStepId === 'scope' && scopeSelected.length > 0
-      ? scopeFromSelected(scopeSelected)
-      : profile.scope
+  // Journeys saved before the scope step was cut may still carry a scope;
+  // new ones never do, so the range is the whole kitchen.
+  const liveScope = profile.scope
   const funnelRightRail =
     rightRailSteps.includes(state.currentStepId) && funnelRenderSrc ? (
       <div className="flex flex-col gap-5">
@@ -935,12 +880,8 @@ export function KitchenIntake({
                 onChooseRender={chooseRender}
                 productReferences={productReferences}
                 onProductReferencesChange={setProductReferences}
-                scopeSelected={scopeSelected}
-                onScopeChange={setScopeSelected}
                 siteAccess={siteAccess}
                 onSiteAccessChange={setSiteAccess}
-                livingPlan={livingPlan}
-                onLivingPlanChange={setLivingPlan}
                 contactDraft={contactDraft}
                 onContactDraftChange={setContactDraft}
                 mustHavesText={mustHavesText}
@@ -997,7 +938,6 @@ export function KitchenIntake({
                 hasContactDraft={
                   Boolean(contactDraft.name.trim() && contactDraft.contactValue.trim())
                 }
-                scopeCount={scopeSelected.length}
                 hasFloorPlan={Boolean(floorPlan)}
                 hasSpacePhotos={spacePhotos.length > 0}
               />
@@ -1028,9 +968,6 @@ export function KitchenIntake({
         // is a "skip the builder" affordance and just advances the outer flow.
         logTurn('user', 'Skipped the detailed builder — using minimal brief.')
         goNext()
-        break
-      case 'scope':
-        commitScope()
         break
       case 'wishlist':
         void commitWishlist()
@@ -1071,12 +1008,8 @@ interface StepBodyProps {
   onChooseRender: (id: string) => void
   productReferences: ProductReference[]
   onProductReferencesChange: (refs: ProductReference[]) => void
-  scopeSelected: string[]
-  onScopeChange: (s: string[]) => void
   siteAccess: string | null
   onSiteAccessChange: (s: string | null) => void
-  livingPlan: string | null
-  onLivingPlanChange: (s: string | null) => void
   contactDraft: ContactValue
   onContactDraftChange: (c: ContactValue) => void
   mustHavesText: string
@@ -1123,12 +1056,8 @@ function StepBody(props: StepBodyProps) {
     onChooseRender,
     productReferences,
     onProductReferencesChange,
-    scopeSelected,
-    onScopeChange,
     siteAccess,
     onSiteAccessChange,
-    livingPlan,
-    onLivingPlanChange,
     contactDraft,
     onContactDraftChange,
     mustHavesText,
@@ -1251,27 +1180,6 @@ function StepBody(props: StepBodyProps) {
       )
     }
 
-    case 'scope':
-      return (
-        <StepFrame
-          eyebrow={stepEyebrow('scope')}
-          title={t('funnel.scope.title')}
-          subtitle={t('funnel.scope.subtitle')}
-        >
-          <ChipMulti
-            options={SCOPE_OPTIONS.map((o) => ({ ...o, label: tDynamic(`option.scope.${o.value}`) }))}
-            selected={scopeSelected}
-            onToggle={(v) =>
-              onScopeChange(
-                scopeSelected.includes(v)
-                  ? scopeSelected.filter((x) => x !== v)
-                  : [...scopeSelected, v]
-              )
-            }
-          />
-        </StepFrame>
-      )
-
     case 'wishlist':
       return (
         <StepFrame
@@ -1348,30 +1256,6 @@ function StepBody(props: StepBodyProps) {
                     )}
                   >
                     {tDynamic(`option.siteAccess.${opt.value}`)}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                {t('funnel.field.living')}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {LIVING_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() =>
-                      onLivingPlanChange(livingPlan === opt.value ? null : opt.value)
-                    }
-                    className={cn(
-                      'rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all',
-                      livingPlan === opt.value
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border bg-card hover:border-primary/40'
-                    )}
-                  >
-                    {tDynamic(`option.living.${opt.value}`)}
                   </button>
                 ))}
               </div>
@@ -1465,7 +1349,6 @@ function FooterNav({
   profile,
   hasInspirationInput,
   hasContactDraft,
-  scopeCount,
   hasFloorPlan,
   hasSpacePhotos,
 }: {
@@ -1477,7 +1360,6 @@ function FooterNav({
   profile: LeadProfile
   hasInspirationInput: boolean
   hasContactDraft: boolean
-  scopeCount: number
   hasFloorPlan: boolean
   hasSpacePhotos: boolean
 }) {
@@ -1502,8 +1384,6 @@ function FooterNav({
         // The layout is the lock (it freezes the contract the builder prices);
         // decor below is optional. Gate on having a plan to confirm.
         return hasFloorPlan
-      case 'scope':
-        return scopeCount > 0
       case 'wishlist':
         return true
       case 'logistics':

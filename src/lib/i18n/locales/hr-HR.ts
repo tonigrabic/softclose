@@ -122,19 +122,18 @@ export const hrHR = {
   'common.retry': 'Pokušaj ponovno',
 
   // Inspiration step
-  'inspiration.direction': 'Odaberi smjer',
+  'inspiration.direction': 'Odaberi stil',
   'inspiration.analyzing': 'Čitamo tvoju inspiraciju…',
   'inspiration.analyze': 'Analiziraj inspiraciju',
   'inspiration.error': 'Nismo uspjeli analizirati inspiraciju',
-  'inspiration.readback.title': 'Iščitano iz tvojih odabira',
   'inspiration.readback.reanalyze': 'Ponovno analiziraj',
-  'inspiration.readback.style': 'Stil',
-  'inspiration.readback.door': 'Fronte',
-  'inspiration.readback.worktop': 'Radna ploča',
-  'inspiration.readback.backsplash': 'Zid iza ploče',
-  'inspiration.readback.hardware': 'Okovi',
-  'inspiration.readback.prefillHint':
-    'Na temelju ovoga ispunit ćemo ostalo — sve ćeš potvrditi za koji trenutak.',
+  'inspiration.readback.done': 'Pročitali smo tvoju inspiraciju — koristimo je za render i prijedloge.',
+  'style.modern_minimal': 'Moderni minimalistički',
+  'style.warm_shaker': 'Topli shaker',
+  'style.industrial': 'Industrijski',
+  'style.transitional': 'Klasično-moderni',
+  'style.bold_dark': 'Tamni i odvažni',
+  'style.natural_organic': 'Rustikalni',
   'common.confidence.H': 'Visoka pouzdanost',
   'common.confidence.M': 'Srednja pouzdanost',
   'common.confidence.L': 'Niska pouzdanost',
@@ -345,7 +344,6 @@ export const hrHR = {
   'flow.concept_render.label': 'AI koncept',
   'flow.confirm_look.label': 'Potvrdi izgled',
   'flow.builder.label': 'Sastavljanje',
-  'flow.scope.label': 'Opseg radova',
   'flow.wishlist.label': 'Lista želja',
   'flow.logistics.label': 'Logistika',
   'flow.contact.label': 'Kontakt',
@@ -359,21 +357,19 @@ export const hrHR = {
     'Nekoliko širokih kadrova je idealno. Pomažu nam da usidrimo AI render i unaprijed ispunimo tlocrt.',
   'funnel.inspiration.title': 'Što ti se sviđa?',
   'funnel.inspiration.subtitle':
-    'Odaberi smjer ili dodaj nekoliko inspiracijskih slika. Pročitat ćemo što te privlači i ispuniti ostalo.',
+    'Odaberi stil ili dodaj nekoliko inspiracijskih slika. Pročitat ćemo što te privlači i ispuniti ostalo.',
   'funnel.concept_render.title': 'Prva AI skica tvog prostora.',
   'funnel.concept_render.subtitle':
     'Usidrena na tvoju fotografiju. Dodirni oznaku za izmjenu i ponovno renderiraj, ili odaberi ovu i nastavi.',
   'funnel.confirm_look.title': 'Potvrdi i zaključaj.',
   'funnel.confirm_look.subtitle':
     'Ovo je temelj na kojem gradimo — tvoj prostor, izgled i plan koji ćemo izračunati. Potvrdi da zaključaš; svaki dio fino podešavaš dalje.',
-  'funnel.scope.title': 'Što se zapravo radi?',
-  'funnel.scope.subtitle': 'Dodirni sve što je u opsegu. Nećemo pitati za ono što preskočiš.',
   'funnel.wishlist.title': 'Svojim riječima.',
   'funnel.wishlist.subtitle':
     'Ne moraš biti precizan — piši kako razmišljaš. Mi prevodimo u stručni jezik i čuvamo tvoje riječi za dizajnera.',
   'funnel.logistics.title': 'Logistika.',
   'funnel.logistics.subtitle':
-    'Otprilike kada — i nekoliko praktičnih stvari da izrađivač može planirati oko tvog života.',
+    'Otprilike kada — i kakav je pristup, da izrađivač može isplanirati dostavu i montažu.',
   'funnel.contact.eyebrow': 'Zadnji korak',
   'funnel.contact.title': 'Gdje te dizajner može kontaktirati?',
   'funnel.contact.subtitle': 'Koristimo to samo za razgovor o tvom projektu.',
@@ -401,7 +397,6 @@ export const hrHR = {
   'readback.photos': '{n} foto',
   'readback.renderChosen': 'Render odabran',
   'readback.built': 'Sastavljeno · procjena spremna',
-  'readback.scopeItems': '{n} u opsegu',
   'readback.wishlistItems': '{n} zabilježeno',
   'readback.appliances': '{n} uređaja',
   'readback.lightingLayers': '{n} sloja rasvjete',
@@ -500,7 +495,6 @@ export const hrHR = {
   'funnel.field.timeline': 'Vremenski okvir',
   'funnel.field.timelineAxis': 'Otprilike kada?',
   'funnel.field.siteAccess': 'Pristup gradilištu',
-  'funnel.field.living': 'Gdje ćeš živjeti tijekom radova?',
 
   // ---- Wishlist free-text fields -----------------------------------------
   'funnel.wishlist.mustHaves.label': 'Obavezno',

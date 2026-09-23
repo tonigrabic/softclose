@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Sparkles } from 'lucide-react'
+import { Check, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from '@/lib/i18n'
 import { ImageSelect, type UploadedReference } from './ImageSelect'
@@ -32,8 +32,9 @@ export function Inspiration({
   inspirationVisionResult,
   onInspirationVisionResult,
 }: InspirationProps) {
-  const { t } = useTranslations()
+  const { t, tDynamic } = useTranslations()
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const styleOptions = STYLE_OPTIONS.map((o) => ({ ...o, label: tDynamic(`style.${o.value}`) }))
   const [error, setError] = useState<string | null>(null)
 
   function handleStyle(value: string) {
@@ -88,7 +89,7 @@ export function Inspiration({
           {t('inspiration.direction')}
         </p>
         <ImageSelect
-          options={STYLE_OPTIONS}
+          options={styleOptions}
           selected={selectedStyles}
           onSelect={handleStyle}
           uploadedRefs={uploadedRefs}
@@ -102,10 +103,7 @@ export function Inspiration({
       {hasAny && (
         <div className="space-y-3 rounded-2xl border border-border bg-card/60 p-4">
           {inspirationVisionResult ? (
-            <ReadbackPanel
-              result={inspirationVisionResult}
-              onClear={() => onInspirationVisionResult(null)}
-            />
+            <ReadbackPanel onClear={() => onInspirationVisionResult(null)} />
           ) : (
             <button
               type="button"
@@ -146,67 +144,33 @@ export function Inspiration({
   )
 }
 
-function ReadbackPanel({
-  result,
-  onClear,
-}: {
-  result: InspirationVisionResult
-  onClear: () => void
-}) {
+/**
+ * Compact "done" row after the inspiration read. The detailed list of guesses
+ * (style / door / worktop / …) was cut after maker testing (2026-09-23) as
+ * noise — the read still pre-fills the render and the builder; the homeowner
+ * only needs to know it happened, and a way to run it again.
+ */
+function ReadbackPanel({ onClear }: { onClear: () => void }) {
   const { t } = useTranslations()
-  const lines: { label: string; value: string }[] = []
-  if (result.styleGuess)
-    lines.push({ label: t('inspiration.readback.style'), value: result.styleGuess.replace(/_/g, ' ') })
-  if (result.doorMaterialGuess)
-    lines.push({ label: t('inspiration.readback.door'), value: result.doorMaterialGuess.replace(/_/g, ' ') })
-  if (result.worktopGuess)
-    lines.push({ label: t('inspiration.readback.worktop'), value: result.worktopGuess.replace(/_/g, ' ') })
-  if (result.backsplashGuess)
-    lines.push({ label: t('inspiration.readback.backsplash'), value: result.backsplashGuess.replace(/_/g, ' ') })
-  if (result.hardwareTierGuess)
-    lines.push({ label: t('inspiration.readback.hardware'), value: result.hardwareTierGuess.replace(/_/g, ' ') })
   return (
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        className="space-y-3"
+        className="flex items-center justify-between gap-3"
       >
-        <div className="flex items-baseline justify-between">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-            {t('inspiration.readback.title')}
-          </p>
-          <button
-            type="button"
-            onClick={onClear}
-            className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
-          >
-            {t('inspiration.readback.reanalyze')}
-          </button>
-        </div>
-        {result.summary && (
-          <p className="text-sm italic text-foreground/85">&ldquo;{result.summary}&rdquo;</p>
-        )}
-        {lines.length > 0 && (
-          <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-            {lines.map((l) => (
-              <li
-                key={l.label}
-                className="flex items-baseline justify-between gap-2 rounded-lg bg-background/60 px-2.5 py-1.5"
-              >
-                <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
-                  {l.label}
-                </span>
-                <span className="text-xs font-medium text-foreground">{l.value}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <p className="text-[11px] leading-relaxed text-muted-foreground">
-          {t('inspiration.readback.prefillHint')}
+        <p className="flex items-center gap-2 text-sm text-foreground">
+          <Check className="size-4 shrink-0 stroke-[2.25] text-primary" aria-hidden />
+          {t('inspiration.readback.done')}
         </p>
+        <button
+          type="button"
+          onClick={onClear}
+          className="shrink-0 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+        >
+          {t('inspiration.readback.reanalyze')}
+        </button>
       </motion.div>
     </AnimatePresence>
   )
 }
-

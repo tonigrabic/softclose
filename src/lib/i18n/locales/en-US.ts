@@ -120,19 +120,18 @@ export const enUS: Record<TranslationKey, string> = {
   'common.retry': 'Try again',
 
   // Inspiration step
-  'inspiration.direction': 'Pick a direction',
+  'inspiration.direction': 'Pick a style',
   'inspiration.analyzing': 'Reading your inspiration…',
   'inspiration.analyze': 'Analyze inspiration',
   'inspiration.error': 'Could not analyze inspiration',
-  'inspiration.readback.title': 'Picked up from your picks',
   'inspiration.readback.reanalyze': 'Re-analyze',
-  'inspiration.readback.style': 'Style read',
-  'inspiration.readback.door': 'Door read',
-  'inspiration.readback.worktop': 'Worktop read',
-  'inspiration.readback.backsplash': 'Backsplash',
-  'inspiration.readback.hardware': 'Hardware',
-  'inspiration.readback.prefillHint':
-    "We'll pre-fill the rest from this — you'll get to confirm everything in a moment.",
+  'inspiration.readback.done': "Got it — we'll use your inspiration for the render and the suggestions.",
+  'style.modern_minimal': 'Modern minimal',
+  'style.warm_shaker': 'Warm shaker',
+  'style.industrial': 'Industrial',
+  'style.transitional': 'Transitional',
+  'style.bold_dark': 'Bold + dark',
+  'style.natural_organic': 'Rustic',
   'common.confidence.H': 'High confidence',
   'common.confidence.M': 'Medium confidence',
   'common.confidence.L': 'Low confidence',
@@ -332,7 +331,6 @@ export const enUS: Record<TranslationKey, string> = {
   'flow.concept_render.label': 'AI concept',
   'flow.confirm_look.label': 'Confirm the look',
   'flow.builder.label': 'Build it out',
-  'flow.scope.label': 'Scope of work',
   'flow.wishlist.label': 'Wishlist',
   'flow.logistics.label': 'Logistics',
   'flow.contact.label': 'Contact',
@@ -344,21 +342,19 @@ export const enUS: Record<TranslationKey, string> = {
     'A few wide shots are perfect. We use them to anchor the AI render and pre-fill the floor plan.',
   'funnel.inspiration.title': 'What feels right?',
   'funnel.inspiration.subtitle':
-    "Pick a direction or upload a few inspiration shots. We'll read what you're drawn to and pre-fill the rest.",
+    "Pick a style or upload a few inspiration shots. We'll read what you're drawn to and pre-fill the rest.",
   'funnel.concept_render.title': 'A first AI sketch of your space.',
   'funnel.concept_render.subtitle':
     'Anchored to your photo. Tap a tweak chip and re-render, or pick this one and move on.',
   'funnel.confirm_look.title': 'Confirm & lock it in.',
   'funnel.confirm_look.subtitle':
     "This is what we'll build on — your space, the look, and the plan we'll price. Confirm to lock it; you can fine-tune every part next.",
-  'funnel.scope.title': "What's actually being touched?",
-  'funnel.scope.subtitle': "Tap everything in scope. We won't ask about anything you skip.",
   'funnel.wishlist.title': 'In your own words.',
   'funnel.wishlist.subtitle':
     "No need to be precise — write the way you think. We'll translate to trade-grade and keep your phrasing for the designer.",
   'funnel.logistics.title': 'Logistics.',
   'funnel.logistics.subtitle':
-    'Roughly when — and a couple of practical things so the maker can plan around your life.',
+    'Roughly when — and what access is like, so the maker can plan delivery and installation.',
   'funnel.contact.eyebrow': 'Last step',
   'funnel.contact.title': 'Where should the designer reach you?',
   'funnel.contact.subtitle': "We'll only use this for your project conversation.",
@@ -386,7 +382,6 @@ export const enUS: Record<TranslationKey, string> = {
   'readback.photos': '{n} photos',
   'readback.renderChosen': 'Render chosen',
   'readback.built': 'Built · live estimate ready',
-  'readback.scopeItems': '{n} in scope',
   'readback.wishlistItems': '{n} captured',
   'readback.appliances': '{n} appliances',
   'readback.lightingLayers': '{n} lighting layers',
@@ -485,7 +480,6 @@ export const enUS: Record<TranslationKey, string> = {
   'funnel.field.timeline': 'Timeline',
   'funnel.field.timelineAxis': 'Roughly when?',
   'funnel.field.siteAccess': 'Site access',
-  'funnel.field.living': 'Where will you live during the build?',
 
   // ---- Wishlist free-text fields -----------------------------------------
   'funnel.wishlist.mustHaves.label': 'Must-haves',

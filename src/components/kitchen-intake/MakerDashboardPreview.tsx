@@ -470,12 +470,6 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: M
                 source="homeowner"
               />
               <FieldRow
-                label="Living plan"
-                value={profile.logistics?.livingDuringBuild}
-                confidence="H"
-                source="homeowner"
-              />
-              <FieldRow
                 label="Phasing"
                 value={profile.logistics?.phasing}
                 confidence="M"
