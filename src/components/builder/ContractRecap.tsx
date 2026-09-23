@@ -1,6 +1,6 @@
 'use client'
 
-import { Lock, PencilRuler } from 'lucide-react'
+import { CircleCheck, PencilRuler } from 'lucide-react'
 import { useTranslations } from '@/lib/i18n'
 import type { BuilderState } from '@/lib/builder/inventory'
 
@@ -27,7 +27,7 @@ export function ContractRecap({
     <section className="space-y-2.5 rounded-2xl border border-border bg-card/60 p-4">
       <div className="flex items-center justify-between gap-3">
         <h3 className="inline-flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">
-          <Lock className="size-3.5 stroke-[2.5]" aria-hidden />
+          <CircleCheck className="size-3.5 stroke-[2.5]" aria-hidden />
           {t('cabinetBoxes.recap.title')}
         </h3>
         {onEditLayout && (
