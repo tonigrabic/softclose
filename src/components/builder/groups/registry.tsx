@@ -27,7 +27,6 @@ import type { LayoutContract } from '@/lib/contract/layout-contract'
 import { FactsRecap } from '../FactsRecap'
 import { CabinetBoxesGroup } from './CabinetBoxesGroup'
 import { DoorsGroup } from './DoorsGroup'
-import { HardwareGroup } from './HardwareGroup'
 import { WorktopGroup } from './WorktopGroup'
 import { BacksplashGroup } from './BacksplashGroup'
 import { AppliancesGroup } from './AppliancesGroup'
@@ -72,12 +71,6 @@ export const GROUP_MODULES: Record<BuilderScreenId, BuilderGroupModule> = {
     ),
     readback: (s, locale) => tDynamic(`doors.style.${s.doors.style}`, locale),
   },
-  hardware: {
-    Body: ({ state, dispatch }) => (
-      <HardwareGroup state={state} onPatch={(patch) => dispatch({ type: 'patch_hardware', patch })} />
-    ),
-    readback: (s, locale) => tDynamic(`hardware.tier.${s.hardware.drawerSystemTier}`, locale),
-  },
   worktop: {
     Body: ({ state, dispatch }) => (
       <WorktopGroup state={state} onPatch={(patch) => dispatch({ type: 'patch_worktop', patch })} />
@@ -89,7 +82,11 @@ export const GROUP_MODULES: Record<BuilderScreenId, BuilderGroupModule> = {
       <BacksplashGroup state={state} onPatch={(patch) => dispatch({ type: 'patch_backsplash', patch })} />
     ),
     readback: (s, locale) =>
-      s.backsplash.kind === 'none' ? null : tDynamic(`backsplash.kind.${s.backsplash.kind}`, locale),
+      s.backsplash.kind === 'none'
+        ? null
+        : s.backsplash.kind === 'other' && s.backsplash.otherDecor?.trim()
+          ? s.backsplash.otherDecor.trim()
+          : tDynamic(`backsplash.kind.${s.backsplash.kind}`, locale),
   },
   appliances: {
     Body: ({ state, layoutContract, dispatch }) => (
@@ -114,20 +111,13 @@ export const GROUP_MODULES: Record<BuilderScreenId, BuilderGroupModule> = {
     Body: ({ state, dispatch }) => (
       <LightingGroup state={state} onPatch={(patch) => dispatch({ type: 'patch_lighting', patch })} />
     ),
-    readback: (s, locale) => {
-      const n = [
-        s.lighting.underCabinetLed,
-        s.lighting.plinthLed,
-        s.lighting.pendantOverIsland,
-        s.lighting.smartControls,
-      ].filter(Boolean).length
-      return n > 0 ? tDynamic('readback.lightingLayers', locale).replace('{n}', String(n)) : null
-    },
+    readback: (s, locale) => tDynamic(s.lighting.led ? 'readback.led.yes' : 'readback.led.no', locale),
   },
   finishing: {
     Body: ({ state, dispatch }) => (
       <FinishingGroup state={state} onPatch={(patch) => dispatch({ type: 'patch_finishing', patch })} />
     ),
-    readback: (s, locale) => tDynamic(`finishing.plinthMaterial.${s.finishing.plinthMaterial}`, locale),
+    readback: (s, locale) =>
+      `${s.finishing.plinthHeightMm} mm · ${tDynamic(`finishing.plinthMaterial.${s.finishing.plinthMaterial}`, locale)}`,
   },
 }

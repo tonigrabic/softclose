@@ -85,14 +85,7 @@ const cabinetPatternEnum = z.enum([
 ])
 
 const cabinetBoxesSchema = z.object({
-  carcassMaterial: hint(
-    z.enum([
-      'white_melamine_standard',
-      'colored_melamine',
-      'moisture_resistant_p3',
-      'matched_to_door',
-    ])
-  ).optional(),
+  carcassMaterial: hint(z.enum(['white_melamine_standard', 'colored_melamine'])).optional(),
   cornerSolution: hint(
     z.enum(['magic_corner', 'lazy_susan', 'diagonal_corner', 'dead_corner', 'none'])
   ).optional(),
@@ -134,16 +127,10 @@ const worktopSchema = z.object({
   decorCode: hint(z.string()).optional(),
   decorStructure: hint(z.string()).optional(),
   thicknessMm: hint(z.union([z.literal(38), z.literal(20), z.literal(12)])).optional(),
-  edge: hint(z.enum(['square', 'bevel', 'mitred_waterfall', 'radius'])).optional(),
 })
 
 const backsplashSchema = z.object({
-  kind: hint(
-    z.enum(['matching_slab', 'tile', 'glass', 'wall_panel', 'painted', 'none'])
-  ).optional(),
-  decorCode: hint(z.string()).optional(),
-  decorStructure: hint(z.string()).optional(),
-  heightCm: hint(z.union([z.literal(60), z.literal(90), z.literal(120), z.literal(150)])).optional(),
+  kind: hint(z.enum(['matching_slab', 'tile', 'glass', 'other', 'none'])).optional(),
 })
 
 const hardwareSchema = z.object({
@@ -215,18 +202,12 @@ const sinkTapsSchema = z.object({
 })
 
 const lightingSchema = z.object({
-  underCabinetLed: hint(z.boolean()).optional(),
-  plinthLed: hint(z.boolean()).optional(),
-  pendantOverIsland: hint(z.boolean()).optional(),
-  pendantCount: hint(z.number().int().min(0).max(6)).optional(),
+  led: hint(z.boolean()).optional(),
 })
 
 const finishingSchema = z.object({
-  plinthHeightMm: hint(z.union([z.literal(100), z.literal(120), z.literal(150)])).optional(),
-  plinthMaterial: hint(
-    z.enum(['matched_door', 'matched_floor', 'black_recessed', 'metal_strip'])
-  ).optional(),
-  corniceStyle: hint(z.enum(['none', 'flat', 'crown', 'custom_match_door'])).optional(),
+  plinthHeightMm: hint(z.union([z.literal(100), z.literal(150)])).optional(),
+  plinthMaterial: hint(z.enum(['wood', 'plastic'])).optional(),
 })
 
 const hypothesisSchema = z.object({
@@ -348,7 +329,7 @@ const CATALOG_HINT = decors
 
 const SYSTEM = `You are a kitchen-trade vision assistant analysing an AI-rendered kitchen concept.
 
-Your job: produce a structured BuilderHypothesis covering all 10 component groups so a homeowner can walk through the builder with each value pre-filled.
+Your job: produce a structured BuilderHypothesis covering every component group so a homeowner can walk through the builder with each value pre-filled.
 
 You may receive TWO images:
 1. The RENDER (always first) — the INTENDED NEW design. This is the kitchen we are pricing. Read the design FROM HERE: shape, runs, island, cabinet configuration, fronts, worktop, appliances.
@@ -371,7 +352,8 @@ Rules:
   - corniceVisible: only if a top trim/cornice is rendered.
   - floorColorHint / wallColorHint: short descriptors for the maker ("light oak floor", "off-white walls").
 - cabinetBoxes.unitPatterns: pre-segment cabinet patterns along visible runs when possible. Use the trade-language enum (drawer_bank, sink_unit, oven_housing, corner_magic, pullout_larder, etc). Each entry pins one pattern at a positionPctAlongRun (0–100). Skip slots you can't read.
-- Lighting: under-cabinet 'H' if a glow is visible under wall units; pendant only if a pendant is rendered.
+- Lighting: led = true 'H' only if built-in LED light is visible (a glow under wall units, in shelves or the plinth). Pendants and ceiling lights don't count.
+- backsplash.kind: 'matching_slab' when the wall behind the worktop is in the worktop's decor; 'other' for panels, slats or paint.
 - Set usable: false if the render is unintelligible (pure noise, completely empty room, wrong room type).
 
 CATALOG (Croatian decors available via Elgrad):

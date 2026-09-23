@@ -14,6 +14,7 @@ import type { BuilderHypothesis } from './hypothesis'
 import { assembleUnits, hintsFromHypothesis, type UnitEdits } from './unit-assembly'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
 import { applianceFootprintCm } from '@/lib/contract/layout-contract'
+import { normalizeBuilderState } from './normalize'
 import type {
   ApplianceSelection,
   BuilderGroupId,
@@ -97,7 +98,7 @@ export function hydrateFromHypothesis(
   const initialWorktopCode = worktopHy?.decorCode?.value ?? 'F186'
   const initialWorktopStructure = worktopHy?.decorStructure?.value ?? 'ST9'
 
-  // Backsplash
+  // Wall cladding
   const backsplashHy = hypothesis?.backsplash
 
   // Appliance selections first — the fridge's integrated flag feeds the unit
@@ -113,7 +114,9 @@ export function hydrateFromHypothesis(
     integratedFridge,
   })
 
-  return {
+  // normalizeBuilderState maps retired values an older cached hypothesis may
+  // still carry (e.g. carcass 'matched_to_door') onto the current choices.
+  return normalizeBuilderState({
     version: 1,
     startedAt: now,
     lastUpdatedAt: now,
@@ -170,7 +173,6 @@ export function hydrateFromHypothesis(
       decorCode: initialWorktopCode,
       decorStructure: initialWorktopStructure,
       thicknessMm: (worktopHy?.thicknessMm?.value ?? 38) as 38 | 20 | 12,
-      edge: worktopHy?.edge?.value ?? 'square',
       totalLengthM: worktopGeo.totalLengthM,
       mitreJoinCount: worktopGeo.mitreJoinCount,
       meta: {
@@ -181,14 +183,7 @@ export function hydrateFromHypothesis(
 
     backsplash: {
       kind: backsplashHy?.kind?.value ?? 'matching_slab',
-      decorCode: backsplashHy?.decorCode?.value ?? initialWorktopCode,
-      decorStructure: backsplashHy?.decorStructure?.value ?? initialWorktopStructure,
-      heightCm: (backsplashHy?.heightCm?.value ?? 60) as 60 | 90 | 120 | 150,
-      meta: {
-        kind: metaFromHint(backsplashHy?.kind),
-        decorCode: metaFromHint(backsplashHy?.decorCode),
-        heightCm: metaFromHint(backsplashHy?.heightCm),
-      },
+      meta: { kind: metaFromHint(backsplashHy?.kind) },
     },
 
     hardware: {
@@ -245,34 +240,19 @@ export function hydrateFromHypothesis(
     },
 
     lighting: {
-      underCabinetLed: hypothesis?.lighting?.underCabinetLed?.value ?? true,
-      plinthLed: hypothesis?.lighting?.plinthLed?.value ?? false,
-      pendantOverIsland: hypothesis?.lighting?.pendantOverIsland?.value ?? false,
-      pendantCount: hypothesis?.lighting?.pendantCount?.value ?? 0,
-      smartControls: false,
-      meta: {
-        underCabinetLed: metaFromHint(hypothesis?.lighting?.underCabinetLed),
-        plinthLed: metaFromHint(hypothesis?.lighting?.plinthLed),
-        pendantOverIsland: metaFromHint(hypothesis?.lighting?.pendantOverIsland),
-        smartControls: { ...META_DEFAULT, provenance: 'ai-default' },
-      },
+      led: hypothesis?.lighting?.led?.value ?? true,
+      meta: { led: metaFromHint(hypothesis?.lighting?.led) },
     },
 
     finishing: {
-      plinthHeightMm: (hypothesis?.finishing?.plinthHeightMm?.value ?? 100) as 100 | 120 | 150,
-      plinthMaterial: hypothesis?.finishing?.plinthMaterial?.value ?? 'matched_door',
-      corniceStyle: hypothesis?.finishing?.corniceStyle?.value ?? 'none',
-      endPanelsCount: 0,
-      openShelvingMeters: 0,
+      plinthHeightMm: hypothesis?.finishing?.plinthHeightMm?.value ?? 100,
+      plinthMaterial: hypothesis?.finishing?.plinthMaterial?.value ?? 'wood',
       meta: {
         plinthHeightMm: metaFromHint(hypothesis?.finishing?.plinthHeightMm),
         plinthMaterial: metaFromHint(hypothesis?.finishing?.plinthMaterial),
-        corniceStyle: metaFromHint(hypothesis?.finishing?.corniceStyle),
-        endPanelsCount: { ...META_DEFAULT, provenance: 'ai-default' },
-        openShelvingMeters: { ...META_DEFAULT, provenance: 'ai-default' },
       },
     },
-  }
+  })
 }
 
 /**
@@ -424,8 +404,8 @@ function seedApplianceSelections(
  * (through the one assembler, hints + homeowner unit edits included) and the
  * worktop's derived geometry (total length, mitre joins).
  * SURVIVES: every specifics pick — doors, hardware, worktop decor/family/
- * thickness/edge, backsplash, sink/taps, lighting, finishing, carcass, all
- * metas, renders and timestamps.
+ * thickness, wall cladding, sink/taps, lighting, finishing, carcass, all
+ * metas, renders and timestamps (retired values mapped by normalizeBuilderState).
  * RE-SYNCED: appliance selections — measured widths update, newly drawn kinds
  * appear, and floor-plan kinds DELETED from the plan drop out (a selection
  * with `widthMm` came from the plan; AI-only extras without a measured width
@@ -444,6 +424,8 @@ export function relockBuilderState(
   const runs = runsFromContract(contract, new Set<string>(hints?.tallRunIds ?? []))
   const worktopGeo = worktopGeometryFromRuns(runs)
 
+  // A state saved before a schema change carries retired values; map them first.
+  saved = normalizeBuilderState(saved)
   const selections = syncSelectionsWithContract(saved.appliances.selections, contract)
   const integratedFridge = selections.find((s) => s.type === 'fridge')?.integrated ?? false
   const assembled = assembleUnits({

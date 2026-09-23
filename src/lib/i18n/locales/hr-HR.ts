@@ -94,25 +94,22 @@ export const hrHR = {
   // ---- Group labels & "why" copy ----------------------------------------
   'builder.groups.layout.label': 'Tlocrt i dimenzije',
   'builder.groups.layout.why': 'Oblik prostora i točne dužine zidova.',
-  'builder.groups.cabinetBoxes.label': 'Ormarići',
-  'builder.groups.cabinetBoxes.why':
-    'Materijal korpusa — raspored ormarića je zaključan iz tvog potvrđenog tlocrta.',
-  'builder.groups.doors.label': 'Vrata i fronte',
+  'builder.groups.cabinetBoxes.label': 'Korpusi',
+  'builder.groups.cabinetBoxes.why': 'Dekor korpusa — raspored je preuzet iz tvog potvrđenog tlocrta.',
+  'builder.groups.doors.label': 'Fronte',
   'builder.groups.doors.why': 'Stil, materijal i dekor prednje plohe ormarića.',
   'builder.groups.worktop.label': 'Radna ploča',
-  'builder.groups.worktop.why': 'Materijal, dekor, debljina i obrada ruba.',
-  'builder.groups.backsplash.label': 'Zid iza radne plohe',
-  'builder.groups.backsplash.why': 'Pločice, panel ili nastavak radne plohe.',
-  'builder.groups.hardware.label': 'Okovi',
-  'builder.groups.hardware.why': 'Sustav ladica, šarke i ručke.',
+  'builder.groups.worktop.why': 'Materijal, dekor i debljina.',
+  'builder.groups.backsplash.label': 'Zidna obloga',
+  'builder.groups.backsplash.why': 'U dekoru radne ploče, pločice, staklo ili drugo.',
   'builder.groups.appliances.label': 'Uređaji',
   'builder.groups.appliances.why': 'Ploča, pećnica, hladnjak, perilica i napa.',
   'builder.groups.sinkTaps.label': 'Sudoper i slavina',
   'builder.groups.sinkTaps.why': 'Materijal, montaža i tip slavine.',
   'builder.groups.lighting.label': 'Rasvjeta',
-  'builder.groups.lighting.why': 'Pod-ormarićna, ambijentalna i visilice.',
+  'builder.groups.lighting.why': 'Ugrađujemo li LED rasvjetu.',
   'builder.groups.finishing.label': 'Završni detalji',
-  'builder.groups.finishing.why': 'Sokl, vijenac i bočni paneli.',
+  'builder.groups.finishing.why': 'Visina i materijal sokla.',
 
   // ---- Common values -----------------------------------------------------
   'common.unsure': 'Nisam siguran',
@@ -173,25 +170,20 @@ export const hrHR = {
   'doors.decor.family.metal': 'Metal',
 
   // ---- Worktop group -----------------------------------------------------
-  'worktop.family.laminate': 'Laminat (Egger)',
-  'worktop.family.compact': 'Kompakt (Fenix)',
+  'worktop.family.laminate': 'Laminat',
+  'worktop.family.compact': 'Compact',
   'worktop.family.quartz': 'Kvarc',
   'worktop.family.sintered_stone': 'Sintetizirani kamen',
   'worktop.family.solid_wood': 'Masivno drvo',
   'worktop.family.stainless': 'Nehrđajući čelik',
   'worktop.familyLabel': 'Materijal radne ploče',
   'worktop.decorLabel': 'Dekor radne ploče',
-  'worktop.edgeLabel': 'Obrada ruba',
-  'worktop.edge.square': 'Ravni',
-  'worktop.edge.radius': 'Zaobljeni',
-  'worktop.edge.bevel': 'Zakošeni',
-  'worktop.edge.mitred_waterfall': 'Vodopad (gerung)',
   'worktop.thicknessLabel': 'Debljina',
 
   // ---- Live BOM panel ----------------------------------------------------
   'bom.lineItem.boards': 'Ploče (korpus + vrata)',
   'bom.lineItem.worktop': 'Radna ploča',
-  'bom.lineItem.backsplash': 'Zid iza ploče',
+  'bom.lineItem.backsplash': 'Zidna obloga',
   'bom.lineItem.edgeBanding': 'Rubne trake',
   'bom.lineItem.hardware': 'Okovi',
   'bom.lineItem.appliances': 'Uređaji',
@@ -212,12 +204,10 @@ export const hrHR = {
   'bom.total.to': 'do',
 
   // ---- CabinetBoxes group ------------------------------------------------
-  'cabinetBoxes.carcassLabel': 'Materijal korpusa',
-  'cabinetBoxes.carcass.white_melamine_standard': 'Bijela melaminska — standard',
-  'cabinetBoxes.carcass.colored_melamine': 'Melaminska u boji',
-  'cabinetBoxes.carcass.moisture_resistant_p3': 'Otporna na vlagu (P3)',
-  'cabinetBoxes.carcass.matched_to_door': 'Uskladi s vratima',
-  'cabinetBoxes.recap.title': 'Zaključani raspored',
+  'cabinetBoxes.carcassLabel': 'Dekor korpusa (unutrašnjost)',
+  'cabinetBoxes.carcass.white_melamine_standard': 'Klasična bijela',
+  'cabinetBoxes.carcass.colored_melamine': 'U boji',
+  'cabinetBoxes.recap.title': 'Odabrani raspored',
   'cabinetBoxes.recap.editLayout': 'Uredi raspored',
   'builder.cabinetBoxes.pattern.doors_shelf': 'Vrata + polica',
   'builder.cabinetBoxes.pattern.drawer_bank': 'Blok ladica',
@@ -235,14 +225,15 @@ export const hrHR = {
   'bom.lineItem.accessories': 'Mehanizmi i dodatni okovi',
 
   // ---- Backsplash group --------------------------------------------------
-  'backsplash.kindLabel': 'Tip zida iza ploče',
-  'backsplash.kind.matching_slab': 'Nastavak radne ploče',
+  'backsplash.kindLabel': 'Tip zidne obloge',
+  'backsplash.kind.matching_slab': 'U dekoru radne ploče',
   'backsplash.kind.tile': 'Pločice',
   'backsplash.kind.glass': 'Staklo',
-  'backsplash.kind.wall_panel': 'Zidni panel',
-  'backsplash.kind.painted': 'Obojeno',
-  'backsplash.kind.none': 'Bez',
-  'backsplash.heightLabel': 'Visina',
+  'backsplash.kind.other': 'Drugo',
+  'backsplash.kind.none': 'Bez obloge',
+  'backsplash.matchingNote': 'Isti dekor kao radna ploča:',
+  'backsplash.otherLabel': 'Upiši dekor',
+  'backsplash.otherPlaceholder': 'npr. zidne letve u hrastu, panel s efektom mramora…',
 
   // ---- Hardware group ----------------------------------------------------
   'hardware.tierLabel': 'Razina ladica i okova',
@@ -317,26 +308,13 @@ export const hrHR = {
   'sinkTaps.tap.filtered_three_way': 'Filtrirana voda (3-pute)',
 
   // ---- Lighting group ----------------------------------------------------
-  'lighting.underCabinetLabel': 'LED ispod gornjih ormarića',
-  'lighting.plinthLabel': 'LED ispod sokla',
-  'lighting.pendantLabel': 'Visilice iznad otoka',
-  'lighting.pendantCountLabel': 'Broj visilica',
-  'lighting.smartControlsLabel': 'Pametno upravljanje',
+  'lighting.ledLabel': 'Ugradnja LED rasvjete',
 
   // ---- Finishing group ---------------------------------------------------
   'finishing.plinthHeightLabel': 'Visina sokla',
   'finishing.plinthMaterialLabel': 'Materijal sokla',
-  'finishing.plinthMaterial.matched_door': 'Kao vrata',
-  'finishing.plinthMaterial.matched_floor': 'Kao pod',
-  'finishing.plinthMaterial.black_recessed': 'Crna uvučena',
-  'finishing.plinthMaterial.metal_strip': 'Metalna traka',
-  'finishing.corniceLabel': 'Vijenac (cornice)',
-  'finishing.cornice.none': 'Bez vijenca',
-  'finishing.cornice.flat': 'Ravan',
-  'finishing.cornice.crown': 'Klasičan / crown',
-  'finishing.cornice.custom_match_door': 'Po mjeri',
-  'finishing.endPanelsLabel': 'Bočni paneli',
-  'finishing.openShelvingLabel': 'Otvoreno polica (m)',
+  'finishing.plinthMaterial.wood': 'Drveni',
+  'finishing.plinthMaterial.plastic': 'Plastični',
 
   // ---- Funnel flow: nav rail step labels ---------------------------------
   'flow.space_photos.label': 'Fotografije prostora',
@@ -377,7 +355,7 @@ export const hrHR = {
   // ---- Builder entry (start of the Build act) -----------------------------
   'funnel.builderEntry.title': 'Sastavi svoju kuhinju, dio po dio.',
   'funnel.builderEntry.subtitle':
-    'Prošli ćemo kroz svaki dio kuhinje — od dimenzija i vrata do okova, sudopera i rasvjete. Procjena cijene se ažurira uživo dok mijenjaš odabire.',
+    'Prošli ćemo kroz svaki dio kuhinje — od korpusa i fronti do radne ploče, sudopera i rasvjete. Procjena cijene se ažurira uživo dok mijenjaš odabire.',
   'funnel.builderEntry.resume': 'Već si započeo — nastavi gdje si stao.',
   'funnel.builderEntry.ctaWithAI': 'Započni gradnju (s AI prijedlogom)',
   'funnel.builderEntry.cta': 'Započni gradnju',
@@ -399,7 +377,6 @@ export const hrHR = {
   'readback.built': 'Sastavljeno · procjena spremna',
   'readback.wishlistItems': '{n} zabilježeno',
   'readback.appliances': '{n} uređaja',
-  'readback.lightingLayers': '{n} sloja rasvjete',
   'wrapup.title': 'Evo tvog sažetka',
   'wrapup.review': 'Pregledaj što šaljemo — ispravi sve što ne valja.',
   'wrapup.estimate.title': 'Okvirni raspon cijene',
@@ -757,8 +734,8 @@ export const hrHR = {
     'Zajedno ćemo opisati tvoju kuhinju. Na kraju tvoj izrađivač dobiva uredan sažetak, a ti okvirni raspon cijene (±20%). To nije ponuda i ništa se ne naplaćuje.',
   'kitchen.home.act.space': 'Fotografiraj prostor — pročitat ćemo raspored i dimenzije.',
   'kitchen.home.act.look': 'Pokaži inspiraciju — složimo izgled i vidiš ga u svom prostoru.',
-  'kitchen.home.act.build': 'Sastavi kuhinju — vrata, radna ploča, okovi, uređaji.',
-  'kitchen.home.act.details': 'Detalji — opseg radova, rokovi, pristup gradilištu.',
+  'kitchen.home.act.build': 'Sastavi kuhinju — korpusi, fronte, radna ploča, uređaji.',
+  'kitchen.home.act.details': 'Detalji — rokovi, pristup gradilištu i kontakt.',
   'kitchen.home.need.title': 'Pripremi',
   'kitchen.home.need.body':
     'Nekoliko fotografija kuhinje (i prazan zid ako ga mijenjaš) te slike koje ti se sviđaju — Pinterest, Instagram, bilo što.',
@@ -782,6 +759,8 @@ export const hrHR = {
   'wrapup.resubmit.cta': 'Pošalji izmjene',
   'wrapup.resubmit.sending': 'Šaljem…',
   'auth.logout': 'Odjava',
+  'readback.led.yes': 'LED rasvjeta',
+  'readback.led.no': 'Bez LED rasvjete',
 } as const
 
 export type TranslationKey = keyof typeof hrHR

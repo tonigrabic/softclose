@@ -18,7 +18,8 @@ import { decors as catalogDecors, services, doorPricePerM2, worktopPricePerM, fi
 import { makerPriceForSku } from '@/lib/catalog/maker-pricing'
 import { elgradTierBand } from '@/lib/catalog/hardware'
 import { PATTERN_SPECS, unitDrawerCount } from './cabinet-patterns'
-import type { BuilderState, CabinetUnit, DrawerSystemTier, FieldMeta } from './inventory'
+import { BACKSPLASH_HEIGHT_CM, type BuilderState, type CabinetUnit, type DrawerSystemTier, type FieldMeta } from './inventory'
+import { normalizeBuilderState } from './normalize'
 import type { LeadProfile } from '@/lib/types'
 import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/core'
 
@@ -341,10 +342,12 @@ const LABOUR_RATES = {
 /* ───────────────────────── Main calculator ───────────────────────── */
 
 export function computeBom(
-  state: BuilderState,
+  savedState: BuilderState,
   locale: Locale = DEFAULT_LOCALE,
   opts: { scope?: LeadProfile['scope']; pricing?: 'retail' | 'maker' } = {}
 ): BomEstimate {
+  // Saved briefs outlive schema changes; price them in the current shape.
+  const state = normalizeBuilderState(savedState)
   const lineItems: BomLineItem[] = []
 
   // Retail (homeowner-facing) vs maker B2B cost. In 'maker' mode a picked SKU's
@@ -401,16 +404,8 @@ export function computeBom(
 
   const doorDecor = findDecor(state.doors.decorCode, state.doors.decorStructure)
   const doorPriceM2 = doorDecor ? doorPricePerM2(doorDecor) ?? 22 : 22 // catalog mean fallback
-  // Carcass: standard white melamine 18mm if mismatched to door, otherwise
-  // the door price (matched-to-door costs the same as the door panel).
-  const carcassPriceM2 =
-    state.cabinetBoxes.carcassMaterial === 'matched_to_door'
-      ? doorPriceM2
-      : state.cabinetBoxes.carcassMaterial === 'moisture_resistant_p3'
-        ? 18
-        : state.cabinetBoxes.carcassMaterial === 'colored_melamine'
-          ? 16
-          : 13 // white_melamine_standard
+  // Carcass interior decor: standard white melamine 18 mm, or a coloured decor.
+  const carcassPriceM2 = state.cabinetBoxes.carcassMaterial === 'colored_melamine' ? 16 : 13
   // Door style premium — shaker/glass/beaded need more machining + material.
   const styleFactor =
     state.doors.style === 'glass_front'
@@ -455,10 +450,7 @@ export function computeBom(
   if (!wtPricePerM) {
     wtPricePerM = state.worktop.family === 'quartz' ? 90 : state.worktop.family === 'sintered_stone' ? 130 : 38
   }
-  // Edge profile premium — a mitred waterfall is a major add; radius a small one.
-  const edgeFactor =
-    state.worktop.edge === 'mitred_waterfall' ? 1.25 : state.worktop.edge === 'radius' ? 1.06 : 1
-  const wtLow = state.worktop.totalLengthM * wtPricePerM * edgeFactor
+  const wtLow = state.worktop.totalLengthM * wtPricePerM
   const wtHigh = wtLow * 1.15 + state.worktop.mitreJoinCount * 25
   const wtSource = widenByConfidence(wtLow, wtHigh, !wtDecor)
   const wtRange = narrowByMeta(wtSource.low, wtSource.high, [
@@ -475,28 +467,26 @@ export function computeBom(
     high: round(wtRange.high),
   })
 
-  /* 3. Backsplash ──────────────────────────────────────────────────────── */
+  /* 3. Wall cladding (zidna obloga) ───────────────────────────────────────
+     Standard strip height; the maker measures the real one. "Other" has no
+     rate of its own (panels, slats, paint…), so it widens like a missing
+     catalog source. */
   if (state.backsplash.kind !== 'none') {
-    const bsArea = state.worktop.totalLengthM * (state.backsplash.heightCm / 100)
-    const bsRate =
-      state.backsplash.kind === 'tile'
-        ? 60
-        : state.backsplash.kind === 'glass'
-          ? 80
-          : state.backsplash.kind === 'matching_slab'
-            ? wtPricePerM // reuse worktop rate per linear m
-            : 25
-    const bsLow = state.backsplash.kind === 'matching_slab' ? state.worktop.totalLengthM * wtPricePerM * 0.6 : bsArea * bsRate
-    const bsHigh = bsLow * 1.25
-    const bsRange = narrowByMeta(bsLow, bsHigh, [
-      state.backsplash.meta.kind,
-      state.backsplash.meta.heightCm,
-    ])
+    const bsArea = state.worktop.totalLengthM * (BACKSPLASH_HEIGHT_CM / 100)
+    const bsRate = state.backsplash.kind === 'tile' ? 60 : state.backsplash.kind === 'glass' ? 80 : 25
+    const bsBase =
+      state.backsplash.kind === 'matching_slab' ? state.worktop.totalLengthM * wtPricePerM * 0.6 : bsArea * bsRate
+    const bsSource = widenByConfidence(bsBase, bsBase * 1.25, state.backsplash.kind === 'other')
+    const bsRange = narrowByMeta(bsSource.low, bsSource.high, [state.backsplash.meta.kind])
+    const bsKind =
+      state.backsplash.kind === 'other' && state.backsplash.otherDecor?.trim()
+        ? state.backsplash.otherDecor.trim()
+        : label('backsplash.kind', state.backsplash.kind)
     lineItems.push({
       key: 'backsplash',
       section: 'works',
       worksKind: 'material',
-      detail: `${label('backsplash.kind', state.backsplash.kind)}, ${state.backsplash.heightCm} cm`,
+      detail: `${bsKind}, ${BACKSPLASH_HEIGHT_CM} cm`,
       quantity: `${state.worktop.totalLengthM.toFixed(2)} m`,
       low: round(bsRange.low),
       high: round(bsRange.high),
@@ -848,84 +838,38 @@ export function computeBom(
   }
 
   /* 8. Lighting ─────────────────────────────────────────────────────────
-     Mid-market component bands (profile + strip + driver per metre; one
-     fixture per pendant). The fixture choice itself stays the homeowner's —
-     a designer pendant blows any band, so the range covers the standard
-     trade catalog, not the long tail. */
-  let lightLow = 0
-  let lightHigh = 0
-  if (state.lighting.underCabinetLed) {
-    lightLow += wallM * 30
-    lightHigh += wallM * 55
-  }
-  if (state.lighting.plinthLed) {
-    lightLow += baseM * 18
-    lightHigh += baseM * 38
-  }
-  if (state.lighting.pendantOverIsland && state.lighting.pendantCount > 0) {
-    lightLow += state.lighting.pendantCount * 110
-    lightHigh += state.lighting.pendantCount * 250
-  }
-  if (state.lighting.smartControls) {
-    lightLow += 150
-    lightHigh += 300
-  }
-  if (lightLow > 0) {
-    const lightRange = narrowByMeta(lightLow, lightHigh, [
-      state.lighting.meta.underCabinetLed,
-      state.lighting.meta.plinthLed,
-      state.lighting.meta.pendantOverIsland,
-    ])
+     One yes/no: built-in LED strip (profile + strip + driver per metre),
+     along the wall units — or along the base run when there are none. */
+  const ledM = wallM > 0 ? wallM : baseM
+  if (state.lighting.led && ledM > 0) {
+    const lightRange = narrowByMeta(ledM * 30, ledM * 55, [state.lighting.meta.led])
     lineItems.push({
       key: 'lighting',
       section: 'works',
       worksKind: 'material',
-      detail: tr('LED + pendants', 'LED + viseće'),
-      quantity: tr('Layered', 'Slojevito'),
+      detail: tr('Built-in LED lighting', 'Ugradna LED rasvjeta'),
+      quantity: `${ledM.toFixed(1)} m`,
       low: round(lightRange.low),
       high: round(lightRange.high),
     })
   }
 
-  /* 8b. Finishing — plinth / cornice / end panels / open shelving. */
-  const plinthRate =
-    state.finishing.plinthMaterial === 'metal_strip'
-      ? 16
-      : state.finishing.plinthMaterial === 'matched_door'
-        ? 14
-        : state.finishing.plinthMaterial === 'black_recessed'
-          ? 12
-          : 9
-  // Plinth height scales the plinth board: 100/120/150 mm are real choices with
-  // a real (small) cost difference — 120 mm is the reference.
-  const plinthHeightFactor = (state.finishing.plinthHeightMm || 120) / 120
-  let finLow = baseM * plinthRate * plinthHeightFactor * 0.9
-  let finHigh = baseM * plinthRate * plinthHeightFactor * 1.15
-  if (state.finishing.corniceStyle !== 'none') {
-    const corniceRate =
-      state.finishing.corniceStyle === 'crown' ? 22 : state.finishing.corniceStyle === 'custom_match_door' ? 18 : 12
-    finLow += wallM * corniceRate * 0.9
-    finHigh += wallM * corniceRate * 1.2
-  }
-  if (state.finishing.endPanelsCount > 0) {
-    finLow += state.finishing.endPanelsCount * 35
-    finHigh += state.finishing.endPanelsCount * 70
-  }
-  if (state.finishing.openShelvingMeters > 0) {
-    finLow += state.finishing.openShelvingMeters * 45
-    finHigh += state.finishing.openShelvingMeters * 90
-  }
+  /* 8b. Finishing — the plinth (sokl). €/m at 100 mm; a 150 mm plinth needs
+     half again the board. */
+  const plinthRate = state.finishing.plinthMaterial === 'plastic' ? 9 : 12
+  const plinthHeightFactor = state.finishing.plinthHeightMm / 100
+  const finLow = baseM * plinthRate * plinthHeightFactor * 0.9
+  const finHigh = baseM * plinthRate * plinthHeightFactor * 1.15
   if (finHigh > 0) {
     const finRange = narrowByMeta(finLow, finHigh, [
       state.finishing.meta.plinthHeightMm,
       state.finishing.meta.plinthMaterial,
-      state.finishing.meta.corniceStyle,
     ])
     lineItems.push({
       key: 'finishing',
       section: 'works',
       worksKind: 'material',
-      detail: tr('Plinth, cornice & panels', 'Sokl, vijenac i bočni panel'),
+      detail: `${tr('Plinth', 'Sokl')} ${state.finishing.plinthHeightMm} mm, ${label('finishing.plinthMaterial', state.finishing.plinthMaterial)}`,
       quantity: `${baseM.toFixed(1)} m`,
       low: round(finRange.low),
       high: round(finRange.high),

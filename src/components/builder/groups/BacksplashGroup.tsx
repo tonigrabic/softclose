@@ -1,24 +1,24 @@
 'use client'
 
-import { useMemo } from 'react'
-import { decorsByUse } from '@/lib/catalog'
-import { useTranslations } from '@/lib/i18n'
+import { findDecor } from '@/lib/catalog'
+import { useTranslations, tDynamic } from '@/lib/i18n'
 import { PickerSlot } from '../PickerSlot'
 import { ChipRow } from '../ChipRow'
-import { DecorSwatch } from '../DecorSwatch'
 import type { BacksplashKind, BuilderState } from '@/lib/builder/inventory'
 
 const KIND_OPTIONS = [
   'matching_slab',
   'tile',
   'glass',
-  'wall_panel',
-  'painted',
+  'other',
   'none',
 ] as const satisfies readonly BacksplashKind[]
 
-const HEIGHT_OPTIONS = [60, 90, 120, 150] as const
-
+/**
+ * Wall cladding (zidna obloga) — the type is the choice; the height is the
+ * maker's to measure. "In the worktop's decor" follows the worktop, so there
+ * is no second decor to pick; "other" takes the decor in the homeowner's words.
+ */
 export function BacksplashGroup({
   state,
   onPatch,
@@ -27,8 +27,12 @@ export function BacksplashGroup({
   onPatch: (patch: Partial<BuilderState['backsplash']>) => void
 }) {
   const { t, locale } = useTranslations()
-  const decorOptions = useMemo(() => decorsByUse('backsplash'), [])
-  const showDecor = state.backsplash.kind === 'matching_slab' || state.backsplash.kind === 'wall_panel'
+  const worktopDecor = state.worktop.decorCode
+    ? findDecor(state.worktop.decorCode, state.worktop.decorStructure)
+    : null
+  const worktopDecorName = worktopDecor
+    ? `${locale === 'en-US' && worktopDecor.nameEn ? worktopDecor.nameEn : worktopDecor.name} (${worktopDecor.code} ${worktopDecor.structure})`
+    : tDynamic(`worktop.family.${state.worktop.family}`, locale)
 
   return (
     <div className="space-y-5">
@@ -40,70 +44,29 @@ export function BacksplashGroup({
           onChange={(v) =>
             onPatch({
               kind: v,
-              meta: {
-                ...state.backsplash.meta,
-                kind: { confidence: 'H', provenance: 'homeowner-edited' },
-              },
+              meta: { kind: { confidence: 'H', provenance: 'homeowner-edited' } },
             })
           }
         />
       </PickerSlot>
 
-      {state.backsplash.kind !== 'none' && (
-        <PickerSlot label={t('backsplash.heightLabel')} meta={state.backsplash.meta.heightCm}>
-          <div className="flex flex-wrap gap-1.5">
-            {HEIGHT_OPTIONS.map((h) => (
-              <button
-                key={h}
-                type="button"
-                onClick={() =>
-                  onPatch({
-                    heightCm: h,
-                    meta: {
-                      ...state.backsplash.meta,
-                      heightCm: { confidence: 'H', provenance: 'homeowner-edited' },
-                    },
-                  })
-                }
-                className={
-                  'rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors ' +
-                  (state.backsplash.heightCm === h
-                    ? 'border-primary bg-primary/10 text-foreground'
-                    : 'border-border bg-card text-muted-foreground hover:text-foreground')
-                }
-              >
-                {h} cm
-              </button>
-            ))}
-          </div>
-        </PickerSlot>
+      {state.backsplash.kind === 'matching_slab' && (
+        <p className="rounded-xl border border-border bg-card/50 px-3 py-2 text-[13px] text-muted-foreground">
+          {t('backsplash.matchingNote')}{' '}
+          <span className="font-medium text-foreground">{worktopDecorName}</span>
+        </p>
       )}
 
-      {showDecor && (
-        <PickerSlot label={t('worktop.decorLabel')} meta={state.backsplash.meta.decorCode}>
-          <div className="grid grid-cols-5 gap-3 sm:grid-cols-6">
-            {decorOptions.map((d) => (
-              <DecorSwatch
-                key={`${d.code}-${d.structure}`}
-                code={d.code}
-                structure={d.structure}
-                size="md"
-                selected={state.backsplash.decorCode === d.code && state.backsplash.decorStructure === d.structure}
-                onClick={() =>
-                  onPatch({
-                    decorCode: d.code,
-                    decorStructure: d.structure,
-                    meta: {
-                      ...state.backsplash.meta,
-                      decorCode: { confidence: 'H', provenance: 'homeowner-edited' },
-                    },
-                  })
-                }
-                showLabel
-                label={locale === 'en-US' && d.nameEn ? d.nameEn : d.name}
-              />
-            ))}
-          </div>
+      {state.backsplash.kind === 'other' && (
+        <PickerSlot label={t('backsplash.otherLabel')} meta={state.backsplash.meta.kind}>
+          <input
+            type="text"
+            value={state.backsplash.otherDecor ?? ''}
+            maxLength={120}
+            placeholder={t('backsplash.otherPlaceholder')}
+            onChange={(e) => onPatch({ otherDecor: e.target.value })}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] focus:border-primary/60 focus:outline-none focus:ring-1 focus:ring-primary/20"
+          />
         </PickerSlot>
       )}
     </div>

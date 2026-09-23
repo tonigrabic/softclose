@@ -17,7 +17,6 @@ import type {
   CabinetPattern,
   CarcassMaterial,
   ConfidenceLevel,
-  CorniceStyle,
   CornerSolution,
   DoorOverlay,
   DoorStyle,
@@ -32,7 +31,6 @@ import type {
   SinkMaterial,
   SinkMount,
   TapType,
-  WorktopEdge,
   WorktopFamily,
   BacksplashKind,
 } from './inventory'
@@ -104,15 +102,11 @@ export interface WorktopHypothesis {
   decorCode?: Hint<string>
   decorStructure?: Hint<string>
   thicknessMm?: Hint<38 | 20 | 12>
-  edge?: Hint<WorktopEdge>
 }
 
 /* 5. Backsplash */
 export interface BacksplashHypothesis {
   kind?: Hint<BacksplashKind>
-  decorCode?: Hint<string>
-  decorStructure?: Hint<string>
-  heightCm?: Hint<60 | 90 | 120 | 150>
 }
 
 /* 6. Hardware */
@@ -161,17 +155,14 @@ export interface SinkTapsHypothesis {
 
 /* 9. Lighting */
 export interface LightingHypothesis {
-  underCabinetLed?: Hint<boolean>
-  plinthLed?: Hint<boolean>
-  pendantOverIsland?: Hint<boolean>
-  pendantCount?: Hint<number>
+  /** Built-in LED visible (under wall units, in shelves or the plinth). */
+  led?: Hint<boolean>
 }
 
 /* 10. Finishing */
 export interface FinishingHypothesis {
-  plinthHeightMm?: Hint<100 | 120 | 150>
+  plinthHeightMm?: Hint<100 | 150>
   plinthMaterial?: Hint<PlinthMaterial>
-  corniceStyle?: Hint<CorniceStyle>
 }
 
 /** The full hypothesis returned in one shot. */
