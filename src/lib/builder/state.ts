@@ -200,7 +200,9 @@ export function hydrateFromHypothesis(
     },
 
     appliances: {
-      supply: 'maker_supplies',
+      // The homeowner buys unless they say otherwise — the appliance pickers
+      // only open when the maker supplies (maker testing, 2026-09-23).
+      supply: 'homeowner_supplies',
       selections,
       meta: {
         supply: { ...META_DEFAULT, provenance: 'ai-default' },
@@ -221,6 +223,7 @@ export function hydrateFromHypothesis(
     },
 
     sinkTaps: {
+      supply: 'homeowner_supplies',
       sink: {
         bowls: hypothesis?.sinkTaps?.sinkBowls?.value ?? 'single',
         mount: hypothesis?.sinkTaps?.sinkMount?.value ?? 'undermount',
@@ -231,6 +234,7 @@ export function hydrateFromHypothesis(
         finish: hypothesis?.sinkTaps?.tapFinish?.value ?? 'matte_black',
       },
       meta: {
+        supply: { ...META_DEFAULT },
         sinkBowls: metaFromHint(hypothesis?.sinkTaps?.sinkBowls),
         sinkMount: metaFromHint(hypothesis?.sinkTaps?.sinkMount),
         sinkMaterial: metaFromHint(hypothesis?.sinkTaps?.sinkMaterial),

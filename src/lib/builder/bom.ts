@@ -180,7 +180,9 @@ function boardAreaForRun(r: {
  * conservative averages tuned against typical Croatian-market frameless
  * carcasses; they're meant to react to user edits, not to be quote-accurate.
  */
-function unitDoorAreaM2(u: CabinetUnit): number {
+function unitDoorAreaM2(u: CabinetUnit, freestandingDishwasher: boolean): number {
+  // A freestanding dishwasher keeps its own door — no decor front to make.
+  if (u.boundTo === 'dishwasher' && freestandingDishwasher) return 0
   const wM = u.widthMm / 1000
   if (u.type === 'tall') return wM * (u.heightMm / 1000) // full-height door
   // Base + wall: door height tracks unit height (≈ 0.72 m typical).
@@ -389,9 +391,11 @@ export function computeBom(
 
   let doorAreaM2 = 0
   let carcassAreaM2 = 0
+  const dishwasherSel = state.appliances.selections.find((s) => s.type === 'dishwasher')
+  const freestandingDishwasher = dishwasherSel ? !dishwasherSel.integrated : false
   if (usingUnitModel) {
     for (const u of units) {
-      doorAreaM2 += unitDoorAreaM2(u)
+      doorAreaM2 += unitDoorAreaM2(u, freestandingDishwasher)
       carcassAreaM2 += unitCarcassAreaM2(u) + unitDrawerBoxAreaM2(u)
     }
   } else {
@@ -658,89 +662,91 @@ export function computeBom(
     })
   }
 
-  /* 6. Sink + tap ──────────────────────────────────────────────────────── */
-  const sinkBaseLow =
-    state.sinkTaps.sink.material === 'ceramic'
-      ? 220
-      : state.sinkTaps.sink.material === 'granite_composite'
-        ? 180
-        : state.sinkTaps.sink.material === 'fragranite'
-          ? 200
-          : 120
-  // Bowl count: 1.5 ≈ +35 %, 2 bowls ≈ +60 %.
-  const bowlMultiplier =
-    state.sinkTaps.sink.bowls === 'double' ? 1.6 : state.sinkTaps.sink.bowls === 'one_and_half' ? 1.35 : 1.0
-  // Mounting: undermount/flush more expensive than inset; belfast premium.
-  const mountMultiplier =
-    state.sinkTaps.sink.mount === 'belfast'
-      ? 1.5
-      : state.sinkTaps.sink.mount === 'undermount' || state.sinkTaps.sink.mount === 'flush'
-        ? 1.2
-        : 1.0
-  const sinkLow = sinkBaseLow * bowlMultiplier * mountMultiplier
-  const sinkHigh = sinkLow * (state.sinkTaps.sink.pickedName ? 1.15 : 1.5)
-  const tapBaseLow =
-    state.sinkTaps.tap.type === 'boiling_water'
-      ? 350
-      : state.sinkTaps.tap.type === 'filtered_three_way'
-        ? 280
-        : state.sinkTaps.tap.type === 'pull_out'
-          ? 130
-          : 80
-  // Finish moves the tap price too (brass is a premium line, chrome the base).
-  const TAP_FINISH_MUL: Record<string, number> = {
-    brass: 1.5,
-    matte_black: 1.15,
-    brushed_steel: 1.1,
-    chrome: 1.0,
-    matched_to_door: 1.05,
+  /* 6. Sink + tap — only when the maker buys them. When the homeowner does,
+     the cut-out and fitting are already in the worktop and install lines. */
+  if (state.sinkTaps.supply === 'maker_supplies') {
+    const sinkBaseLow =
+      state.sinkTaps.sink.material === 'ceramic'
+        ? 220
+        : state.sinkTaps.sink.material === 'granite_composite'
+          ? 180
+          : state.sinkTaps.sink.material === 'fragranite'
+            ? 200
+            : 120
+    // Bowl count: 1.5 ≈ +35 %, 2 bowls ≈ +60 %.
+    const bowlMultiplier =
+      state.sinkTaps.sink.bowls === 'double' ? 1.6 : state.sinkTaps.sink.bowls === 'one_and_half' ? 1.35 : 1.0
+    // Mounting: undermount/flush more expensive than inset; belfast premium.
+    const mountMultiplier =
+      state.sinkTaps.sink.mount === 'belfast'
+        ? 1.5
+        : state.sinkTaps.sink.mount === 'undermount' || state.sinkTaps.sink.mount === 'flush'
+          ? 1.2
+          : 1.0
+    const sinkLow = sinkBaseLow * bowlMultiplier * mountMultiplier
+    const sinkHigh = sinkLow * (state.sinkTaps.sink.pickedName ? 1.15 : 1.5)
+    const tapBaseLow =
+      state.sinkTaps.tap.type === 'boiling_water'
+        ? 350
+        : state.sinkTaps.tap.type === 'filtered_three_way'
+          ? 280
+          : state.sinkTaps.tap.type === 'pull_out'
+            ? 130
+            : 80
+    // Finish moves the tap price too (brass is a premium line, chrome the base).
+    const TAP_FINISH_MUL: Record<string, number> = {
+      brass: 1.5,
+      matte_black: 1.15,
+      brushed_steel: 1.1,
+      chrome: 1.0,
+      matched_to_door: 1.05,
+    }
+    const tapFinishMul = TAP_FINISH_MUL[state.sinkTaps.tap.finish] ?? 1
+    const tapLow = tapBaseLow * tapFinishMul
+    const tapHigh = tapLow * (state.sinkTaps.tap.pickedName ? 1.15 : 1.5)
+    const sinkPicked = state.sinkTaps.sink.pickedName
+      ? `${state.sinkTaps.sink.pickedBrand ?? ''} ${state.sinkTaps.sink.pickedName}`.trim()
+      : null
+    const tapPicked = state.sinkTaps.tap.pickedName
+      ? `${state.sinkTaps.tap.pickedBrand ?? ''} ${state.sinkTaps.tap.pickedName}`.trim()
+      : null
+    // A picked model with a catalog price is EXACT — no class estimate, no
+    // narrowing. Each piece prices independently so a single pick already
+    // tightens the line; both picked → the whole line is exact.
+    const sinkPriceEur = effPrice(state.sinkTaps.sink.pickedPriceEur, state.sinkTaps.sink.sku)
+    const tapPriceEur = effPrice(state.sinkTaps.tap.pickedPriceEur, state.sinkTaps.tap.sku)
+    const sinkPart =
+      sinkPriceEur != null
+        ? { low: sinkPriceEur, high: sinkPriceEur }
+        : narrowByMeta(sinkLow, sinkHigh, [
+            state.sinkTaps.meta.sinkBowls,
+            state.sinkTaps.meta.sinkMount,
+            state.sinkTaps.meta.sinkMaterial,
+          ])
+    const tapPart =
+      tapPriceEur != null
+        ? { low: tapPriceEur, high: tapPriceEur }
+        : narrowByMeta(tapLow, tapHigh, [state.sinkTaps.meta.tapType, state.sinkTaps.meta.tapFinish])
+    const sinkTapsRange = { low: sinkPart.low + tapPart.low, high: sinkPart.high + tapPart.high }
+    lineItems.push({
+      key: 'sinkTaps',
+      section: 'goods',
+      exact: sinkPriceEur != null && tapPriceEur != null,
+      detail:
+        `${label('sinkTaps.bowls', state.sinkTaps.sink.bowls)} · ${label('sinkTaps.material', state.sinkTaps.sink.material)} ${tr('sink', 'sudoper')}, ${label('sinkTaps.tap', state.sinkTaps.tap.type)} ${tr('tap', 'slavina')}` +
+        (sinkPicked ? ` · ${tr('sink', 'sudoper')}: ${sinkPicked}` : '') +
+        (tapPicked ? ` · ${tr('tap', 'slavina')}: ${tapPicked}` : ''),
+      quantity: tr('1 set', '1 komplet'),
+      low: round(sinkTapsRange.low),
+      high: round(sinkTapsRange.high),
+    })
   }
-  const tapFinishMul = TAP_FINISH_MUL[state.sinkTaps.tap.finish] ?? 1
-  const tapLow = tapBaseLow * tapFinishMul
-  const tapHigh = tapLow * (state.sinkTaps.tap.pickedName ? 1.15 : 1.5)
-  const sinkPicked = state.sinkTaps.sink.pickedName
-    ? `${state.sinkTaps.sink.pickedBrand ?? ''} ${state.sinkTaps.sink.pickedName}`.trim()
-    : null
-  const tapPicked = state.sinkTaps.tap.pickedName
-    ? `${state.sinkTaps.tap.pickedBrand ?? ''} ${state.sinkTaps.tap.pickedName}`.trim()
-    : null
-  // A picked model with a catalog price is EXACT — no class estimate, no
-  // narrowing. Each piece prices independently so a single pick already
-  // tightens the line; both picked → the whole line is exact.
-  const sinkPriceEur = effPrice(state.sinkTaps.sink.pickedPriceEur, state.sinkTaps.sink.sku)
-  const tapPriceEur = effPrice(state.sinkTaps.tap.pickedPriceEur, state.sinkTaps.tap.sku)
-  const sinkPart =
-    sinkPriceEur != null
-      ? { low: sinkPriceEur, high: sinkPriceEur }
-      : narrowByMeta(sinkLow, sinkHigh, [
-          state.sinkTaps.meta.sinkBowls,
-          state.sinkTaps.meta.sinkMount,
-          state.sinkTaps.meta.sinkMaterial,
-        ])
-  const tapPart =
-    tapPriceEur != null
-      ? { low: tapPriceEur, high: tapPriceEur }
-      : narrowByMeta(tapLow, tapHigh, [state.sinkTaps.meta.tapType, state.sinkTaps.meta.tapFinish])
-  const sinkTapsRange = { low: sinkPart.low + tapPart.low, high: sinkPart.high + tapPart.high }
-  lineItems.push({
-    key: 'sinkTaps',
-    section: 'goods',
-    exact: sinkPriceEur != null && tapPriceEur != null,
-    detail:
-      `${label('sinkTaps.bowls', state.sinkTaps.sink.bowls)} · ${label('sinkTaps.material', state.sinkTaps.sink.material)} ${tr('sink', 'sudoper')}, ${label('sinkTaps.tap', state.sinkTaps.tap.type)} ${tr('tap', 'slavina')}` +
-      (sinkPicked ? ` · ${tr('sink', 'sudoper')}: ${sinkPicked}` : '') +
-      (tapPicked ? ` · ${tr('tap', 'slavina')}: ${tapPicked}` : ''),
-    quantity: tr('1 set', '1 komplet'),
-    low: round(sinkTapsRange.low),
-    high: round(sinkTapsRange.high),
-  })
 
   /* 7. Appliances ──────────────────────────────────────────────────────── */
-  // Skip when the homeowner supplies their own kit. Otherwise: count the
-  // appliance kinds that have actually been selected (or pinned to a SKU)
-  // and price each by class so swapping induction → gas, single → double
-  // oven actually moves the line.
-  if (state.appliances.supply !== 'homeowner_supplies' && state.appliances.selections.length > 0) {
+  // Only when the maker supplies the kit. Then: count the appliance kinds that
+  // have actually been selected (or pinned to a SKU) and price each by class
+  // so swapping induction → gas, single → double oven actually moves the line.
+  if (state.appliances.supply === 'maker_supplies' && state.appliances.selections.length > 0) {
     // Per-type estimate bands for an UNPICKED appliance. Grounded against the
     // Schachermayer hr-HR reference-RRP scrape (src/lib/catalog, see
     // appliancesForType): each band is calibrated to CONTAIN the real catalog
@@ -814,12 +820,6 @@ export function computeBom(
       apHigh += hi
       const m = applianceMetaMap[sel.type]
       if (m) estimatedMetas.push(m)
-    }
-    if (state.appliances.supply === 'mixed') {
-      // Halving models "homeowner supplies some of these" — it only applies
-      // to the unpicked estimate; an explicitly picked model is in the build.
-      apLow *= 0.5
-      apHigh *= 0.5
     }
     // Line confidence = worst meta among the ESTIMATED types only (picked
     // models are facts; types without tracked meta — microwave, wine fridge,

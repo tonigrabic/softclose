@@ -13,9 +13,15 @@ import { hydrateFromHypothesis } from '@/lib/builder/state'
 import { computeBom } from '@/lib/builder/bom'
 import { DEFAULT_LOCALE } from '@/lib/i18n'
 
+/** Maker supplies appliances + sink here, so every gated line is in play. */
 function stateFor(id: string) {
   const f = CONTRACT_FIXTURES.find((x) => x.id === id)!
-  return hydrateFromHypothesis(null, { layoutContract: floorPlanToLayout(f.build()) })
+  const s = hydrateFromHypothesis(null, { layoutContract: floorPlanToLayout(f.build()) })
+  return {
+    ...s,
+    appliances: { ...s.appliances, supply: 'maker_supplies' as const },
+    sinkTaps: { ...s.sinkTaps, supply: 'maker_supplies' as const },
+  }
 }
 const keys = (bom: ReturnType<typeof computeBom>) => bom.lineItems.map((l) => l.key)
 
@@ -88,5 +94,44 @@ describe('project-scope allowances', () => {
     expect(withStructural.sections.works).toEqual(base.sections.works)
     // …but they do lift the all-in total.
     expect(withStructural.total.high).toBeGreaterThan(base.total.high)
+  })
+})
+
+describe('supply gates the goods (maker testing, 2026-09-23)', () => {
+  const f = CONTRACT_FIXTURES.find((x) => x.id === 'l-shape')!
+  const fresh = hydrateFromHypothesis(null, { layoutContract: floorPlanToLayout(f.build()) })
+
+  test('by default the homeowner buys: no appliance or sink line, works untouched', () => {
+    expect(fresh.appliances.supply).toBe('homeowner_supplies')
+    expect(fresh.sinkTaps.supply).toBe('homeowner_supplies')
+    const bom = computeBom(fresh)
+    expect(keys(bom)).not.toContain('appliances')
+    expect(keys(bom)).not.toContain('sinkTaps')
+    expect(bom.sections.goods).toEqual({ low: 0, high: 0, allPicked: false })
+  })
+
+  test('maker supplies → both goods lines appear; the kitchen range does not move', () => {
+    const maker = stateFor('l-shape')
+    const a = computeBom(fresh)
+    const b = computeBom(maker)
+    expect(keys(b)).toEqual(expect.arrayContaining(['appliances', 'sinkTaps']))
+    expect(b.sections.works).toEqual(a.sections.works)
+  })
+})
+
+describe('built-in vs freestanding moves the kitchen, whoever buys', () => {
+  test('a freestanding dishwasher has no decor front to make', () => {
+    const f = CONTRACT_FIXTURES.find((x) => x.id === 'l-shape')!
+    const s = hydrateFromHypothesis(null, { layoutContract: floorPlanToLayout(f.build()) })
+    expect(s.appliances.selections.find((a) => a.type === 'dishwasher')?.integrated).toBe(true)
+    const freestanding = {
+      ...s,
+      appliances: {
+        ...s.appliances,
+        selections: s.appliances.selections.map((a) => (a.type === 'dishwasher' ? { ...a, integrated: false } : a)),
+      },
+    }
+    const boards = (st: typeof s) => computeBom(st).lineItems.find((l) => l.key === 'boards')!
+    expect(boards(freestanding).low).toBeLessThan(boards(s).low)
   })
 })

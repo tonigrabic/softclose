@@ -53,6 +53,7 @@ export function normalizeBuilderState(state: BuilderState): BuilderState {
   const bs = state.backsplash as unknown as Loose & { meta?: Loose }
   const light = state.lighting as unknown as Loose & { meta?: Loose }
   const fin = state.finishing as unknown as Loose & { meta?: Loose }
+  const sink = state.sinkTaps as unknown as Loose & { meta?: Loose }
 
   const carcassMaterial = CARCASS[String(cab.carcassMaterial)] ?? 'white_melamine_standard'
 
@@ -66,17 +67,31 @@ export function normalizeBuilderState(state: BuilderState): BuilderState {
   const plinthHeightMm: 100 | 150 = Number(fin.plinthHeightMm) >= 150 ? 150 : 100
   const plinthMaterial = PLINTH_MATERIAL[String(fin.plinthMaterial)] ?? 'wood'
 
+  // "Mixed" supply was cut; keep those appliances in the build so the pickers
+  // stay visible and nothing silently drops out of the estimate.
+  const applianceSupply = state.appliances.supply === 'homeowner_supplies' ? 'homeowner_supplies' : 'maker_supplies'
+  // Before the sink had a supply question it was always priced as maker-bought.
+  const sinkSupply = sink.supply === 'homeowner_supplies' ? 'homeowner_supplies' : 'maker_supplies'
+
   const unchanged =
     carcassMaterial === cab.carcassMaterial &&
     kind === bs.kind &&
     typeof light.led === 'boolean' &&
     plinthHeightMm === fin.plinthHeightMm &&
-    plinthMaterial === fin.plinthMaterial
+    plinthMaterial === fin.plinthMaterial &&
+    applianceSupply === state.appliances.supply &&
+    sinkSupply === sink.supply
   if (unchanged) return state
 
   return {
     ...state,
     cabinetBoxes: { ...state.cabinetBoxes, carcassMaterial },
+    appliances: { ...state.appliances, supply: applianceSupply },
+    sinkTaps: {
+      ...state.sinkTaps,
+      supply: sinkSupply,
+      meta: { ...state.sinkTaps.meta, supply: meta(sink.meta?.supply) },
+    },
     backsplash: {
       kind,
       ...(typeof bs.otherDecor === 'string' ? { otherDecor: bs.otherDecor } : {}),

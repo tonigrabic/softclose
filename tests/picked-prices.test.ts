@@ -17,9 +17,15 @@ import { hydrateFromHypothesis } from '@/lib/builder/state'
 import { computeBom } from '@/lib/builder/bom'
 import type { BuilderState } from '@/lib/builder/inventory'
 
+/** Maker supplies appliances + sink — picking models only matters then. */
 function lShapeState(): BuilderState {
   const f = CONTRACT_FIXTURES.find((x) => x.id === 'l-shape')!
-  return hydrateFromHypothesis(null, { layoutContract: floorPlanToLayout(f.build()) })
+  const s = hydrateFromHypothesis(null, { layoutContract: floorPlanToLayout(f.build()) })
+  return {
+    ...s,
+    appliances: { ...s.appliances, supply: 'maker_supplies' },
+    sinkTaps: { ...s.sinkTaps, supply: 'maker_supplies' },
+  }
 }
 
 describe('catalog — every product carries a reference price', () => {

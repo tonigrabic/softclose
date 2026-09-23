@@ -103,9 +103,9 @@ export const hrHR = {
   'builder.groups.backsplash.label': 'Zidna obloga',
   'builder.groups.backsplash.why': 'U dekoru radne ploče, pločice, staklo ili drugo.',
   'builder.groups.appliances.label': 'Uređaji',
-  'builder.groups.appliances.why': 'Ploča, pećnica, hladnjak, perilica i napa.',
+  'builder.groups.appliances.why': 'Tko nabavlja uređaje i jesu li ugradni.',
   'builder.groups.sinkTaps.label': 'Sudoper i slavina',
-  'builder.groups.sinkTaps.why': 'Materijal, montaža i tip slavine.',
+  'builder.groups.sinkTaps.why': 'Tko nabavlja sudoper i slavinu — i koje, ako ih nabavlja izrađivač.',
   'builder.groups.lighting.label': 'Rasvjeta',
   'builder.groups.lighting.why': 'Ugrađujemo li LED rasvjetu.',
   'builder.groups.finishing.label': 'Završni detalji',
@@ -258,10 +258,11 @@ export const hrHR = {
   'hardware.finish.matched_to_door': 'Uskladi s vratima',
 
   // ---- Appliances group --------------------------------------------------
-  'appliances.supplyLabel': 'Tko nabavlja uređaje?',
+  'appliances.supplyLabel': 'Nabava uređaja',
   'appliances.supply.homeowner_supplies': 'Ja nabavljam',
   'appliances.supply.maker_supplies': 'Izrađivač nabavlja',
-  'appliances.supply.mixed': 'Kombinirano',
+  'appliances.builtInHelp':
+    'Ugradni hladnjak treba visoki korpus i frontu, ugradna perilica frontu — to ulazi u cijenu kuhinje, tko god kupuje uređaj.',
   'appliances.hobLabel': 'Ploča za kuhanje',
   'appliances.hob.induction': 'Indukcija',
   'appliances.hob.gas': 'Plin',
@@ -288,6 +289,11 @@ export const hrHR = {
 
   // ---- Sink & taps group -------------------------------------------------
   'sinkTaps.bowlsLabel': 'Broj korita',
+  'sinkTaps.supplyLabel': 'Nabava sudopera i slavine',
+  'sinkTaps.supply.homeowner_supplies': 'Ja nabavljam',
+  'sinkTaps.supply.maker_supplies': 'Izrađivač nabavlja',
+  'sinkTaps.homeownerNote':
+    'Sudoper i slavinu nabavljaš sam — izrađivač radi izrez u radnoj ploči i montažu.',
   'sinkTaps.bowls.single': '1 korito',
   'sinkTaps.bowls.one_and_half': '1.5 korito',
   'sinkTaps.bowls.double': '2 korita',

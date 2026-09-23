@@ -252,7 +252,12 @@ export interface HardwareGroup {
 
 /* ─────────────────────────── 7. Appliances ─────────────────────────────── */
 
-export type ApplianceSupply = 'homeowner_supplies' | 'maker_supplies' | 'mixed'
+/**
+ * Who buys the appliances. Only when the maker supplies them do their types
+ * and models matter for the quote (maker testing, 2026-09-23) — "mixed" was
+ * cut. Built-in vs freestanding is asked either way: it moves the cabinetry.
+ */
+export type ApplianceSupply = 'homeowner_supplies' | 'maker_supplies'
 
 export interface ApplianceSelection {
   type: 'hob' | 'oven' | 'extractor' | 'fridge' | 'dishwasher' | 'microwave' | 'wine_fridge' | 'coffee'
@@ -291,7 +296,11 @@ export type SinkMaterial = 'stainless' | 'granite_composite' | 'ceramic' | 'frag
 
 export type TapType = 'single_lever' | 'pull_out' | 'boiling_water' | 'filtered_three_way'
 
+/** Same rule as appliances: sink + tap only get picked when the maker buys them. */
+export type SinkSupply = 'homeowner_supplies' | 'maker_supplies'
+
 export interface SinkTapsGroup {
+  supply: SinkSupply
   sink: {
     bowls: SinkBowls
     mount: SinkMount
@@ -316,6 +325,7 @@ export interface SinkTapsGroup {
     pickedPriceEur?: number
   }
   meta: {
+    supply: FieldMeta
     sinkBowls: FieldMeta
     sinkMount: FieldMeta
     sinkMaterial: FieldMeta
