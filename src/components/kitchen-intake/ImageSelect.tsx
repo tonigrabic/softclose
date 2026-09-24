@@ -33,7 +33,7 @@ export function ImageSelect({
   uploadedRefs,
   onUploadedRefsChange,
 }: ImageSelectProps) {
-  const { t } = useTranslations()
+  const { t, locale } = useTranslations()
   const fileRef = useRef<HTMLInputElement>(null)
   const [urlValue, setUrlValue] = useState('')
   const [urlError, setUrlError] = useState<string | null>(null)
@@ -83,7 +83,7 @@ export function ImageSelect({
       >
         {options.map((option) => {
           const isSelected = selected.includes(option.value)
-          const imageUrl = option.imageUrl ?? getOptionFallbackImage(option.value)
+          const imageUrl = option.imageUrl ?? getOptionFallbackImage(option.value, locale)
           const hasImage = !!imageUrl
           return (
             <button
@@ -146,16 +146,16 @@ export function ImageSelect({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={ref.imageUrl}
-              alt="Your inspiration"
+              alt={t('imageSelect.refAlt')}
               className="absolute inset-0 h-full w-full object-cover"
             />
             <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent p-2.5 pt-8">
               <span className="text-xs font-semibold leading-tight tracking-tight text-white drop-shadow-sm">
-                Your pick
+                {t('imageSelect.yourPick')}
               </span>
             </div>
             <span className="absolute left-2 top-2 rounded-full bg-amber-500/95 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-white shadow">
-              Your ref
+              {t('imageSelect.yourRef')}
             </span>
             <button
               type="button"

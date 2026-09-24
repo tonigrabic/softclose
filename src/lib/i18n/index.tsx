@@ -12,7 +12,7 @@
 
 'use client'
 
-import { createContext, useContext, useSyncExternalStore } from 'react'
+import { Fragment, createContext, useContext, useSyncExternalStore } from 'react'
 import { DEFAULT_LOCALE, isLocale, t, tDynamic, type Locale, type TranslationKey } from './core'
 
 // The framework-free core (dictionaries, t/tDynamic, Locale, DEFAULT_LOCALE)
@@ -98,6 +98,20 @@ export function useLocale(): Locale {
 
 export function useSetLocale(): (locale: Locale) => void {
   return useContext(SetLocaleContext)
+}
+
+/**
+ * Fill a translated sentence's `{slot}` placeholders with React nodes — for
+ * sentence-style UIs where a chip or a bold value sits mid-sentence and each
+ * language needs its own word order ("Otok je {length} × {width}, {seating}.").
+ * A slot missing from `slots` renders as the literal `{name}`, so a typo in a
+ * locale file shows up on screen instead of silently dropping a control.
+ */
+export function fillSlots(template: string, slots: Record<string, React.ReactNode>): React.ReactNode[] {
+  return template.split(/(\{\w+\})/).map((part, i) => {
+    const name = /^\{(\w+)\}$/.exec(part)?.[1]
+    return <Fragment key={i}>{name !== undefined && name in slots ? slots[name] : part}</Fragment>
+  })
 }
 
 /** Hook returning a `t(key)` bound to the active locale, plus the locale switcher. */

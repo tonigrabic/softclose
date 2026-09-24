@@ -42,8 +42,6 @@ import {
   DEFAULT_COUNTER_DEPTH_CM,
   DIM_HARD_MAX,
   DIM_HARD_MIN,
-  FEATURE_DEFAULTS,
-  OPENING_DEFAULTS,
   counterSegmentsForWall,
   defaultHasCounter,
   effectiveCounterDepth,
@@ -71,6 +69,7 @@ import {
   type OpeningKind,
   type RoomSpec,
 } from '@/lib/floor-plan'
+import { fillSlots, useTranslations, type TranslationKey } from '@/lib/i18n'
 import type { WallSide } from '@/lib/types'
 import { useEditor, type EditorApi, type SelectionId } from './state'
 import { SentenceBuilder } from './SentenceBuilder'
@@ -80,6 +79,8 @@ import {
   FEATURE_KINDS,
   OPENING_KINDS,
   parseSizeToCm,
+  sizeBucketLabel,
+  type SizeBucket,
 } from './catalog'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -215,6 +216,7 @@ export function FloorPlanEditor({ initialPlan, anchorPhotoUrl: _anchor, onChange
 
 function Header({ editor }: { editor: EditorApi }) {
   const { plan } = editor
+  const { t } = useTranslations()
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div className="flex items-center gap-2">
@@ -223,7 +225,7 @@ function Header({ editor }: { editor: EditorApi }) {
           type="button"
           onClick={editor.undo}
           disabled={!editor.canUndo}
-          aria-label="Undo"
+          aria-label={t('floorPlan.undo')}
           className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
         >
           <Undo2 className="size-3.5 stroke-[2]" aria-hidden />
@@ -232,7 +234,7 @@ function Header({ editor }: { editor: EditorApi }) {
           type="button"
           onClick={editor.redo}
           disabled={!editor.canRedo}
-          aria-label="Redo"
+          aria-label={t('floorPlan.redo')}
           className="inline-flex size-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30"
         >
           <Redo2 className="size-3.5 stroke-[2]" aria-hidden />
@@ -246,7 +248,7 @@ function Header({ editor }: { editor: EditorApi }) {
             className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 text-[11px] font-medium text-amber-900 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100"
           >
             <Check className="size-3 stroke-[2]" aria-hidden />
-            Designer measures · undo
+            {t('floorPlan.designerMeasuresUndo')}
           </button>
         ) : (
           <button
@@ -254,7 +256,7 @@ function Header({ editor }: { editor: EditorApi }) {
             onClick={() => editor.setMeasurementMethod('deferred_to_designer')}
             className="text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            Skip — designer measures on site
+            {t('floorPlan.designerMeasures')}
           </button>
         )}
       </div>
@@ -269,10 +271,11 @@ function UnitToggle({
   value: DisplayUnit
   onChange: (u: DisplayUnit) => void
 }) {
+  const { t } = useTranslations()
   return (
     <div
       role="group"
-      aria-label="Units"
+      aria-label={t('floorPlan.units')}
       className="inline-flex items-center rounded-full border border-border bg-card p-0.5 text-[11px] font-medium"
     >
       {(['cm', 'ft_in'] as DisplayUnit[]).map((u) => (
@@ -303,6 +306,7 @@ interface CanvasStageProps {
 
 function CanvasStage({ editor, viewport, fit }: CanvasStageProps) {
   const { plan, selection } = editor
+  const { t } = useTranslations()
   const stageRef = useRef<Konva.Stage | null>(null)
 
   const handleBgClick = useCallback(
@@ -336,6 +340,7 @@ function CanvasStage({ editor, viewport, fit }: CanvasStageProps) {
             plan.measurementMethod !== 'deferred_to_designer'
           }
           onSelectRoom={() => editor.select({ kind: 'room' })}
+          openLabel={t('floorPlan.open')}
         />
       </Layer>
       <Layer>
@@ -354,6 +359,7 @@ function CanvasStage({ editor, viewport, fit }: CanvasStageProps) {
           <OpeningNode
             key={o.id}
             opening={o}
+            label={t(`floorPlan.kind.${o.kind}`)}
             plan={plan}
             fit={fit}
             selected={selection.kind === 'opening' && selection.id === o.id}
@@ -365,6 +371,7 @@ function CanvasStage({ editor, viewport, fit }: CanvasStageProps) {
           <FeatureNode
             key={f.id}
             feature={f}
+            label={t(`floorPlan.kindShort.${f.kind}`)}
             plan={plan}
             fit={fit}
             selected={selection.kind === 'feature' && selection.id === f.id}
@@ -375,6 +382,7 @@ function CanvasStage({ editor, viewport, fit }: CanvasStageProps) {
         {plan.island && (
           <IslandNode
             island={plan.island}
+            label={t('floorPlan.kind.island')}
             fit={fit}
             room={plan.room}
             selected={selection.kind === 'island'}
@@ -659,12 +667,15 @@ function WallLabels({
   selection,
   needsSize,
   onSelectRoom,
+  openLabel,
 }: {
   plan: FloorPlan
   fit: ReturnType<typeof fitRoom>
   selection: SelectionId
   needsSize: boolean
   onSelectRoom: () => void
+  /** "open" in the viewer's language — Konva children get words as props. */
+  openLabel: string
 }) {
   const sides = plan.room.sides
   const isActive = (wall: WallSide) =>
@@ -676,7 +687,7 @@ function WallLabels({
     const sideSpec = sides[wall]
     const suffix =
       sideSpec.kind === 'open'
-        ? ' · open'
+        ? ` · ${openLabel}`
         : sideSpec.label
           ? ` · ${sideSpec.label}`
           : ''
@@ -962,6 +973,7 @@ function pxLengthToCm(px: number, scale: number): number {
 
 function OpeningNode({
   opening,
+  label,
   plan,
   fit,
   selected,
@@ -969,6 +981,7 @@ function OpeningNode({
   onChange,
 }: {
   opening: Opening
+  label: string
   plan: FloorPlan
   fit: ReturnType<typeof fitRoom>
   selected: boolean
@@ -1039,7 +1052,7 @@ function OpeningNode({
       />
       {selected && (
         <OpeningLabel
-          text={`${OPENING_DEFAULTS[opening.kind].label} · ${formatLengthCompact(opening.widthCm, plan.units)}`}
+          text={`${label} · ${formatLengthCompact(opening.widthCm, plan.units)}`}
           wall={opening.wall}
           w={w}
           h={h}
@@ -1145,6 +1158,7 @@ function openingColors(kind: OpeningKind): { fill: string; stroke: string } {
 
 function FeatureNode({
   feature,
+  label,
   plan,
   fit,
   selected,
@@ -1152,6 +1166,7 @@ function FeatureNode({
   onChange,
 }: {
   feature: Feature
+  label: string
   plan: FloorPlan
   fit: ReturnType<typeof fitRoom>
   selected: boolean
@@ -1222,7 +1237,7 @@ function FeatureNode({
         cornerRadius={3}
       />
       <Text
-        text={FEATURE_DEFAULTS[feature.kind].label}
+        text={label}
         x={horiz ? 0 : -2}
         y={horiz ? 0 : 0}
         width={w}
@@ -1253,6 +1268,7 @@ function FeatureNode({
 
 function IslandNode({
   island,
+  label,
   fit,
   room,
   selected,
@@ -1260,6 +1276,7 @@ function IslandNode({
   onChange,
 }: {
   island: Island
+  label: string
   fit: ReturnType<typeof fitRoom>
   room: RoomSpec
   selected: boolean
@@ -1312,7 +1329,7 @@ function IslandNode({
         cornerRadius={4}
       />
       <Text
-        text="Island"
+        text={label}
         width={wPx}
         height={hPx}
         align="center"
@@ -1499,6 +1516,7 @@ function MobileSelectionSheet({
   editor: EditorApi
   initialSnapshot: FloorPlan
 }) {
+  const { t } = useTranslations()
   return (
     <AnimatePresence>
       {editor.selection.kind !== 'none' && (
@@ -1510,7 +1528,7 @@ function MobileSelectionSheet({
         >
           <button
             type="button"
-            aria-label="Close panel"
+            aria-label={t('floorPlan.closePanel')}
             onClick={() => editor.select({ kind: 'none' })}
             className="absolute inset-0 bg-foreground/20 backdrop-blur-[1px]"
           />
@@ -1570,6 +1588,7 @@ function PanelHeader({
   onClose: () => void
   badge?: React.ReactNode
 }) {
+  const { t } = useTranslations()
   return (
     <div className="mb-3 flex items-baseline justify-between">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
@@ -1580,7 +1599,7 @@ function PanelHeader({
         <button
           type="button"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t('floorPlan.close')}
           className="inline-flex size-6 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
         >
           <X className="size-3.5 stroke-[2]" aria-hidden />
@@ -1597,16 +1616,16 @@ function ProvenanceBadge({
   confidence: 'H' | 'M' | 'L'
   source: 'homeowner' | 'ai_vision' | 'inferred' | 'preset'
 }) {
-  const sourceMeta = {
-    homeowner: { label: 'you confirmed', tone: 'bg-emerald-100 text-emerald-800' },
-    ai_vision: { label: 'AI guess', tone: 'bg-violet-100 text-violet-800' },
-    inferred: { label: 'inferred', tone: 'bg-amber-100 text-amber-800' },
-    preset: { label: 'default', tone: 'bg-blue-100 text-blue-800' },
+  const { t } = useTranslations()
+  const tone = {
+    homeowner: 'bg-emerald-100 text-emerald-800',
+    ai_vision: 'bg-violet-100 text-violet-800',
+    inferred: 'bg-amber-100 text-amber-800',
+    preset: 'bg-blue-100 text-blue-800',
   }[source]
-  const confLabel = confidence === 'H' ? 'high' : confidence === 'M' ? 'med' : 'low'
   return (
-    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase', sourceMeta.tone)}>
-      {sourceMeta.label} · {confLabel}
+    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase', tone)}>
+      {t(`floorPlan.source.${source}`)} · {t(`floorPlan.confidence.${confidence}`)}
     </span>
   )
 }
@@ -1626,22 +1645,23 @@ function SentenceShell({ children }: { children: React.ReactNode }) {
 
 function RoomEditor({ editor }: { editor: EditorApi }) {
   const { plan } = editor
+  const { t } = useTranslations()
   return (
     <div>
       <PanelHeader
-        title="Room"
+        title={t('floorPlan.room.title')}
         onClose={() => editor.select({ kind: 'none' })}
         badge={<ProvenanceBadge confidence={plan.room.confidence} source={plan.room.source} />}
       />
       <SentenceShell>
-        This room is{' '}
-        <strong className="font-semibold">{formatLength(plan.room.lengthCm, plan.units)}</strong> long
-        and{' '}
-        <strong className="font-semibold">{formatLength(plan.room.widthCm, plan.units)}</strong> wide.
+        {fillSlots(t('floorPlan.room.sentence'), {
+          length: <strong className="font-semibold">{formatLength(plan.room.lengthCm, plan.units)}</strong>,
+          width: <strong className="font-semibold">{formatLength(plan.room.widthCm, plan.units)}</strong>,
+        })}
       </SentenceShell>
       <div className="space-y-3">
         <DimInput
-          label="Length (longer wall)"
+          label={t('floorPlan.room.length')}
           cm={plan.room.lengthCm}
           unit={plan.units}
           onCommit={(cm) =>
@@ -1653,7 +1673,7 @@ function RoomEditor({ editor }: { editor: EditorApi }) {
           }
         />
         <DimInput
-          label="Width (shorter wall)"
+          label={t('floorPlan.room.width')}
           cm={plan.room.widthCm}
           unit={plan.units}
           onCommit={(cm) =>
@@ -1665,7 +1685,7 @@ function RoomEditor({ editor }: { editor: EditorApi }) {
           }
         />
         <p className="text-[11px] leading-relaxed text-muted-foreground">
-          Tap a wall on the canvas to mark it as open or label it.
+          {t('floorPlan.room.tapWall')}
         </p>
       </div>
     </div>
@@ -1674,6 +1694,7 @@ function RoomEditor({ editor }: { editor: EditorApi }) {
 
 function SideEditor({ editor, side }: { editor: EditorApi; side: WallSide }) {
   const { plan } = editor
+  const { t } = useTranslations()
   const sideSpec = plan.room.sides[side]
   const counterOn = effectiveHasCounter(plan, side)
   const counterIsDefault = sideSpec.hasCounter === undefined
@@ -1712,20 +1733,20 @@ function SideEditor({ editor, side }: { editor: EditorApi; side: WallSide }) {
   // when the room resizes. "Full wall" is represented as `null` (clears the
   // override and lets the renderer use the wall length minus openings).
   const lengthOptions: ChipOption<number | null>[] = [
-    { value: null, label: 'full wall', hint: formatLengthCompact(wallLen, plan.units) },
+    { value: null, label: t('floorPlan.counter.fullWall'), hint: formatLengthCompact(wallLen, plan.units) },
     {
       value: snap(wallLen * 0.66),
-      label: 'about ⅔',
+      label: t('floorPlan.counter.twoThirds'),
       hint: formatLengthCompact(snap(wallLen * 0.66), plan.units),
     },
     {
       value: snap(wallLen * 0.5),
-      label: 'half',
+      label: t('floorPlan.counter.half'),
       hint: formatLengthCompact(snap(wallLen * 0.5), plan.units),
     },
     {
       value: snap(wallLen * 0.33),
-      label: 'about ⅓',
+      label: t('floorPlan.counter.oneThird'),
       hint: formatLengthCompact(snap(wallLen * 0.33), plan.units),
     },
   ]
@@ -1735,15 +1756,15 @@ function SideEditor({ editor, side }: { editor: EditorApi; side: WallSide }) {
   // the far corner. 'center' centers the run within the wall. 'custom' is
   // surfaced via the slider / typed offset.
   const anchorOptions: ChipOption<AnchorMode>[] = [
-    { value: 'start', label: 'the start', hint: 'flush corner' },
-    { value: 'center', label: 'the center', hint: 'centered' },
-    { value: 'end', label: 'the end', hint: 'far corner' },
+    { value: 'start', label: t('floorPlan.counter.anchorStart'), hint: t('floorPlan.counter.hintStart') },
+    { value: 'center', label: t('floorPlan.counter.anchorCenter'), hint: t('floorPlan.counter.hintCenter') },
+    { value: 'end', label: t('floorPlan.counter.anchorEnd'), hint: t('floorPlan.counter.hintEnd') },
   ]
   const anchorDisplay: Record<AnchorMode, string> = {
-    start: 'the start',
-    center: 'the center',
-    end: 'the end',
-    custom: `${formatLengthCompact(counterStart, plan.units)} from the start`,
+    start: t('floorPlan.counter.anchorStart'),
+    center: t('floorPlan.counter.anchorCenter'),
+    end: t('floorPlan.counter.anchorEnd'),
+    custom: t('floorPlan.counter.anchorCustom').replace('{v}', formatLengthCompact(counterStart, plan.units)),
   }
   const setAnchor = (mode: AnchorMode) => {
     let nextStart: number | undefined
@@ -1756,140 +1777,155 @@ function SideEditor({ editor, side }: { editor: EditorApi; side: WallSide }) {
 
   return (
     <div>
-      <PanelHeader title={`${capitalize(side)} side`} onClose={() => editor.select({ kind: 'none' })} />
+      <PanelHeader title={t(`floorPlan.side.${side}`)} onClose={() => editor.select({ kind: 'none' })} />
       <SentenceShell>
-        The {side} side is{' '}
-        <ChipSelect<'closed' | 'open'>
-          label="Side type"
-          value={sideSpec.kind}
-          options={[
-            { value: 'closed', label: 'a closed wall' },
-            { value: 'open', label: 'open (no wall)' },
-          ]}
-          display={sideSpec.kind === 'open' ? 'open (no wall)' : 'a closed wall'}
-          onChange={(kind) =>
-            editor.patchSide(side, {
-              kind,
-              ...(kind === 'open' ? { hasCounter: false } : {}),
-            })
-          }
-        />
-        {sideSpec.kind === 'closed' && (
-          <>
-            {' '}with{' '}
+        {fillSlots(t(sideSpec.kind === 'closed' ? 'floorPlan.side.sentenceClosed' : 'floorPlan.side.sentenceOpen'), {
+          kind: (
+            <ChipSelect<'closed' | 'open'>
+              label={t('floorPlan.side.kindLabel')}
+              value={sideSpec.kind}
+              options={[
+                { value: 'closed', label: t('floorPlan.side.closed') },
+                { value: 'open', label: t('floorPlan.side.openNoWall') },
+              ]}
+              display={t(sideSpec.kind === 'open' ? 'floorPlan.side.openNoWall' : 'floorPlan.side.closed')}
+              onChange={(kind) =>
+                editor.patchSide(side, {
+                  kind,
+                  ...(kind === 'open' ? { hasCounter: false } : {}),
+                })
+              }
+            />
+          ),
+          counter: (
             <ChipSelect<'on' | 'off'>
-              label="Counter"
+              label={t('floorPlan.counter.label')}
               value={counterOn ? 'on' : 'off'}
               options={[
                 {
                   value: 'on',
-                  label: 'counter along it',
-                  hint: counterDefault ? 'default' : undefined,
+                  label: t('floorPlan.counter.on'),
+                  hint: counterDefault ? t('floorPlan.default') : undefined,
                 },
                 {
                   value: 'off',
-                  label: 'no counter',
-                  hint: !counterDefault ? 'default' : undefined,
+                  label: t('floorPlan.counter.off'),
+                  hint: !counterDefault ? t('floorPlan.default') : undefined,
                 },
               ]}
-              display={counterOn ? 'counter along it' : 'no counter'}
+              display={t(counterOn ? 'floorPlan.counter.on' : 'floorPlan.counter.off')}
               onChange={(v) => editor.patchSide(side, { hasCounter: v === 'on' })}
             />
-          </>
-        )}
-        .
+          ),
+        })}
         {sideSpec.kind === 'closed' && counterOn && (
           <>
             <br />
-            Counter is{' '}
-            <ChipSelect<number>
-              label="Counter depth"
-              value={counterDepth}
-              options={COUNTER_DEPTH_OPTIONS_CM.map((cm) => ({
-                value: cm,
-                label: formatLengthCompact(cm, plan.units),
-                hint: cm === DEFAULT_COUNTER_DEPTH_CM ? 'standard' : undefined,
-              }))}
-              display={`${formatLengthCompact(counterDepth, plan.units)} deep`}
-              onChange={(cm) =>
-                editor.patchSide(side, {
-                  counterDepthCm: cm === DEFAULT_COUNTER_DEPTH_CM ? undefined : cm,
-                })
+            {fillSlots(
+              t(customLen && counterMaxStart > 0 ? 'floorPlan.counter.lineAnchored' : 'floorPlan.counter.line'),
+              {
+                depth: (
+                  <ChipSelect<number>
+                    label={t('floorPlan.counter.depth')}
+                    value={counterDepth}
+                    options={COUNTER_DEPTH_OPTIONS_CM.map((cm) => ({
+                      value: cm,
+                      label: formatLengthCompact(cm, plan.units),
+                      hint: cm === DEFAULT_COUNTER_DEPTH_CM ? t('floorPlan.standard') : undefined,
+                    }))}
+                    display={formatLengthCompact(counterDepth, plan.units)}
+                    onChange={(cm) =>
+                      editor.patchSide(side, {
+                        counterDepthCm: cm === DEFAULT_COUNTER_DEPTH_CM ? undefined : cm,
+                      })
+                    }
+                    onCustomValue={(raw) => {
+                      const parsed = parseLengthToCm(raw)
+                      if (parsed === null) return null
+                      return clamp(parsed, 30, 120)
+                    }}
+                    customPlaceholder={t('floorPlan.eg').replace('{v}', plan.units === 'cm' ? '58 cm' : '1′ 11″')}
+                  />
+                ),
+                length: (
+                  <ChipSelect<number | null>
+                    label={t('floorPlan.counter.length')}
+                    value={customLen ? counterLen : null}
+                    options={lengthOptions}
+                    display={
+                      customLen ? formatLengthCompact(counterLen, plan.units) : t('floorPlan.counter.fullWall')
+                    }
+                    onChange={(v) =>
+                      editor.patchSide(side, {
+                        counterLengthCm:
+                          v === null ? undefined : clamp(snap(v), 0, wallLen),
+                      })
+                    }
+                    onCustomValue={(raw) => {
+                      const parsed = parseLengthToCm(raw)
+                      if (parsed === null) return null
+                      return clamp(snap(parsed), 0, wallLen)
+                    }}
+                    customPlaceholder={t('floorPlan.eg').replace('{v}', plan.units === 'cm' ? '200 cm' : '6′ 6″')}
+                  />
+                ),
+                anchor: (
+                  <ChipSelect<AnchorMode>
+                    label={t('floorPlan.counter.anchor')}
+                    value={anchorMode}
+                    options={anchorOptions}
+                    display={anchorDisplay[anchorMode]}
+                    onChange={setAnchor}
+                  />
+                ),
               }
-              onCustomValue={(raw) => {
-                const parsed = parseLengthToCm(raw)
-                if (parsed === null) return null
-                return clamp(parsed, 30, 120)
-              }}
-              customPlaceholder={plan.units === 'cm' ? 'e.g. 58 cm' : `e.g. 1′ 11″`}
-            />
-            , running{' '}
-            <ChipSelect<number | null>
-              label="Counter length"
-              value={customLen ? counterLen : null}
-              options={lengthOptions}
-              display={customLen ? formatLengthCompact(counterLen, plan.units) : 'full wall'}
-              onChange={(v) =>
-                editor.patchSide(side, {
-                  counterLengthCm:
-                    v === null ? undefined : clamp(snap(v), 0, wallLen),
-                })
-              }
-              onCustomValue={(raw) => {
-                const parsed = parseLengthToCm(raw)
-                if (parsed === null) return null
-                return clamp(snap(parsed), 0, wallLen)
-              }}
-              customPlaceholder={plan.units === 'cm' ? 'e.g. 200 cm' : `e.g. 6′ 6″`}
-            />
-            {customLen && counterMaxStart > 0 && (
-              <>
-                , aligned to{' '}
-                <ChipSelect<AnchorMode>
-                  label="Counter anchor"
-                  value={anchorMode}
-                  options={anchorOptions}
-                  display={anchorDisplay[anchorMode]}
-                  onChange={setAnchor}
-                />
-              </>
             )}
-            .
           </>
         )}
         {sideSpec.kind === 'closed' && counterOn && (
           <>
             <br />
-            Cabinets:{' '}
-            <ChipSelect<'yes' | 'no'>
-              label="Upper cabinets"
-              value={upperOn ? 'yes' : 'no'}
-              options={[
-                { value: 'yes', label: 'with upper cabinets', hint: upperGeomDefault ? 'default' : undefined },
-                { value: 'no', label: 'no uppers', hint: !upperGeomDefault ? 'default' : undefined },
-              ]}
-              display={upperOn ? 'with upper cabinets' : 'no uppers'}
-              onChange={(v) => editor.patchSide(side, { hasWall: v === 'yes' })}
-            />
-            {' '}and{' '}
-            <ChipSelect<'yes' | 'no'>
-              label="Tall / oven tower"
-              value={tallOn ? 'yes' : 'no'}
-              options={[
-                { value: 'yes', label: 'a tall / oven tower' },
-                { value: 'no', label: 'no tall unit', hint: 'default' },
-              ]}
-              display={tallOn ? 'a tall / oven tower' : 'no tall unit'}
-              onChange={(v) => editor.patchSide(side, { hasTall: v === 'yes' })}
-            />
-            .
+            {fillSlots(t('floorPlan.cabinets.line'), {
+              upper: (
+                <ChipSelect<'yes' | 'no'>
+                  label={t('floorPlan.cabinets.upperLabel')}
+                  value={upperOn ? 'yes' : 'no'}
+                  options={[
+                    {
+                      value: 'yes',
+                      label: t('floorPlan.cabinets.upperOn'),
+                      hint: upperGeomDefault ? t('floorPlan.default') : undefined,
+                    },
+                    {
+                      value: 'no',
+                      label: t('floorPlan.cabinets.upperOff'),
+                      hint: !upperGeomDefault ? t('floorPlan.default') : undefined,
+                    },
+                  ]}
+                  display={t(upperOn ? 'floorPlan.cabinets.upperOn' : 'floorPlan.cabinets.upperOff')}
+                  onChange={(v) => editor.patchSide(side, { hasWall: v === 'yes' })}
+                />
+              ),
+              tall: (
+                <ChipSelect<'yes' | 'no'>
+                  label={t('floorPlan.cabinets.tallLabel')}
+                  value={tallOn ? 'yes' : 'no'}
+                  options={[
+                    { value: 'yes', label: t('floorPlan.cabinets.tallOn') },
+                    { value: 'no', label: t('floorPlan.cabinets.tallOff'), hint: t('floorPlan.default') },
+                  ]}
+                  display={t(tallOn ? 'floorPlan.cabinets.tallOn' : 'floorPlan.cabinets.tallOff')}
+                  onChange={(v) => editor.patchSide(side, { hasTall: v === 'yes' })}
+                />
+              ),
+            })}
           </>
         )}
       </SentenceShell>
       <div className="space-y-3">
         {sideSpec.kind === 'closed' && counterOn && (
           <DimSlider
-            label="Counter run length"
+            label={t('floorPlan.counter.length')}
             cm={counterLen}
             minCm={0}
             maxCm={wallLen}
@@ -1903,7 +1939,7 @@ function SideEditor({ editor, side }: { editor: EditorApi; side: WallSide }) {
         )}
         {sideSpec.kind === 'closed' && counterOn && customLen && counterMaxStart > 0 && (
           <DimSlider
-            label="Distance from start corner"
+            label={t('floorPlan.counter.fromStart')}
             cm={counterStart}
             minCm={0}
             maxCm={counterMaxStart}
@@ -1918,12 +1954,12 @@ function SideEditor({ editor, side }: { editor: EditorApi; side: WallSide }) {
         )}
         <div>
           <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
-            Optional label (shown to your designer)
+            {t('floorPlan.side.labelField')}
           </label>
           <input
             type="text"
             value={sideSpec.label ?? ''}
-            placeholder="e.g. window wall, to dining"
+            placeholder={t('floorPlan.side.labelPlaceholder')}
             onChange={(e) => editor.patchSide(side, { label: e.target.value })}
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-[13px] focus:outline-none focus:ring-2 focus:ring-ring"
           />
@@ -1945,7 +1981,7 @@ function SideEditor({ editor, side }: { editor: EditorApi; side: WallSide }) {
               }
               className="text-[11px] font-medium text-muted-foreground hover:text-foreground"
             >
-              Reset counter to layout default
+              {t('floorPlan.counter.reset')}
             </button>
           )}
       </div>
@@ -1963,6 +1999,7 @@ function OpeningEditor({
   initialSnapshot: FloorPlan
 }) {
   const { plan } = editor
+  const { t } = useTranslations()
   const opening = plan.openings.find((o) => o.id === id)
   if (!opening) return null
   const original = initialSnapshot.openings.find((o) => o.id === id)
@@ -1971,47 +2008,51 @@ function OpeningEditor({
   return (
     <div>
       <PanelHeader
-        title={OPENING_DEFAULTS[opening.kind].label}
+        title={t(`floorPlan.kind.${opening.kind}`)}
         onClose={() => editor.select({ kind: 'none' })}
         badge={<ProvenanceBadge confidence={opening.confidence} source={opening.source} />}
       />
       <SentenceShell>
-        This is{' '}
-        <ChipSelect<OpeningKind>
-          label="Kind"
-          value={opening.kind}
-          options={OPENING_KINDS.map((k) => ({ value: k, label: ELEMENT_CATALOG[k].article }))}
-          display={ELEMENT_CATALOG[opening.kind].article}
-          onChange={(kind) => editor.patchOpening(id, { kind })}
-        />{' '}
-        on the{' '}
-        <WallChipForElement
-          plan={plan}
-          value={opening.wall}
-          onChange={(wall) =>
-            editor.patchOpening(id, {
-              wall,
-              startCm: clamp(opening.startCm, 0, wallLengthCm(wall, plan.room) - opening.widthCm),
-            })
-          }
-        />
-        ,{' '}
-        <SizeChipFor
-          value={opening.widthCm}
-          unit={plan.units}
-          buckets={ELEMENT_CATALOG[opening.kind].sizes}
-          onChange={(cm) =>
-            editor.patchOpening(id, {
-              widthCm: snap(cm),
-              startCm: clamp(opening.startCm, 0, total - snap(cm)),
-            })
-          }
-        />{' '}
-        wide.
+        {fillSlots(t('floorPlan.element.sentence'), {
+          kind: (
+            <ChipSelect<OpeningKind>
+              label={t('floorPlan.chip.kind')}
+              value={opening.kind}
+              options={OPENING_KINDS.map((k) => ({ value: k, label: t(`floorPlan.kind.${k}`) }))}
+              display={t(`floorPlan.kind.${opening.kind}`)}
+              onChange={(kind) => editor.patchOpening(id, { kind })}
+            />
+          ),
+          wall: (
+            <WallChipForElement
+              plan={plan}
+              value={opening.wall}
+              onChange={(wall) =>
+                editor.patchOpening(id, {
+                  wall,
+                  startCm: clamp(opening.startCm, 0, wallLengthCm(wall, plan.room) - opening.widthCm),
+                })
+              }
+            />
+          ),
+          size: (
+            <SizeChipFor
+              value={opening.widthCm}
+              unit={plan.units}
+              buckets={ELEMENT_CATALOG[opening.kind].sizes}
+              onChange={(cm) =>
+                editor.patchOpening(id, {
+                  widthCm: snap(cm),
+                  startCm: clamp(opening.startCm, 0, total - snap(cm)),
+                })
+              }
+            />
+          ),
+        })}
       </SentenceShell>
       <div className="space-y-3">
         <DimSlider
-          label="From corner"
+          label={t('floorPlan.element.fromCorner')}
           cm={opening.startCm}
           minCm={0}
           maxCm={total - opening.widthCm}
@@ -2040,6 +2081,7 @@ function FeatureEditor({
   initialSnapshot: FloorPlan
 }) {
   const { plan } = editor
+  const { t } = useTranslations()
   const feature = plan.features.find((f) => f.id === id)
   if (!feature) return null
   const original = initialSnapshot.features.find((f) => f.id === id)
@@ -2048,51 +2090,55 @@ function FeatureEditor({
   return (
     <div>
       <PanelHeader
-        title={FEATURE_DEFAULTS[feature.kind].label}
+        title={t(`floorPlan.kind.${feature.kind}`)}
         onClose={() => editor.select({ kind: 'none' })}
         badge={<ProvenanceBadge confidence={feature.confidence} source={feature.source} />}
       />
       <SentenceShell>
-        The{' '}
-        <ChipSelect<FeatureKind>
-          label="Kind"
-          value={feature.kind}
-          options={FEATURE_KINDS.map((k) => ({ value: k, label: ELEMENT_CATALOG[k].label }))}
-          display={ELEMENT_CATALOG[feature.kind].label.toLowerCase()}
-          onChange={(kind) => editor.patchFeature(id, { kind, widthCm: ELEMENT_CATALOG[kind].defaultCm })}
-        />{' '}
-        is on the{' '}
-        <WallChipForElement
-          plan={plan}
-          value={feature.wall}
-          onChange={(wall) =>
-            editor.patchFeature(id, {
-              wall,
-              centerCm: clamp(
-                feature.centerCm,
-                feature.widthCm / 2,
-                wallLengthCm(wall, plan.room) - feature.widthCm / 2
-              ),
-            })
-          }
-        />
-        ,{' '}
-        <SizeChipFor
-          value={feature.widthCm}
-          unit={plan.units}
-          buckets={ELEMENT_CATALOG[feature.kind].sizes}
-          onChange={(cm) =>
-            editor.patchFeature(id, {
-              widthCm: snap(cm),
-              centerCm: clamp(feature.centerCm, snap(cm) / 2, total - snap(cm) / 2),
-            })
-          }
-        />{' '}
-        wide.
+        {fillSlots(t('floorPlan.element.sentence'), {
+          kind: (
+            <ChipSelect<FeatureKind>
+              label={t('floorPlan.chip.kind')}
+              value={feature.kind}
+              options={FEATURE_KINDS.map((k) => ({ value: k, label: t(`floorPlan.kind.${k}`) }))}
+              display={t(`floorPlan.kind.${feature.kind}`)}
+              onChange={(kind) => editor.patchFeature(id, { kind, widthCm: ELEMENT_CATALOG[kind].defaultCm })}
+            />
+          ),
+          wall: (
+            <WallChipForElement
+              plan={plan}
+              value={feature.wall}
+              onChange={(wall) =>
+                editor.patchFeature(id, {
+                  wall,
+                  centerCm: clamp(
+                    feature.centerCm,
+                    feature.widthCm / 2,
+                    wallLengthCm(wall, plan.room) - feature.widthCm / 2
+                  ),
+                })
+              }
+            />
+          ),
+          size: (
+            <SizeChipFor
+              value={feature.widthCm}
+              unit={plan.units}
+              buckets={ELEMENT_CATALOG[feature.kind].sizes}
+              onChange={(cm) =>
+                editor.patchFeature(id, {
+                  widthCm: snap(cm),
+                  centerCm: clamp(feature.centerCm, snap(cm) / 2, total - snap(cm) / 2),
+                })
+              }
+            />
+          ),
+        })}
       </SentenceShell>
       <div className="space-y-3">
         <DimSlider
-          label="From corner (centre)"
+          label={t('floorPlan.element.fromCornerCentre')}
           cm={feature.centerCm}
           minCm={feature.widthCm / 2}
           maxCm={total - feature.widthCm / 2}
@@ -2101,8 +2147,7 @@ function FeatureEditor({
         />
         {!effectiveHasCounter(plan, feature.wall) && (
           <p className="rounded-lg border border-amber-200 bg-amber-50/70 px-2.5 py-1.5 text-[11px] text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
-            There&apos;s no counter on the {feature.wall} wall right now. Tap that side and turn the
-            counter on, or move this fixture to a wall that has counter.
+            {t('floorPlan.element.noCounter').replace('{wall}', t(`floorPlan.wall.${feature.wall}.on`))}
           </p>
         )}
         <PanelActions
@@ -2125,6 +2170,7 @@ function IslandEditor({
   initialSnapshot: FloorPlan
 }) {
   const { plan } = editor
+  const { t } = useTranslations()
   if (!plan.island) return null
   const island = plan.island
   const original = initialSnapshot.island
@@ -2132,29 +2178,31 @@ function IslandEditor({
   return (
     <div>
       <PanelHeader
-        title="Island"
+        title={t('floorPlan.kind.island')}
         onClose={() => editor.select({ kind: 'none' })}
         badge={<ProvenanceBadge confidence={island.confidence} source={island.source} />}
       />
       <SentenceShell>
-        The island is{' '}
-        <strong className="font-semibold">{formatLengthCompact(island.lengthCm, plan.units)}</strong> by{' '}
-        <strong className="font-semibold">{formatLengthCompact(island.widthCm, plan.units)}</strong>,{' '}
-        <ChipSelect<boolean>
-          label="Seating"
-          value={!!island.seating}
-          options={[
-            { value: true, label: 'with seating' },
-            { value: false, label: 'no seating' },
-          ]}
-          display={island.seating ? 'with seating' : 'no seating'}
-          onChange={(v) => editor.patchIsland({ seating: v })}
-        />
-        .
+        {fillSlots(t('floorPlan.island.sentence'), {
+          length: <strong className="font-semibold">{formatLengthCompact(island.lengthCm, plan.units)}</strong>,
+          width: <strong className="font-semibold">{formatLengthCompact(island.widthCm, plan.units)}</strong>,
+          seating: (
+            <ChipSelect<boolean>
+              label={t('floorPlan.island.seating')}
+              value={!!island.seating}
+              options={[
+                { value: true, label: t('floorPlan.island.seatingOn') },
+                { value: false, label: t('floorPlan.island.seatingOff') },
+              ]}
+              display={t(island.seating ? 'floorPlan.island.seatingOn' : 'floorPlan.island.seatingOff')}
+              onChange={(v) => editor.patchIsland({ seating: v })}
+            />
+          ),
+        })}
       </SentenceShell>
       <div className="space-y-3">
         <DimSlider
-          label="Length"
+          label={t('floorPlan.island.length')}
           cm={island.lengthCm}
           minCm={80}
           maxCm={Math.min(plan.room.lengthCm * 0.85, 360)}
@@ -2162,7 +2210,7 @@ function IslandEditor({
           onChange={(cm) => editor.patchIsland({ lengthCm: snap(cm) })}
         />
         <DimSlider
-          label="Width"
+          label={t('floorPlan.island.width')}
           cm={island.widthCm}
           minCm={60}
           maxCm={Math.min(plan.room.widthCm * 0.85, 180)}
@@ -2188,6 +2236,7 @@ function PanelActions({
   onDelete: () => void
   onReset: (() => void) | null
 }) {
+  const { t } = useTranslations()
   return (
     <div className="flex items-center justify-between gap-2 pt-1">
       {onReset && (
@@ -2196,7 +2245,7 @@ function PanelActions({
           onClick={onReset}
           className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
         >
-          <RotateCcw className="size-3 stroke-[2]" aria-hidden /> Reset to AI guess
+          <RotateCcw className="size-3 stroke-[2]" aria-hidden /> {t('floorPlan.resetToAi')}
         </button>
       )}
       <button
@@ -2204,7 +2253,7 @@ function PanelActions({
         onClick={onDelete}
         className="ml-auto inline-flex items-center gap-1 rounded-lg border border-destructive/30 bg-destructive/5 px-2 py-1 text-[11px] font-medium text-destructive hover:bg-destructive/10"
       >
-        <Trash2 className="size-3 stroke-[2]" aria-hidden /> Remove
+        <Trash2 className="size-3 stroke-[2]" aria-hidden /> {t('floorPlan.remove')}
       </button>
     </div>
   )
@@ -2219,20 +2268,21 @@ function WallChipForElement({
   value: WallSide
   onChange: (w: WallSide) => void
 }) {
+  const { t } = useTranslations()
   const options: ChipOption<WallSide>[] = (['top', 'bottom', 'left', 'right'] as WallSide[]).map(
     (w) => ({
       value: w,
-      label: capitalize(w) + ' wall',
-      hint: plan.room.sides[w].kind === 'open' ? 'open' : undefined,
+      label: t(`floorPlan.wall.${w}`),
+      hint: plan.room.sides[w].kind === 'open' ? t('floorPlan.open') : undefined,
       disabled: plan.room.sides[w].kind === 'open',
     })
   )
   return (
     <ChipSelect<WallSide>
-      label="Wall"
+      label={t('floorPlan.chip.wall')}
       value={value}
       options={options}
-      display={`${capitalize(value)} wall`}
+      display={t(`floorPlan.wall.${value}.on`)}
       onChange={onChange}
     />
   )
@@ -2246,23 +2296,24 @@ function SizeChipFor({
 }: {
   value: number
   unit: DisplayUnit
-  buckets: { id: string; label: string; cm: number }[]
+  buckets: SizeBucket[]
   onChange: (cm: number) => void
 }) {
+  const { t } = useTranslations()
   const options: ChipOption<number>[] = buckets.map((b) => ({
     value: b.cm,
-    label: b.label,
+    label: sizeBucketLabel(b, t),
     hint: formatLengthCompact(b.cm, unit),
   }))
   return (
     <ChipSelect<number>
-      label="Size"
+      label={t('floorPlan.chip.size')}
       value={value}
       options={options}
       display={formatLengthCompact(value, unit)}
       onChange={onChange}
       onCustomValue={parseSizeToCm}
-      customPlaceholder={unit === 'cm' ? 'e.g. 70 cm' : `e.g. 2′ 6″`}
+      customPlaceholder={t('floorPlan.eg').replace('{v}', unit === 'cm' ? '70 cm' : '2′ 6″')}
     />
   )
 }
@@ -2270,10 +2321,11 @@ function SizeChipFor({
 // ─── "Add to your space" section: toolbar + sentence builder ─────────────────
 
 function AddSection({ editor }: { editor: EditorApi }) {
+  const { t } = useTranslations()
   return (
     <div className="space-y-2.5">
       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-        Add to your space
+        {t('floorPlan.add.title')}
       </p>
       <Toolbar editor={editor} />
       <SentenceBuilder editor={editor} />
@@ -2283,6 +2335,7 @@ function AddSection({ editor }: { editor: EditorApi }) {
 
 function Toolbar({ editor }: { editor: EditorApi }) {
   const { plan } = editor
+  const { t } = useTranslations()
   const wall: WallSide = (() => {
     const order: WallSide[] = ['top', 'bottom', 'left', 'right']
     return order.find((w) => plan.room.sides[w].kind === 'closed') ?? 'top'
@@ -2321,7 +2374,7 @@ function Toolbar({ editor }: { editor: EditorApi }) {
             key={k}
             onClick={() => addOpening(k)}
             icon={<Icon className="size-3.5 stroke-[1.75]" aria-hidden />}
-            label={`+ ${e.shortLabel}`}
+            label={`+ ${t(`floorPlan.kindShort.${k}`)}`}
           />
         )
       })}
@@ -2334,7 +2387,7 @@ function Toolbar({ editor }: { editor: EditorApi }) {
             key={k}
             onClick={() => addFeature(k)}
             icon={<Icon className="size-3.5 stroke-[1.75]" aria-hidden />}
-            label={`+ ${e.shortLabel}`}
+            label={`+ ${t(`floorPlan.kindShort.${k}`)}`}
           />
         )
       })}
@@ -2342,7 +2395,7 @@ function Toolbar({ editor }: { editor: EditorApi }) {
       <ToolbarButton
         onClick={toggleIsland}
         icon={<Plus className={cn('size-3.5 stroke-[2]', plan.island && 'rotate-45')} aria-hidden />}
-        label={plan.island ? 'Remove island' : '+ Island'}
+        label={plan.island ? t('floorPlan.island.remove') : `+ ${t('floorPlan.kind.island')}`}
         active={Boolean(plan.island)}
       />
     </div>
@@ -2390,6 +2443,7 @@ function DimInput({
   unit: DisplayUnit
   onCommit: (cm: number) => void
 }) {
+  const { t } = useTranslations()
   const [text, setText] = useState(() => formatLength(cm, unit))
   const [error, setError] = useState<string | null>(null)
   const [prevCm, setPrevCm] = useState(cm)
@@ -2404,7 +2458,7 @@ function DimInput({
   const commit = () => {
     const parsed = parseLengthToCm(text)
     if (parsed === null) {
-      setError(`Try e.g. ${unit === 'cm' ? '260 cm' : `8' 6"`}`)
+      setError(t('floorPlan.dimError').replace('{v}', unit === 'cm' ? '260 cm' : `8' 6"`))
       return
     }
     setError(null)
@@ -2556,7 +2610,8 @@ function nudgeSelection(editor: EditorApi, d: { dx: number; dy: number }, stepCm
 // ─── A11y live announcer ─────────────────────────────────────────────────────
 
 function LiveAnnouncer({ plan, selection }: { plan: FloorPlan; selection: SelectionId }) {
-  const msg = announcementFor(plan, selection)
+  const { t } = useTranslations()
+  const msg = announcementFor(plan, selection, t)
   return (
     <div className="sr-only" aria-live="polite" aria-atomic="true">
       {msg}
@@ -2564,22 +2619,39 @@ function LiveAnnouncer({ plan, selection }: { plan: FloorPlan; selection: Select
   )
 }
 
-function announcementFor(plan: FloorPlan, selection: SelectionId): string {
+function announcementFor(
+  plan: FloorPlan,
+  selection: SelectionId,
+  t: (key: TranslationKey) => string
+): string {
+  const len = (cm: number) => formatLengthCompact(cm, plan.units)
   if (selection.kind === 'opening') {
     const o = plan.openings.find((x) => x.id === selection.id)
     if (!o) return ''
-    return `${OPENING_DEFAULTS[o.kind].label} on ${o.wall} wall, ${formatLengthCompact(o.widthCm, plan.units)} wide, ${formatLengthCompact(o.startCm, plan.units)} from corner.`
+    return t('floorPlan.announce.opening')
+      .replace('{kind}', t(`floorPlan.kind.${o.kind}`))
+      .replace('{wall}', t(`floorPlan.wall.${o.wall}.on`))
+      .replace('{width}', len(o.widthCm))
+      .replace('{from}', len(o.startCm))
   }
   if (selection.kind === 'feature') {
     const f = plan.features.find((x) => x.id === selection.id)
     if (!f) return ''
-    return `${FEATURE_DEFAULTS[f.kind].label} on ${f.wall} wall, ${formatLengthCompact(f.widthCm, plan.units)} wide, centred ${formatLengthCompact(f.centerCm, plan.units)} from corner.`
+    return t('floorPlan.announce.feature')
+      .replace('{kind}', t(`floorPlan.kind.${f.kind}`))
+      .replace('{wall}', t(`floorPlan.wall.${f.wall}.on`))
+      .replace('{width}', len(f.widthCm))
+      .replace('{from}', len(f.centerCm))
   }
   if (selection.kind === 'island' && plan.island) {
-    return `Island, ${formatLengthCompact(plan.island.lengthCm, plan.units)} by ${formatLengthCompact(plan.island.widthCm, plan.units)}.`
+    return t('floorPlan.announce.island')
+      .replace('{length}', len(plan.island.lengthCm))
+      .replace('{width}', len(plan.island.widthCm))
   }
   if (selection.kind === 'room') {
-    return `Room, ${formatLength(plan.room.lengthCm, plan.units)} by ${formatLength(plan.room.widthCm, plan.units)}.`
+    return t('floorPlan.announce.room')
+      .replace('{length}', formatLength(plan.room.lengthCm, plan.units))
+      .replace('{width}', formatLength(plan.room.widthCm, plan.units))
   }
   return ''
 }
@@ -2588,8 +2660,4 @@ function announcementFor(plan: FloorPlan, selection: SelectionId): string {
 
 function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n))
-}
-
-function capitalize(s: string): string {
-  return s ? s[0].toUpperCase() + s.slice(1) : s
 }

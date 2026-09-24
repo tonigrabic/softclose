@@ -14,13 +14,12 @@ import type { FloorPlan, Feature, Opening, Island } from './model'
 import {
   wallAxis,
   wallLengthCm,
-  FEATURE_DEFAULTS,
-  OPENING_DEFAULTS,
   counterSegmentsForWall,
   effectiveCounterDepth,
 } from './model'
 import { fitRoom, featurePxRect, openingPxRect, type FitResult } from './geometry'
 import { formatLength } from './units'
+import { DEFAULT_LOCALE, t, type Locale } from '@/lib/i18n/core'
 import type { WallSide } from '@/lib/types'
 
 const W = 480
@@ -60,6 +59,8 @@ interface RenderOpts {
   showDisclaimer?: boolean
   /** Show Top/Bottom/Left/Right wall labels just outside the room. Default false (homeowner editor turns this on). */
   showWallLabels?: boolean
+  /** Language of the labels drawn into the SVG. Default hr-HR, like t(). */
+  locale?: Locale
 }
 
 function escapeXml(s: string): string {
@@ -79,6 +80,7 @@ export function renderFloorPlanSvg(plan: FloorPlan, opts: RenderOpts = {}): stri
     showDimensions = true,
     showDisclaimer = true,
     showWallLabels = false,
+    locale = DEFAULT_LOCALE,
   } = opts
   const fit = fitRoom(plan.room, { w: W, h: H })
 
@@ -92,19 +94,19 @@ export function renderFloorPlanSvg(plan: FloorPlan, opts: RenderOpts = {}): stri
 
   // Openings.
   for (const o of plan.openings) {
-    body += renderOpening(o, plan, fit, mode, includeDataAttrs)
+    body += renderOpening(o, plan, fit, mode, includeDataAttrs, locale)
   }
   // Features.
   for (const f of plan.features) {
-    body += renderFeature(f, plan, fit, mode, includeDataAttrs)
+    body += renderFeature(f, plan, fit, mode, includeDataAttrs, locale)
   }
   // Island.
   if (plan.island) {
-    body += renderIsland(plan.island, fit, mode, includeDataAttrs)
+    body += renderIsland(plan.island, fit, mode, includeDataAttrs, locale)
   }
 
   if (showWallLabels) {
-    body += renderWallLabels(plan, fit)
+    body += renderWallLabels(plan, fit, locale)
   }
 
   if (showDimensions) {
@@ -117,12 +119,12 @@ export function renderFloorPlanSvg(plan: FloorPlan, opts: RenderOpts = {}): stri
   if (showDisclaimer) {
     body +=
       `<text x="${20}" y="${20}" font-size="10" fill="${COLORS.textHint}" ` +
-      `font-family="system-ui, sans-serif">Schematic — not a survey</text>`
+      `font-family="system-ui, sans-serif">${escapeXml(t('floorPlan.svg.disclaimer', locale))}</text>`
   }
 
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" height="100%" ` +
-    `role="img" aria-label="Schematic floor plan">${body}</svg>`
+    `role="img" aria-label="${escapeXml(t('floorPlan.svg.ariaLabel', locale))}">${body}</svg>`
   )
 }
 
@@ -218,14 +220,16 @@ function counterRectSvg(
   )
 }
 
-function renderWallLabels(plan: FloorPlan, fit: FitResult): string {
+function renderWallLabels(plan: FloorPlan, fit: FitResult, locale: Locale): string {
   const sides = plan.room.sides
-  const label = (wall: WallSide) =>
-    sides[wall].kind === 'open'
-      ? `${capitalize(wall)} (open)`
+  const label = (wall: WallSide) => {
+    const name = t(`floorPlan.wall.${wall}`, locale)
+    return sides[wall].kind === 'open'
+      ? `${name} (${t('floorPlan.open', locale)})`
       : sides[wall].label
-        ? `${capitalize(wall)} · ${sides[wall].label}`
-        : capitalize(wall)
+        ? `${name} · ${sides[wall].label}`
+        : name
+  }
   const { x, y, w, h } = fit.inner
   const labelStyle = `font-size="10" font-weight="600" fill="${COLORS.textWallLabel}" font-family="system-ui, sans-serif" letter-spacing="0.04em"`
   return (
@@ -236,22 +240,19 @@ function renderWallLabels(plan: FloorPlan, fit: FitResult): string {
   )
 }
 
-function capitalize(s: string): string {
-  return s ? s[0].toUpperCase() + s.slice(1) : s
-}
-
 function renderOpening(
   o: Opening,
   plan: FloorPlan,
   fit: FitResult,
   mode: SvgRenderMode,
-  withId: boolean
+  withId: boolean,
+  locale: Locale
 ): string {
   const rect = openingPxRect(o, fit, plan.room)
   const { fill, stroke } = openingColors(o.kind)
   const dashed = mode === 'homeowner' && o.confidence === 'L' ? ' stroke-dasharray="3 3"' : ''
   const idAttr = withId ? ` data-element-id="${o.id}" data-element-kind="${o.kind}"` : ''
-  const label = `${OPENING_DEFAULTS[o.kind].label} (${Math.round(o.widthCm)} cm)`
+  const label = `${t(`floorPlan.kind.${o.kind}`, locale)} (${Math.round(o.widthCm)} cm)`
   const queryGlyph =
     mode === 'homeowner' && o.confidence === 'L'
       ? renderQueryBadge(rect.x + rect.w / 2, rect.y + rect.h / 2)
@@ -282,9 +283,9 @@ function renderFeature(
   plan: FloorPlan,
   fit: FitResult,
   mode: SvgRenderMode,
-  withId: boolean
+  withId: boolean,
+  locale: Locale
 ): string {
-  const def = FEATURE_DEFAULTS[f.kind]
   const rect = featurePxRect(f, fit, plan.room)
   const dashed = mode === 'homeowner' && f.confidence === 'L' ? ' stroke-dasharray="3 3"' : ''
   const stroke = mode === 'homeowner' && f.confidence === 'L' ? COLORS.lowConfidence : COLORS.feature
@@ -300,9 +301,9 @@ function renderFeature(
     `<rect x="${rect.x}" y="${rect.y}" width="${rect.w}" height="${rect.h}" rx="3" ` +
     `fill="${COLORS.featureFill}" stroke="${stroke}" stroke-width="1.25"${dashed} />` +
     `<text x="${cx}" y="${cy + 3}" text-anchor="middle" font-size="9" font-weight="600" ` +
-    `fill="${stroke}" font-family="system-ui, sans-serif">${escapeXml(def.label)}</text>` +
+    `fill="${stroke}" font-family="system-ui, sans-serif">${escapeXml(t(`floorPlan.kindShort.${f.kind}`, locale))}</text>` +
     queryGlyph +
-    `<title>${escapeXml(def.label)} (${Math.round(f.widthCm)} cm)</title>` +
+    `<title>${escapeXml(t(`floorPlan.kind.${f.kind}`, locale))} (${Math.round(f.widthCm)} cm)</title>` +
     `</g>`
   )
 }
@@ -311,7 +312,8 @@ function renderIsland(
   i: Island,
   fit: FitResult,
   mode: SvgRenderMode,
-  withId: boolean
+  withId: boolean,
+  locale: Locale
 ): string {
   const w = i.lengthCm * fit.scale
   const h = i.widthCm * fit.scale
@@ -324,7 +326,7 @@ function renderIsland(
     `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="4" ` +
     `fill="${COLORS.islandFill}" stroke="${COLORS.cabStroke}" stroke-width="1.5"${dashed} />` +
     `<text x="${x + w / 2}" y="${y + h / 2 + 4}" text-anchor="middle" font-size="11" ` +
-    `fill="${COLORS.textBody}" font-family="system-ui, sans-serif">Island</text>` +
+    `fill="${COLORS.textBody}" font-family="system-ui, sans-serif">${escapeXml(t('floorPlan.kind.island', locale))}</text>` +
     `</g>`
   )
 }

@@ -1,9 +1,11 @@
 /**
- * Editor-facing catalog of element kinds, their friendly labels for sentence
- * UIs, and size buckets ("small / medium / large") with their cm widths. Used
- * by the toolbar, the sentence builder, and the chip-style selection panel.
+ * Editor-facing catalog of element kinds: icon, size buckets ("small / medium /
+ * large") with their cm widths, and the default width. Used by the toolbar,
+ * the sentence builder, and the chip-style selection panel.
  *
- * Single source of truth so renaming "Hob" to "Cooktop" only happens here.
+ * Words live in the locale files, keyed by kind: floorPlan.kind.* (label),
+ * floorPlan.kindShort.* (toolbar + canvas), floorPlan.kindAdd.* (inside the
+ * "Add …" sentence) and floorPlan.size.<kind>.<bucket>.
  */
 import {
   Box,
@@ -18,6 +20,7 @@ import {
 } from 'lucide-react'
 import type { ComponentType, SVGProps } from 'react'
 import { parseLengthToCm, type FeatureKind, type OpeningKind } from '@/lib/floor-plan'
+import type { TranslationKey } from '@/lib/i18n/core'
 
 // Discriminator for "what can we add to a kitchen?". Excludes Island — island
 // is a special case (no wall, has its own UX path).
@@ -28,17 +31,12 @@ export type AddableKind =
 export interface SizeBucket {
   /** Stable id for keys / equality. */
   id: 'small' | 'medium' | 'large'
-  label: string
+  /** Word label ("Narrow"). Absent when the bucket is just its width (hob: "60 cm"). */
+  labelKey?: TranslationKey
   cm: number
 }
 
 export interface ElementCatalogEntry {
-  /** Friendly singular noun for sentences: "a window". */
-  article: string
-  /** Title-case label: "Window". */
-  label: string
-  /** Short label for tight chips: "Window". */
-  shortLabel: string
   /** Lucide icon component used in toolbar + chips. */
   icon: ComponentType<SVGProps<SVGSVGElement>>
   /** Size buckets in cm — first entry is the default for "Add". */
@@ -47,112 +45,85 @@ export interface ElementCatalogEntry {
   defaultCm: number
 }
 
-export const ELEMENT_CATALOG: Record<string, ElementCatalogEntry> = {
+export const ELEMENT_CATALOG: Record<OpeningKind | FeatureKind, ElementCatalogEntry> = {
   window: {
-    article: 'a window',
-    label: 'Window',
-    shortLabel: 'Window',
     icon: SquareSquare,
     sizes: [
-      { id: 'small', label: 'Small', cm: 60 },
-      { id: 'medium', label: 'Medium', cm: 110 },
-      { id: 'large', label: 'Large', cm: 180 },
+      { id: 'small', labelKey: 'floorPlan.size.window.small', cm: 60 },
+      { id: 'medium', labelKey: 'floorPlan.size.window.medium', cm: 110 },
+      { id: 'large', labelKey: 'floorPlan.size.window.large', cm: 180 },
     ],
     defaultCm: 110,
   },
   door: {
-    article: 'a door',
-    label: 'Door',
-    shortLabel: 'Door',
     icon: DoorOpen,
     sizes: [
-      { id: 'small', label: 'Narrow', cm: 70 },
-      { id: 'medium', label: 'Standard', cm: 80 },
-      { id: 'large', label: 'Wide', cm: 100 },
+      { id: 'small', labelKey: 'floorPlan.size.door.small', cm: 70 },
+      { id: 'medium', labelKey: 'floorPlan.size.door.medium', cm: 80 },
+      { id: 'large', labelKey: 'floorPlan.size.door.large', cm: 100 },
     ],
     defaultCm: 80,
   },
   passage: {
-    article: 'a passage',
-    label: 'Passage',
-    shortLabel: 'Passage',
     icon: Wind,
     sizes: [
-      { id: 'small', label: 'Narrow', cm: 100 },
-      { id: 'medium', label: 'Standard', cm: 130 },
-      { id: 'large', label: 'Wide', cm: 200 },
+      { id: 'small', labelKey: 'floorPlan.size.passage.small', cm: 100 },
+      { id: 'medium', labelKey: 'floorPlan.size.passage.medium', cm: 130 },
+      { id: 'large', labelKey: 'floorPlan.size.passage.large', cm: 200 },
     ],
     defaultCm: 130,
   },
   sink: {
-    article: 'a sink',
-    label: 'Sink',
-    shortLabel: 'Sink',
     icon: Droplet,
     sizes: [
-      { id: 'small', label: 'Single', cm: 60 },
-      { id: 'medium', label: 'Standard', cm: 80 },
-      { id: 'large', label: 'Double', cm: 100 },
+      { id: 'small', labelKey: 'floorPlan.size.sink.small', cm: 60 },
+      { id: 'medium', labelKey: 'floorPlan.size.sink.medium', cm: 80 },
+      { id: 'large', labelKey: 'floorPlan.size.sink.large', cm: 100 },
     ],
     defaultCm: 80,
   },
   hob: {
-    article: 'a hob',
-    label: 'Hob',
-    shortLabel: 'Hob',
     icon: CookingPot,
     sizes: [
-      { id: 'small', label: '60 cm', cm: 60 },
-      { id: 'medium', label: '75 cm', cm: 75 },
-      { id: 'large', label: '90 cm', cm: 90 },
+      { id: 'small', cm: 60 },
+      { id: 'medium', cm: 75 },
+      { id: 'large', cm: 90 },
     ],
     defaultCm: 75,
   },
   fridge: {
-    article: 'a fridge',
-    label: 'Fridge',
-    shortLabel: 'Fridge',
     icon: Box,
     sizes: [
-      { id: 'small', label: 'Standard', cm: 60 },
-      { id: 'medium', label: 'Wide', cm: 75 },
-      { id: 'large', label: 'American', cm: 90 },
+      { id: 'small', labelKey: 'floorPlan.size.fridge.small', cm: 60 },
+      { id: 'medium', labelKey: 'floorPlan.size.fridge.medium', cm: 75 },
+      { id: 'large', labelKey: 'floorPlan.size.fridge.large', cm: 90 },
     ],
     defaultCm: 75,
   },
   dishwasher: {
-    article: 'a dishwasher',
-    label: 'Dishwasher',
-    shortLabel: 'DW',
     icon: Square,
     sizes: [
-      { id: 'small', label: 'Slim', cm: 45 },
-      { id: 'medium', label: 'Standard', cm: 60 },
-      { id: 'large', label: 'Standard', cm: 60 },
+      { id: 'small', labelKey: 'floorPlan.size.dishwasher.small', cm: 45 },
+      { id: 'medium', labelKey: 'floorPlan.size.dishwasher.medium', cm: 60 },
+      { id: 'large', labelKey: 'floorPlan.size.dishwasher.large', cm: 60 },
     ],
     defaultCm: 60,
   },
   oven: {
-    article: 'an oven',
-    label: 'Oven',
-    shortLabel: 'Oven',
     icon: Flame,
     sizes: [
-      { id: 'small', label: '45 cm', cm: 45 },
-      { id: 'medium', label: '60 cm', cm: 60 },
-      { id: 'large', label: '90 cm', cm: 90 },
+      { id: 'small', cm: 45 },
+      { id: 'medium', cm: 60 },
+      { id: 'large', cm: 90 },
     ],
     defaultCm: 60,
   },
   hood: {
-    article: 'a hood',
-    label: 'Hood',
-    shortLabel: 'Hood',
     icon: Fan,
     sizes: [
-      { id: 'small', label: '60 cm', cm: 60 },
-      { id: 'medium', label: '75 cm', cm: 75 },
-      { id: 'large', label: '90 cm', cm: 90 },
+      { id: 'small', cm: 60 },
+      { id: 'medium', cm: 75 },
+      { id: 'large', cm: 90 },
     ],
     defaultCm: 60,
   },
@@ -175,6 +146,11 @@ export function parseSizeToCm(raw: string): number | null {
   if (cm === null) return null
   if (cm < 20 || cm > 600) return null
   return Math.round(cm)
+}
+
+/** A bucket's chip label: its word ("Narrow") or, for width-only buckets, "60 cm". */
+export function sizeBucketLabel(bucket: SizeBucket, t: (key: TranslationKey) => string): string {
+  return bucket.labelKey ? t(bucket.labelKey) : `${bucket.cm} cm`
 }
 
 /** Map a cm width back to the closest size bucket id for a given element. */

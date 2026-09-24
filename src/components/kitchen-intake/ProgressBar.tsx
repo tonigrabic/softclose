@@ -1,12 +1,14 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { useTranslations } from '@/lib/i18n'
 
 interface ProgressBarProps {
   percent: number
 }
 
 export function ProgressBar({ percent }: ProgressBarProps) {
+  const { t } = useTranslations()
   return (
     <div
       className="fixed top-0 left-0 right-0 z-50 h-[3px] bg-border/80"
@@ -14,7 +16,7 @@ export function ProgressBar({ percent }: ProgressBarProps) {
       aria-valuenow={Math.round(percent)}
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-label="Form progress"
+      aria-label={t('common.progress')}
     >
       <motion.div
         className="h-full rounded-r-full bg-primary"

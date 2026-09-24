@@ -1,6 +1,7 @@
 'use client'
 
 import { renderFloorPlanSvg, type FloorPlan, type SvgRenderMode } from '@/lib/floor-plan'
+import { useTranslations } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 interface FloorPlanStaticProps {
@@ -28,21 +29,20 @@ export function FloorPlanStatic({
   hideFooter = false,
   className,
 }: FloorPlanStaticProps) {
-  const svg = renderFloorPlanSvg(plan, { mode, showDisclaimer, showDimensions })
+  const { t, locale } = useTranslations()
+  const svg = renderFloorPlanSvg(plan, { mode, showDisclaimer, showDimensions, locale })
   return (
     <div
       className={cn(
         'overflow-hidden rounded-2xl border border-border bg-card p-3 shadow-sm',
         className
       )}
-      aria-label="Schematic floor plan"
+      aria-label={t('floorPlan.svg.ariaLabel')}
     >
       <div className="w-full" dangerouslySetInnerHTML={{ __html: svg }} />
       {!hideFooter && (
         <p className="mt-2 px-1 text-[11px] text-muted-foreground">
-          {plan.measurementMethod === 'deferred_to_designer'
-            ? 'You opted out of measuring — your designer will take dimensions on site.'
-            : 'Rough schematic from what you shared — your designer will confirm on site.'}
+          {t(plan.measurementMethod === 'deferred_to_designer' ? 'floorPlan.static.deferred' : 'floorPlan.static.rough')}
         </p>
       )}
     </div>

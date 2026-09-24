@@ -12,10 +12,10 @@ import type {
 } from '@/lib/types'
 import { DESIGNER_NAME, STUDIO_NAME } from '@/lib/system-prompt'
 import { hasPlan, planFromProfile } from '@/lib/floor-plan'
-import { useTranslations } from '@/lib/i18n'
+import { useTranslations, type TranslationKey } from '@/lib/i18n'
 import { FloorPlanStatic } from './FloorPlanStatic'
 import { MakerDashboardPreview } from './MakerDashboardPreview'
-import { readJson } from '@/lib/api/client'
+import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
 
 interface WrapUpScreenProps {
   data: WrapUpData
@@ -49,12 +49,12 @@ export function WrapUpScreen({
 }: WrapUpScreenProps) {
   const { t, tDynamic: td, locale } = useTranslations()
   const [bundle, setBundle] = useState<HandoffBundle | null>(null)
-  const [bundleError, setBundleError] = useState<string | null>(null)
+  const [bundleError, setBundleError] = useState<TranslationKey | null>(null)
   // Only "loading" when we are about to submit on mount; on a revisit there
   // is nothing in flight until the customer asks for it.
   const [isLoadingBundle, setIsLoadingBundle] = useState(!hasExistingBrief)
   const [isExporting, setIsExporting] = useState(false)
-  const [exportError, setExportError] = useState<string | null>(null)
+  const [exportError, setExportError] = useState<TranslationKey | null>(null)
   const [showMakerView, setShowMakerView] = useState(false)
 
   const plan = planFromProfile(profile)
@@ -74,6 +74,12 @@ export function WrapUpScreen({
     return label === key ? humanize(value) : label
   }
 
+  /** Style ids have their own style.* family (the inspiration tiles). */
+  function styleLabel(value: string): string {
+    const label = td(`style.${value}`)
+    return label === `style.${value}` ? humanize(value) : label
+  }
+
   // Wrap-up renders after the flow completes, so the bundle inputs are frozen —
   // loadBundle captures them once (deps []) and is reused for the manual retry.
   // Single-flight: the mount effect double-fires under React StrictMode (dev),
@@ -90,12 +96,14 @@ export function WrapUpScreen({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ brief: profile, moodBoard, explorationRefs, transcript, locale, projectId }),
       })
-      if (!res.ok) throw new Error(`Bundle build failed (${res.status})`)
       const data = await readJson<HandoffBundle>(res)
-      if (data.error) throw new Error(data.error)
+      if (!res.ok || data.error) {
+        throw new ApiError(data.error ?? `Bundle build failed (${res.status})`, res.status)
+      }
       setBundle(data)
     } catch (err) {
-      setBundleError(err instanceof Error ? err.message : 'Could not assemble brief')
+      console.warn('[handoff]', err)
+      setBundleError(apiErrorKey(err, 'wrapup.error.bundle'))
     } finally {
       inflight.current = false
       setIsLoadingBundle(false)
@@ -134,7 +142,8 @@ export function WrapUpScreen({
       a.remove()
       URL.revokeObjectURL(url)
     } catch (err) {
-      setExportError(err instanceof Error ? err.message : 'Could not export brief')
+      console.warn('[export]', err)
+      setExportError('wrapup.error.export')
     } finally {
       setIsExporting(false)
     }
@@ -338,7 +347,7 @@ export function WrapUpScreen({
       <BriefSection title={t('wrapup.section.style')} onFix={null}>
         <SummaryRow
           label={t('wrapup.row.style')}
-          value={profile.stylePreferences?.map(humanize).join(', ')}
+          value={profile.stylePreferences?.map(styleLabel).join(', ')}
         />
         <SummaryRow label={t('wrapup.row.door')} value={profile.doorMaterial && humanize(profile.doorMaterial)} />
         <SummaryRow
@@ -522,10 +531,10 @@ export function WrapUpScreen({
           <Download className="size-4 stroke-[1.75]" aria-hidden />
           {isExporting ? t('wrapup.actions.preparing') : t('wrapup.actions.download')}
         </button>
-        {exportError && <p className="text-xs font-medium text-destructive">{exportError}</p>}
+        {exportError && <p className="text-xs font-medium text-destructive">{t(exportError)}</p>}
         {bundleError && (
           <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-destructive">
-            <span>{bundleError}</span>
+            <span>{t(bundleError)}</span>
             <button
               type="button"
               onClick={() => void loadBundle()}
@@ -573,6 +582,7 @@ function BriefSection({
   children: React.ReactNode
   onFix: (() => void) | null
 }) {
+  const { t } = useTranslations()
   return (
     <section className="rounded-2xl border border-border bg-card p-5 text-left shadow-sm">
       <div className="mb-3 flex items-center justify-between">
@@ -585,7 +595,7 @@ function BriefSection({
             onClick={onFix}
             className="text-[11px] font-medium text-primary hover:underline"
           >
-            Fix anything?
+            {t('wrapup.fixAnything')}
           </button>
         )}
       </div>
@@ -605,6 +615,7 @@ function SectionWithFix({
   children: React.ReactNode
   onFix: (() => void) | null
 }) {
+  const { t } = useTranslations()
   return (
     <section className="text-left">
       <div className="mb-2 flex items-center justify-between">
@@ -622,7 +633,7 @@ function SectionWithFix({
             onClick={onFix}
             className="text-[11px] font-medium text-primary hover:underline"
           >
-            Fix anything?
+            {t('wrapup.fixAnything')}
           </button>
         )}
       </div>

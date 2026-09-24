@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { ArrowLeft, Check, AlertTriangle, MessageCircle, X, Quote } from 'lucide-react'
 import type { HandoffBundle, LeadProfile, TranslatedField } from '@/lib/types'
 import type { FloorPlan } from '@/lib/floor-plan'
-import { FEATURE_DEFAULTS, OPENING_DEFAULTS, formatLength } from '@/lib/floor-plan'
+import { formatLength } from '@/lib/floor-plan'
+import { t } from '@/lib/i18n/core'
 import { cn } from '@/lib/utils'
 
 type Confidence = 'H' | 'M' | 'L' | null
@@ -742,6 +743,8 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: M
 }
 
 function PlanProvenanceList({ plan }: { plan: FloorPlan }) {
+  // The maker view is still English throughout; element names come from the
+  // locale files now, so read the English ones until this view is localized.
   type Row = {
     key: string
     label: string
@@ -760,7 +763,7 @@ function PlanProvenanceList({ plan }: { plan: FloorPlan }) {
   for (const o of plan.openings) {
     rows.push({
       key: o.id,
-      label: OPENING_DEFAULTS[o.kind].label,
+      label: t(`floorPlan.kindShort.${o.kind}`, 'en-US'),
       detail: `${o.wall} · ${formatLength(o.widthCm, plan.units)}`,
       confidence: o.confidence,
       source: o.source,
@@ -769,7 +772,7 @@ function PlanProvenanceList({ plan }: { plan: FloorPlan }) {
   for (const f of plan.features) {
     rows.push({
       key: f.id,
-      label: FEATURE_DEFAULTS[f.kind].label,
+      label: t(`floorPlan.kindShort.${f.kind}`, 'en-US'),
       detail: `${f.wall} · ${formatLength(f.widthCm, plan.units)}`,
       confidence: f.confidence,
       source: f.source,

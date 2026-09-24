@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Sparkles, RotateCcw, Check, AlertCircle, Camera, ImagePlus, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from '@/lib/i18n'
-import { readJson } from '@/lib/api/client'
+import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
 import { compressImageDataUrl, fileToCompressedDataUrl } from '@/lib/image'
 import type {
   ConceptRender as ConceptRenderRecord,
@@ -184,7 +184,7 @@ export function ConceptRender({
         inputs?: ConceptRenderInput[]
         generatedAt: string
       }>(res)
-      if (!res.ok || data.error) throw new Error(data.error ?? 'Render failed')
+      if (!res.ok || data.error) throw new ApiError(data.error ?? 'Render failed', res.status)
       // gpt-image returns a ~2 MB PNG; stored + re-sent as JPEG so the next
       // hypothesis / re-render / handoff request stays under Vercel's limit.
       const compressedRender = await compressImageDataUrl(String(data.imageDataUrl), { maxDim: 1024, quality: 0.85 })
@@ -203,7 +203,9 @@ export function ConceptRender({
       setActiveNudges([])
       setFreeTextNudge('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : t('concept.error.renderFailed'))
+      console.warn('[render-concept]', err)
+      // A 429 here is the per-session render cap, not "slow down".
+      setError(t(apiErrorKey(err, 'concept.error.renderFailed', { 429: 'concept.error.capReached' })))
     } finally {
       setIsGenerating(false)
     }
@@ -283,7 +285,7 @@ export function ConceptRender({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={currentRender.imageDataUrl}
-                alt="AI concept render"
+                alt={t('concept.renderAlt')}
                 className="h-auto w-full"
               />
               {isGenerating && (
@@ -437,14 +439,14 @@ export function ConceptRender({
                     value={ref.label}
                     onChange={(e) => relabelProductRef(ref.id, e.target.value)}
                     className="block w-full border-t border-border bg-transparent px-1.5 py-1 text-[10px] font-medium text-foreground placeholder:text-muted-foreground focus:outline-none"
-                    placeholder="label"
-                    aria-label={`Label for ${ref.label}`}
+                    placeholder={t('concept.productLabelPlaceholder')}
+                    aria-label={t('concept.productLabelFor').replace('{label}', ref.label)}
                   />
                   <button
                     type="button"
                     onClick={() => removeProductRef(ref.id)}
                     className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                    aria-label={`Remove ${ref.label}`}
+                    aria-label={t('concept.productRemove').replace('{label}', ref.label)}
                   >
                     <X className="size-3 stroke-[2.5]" aria-hidden />
                   </button>
@@ -460,7 +462,7 @@ export function ConceptRender({
                 onChange={(e) => setPendingLabel(e.target.value.slice(0, 60))}
                 placeholder={t('concept.labelFirst')}
                 className="flex-1 min-w-[10rem] rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
-                aria-label="Label for the next product reference"
+                aria-label={t('concept.productLabelNext')}
               />
               <button
                 type="button"

@@ -3,6 +3,7 @@
 import { CircleCheck, PencilRuler } from 'lucide-react'
 import { useTranslations } from '@/lib/i18n'
 import type { BuilderState } from '@/lib/builder/inventory'
+import { runLabel } from './runLabel'
 
 /**
  * Read-only recap of the LOCKED layout contract, rendered from persisted
@@ -19,7 +20,7 @@ export function ContractRecap({
    *  without funnel navigation (the dev harness). */
   onEditLayout?: () => void
 }) {
-  const { t } = useTranslations()
+  const { t, tDynamic } = useTranslations()
   const units = state.cabinetBoxes.units
   const total = units.length
 
@@ -55,7 +56,7 @@ export function ContractRecap({
               className="flex items-baseline justify-between gap-3 text-[13px] text-foreground"
             >
               <span className="min-w-0 truncate font-medium">
-                {run.label} <span className="text-muted-foreground">· {run.lengthCm} cm</span>
+                {runLabel(run, tDynamic)} <span className="text-muted-foreground">· {run.lengthCm} cm</span>
               </span>
               <span className="shrink-0 tabular-nums text-muted-foreground">
                 {[

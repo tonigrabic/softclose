@@ -1,5 +1,6 @@
 'use client'
 
+import { useTranslations } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { getOptionIcon } from '@/lib/option-icons'
 import type { ScaleBand } from '@/lib/types'
@@ -16,6 +17,7 @@ interface VisualScaleProps {
  * Used for timeline + budget — replaces the old "select_cards over budget" UX.
  */
 export function VisualScale({ bands, selected, onSelect, axisCaption }: VisualScaleProps) {
+  const { t } = useTranslations()
   if (bands.length === 0) return null
   return (
     <div className="space-y-3">
@@ -29,7 +31,7 @@ export function VisualScale({ bands, selected, onSelect, axisCaption }: VisualSc
         className="relative grid gap-1.5"
         style={{ gridTemplateColumns: `repeat(${bands.length}, minmax(0, 1fr))` }}
         role="radiogroup"
-        aria-label={axisCaption ?? 'Anchored scale'}
+        aria-label={axisCaption ?? t('common.scale')}
       >
         {bands.map((band) => {
           const Icon = getOptionIcon(band.icon)

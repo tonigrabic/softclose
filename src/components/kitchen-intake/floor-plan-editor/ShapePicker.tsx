@@ -3,16 +3,11 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { fromShapePreset, renderFloorPlanSvg, type LayoutShape, type FloorPlan } from '@/lib/floor-plan'
+import { useTranslations } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
-const SHAPE_OPTIONS: { value: LayoutShape; label: string; description: string }[] = [
-  { value: 'galley', label: 'Galley', description: 'Two parallel runs.' },
-  { value: 'l_shape', label: 'L-shape', description: 'Two adjacent walls.' },
-  { value: 'u_shape', label: 'U-shape', description: 'Three walls, one end open.' },
-  { value: 'island', label: 'Island', description: 'One run plus a free-standing island.' },
-  { value: 'peninsula', label: 'Peninsula', description: 'L or U with an attached run.' },
-  { value: 'open', label: 'Open plan', description: 'Open to dining or living.' },
-]
+// Labels are layout.shape.*, descriptions floorPlan.shape.*.description.
+const SHAPE_OPTIONS: Exclude<LayoutShape, 'unsure'>[] = ['galley', 'l_shape', 'u_shape', 'island', 'peninsula', 'open']
 
 interface ShapePickerProps {
   /** Called once the user picks a shape. Editor will hand back a FloorPlan. */
@@ -26,39 +21,38 @@ interface ShapePickerProps {
  * then refine in the editor.
  */
 export function ShapePicker({ onPick, className }: ShapePickerProps) {
+  const { t, locale } = useTranslations()
   const [hovered, setHovered] = useState<LayoutShape | null>(null)
   return (
     <div className={cn('space-y-4', className)}>
       <div>
         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-          Quick start
+          {t('floorPlan.shapePicker.eyebrow')}
         </p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Pick the closest shape — you&apos;ll fine-tune it in a sec.
-        </p>
+        <p className="mt-1 text-sm text-muted-foreground">{t('floorPlan.shapePicker.hint')}</p>
       </div>
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
-        {SHAPE_OPTIONS.map((opt) => {
-          const preview = fromShapePreset(opt.value, { hasIsland: opt.value === 'island' })
-          const svg = renderFloorPlanSvg(preview, { showDimensions: false, showDisclaimer: false })
+        {SHAPE_OPTIONS.map((shape) => {
+          const preview = fromShapePreset(shape, { hasIsland: shape === 'island' })
+          const svg = renderFloorPlanSvg(preview, { showDimensions: false, showDisclaimer: false, locale })
           return (
             <motion.button
-              key={opt.value}
+              key={shape}
               type="button"
               whileHover={{ y: -1 }}
               whileTap={{ scale: 0.98 }}
               onClick={() => onPick(preview)}
-              onMouseEnter={() => setHovered(opt.value)}
+              onMouseEnter={() => setHovered(shape)}
               onMouseLeave={() => setHovered(null)}
               className={cn(
                 'flex flex-col items-stretch overflow-hidden rounded-2xl border bg-card text-left shadow-sm transition-colors',
-                hovered === opt.value ? 'border-primary/60' : 'border-border'
+                hovered === shape ? 'border-primary/60' : 'border-border'
               )}
             >
               <div className="aspect-[3/2] bg-background" dangerouslySetInnerHTML={{ __html: svg }} />
               <div className="border-t border-border/70 px-3 py-2">
-                <p className="text-sm font-semibold text-foreground">{opt.label}</p>
-                <p className="text-[11px] text-muted-foreground">{opt.description}</p>
+                <p className="text-sm font-semibold text-foreground">{t(`layout.shape.${shape}`)}</p>
+                <p className="text-[11px] text-muted-foreground">{t(`floorPlan.shape.${shape}.description`)}</p>
               </div>
             </motion.button>
           )

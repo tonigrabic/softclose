@@ -8,7 +8,7 @@ import { RenderAnchorCard } from '@/components/RenderAnchorCard'
 import { LiveBOMPanel } from '@/components/builder/LiveBOMPanel'
 import { MobileRangeDock } from '@/components/builder/MobileRangeDock'
 import { AppShell } from '@/components/AppShell'
-import { useTranslations, tDynamic, type Locale } from '@/lib/i18n'
+import { useTranslations, tDynamic, type Locale, type TranslationKey } from '@/lib/i18n'
 import { SpaceCapture } from './SpaceCapture'
 import { Inspiration } from './Inspiration'
 import { ConceptRender as ConceptRenderUI, type ProductReference } from './ConceptRender'
@@ -50,7 +50,7 @@ import type {
   WrapUpData,
 } from '@/lib/types'
 import type { InspirationVisionResult } from '@/app/api/inspiration-vision/route'
-import { readJson } from '@/lib/api/client'
+import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
 
 /** Sign-off timestamp, read through a module-level helper so the React purity
  * lint doesn't flag `Date.now()` in the component's event handlers. */
@@ -58,21 +58,10 @@ function nowMs(): number {
   return Date.now()
 }
 
-const TIMELINE_BANDS = [
-  { value: 'asap', label: 'ASAP', caption: 'Within 4 weeks' },
-  { value: '1_3_months', label: '1–3 months', caption: 'Soonish' },
-  { value: '3_6_months', label: '3–6 months', caption: 'Planning' },
-  { value: '6_12_months', label: '6–12 months', caption: 'Researching' },
-  { value: 'no_rush', label: 'No rush', caption: 'Just exploring' },
-]
+// Labels and captions are option.timeline.* / option.siteAccess.* in the locale files.
+const TIMELINE_BANDS = ['asap', '1_3_months', '3_6_months', '6_12_months', 'no_rush']
 
-const SITE_ACCESS_OPTIONS = [
-  { value: 'street_level', label: 'Street level' },
-  { value: 'one_flight', label: 'One flight up' },
-  { value: 'multi_flight', label: 'Multiple flights' },
-  { value: 'lift', label: 'Lift / elevator' },
-  { value: 'restricted', label: 'Restricted access' },
-]
+const SITE_ACCESS_OPTIONS = ['street_level', 'one_flight', 'multi_flight', 'lift', 'restricted']
 
 interface IntakeFlowState {
   currentStepId: FlowStepId
@@ -153,12 +142,12 @@ export function KitchenIntake({
   const [niceToHavesText, setNiceToHavesText] = useState('')
   const [dealBreakersText, setDealBreakersText] = useState('')
   const [isTranslating, setIsTranslating] = useState(false)
-  const [translateError, setTranslateError] = useState<string | null>(null)
+  const [translateError, setTranslateError] = useState<TranslationKey | null>(null)
 
   // Phase-2 Builder state — populated lazily on entry to the builder step.
   const [builderHypothesis, setBuilderHypothesis] = useState<BuilderHypothesis | null>(null)
   const [isLoadingHypothesis, setIsLoadingHypothesis] = useState(false)
-  const [hypothesisError, setHypothesisError] = useState<string | null>(null)
+  const [hypothesisError, setHypothesisError] = useState<TranslationKey | null>(null)
   // True once the user explicitly starts building without the AI suggestion.
   const [builderStartedNoAI, setBuilderStartedNoAI] = useState(false)
 
@@ -449,7 +438,7 @@ export function KitchenIntake({
       })
       const data = await readJson(res)
       if (!res.ok || data.error) {
-        throw new Error(data.error ?? `Translate failed (${res.status})`)
+        throw new ApiError(data.error ?? `Translate failed (${res.status})`, res.status, data.code as string | undefined)
       }
       const result = data.result as {
         mustHaves?: LeadProfile['mustHaves']
@@ -473,7 +462,8 @@ export function KitchenIntake({
       )
       goNext()
     } catch (err) {
-      setTranslateError(err instanceof Error ? err.message : 'Could not save wishlist')
+      console.warn('[translate-wishlist]', err)
+      setTranslateError(apiErrorKey(err, 'funnel.wishlist.error'))
     } finally {
       setIsTranslating(false)
     }
@@ -541,7 +531,9 @@ export function KitchenIntake({
       // Even if the AI summary fails, let the homeowner see their wrap-up with a fallback message.
       setProfile(finalProfile)
       setWrapUpData({
-        thankYouMessage: `Thanks${finalProfile.name ? `, ${finalProfile.name}` : ''} — your brief is on its way to ${DESIGNER_NAME}.`,
+        thankYouMessage: tDynamic('funnel.thanksFallback', locale)
+          .replace('{name}', finalProfile.name ? `, ${finalProfile.name}` : '')
+          .replace('{designer}', DESIGNER_NAME),
         summaryLines: buildFallbackSummary(finalProfile, locale),
       })
       setFinaliseError(err instanceof Error ? err.message : 'Summary unavailable')
@@ -622,10 +614,13 @@ export function KitchenIntake({
         }),
       })
       const data = await readJson(res)
-      if (!res.ok || data.error) throw new Error(data.error ?? `Hypothesis failed (${res.status})`)
+      if (!res.ok || data.error) {
+        throw new ApiError(data.error ?? `Hypothesis failed (${res.status})`, res.status, data.code as string | undefined)
+      }
       setBuilderHypothesis(data.hypothesis as BuilderHypothesis)
     } catch (err) {
-      setHypothesisError(err instanceof Error ? err.message : 'Builder hypothesis failed')
+      console.warn('[builder-hypothesis]', err)
+      setHypothesisError(apiErrorKey(err, 'funnel.builderEntry.error'))
     } finally {
       setIsLoadingHypothesis(false)
     }
@@ -847,7 +842,7 @@ export function KitchenIntake({
                 <BuilderEntryBody
                   hasRender={Boolean(chosenRender?.imageDataUrl)}
                   isLoading={isLoadingHypothesis}
-                  error={hypothesisError}
+                  error={hypothesisError && tDynamic(hypothesisError, locale)}
                   onStartWithAI={() => void loadHypothesis()}
                   onStartWithoutAI={() => setBuilderStartedNoAI(true)}
                   onSkip={() => {
@@ -908,7 +903,7 @@ export function KitchenIntake({
 
               {translateError && (
                 <div className="flex flex-wrap items-center gap-3 rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-2.5 text-xs text-destructive">
-                  <span>{translateError}</span>
+                  <span>{tDynamic(translateError, locale)}</span>
                   <button
                     type="button"
                     onClick={() => void commitWishlist()}
@@ -1226,10 +1221,10 @@ function StepBody(props: StepBodyProps) {
                 {t('funnel.field.timeline')}
               </p>
               <VisualScale
-                bands={TIMELINE_BANDS.map((b) => ({
-                  ...b,
-                  label: tDynamic(`option.timeline.${b.value}`),
-                  caption: tDynamic(`option.timeline.${b.value}.caption`),
+                bands={TIMELINE_BANDS.map((value) => ({
+                  value,
+                  label: tDynamic(`option.timeline.${value}`),
+                  caption: tDynamic(`option.timeline.${value}.caption`),
                 }))}
                 selected={profile.timeline ?? null}
                 onSelect={(v) => onPatchProfile({ timeline: v })}
@@ -1241,21 +1236,21 @@ function StepBody(props: StepBodyProps) {
                 {t('funnel.field.siteAccess')}
               </p>
               <div className="flex flex-wrap gap-2">
-                {SITE_ACCESS_OPTIONS.map((opt) => (
+                {SITE_ACCESS_OPTIONS.map((value) => (
                   <button
-                    key={opt.value}
+                    key={value}
                     type="button"
                     onClick={() =>
-                      onSiteAccessChange(siteAccess === opt.value ? null : opt.value)
+                      onSiteAccessChange(siteAccess === value ? null : value)
                     }
                     className={cn(
                       'rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all',
-                      siteAccess === opt.value
+                      siteAccess === value
                         ? 'border-primary bg-primary text-primary-foreground'
                         : 'border-border bg-card hover:border-primary/40'
                     )}
                   >
-                    {tDynamic(`option.siteAccess.${opt.value}`)}
+                    {tDynamic(`option.siteAccess.${value}`)}
                   </button>
                 ))}
               </div>
@@ -1566,7 +1561,8 @@ function buildFallbackSummary(profile: LeadProfile, locale: Locale): string[] {
   if (profile.timeline) lines.push(fill('fallback.timeline', profile.timeline))
   if (profile.budgetRange) lines.push(fill('fallback.budget', profile.budgetRange))
   if (profile.stylePreferences?.length) {
-    lines.push(fill('fallback.style', profile.stylePreferences.join(', ')))
+    const styles = profile.stylePreferences.map((s) => tDynamic(`style.${s}`, locale)).join(', ')
+    lines.push(fill('fallback.style', styles))
   }
   if (profile.doorMaterial) lines.push(fill('fallback.door', profile.doorMaterial))
   if (profile.worktopPreference) lines.push(fill('fallback.worktop', profile.worktopPreference))
