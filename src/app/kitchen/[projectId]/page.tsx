@@ -29,6 +29,9 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
 
   const maker = project.makerId ? await findAccountById(project.makerId) : null
   const makerName = maker?.name || maker?.email || tDynamic('kitchen.home.yourMaker', locale)
+  // The customer's own account, not the session's: when the maker looks in,
+  // the contact step must still show the customer's address.
+  const customer = project.customerId ? await findAccountById(project.customerId) : null
 
   const db = supabaseAdmin()
   if (!db) notFound()
@@ -82,6 +85,8 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
       revision={project.revision}
       readOnly={session.role !== 'customer'}
       snapshot={snapshot}
+      customerEmail={customer?.email ?? null}
+      customerName={customer?.name ?? null}
     />
   )
 }

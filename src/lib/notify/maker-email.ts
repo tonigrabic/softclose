@@ -12,6 +12,7 @@
  */
 import { escapeHtml } from './html'
 import { emailSendingEnabled, sendEmail } from './send'
+import { contactChannels } from '@/lib/contact'
 import type { HandoffBundle } from '@/lib/types'
 
 export interface MakerNotifyInput {
@@ -38,7 +39,7 @@ export function buildMakerEmail(input: MakerNotifyInput): { subject: string; htm
   const e = bundle.estimate
   const link = `${baseUrl}/maker/${briefId}`
   const name = b.name?.trim() || 'Nepoznato ime'
-  const contact = b.contactValue?.trim() || '—'
+  const contact = contactChannels(b).join(' · ') || '—'
   const shape = b.floorPlan?.layoutShape ?? b.layoutShape ?? '—'
   const dims = b.floorPlan?.room ? `${Math.round(b.floorPlan.room.lengthCm)} × ${Math.round(b.floorPlan.room.widthCm)} cm` : '—'
   const range = e ? `${eur(e.low)} – ${eur(e.high)}${e.bandPct ? ` (±${e.bandPct}%)` : ''}` : 'nije dostupno'

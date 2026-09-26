@@ -38,11 +38,16 @@ export interface ProductReference {
   label: string
 }
 
-/** How the homeowner wants their maker to reach them. */
+/**
+ * The contact step's draft. A signed-in customer's email is their account
+ * address, so they only add a name and, optionally, a phone. `contactType` /
+ * `contactValue` are the anonymous funnel's single "best way to reach you".
+ */
 export interface ContactValue {
   name: string
   contactType: 'phone' | 'email'
   contactValue: string
+  phone?: string
 }
 
 /**
@@ -290,6 +295,11 @@ export interface LeadProfile {
   // ---- Decision context + contact
   decisionContext?: TranslatedField
   name?: string
+  /** Signed-in customers: their account email (stamped server-side on handoff). */
+  email?: string
+  /** Signed-in customers: optional, for makers who would rather call. */
+  phone?: string
+  /** Anonymous funnel only: the one channel they typed. Read via contactChannels. */
   contactValue?: string
 
   // ---- Attachments
