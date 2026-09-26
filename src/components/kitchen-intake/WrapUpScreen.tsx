@@ -29,6 +29,9 @@ interface WrapUpScreenProps {
   /** True when this project already has a brief with the maker. Submitting is
    *  then an explicit act, not something that happens by arriving here. */
   hasExistingBrief?: boolean
+  /** Runs before the brief is sent — the intake flushes its pending save, so the
+   *  brief is the project's last write and never arrives flagged as edited. */
+  beforeSubmit?: () => Promise<void>
 }
 
 function humanize(v: string): string {
@@ -47,6 +50,7 @@ export function WrapUpScreen({
   transcript,
   projectId,
   hasExistingBrief = false,
+  beforeSubmit,
 }: WrapUpScreenProps) {
   const { t, tDynamic: td, locale } = useTranslations()
   const contact = contactChannels(profile)
@@ -95,6 +99,8 @@ export function WrapUpScreen({
     setIsLoadingBundle(true)
     setBundleError(null)
     try {
+      // A failed save must never stop the brief.
+      await beforeSubmit?.().catch(() => {})
       const res = await fetch('/api/handoff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
