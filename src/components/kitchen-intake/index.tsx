@@ -52,6 +52,7 @@ import type {
 import type { InspirationVisionResult } from '@/app/api/inspiration-vision/route'
 import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
 import { contactChannels } from '@/lib/contact'
+import { mintBriefId } from '@/lib/handoff/brief-id'
 
 /** Sign-off timestamp, read through a module-level helper so the React purity
  * lint doesn't flag `Date.now()` in the component's event handlers. */
@@ -546,6 +547,7 @@ export function KitchenIntake({
       setWrapUpData({
         thankYouMessage: summary.thankYouMessage,
         summaryLines: summary.summaryLines,
+        briefId: mintBriefId(),
       })
       setIsDone(true)
     } catch (err) {
@@ -555,6 +557,7 @@ export function KitchenIntake({
         thankYouMessage: tDynamic('funnel.thanksFallback', locale)
           .replace('{name}', finalProfile.name ? `, ${finalProfile.name}` : ''),
         summaryLines: buildFallbackSummary(finalProfile, locale),
+        briefId: mintBriefId(),
       })
       setFinaliseError(err instanceof Error ? err.message : 'Summary unavailable')
       setIsDone(true)

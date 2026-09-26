@@ -16,6 +16,7 @@ import { useTranslations, type TranslationKey } from '@/lib/i18n'
 import { FloorPlanStatic } from './FloorPlanStatic'
 import { MakerDashboardPreview } from './MakerDashboardPreview'
 import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
+import { mintBriefId } from '@/lib/handoff/brief-id'
 import { contactChannels } from '@/lib/contact'
 
 interface WrapUpScreenProps {
@@ -93,6 +94,11 @@ export function WrapUpScreen({
   // Single-flight: the mount effect double-fires under React StrictMode (dev),
   // which persisted TWO briefs per submit. The ref makes a retry explicit.
   const inflight = useRef(false)
+  // The id this send saves under. The submit minted it into the snapshot, so a
+  // remount — or a retry after a lost response — repeats the SAME send and the
+  // server hands back the brief it already made. Only the explicit re-submit
+  // below mints a new one: that one is meant to be a new brief.
+  const sendId = useRef<string | undefined>(data.briefId)
   const loadBundle = useCallback(async () => {
     if (inflight.current) return
     inflight.current = true
@@ -104,7 +110,15 @@ export function WrapUpScreen({
       const res = await fetch('/api/handoff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ brief: profile, moodBoard, explorationRefs, transcript, locale, projectId }),
+        body: JSON.stringify({
+          brief: profile,
+          moodBoard,
+          explorationRefs,
+          transcript,
+          locale,
+          projectId,
+          briefId: sendId.current,
+        }),
       })
       const data = await readJson<HandoffBundle>(res)
       if (!res.ok || data.error) {
@@ -131,9 +145,14 @@ export function WrapUpScreen({
     // below. (The inflight ref only ever guarded StrictMode's double-fire
     // within one mount; it cannot help across visits.)
     if (hasExistingBrief) return
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadBundle()
   }, [loadBundle, hasExistingBrief])
+
+  /** An explicit re-submit is a NEW brief, so it gets a new id. */
+  function resubmit() {
+    sendId.current = mintBriefId()
+    void loadBundle()
+  }
 
   async function downloadHandoff() {
     if (!bundle) return
@@ -250,7 +269,7 @@ export function WrapUpScreen({
           <p className="mb-3 text-xs leading-relaxed text-muted-foreground">{t('wrapup.resubmit.body')}</p>
           <button
             type="button"
-            onClick={() => void loadBundle()}
+            onClick={resubmit}
             disabled={isLoadingBundle}
             className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
           >
