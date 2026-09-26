@@ -927,7 +927,7 @@ export const enUS: Record<TranslationKey, string> = {
   'api.error.tooLarge': 'That upload is too large to send. Please try a smaller photo.',
   'funnel.wishlist.error': 'Could not save your wishlist.',
   'funnel.builderEntry.error': 'Could not read your render. Try again, or start without the AI suggestion.',
-  'funnel.thanksFallback': 'Thanks{name} — your brief is on its way to {designer}.',
+  'funnel.thanksFallback': 'Thanks{name} — your brief is ready.',
   'wrapup.error.bundle': 'Could not put your brief together.',
   'wrapup.error.export': 'Could not download the brief.',
   'wrapup.fixAnything': 'Fix anything?',

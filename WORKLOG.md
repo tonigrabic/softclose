@@ -1027,3 +1027,24 @@ is the placeholder "— Sarah, Sarah Chen Kitchens", not the maker; the
 `<title>` is "Kitchen Studio — Project intake".
 
 Gate: 324 tests · tsc · eslint green.
+
+### 2026-09-26 — Wrap-up: no placeholder designer
+Follow-up from 09-24. The wrap-up was signed "— Sarah, Sarah Chen Kitchens"
+and the fallback thank-you (`funnel.thanksFallback`) named "Sarah" — made-up
+people on a homeowner screen, against the AGENTS.md red line.
+
+- Sign-off line removed outright (not swapped for the maker's name — decided
+  2026-09-26: the wrap-up needs no signature).
+- Fallback thank-you names nobody: "Hvala{name} — tvoj sažetak je spreman." /
+  "Thanks{name} — your brief is ready." Same slots in hr/en.
+- `src/lib/system-prompt.ts` deleted: `DESIGNER_NAME` / `STUDIO_NAME` had no
+  other users, and `buildSystemPrompt()` was a stub for the long-gone
+  `/api/chat`. No live AI prompt ever named a designer.
+
+Browser-verified in hr-HR on the local stack (mock AI): invited customer →
+wrap-up has no signature; with `/api/summarize-brief` forced to fail, the
+fallback reads "Hvala, Iva — tvoj sažetak je spreman." and the brief still
+submits. Snapshots saved before this keep their old `wrapUpData.thankYouMessage`
+text (it is persisted, not re-rendered).
+
+Gate: 324 tests · tsc · eslint green.
