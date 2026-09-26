@@ -10,12 +10,12 @@ import type {
   LeadProfile,
   WrapUpData,
 } from '@/lib/types'
-import { DESIGNER_NAME, STUDIO_NAME } from '@/lib/system-prompt'
 import { hasPlan, planFromProfile } from '@/lib/floor-plan'
-import { useTranslations } from '@/lib/i18n'
+import { builderPickLabels } from '@/lib/builder/pick-labels'
+import { useTranslations, type TranslationKey } from '@/lib/i18n'
 import { FloorPlanStatic } from './FloorPlanStatic'
 import { MakerDashboardPreview } from './MakerDashboardPreview'
-import { readJson } from '@/lib/api/client'
+import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
 import { contactChannels } from '@/lib/contact'
 
 interface WrapUpScreenProps {
@@ -51,18 +51,19 @@ export function WrapUpScreen({
   const { t, tDynamic: td, locale } = useTranslations()
   const contact = contactChannels(profile)
   const [bundle, setBundle] = useState<HandoffBundle | null>(null)
-  const [bundleError, setBundleError] = useState<string | null>(null)
+  const [bundleError, setBundleError] = useState<TranslationKey | null>(null)
   // Only "loading" when we are about to submit on mount; on a revisit there
   // is nothing in flight until the customer asks for it.
   const [isLoadingBundle, setIsLoadingBundle] = useState(!hasExistingBrief)
   const [isExporting, setIsExporting] = useState(false)
-  const [exportError, setExportError] = useState<string | null>(null)
+  const [exportError, setExportError] = useState<TranslationKey | null>(null)
   const [showMakerView, setShowMakerView] = useState(false)
 
   const plan = planFromProfile(profile)
   const showPlan = hasPlan(profile) && plan !== null
   const moodBoard = profile.moodBoardItems ?? []
   const chosenRender = profile.conceptRenders?.find((r) => r.id === profile.conceptRenderChosenId)
+  const picks = builderPickLabels(profile.builderState, locale)
 
   function fmtMoney(n: number): string {
     return `${Math.round(n).toLocaleString(locale)} €`
@@ -75,6 +76,13 @@ export function WrapUpScreen({
     const label = td(key)
     return label === key ? humanize(value) : label
   }
+
+  /** Style ids have their own style.* family (the inspiration tiles). */
+  function styleLabel(value: string): string {
+    const label = td(`style.${value}`)
+    return label === `style.${value}` ? humanize(value) : label
+  }
+  const styles = profile.stylePreferences?.map(styleLabel).join(', ') || null
 
   // Wrap-up renders after the flow completes, so the bundle inputs are frozen —
   // loadBundle captures them once (deps []) and is reused for the manual retry.
@@ -92,12 +100,14 @@ export function WrapUpScreen({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ brief: profile, moodBoard, explorationRefs, transcript, locale, projectId }),
       })
-      if (!res.ok) throw new Error(`Bundle build failed (${res.status})`)
       const data = await readJson<HandoffBundle>(res)
-      if (data.error) throw new Error(data.error)
+      if (!res.ok || data.error) {
+        throw new ApiError(data.error ?? `Bundle build failed (${res.status})`, res.status)
+      }
       setBundle(data)
     } catch (err) {
-      setBundleError(err instanceof Error ? err.message : 'Could not assemble brief')
+      console.warn('[handoff]', err)
+      setBundleError(apiErrorKey(err, 'wrapup.error.bundle'))
     } finally {
       inflight.current = false
       setIsLoadingBundle(false)
@@ -136,7 +146,8 @@ export function WrapUpScreen({
       a.remove()
       URL.revokeObjectURL(url)
     } catch (err) {
-      setExportError(err instanceof Error ? err.message : 'Could not export brief')
+      console.warn('[export]', err)
+      setExportError('wrapup.error.export')
     } finally {
       setIsExporting(false)
     }
@@ -167,9 +178,6 @@ export function WrapUpScreen({
         <h2 className="text-2xl font-semibold text-foreground">{t('wrapup.title')}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{data.thankYouMessage}</p>
         <p className="text-xs text-muted-foreground/70">{t('wrapup.review')}</p>
-        <p className="mt-1 text-[11px] text-muted-foreground/60">
-          — {DESIGNER_NAME}, {STUDIO_NAME}
-        </p>
       </div>
 
       {/* Estimate — always a range, never a quote. The badge is honest about
@@ -304,21 +312,14 @@ export function WrapUpScreen({
         </SectionWithFix>
       )}
 
-      {/* Project basics */}
-      <BriefSection title={t('wrapup.section.basics')} onFix={null}>
-        <SummaryRow label={t('wrapup.row.projectType')} value={optionLabel('projectType', profile.projectType)} />
-        <SummaryRow label={t('wrapup.row.timeline')} value={optionLabel('timeline', profile.timeline)} />
-        <SummaryRow
-          label={t('wrapup.row.budget')}
-          value={
-            profile.budgetRange
-              ? humanize(profile.budgetRange)
-              : profile.budgetShared === false
-                ? t('wrapup.row.budgetPrivate')
-                : null
-          }
-        />
-      </BriefSection>
+      {/* Project basics. No budget row: the flow has no up-front budget any
+          more — the live range above is the budget conversation. */}
+      {(profile.projectType || profile.timeline) && (
+        <BriefSection title={t('wrapup.section.basics')} onFix={null}>
+          <SummaryRow label={t('wrapup.row.projectType')} value={optionLabel('projectType', profile.projectType)} />
+          <SummaryRow label={t('wrapup.row.timeline')} value={optionLabel('timeline', profile.timeline)} />
+        </BriefSection>
+      )}
 
       {/* Scope */}
       {profile.scope && (
@@ -336,42 +337,19 @@ export function WrapUpScreen({
         </BriefSection>
       )}
 
-      {/* Style + materials */}
-      <BriefSection title={t('wrapup.section.style')} onFix={null}>
-        <SummaryRow
-          label={t('wrapup.row.style')}
-          value={profile.stylePreferences?.map(humanize).join(', ')}
-        />
-        <SummaryRow label={t('wrapup.row.door')} value={profile.doorMaterial && humanize(profile.doorMaterial)} />
-        <SummaryRow
-          label={t('wrapup.row.construction')}
-          value={profile.cabinetConstruction && humanize(profile.cabinetConstruction)}
-        />
-        <SummaryRow
-          label={t('wrapup.row.worktop')}
-          value={profile.worktopPreference && humanize(profile.worktopPreference)}
-        />
-        <SummaryRow
-          label={t('wrapup.row.backsplash')}
-          value={profile.backsplashPreference && humanize(profile.backsplashPreference)}
-        />
-        <SummaryRow
-          label={t('wrapup.row.hardwareTier')}
-          value={profile.hardwareTier && humanize(profile.hardwareTier)}
-        />
-        <SummaryRow
-          label={t('wrapup.row.hardwareBrand')}
-          value={profile.hardwareBrand && humanize(profile.hardwareBrand)}
-        />
-        <SummaryRow
-          label={t('wrapup.row.specialty')}
-          value={profile.specialtyCabinets?.map(humanize).join(', ')}
-        />
-        <SummaryRow
-          label={t('wrapup.row.appliances')}
-          value={profile.appliancesIntegrated && humanize(profile.appliancesIntegrated)}
-        />
-      </BriefSection>
+      {/* Style + materials — the tagged styles, then what the homeowner picked
+          in the builder. Not profile.doorMaterial & co.: those are the
+          inspiration-photo guesses from before the builder, and can contradict
+          the build (see lib/builder/pick-labels). Fittings are the maker's
+          standard spec, so there is no hardware row. */}
+      {(styles || picks) && (
+        <BriefSection title={t('wrapup.section.style')} onFix={null}>
+          <SummaryRow label={t('wrapup.row.style')} value={styles} />
+          <SummaryRow label={t('wrapup.row.door')} value={picks?.doors} />
+          <SummaryRow label={t('wrapup.row.worktop')} value={picks?.worktop} />
+          <SummaryRow label={t('wrapup.row.backsplash')} value={picks?.backsplash} />
+        </BriefSection>
+      )}
 
       {/* Trades */}
       {profile.trades && Object.keys(profile.trades).length > 0 && (
@@ -524,10 +502,10 @@ export function WrapUpScreen({
           <Download className="size-4 stroke-[1.75]" aria-hidden />
           {isExporting ? t('wrapup.actions.preparing') : t('wrapup.actions.download')}
         </button>
-        {exportError && <p className="text-xs font-medium text-destructive">{exportError}</p>}
+        {exportError && <p className="text-xs font-medium text-destructive">{t(exportError)}</p>}
         {bundleError && (
           <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-destructive">
-            <span>{bundleError}</span>
+            <span>{t(bundleError)}</span>
             <button
               type="button"
               onClick={() => void loadBundle()}
@@ -575,6 +553,7 @@ function BriefSection({
   children: React.ReactNode
   onFix: (() => void) | null
 }) {
+  const { t } = useTranslations()
   return (
     <section className="rounded-2xl border border-border bg-card p-5 text-left shadow-sm">
       <div className="mb-3 flex items-center justify-between">
@@ -587,7 +566,7 @@ function BriefSection({
             onClick={onFix}
             className="text-[11px] font-medium text-primary hover:underline"
           >
-            Fix anything?
+            {t('wrapup.fixAnything')}
           </button>
         )}
       </div>
@@ -607,6 +586,7 @@ function SectionWithFix({
   children: React.ReactNode
   onFix: (() => void) | null
 }) {
+  const { t } = useTranslations()
   return (
     <section className="text-left">
       <div className="mb-2 flex items-center justify-between">
@@ -624,7 +604,7 @@ function SectionWithFix({
             onClick={onFix}
             className="text-[11px] font-medium text-primary hover:underline"
           >
-            Fix anything?
+            {t('wrapup.fixAnything')}
           </button>
         )}
       </div>
@@ -638,9 +618,11 @@ function SummaryRow({ label, value }: { label: string; value: string | null | un
   return (
     <div className="flex items-baseline justify-between gap-3 text-sm">
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 truncate text-right font-medium text-foreground" title={value}>
-        {value}
-      </dd>
+      {/* Wraps rather than truncates: builder picks carry the decor name and
+          code ("Shaker (s okvirom) · Bijela premium (W1000)"), too long for a
+          phone row, and a summary the homeowner can't read to the end hides
+          exactly the detail they came to check. */}
+      <dd className="min-w-0 break-words text-right font-medium text-foreground">{value}</dd>
     </div>
   )
 }

@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils'
 import { findDecor } from '@/lib/catalog'
 import { findRal } from '@/lib/catalog/ral'
 import type { BuilderState } from '@/lib/builder/inventory'
-import { readJson } from '@/lib/api/client'
+import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
 import { compressImageDataUrl } from '@/lib/image'
 
 /**
@@ -99,11 +99,11 @@ export function RerenderPanel({
 
   async function handleRerender() {
     if (!anchorPhotoDataUrl) {
-      setError('Need an anchor photo to re-render — upload a space photo in step 1.')
+      setError(t('builder.rerender.noAnchorError'))
       return
     }
     if (renderCount >= MAX_RERENDERS_PER_SESSION) {
-      setError(`Reached the ${MAX_RERENDERS_PER_SESSION}-render limit for this session.`)
+      setError(t('builder.rerender.limit').replace('{n}', String(MAX_RERENDERS_PER_SESSION)))
       return
     }
     setIsRendering(true)
@@ -144,12 +144,14 @@ export function RerenderPanel({
         }),
       })
       const data = await readJson<Record<string, unknown>>(res)
-      if (!res.ok || data.error) throw new Error(data.error ?? `Render failed (${res.status})`)
+      if (!res.ok || data.error) throw new ApiError(String(data.error ?? `Render failed (${res.status})`), res.status)
       onRendered(await compressImageDataUrl(String(data.imageDataUrl), { maxDim: 1024, quality: 0.85 }), changes.join(', '))
       setBaseline(current)
       setRenderCount((c) => c + 1)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Re-render failed')
+      console.warn('[re-render]', err)
+      // A 429 from render-concept is the per-session render cap.
+      setError(t(apiErrorKey(err, 'builder.rerender.error', { 429: 'concept.error.capReached' })))
     } finally {
       setIsRendering(false)
     }
@@ -161,7 +163,7 @@ export function RerenderPanel({
       <div className="rounded-2xl border border-border bg-card/50 px-4 py-3 text-[12px] text-muted-foreground">
         <div className="flex items-center gap-2">
           <ImageIcon className="size-3.5" aria-hidden />
-          <span>Reached the {MAX_RERENDERS_PER_SESSION}-render limit.</span>
+          <span>{t('builder.rerender.limit').replace('{n}', String(MAX_RERENDERS_PER_SESSION))}</span>
         </div>
       </div>
     )
@@ -202,7 +204,7 @@ export function RerenderPanel({
       </button>
       {!anchorPhotoDataUrl && (
         <p className="text-[10.5px] text-amber-700/80 dark:text-amber-200/70">
-          No anchor photo — re-render disabled.
+          {t('builder.rerender.noAnchor')}
         </p>
       )}
       {error && (

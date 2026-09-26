@@ -25,7 +25,12 @@ export function readbackFor(
     case 'inspiration': {
       const styles = p.stylePreferences ?? []
       if (styles.length === 0) return null
-      return styles.map((s) => s.replace(/_/g, ' ')).join(', ')
+      return styles
+        .map((s) => {
+          const label = td(`style.${s}`)
+          return label === `style.${s}` ? s.replace(/_/g, ' ') : label
+        })
+        .join(', ')
     }
     case 'concept_render': {
       if (!p.conceptRenderChosenId) return null

@@ -29,7 +29,18 @@ export function RenderCarousel({
   anchorPhotoDataUrl,
   onSetActive,
 }: RenderCarouselProps) {
-  const { t } = useTranslations()
+  const { t, tDynamic } = useTranslations()
+  // A re-render's trigger is stored as RerenderPanel's change ids
+  // ("door decor, worktop decor"); name them in the viewer's language.
+  const triggerLabel = (trigger: string) =>
+    trigger
+      .split(', ')
+      .map((change) => {
+        const key = `builder.rerender.change.${change.replace(/ /g, '_')}`
+        const word = tDynamic(key)
+        return word === key ? change : word
+      })
+      .join(', ')
   // Local "previewing" id can differ from active: clicking a thumb shows it
   // big without committing. "Use this" commits via onSetActive.
   const [previewingId, setPreviewingId] = useState<string | null | undefined>(undefined)
@@ -78,7 +89,7 @@ export function RenderCarousel({
               aria-label={
                 thumb.isOriginal
                   ? t('builder.shell.renders.original')
-                  : `${thumb.label}${thumb.trigger ? ` — ${thumb.trigger}` : ''}`
+                  : `${thumb.label}${thumb.trigger ? ` — ${triggerLabel(thumb.trigger)}` : ''}`
               }
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}

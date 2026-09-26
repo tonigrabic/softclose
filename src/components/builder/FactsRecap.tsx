@@ -37,62 +37,57 @@ export function FactsRecap({ hypothesis }: { hypothesis: BuilderHypothesis | nul
 
 function collectFacts(h: BuilderHypothesis, locale: Locale): string[] {
   const out: string[] = []
+  const tr = (key: string) => tDynamic(key, locale)
 
   // Layout summary — shape + total run length when high confidence.
   if (h.layout?.shape && h.layout.shape.confidence !== 'L') {
     const totalCm = (h.layout.runs ?? []).reduce((s, r) => s + r.lengthCm.value, 0)
+    const shape = tr(`layout.shape.${h.layout.shape.value}`)
     out.push(
-      totalCm > 0
-        ? `${shapeLabel(h.layout.shape.value)} · ${totalCm} cm total`
-        : shapeLabel(h.layout.shape.value)
+      totalCm > 0 ? tr('facts.shapeTotal').replace('{shape}', shape).replace('{cm}', String(totalCm)) : shape
     )
   }
 
   // Doors style + decor.
   if (h.doors?.style && h.doors.style.confidence !== 'L') {
     const decor = h.doors.colorDescription ?? h.doors.decorCode?.value
-    out.push(decor ? `${styleLabel(h.doors.style.value)} · ${decor}` : styleLabel(h.doors.style.value))
+    const style = tr(`doors.style.${h.doors.style.value}`)
+    out.push(decor ? `${style} · ${decor}` : style)
   }
 
   // Worktop family.
   if (h.worktop?.family && h.worktop.family.confidence !== 'L') {
-    out.push(`${h.worktop.family.value.replace(/_/g, ' ')} worktop`)
+    out.push(tr('facts.worktop').replace('{v}', tr(`worktop.family.${h.worktop.family.value}`)))
   }
 
   // Window on a run — strong layout constraint.
   if (h.features?.windowOnRun) {
     const w = h.features.windowOnRun
-    out.push(w.widthCm ? `Window on ${w.runId} · ${w.widthCm.value} cm` : `Window on ${w.runId}`)
+    // Run ids are wall sides ("top"); anything else is shown as-is.
+    const wallKey = `floorPlan.wall.${w.runId}.on`
+    const wall = tr(wallKey) === wallKey ? w.runId : tr(wallKey)
+    const where = tr('facts.windowOn').replace('{wall}', wall)
+    out.push(w.widthCm ? `${where} · ${w.widthCm.value} cm` : where)
   }
 
   // Visible appliances.
   const ap = h.appliances
   const appliances: string[] = []
   if (ap?.fridge?.present?.value) {
-    appliances.push(ap.fridge.integrated?.value ? 'integrated fridge' : 'fridge')
+    appliances.push(tr(ap.fridge.integrated?.value ? 'facts.fridgeIntegrated' : 'facts.fridge'))
   }
   if (ap?.dishwasher?.present?.value) {
-    appliances.push(ap.dishwasher.integrated?.value ? 'integrated dishwasher' : 'dishwasher')
+    appliances.push(tr(ap.dishwasher.integrated?.value ? 'facts.dishwasherIntegrated' : 'facts.dishwasher'))
   }
   if (ap?.hob && ap.hob.confidence !== 'L' && ap.hob.value !== 'unknown') {
-    appliances.push(`${ap.hob.value} hob`)
+    appliances.push(tr('facts.hob').replace('{v}', tr(`appliances.hob.${ap.hob.value}`).toLowerCase()))
   }
   if (appliances.length > 0) out.push(appliances.join(' + '))
 
-  if (h.features?.tallPantry?.present?.value) out.push(tDynamic('facts.tallPantry', locale))
-  if (h.features?.corniceVisible?.value) out.push(tDynamic('facts.cornice', locale))
-  if (h.features?.openShelving?.value) out.push(tDynamic('facts.openShelving', locale))
+  if (h.features?.tallPantry?.present?.value) out.push(tr('facts.tallPantry'))
+  if (h.features?.corniceVisible?.value) out.push(tr('facts.cornice'))
+  if (h.features?.openShelving?.value) out.push(tr('facts.openShelving'))
   if (h.features?.floorColorHint) out.push(h.features.floorColorHint)
 
   return out.slice(0, 5)
-}
-
-function shapeLabel(s: string): string {
-  if (s === 'l_shape') return 'L-shape'
-  if (s === 'u_shape') return 'U-shape'
-  return s.replace(/_/g, ' ')
-}
-
-function styleLabel(s: string): string {
-  return s.replace(/_/g, ' ')
 }

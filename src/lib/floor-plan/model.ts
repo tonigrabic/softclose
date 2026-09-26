@@ -184,28 +184,29 @@ export interface FloorPlan {
 
 // ─── Defaults & catalog ──────────────────────────────────────────────────────
 
-/** Typical real-world widths for each fixed feature (cm). */
+/** Typical real-world widths for each fixed feature (cm). Names are i18n
+ *  keys, not fields: floorPlan.kind.* (full) and floorPlan.kindShort.* (canvas). */
 export const FEATURE_DEFAULTS: Record<
   FeatureKind,
-  { widthCm: number; depthCm: number; label: string }
+  { widthCm: number; depthCm: number }
 > = {
-  sink: { widthCm: 80, depthCm: 55, label: 'Sink' },
-  hob: { widthCm: 75, depthCm: 60, label: 'Hob' },
-  fridge: { widthCm: 75, depthCm: 65, label: 'Fridge' },
-  dishwasher: { widthCm: 60, depthCm: 60, label: 'DW' },
+  sink: { widthCm: 80, depthCm: 55 },
+  hob: { widthCm: 75, depthCm: 60 },
+  fridge: { widthCm: 75, depthCm: 65 },
+  dishwasher: { widthCm: 60, depthCm: 60 },
   // Built-in oven, typically a 60 cm housing under the counter or in a tower.
-  oven: { widthCm: 60, depthCm: 60, label: 'Oven' },
+  oven: { widthCm: 60, depthCm: 60 },
   // Extractor hood — wall/ceiling mounted over the hob; shallow footprint.
-  hood: { widthCm: 60, depthCm: 35, label: 'Hood' },
+  hood: { widthCm: 60, depthCm: 35 },
 }
 
 export const OPENING_DEFAULTS: Record<
   OpeningKind,
-  { widthCm: number; label: string }
+  { widthCm: number }
 > = {
-  window: { widthCm: 110, label: 'Window' },
-  door: { widthCm: 80, label: 'Door' },
-  passage: { widthCm: 130, label: 'Passage' },
+  window: { widthCm: 110 },
+  door: { widthCm: 80 },
+  passage: { widthCm: 130 },
 }
 
 /** Sensible default room sizes per layout shape. Used when AI declines to scale. */

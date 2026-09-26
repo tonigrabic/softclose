@@ -988,6 +988,67 @@ parser dropped W960 ST7 (the white the testers named) and ~30 other rows.
 
 Gate: 316 tests · tsc · eslint green.
 
+### 2026-09-24 — hr-HR sweep: the floor-plan editor and error paths
+Branch `i18n/homeowner-hardcoded-sweep` (off `feat/tester-feedback-builder`).
+Walking the intake in hr-HR on 09-23 showed English on "Korak 4 — Potvrdi i
+zaključaj" (QUICK START, the shape cards). The whole Konva floor-plan editor
+had no i18n at all; swept it and the rest of the homeowner path.
+
+**Done, browser-verified on the local stack (mock AI), hr + en:**
+- Floor-plan editor: shape picker, toolbar, "Ili opiši riječima", every
+  selection panel (strana / prozor / uređaj / otok / prostorija), chip lists,
+  sliders, warnings, a11y announcer, canvas labels. Sentences are locale
+  templates filled with chips (`fillSlots` in `@/lib/i18n`), so Croatian has
+  its own word order and cases ("Dodaj ploču za kuhanje na donjem zidu").
+  Counter = "radna ploča"; element names live in `floorPlan.kind*` keys, the
+  English `label` fields left `ELEMENT_CATALOG` / `*_DEFAULTS`.
+- `renderFloorPlanSvg` takes a `locale` (default hr-HR like `t()`): shape
+  previews, the wrap-up plan and layout tiles now say Otok / Skica tlocrta.
+  The maker handoff SVG therefore draws Croatian labels too.
+- Errors: hr homeowners saw raw server English ("Too many vision calls").
+  `ApiError` + `apiErrorKey()` (`@/lib/api/client`) map 401/429/413 to calm
+  localized lines, else the step's own; raw text goes to the console.
+  render-concept's 429 is the render cap, mapped as such.
+- Also: FactsRecap chips, RerenderPanel, run names in the layout tally and
+  recap ("Top"/"Island" → Gornji zid/Otok via `runLabel`, custom wall names
+  kept), wrap-up footer/"Nešto ispraviti?", style names in the rail + wrap-up,
+  concept-render alts/aria, image-select tile badges, Schachermayer's two
+  Croatian literals → keys.
+
+**Left alone:** MakerDashboardPreview (English throughout; its element names
+now read the en-US keys explicitly), /builder harness, `logTurn` transcript
+text and render prompts (maker/AI-facing, not UI).
+
+**Still English for a Croatian homeowner (follow-ups):** wrap-up "Stil +
+materijali" rows show raw AI enum values (door/worktop/backsplash/hardware:
+"shaker painted", "zellige"); `/api/summarize-brief` takes no locale, so the
+real (non-mock) thank-you + TL;DR come back in English; the wrap-up sign-off
+is the placeholder "— Sarah, Sarah Chen Kitchens", not the maker; the
+`<title>` is "Kitchen Studio — Project intake".
+
+Gate: 324 tests · tsc · eslint green.
+
+### 2026-09-26 — Wrap-up: no placeholder designer
+Follow-up from 09-24. The wrap-up was signed "— Sarah, Sarah Chen Kitchens"
+and the fallback thank-you (`funnel.thanksFallback`) named "Sarah" — made-up
+people on a homeowner screen, against the AGENTS.md red line.
+
+- Sign-off line removed outright (not swapped for the maker's name — decided
+  2026-09-26: the wrap-up needs no signature).
+- Fallback thank-you names nobody: "Hvala{name} — tvoj sažetak je spreman." /
+  "Thanks{name} — your brief is ready." Same slots in hr/en.
+- `src/lib/system-prompt.ts` deleted: `DESIGNER_NAME` / `STUDIO_NAME` had no
+  other users, and `buildSystemPrompt()` was a stub for the long-gone
+  `/api/chat`. No live AI prompt ever named a designer.
+
+Browser-verified in hr-HR on the local stack (mock AI): invited customer →
+wrap-up has no signature; with `/api/summarize-brief` forced to fail, the
+fallback reads "Hvala, Iva — tvoj sažetak je spreman." and the brief still
+submits. Snapshots saved before this keep their old `wrapUpData.thankYouMessage`
+text (it is persisted, not re-rendered).
+
+Gate: 324 tests · tsc · eslint green.
+
 ### 2026-09-26 — Fronts: material first (tester feedback, round 1 cont.)
 - "Materijal fronte": iveral (Elgrad decors, real EGGER swatches, name +
   code) / lakirani medijapan (ravna · s ukladom · reljef, drawn in the chosen

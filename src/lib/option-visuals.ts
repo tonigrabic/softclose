@@ -4,6 +4,7 @@
  * so the homeowner sees an evocative tile instead of a bare gradient.
  */
 import { fromShapePreset, renderFloorPlanSvg, type LayoutShape } from '@/lib/floor-plan'
+import type { Locale } from '@/lib/i18n/core'
 
 interface StyleTile {
   primary: string
@@ -102,12 +103,12 @@ function normalize(value: string): string {
   return value.toLowerCase().replace(/[\s-]+/g, '_')
 }
 
-function layoutTile(value: string): string | null {
+function layoutTile(value: string, locale?: Locale): string | null {
   const shape = normalize(value) as LayoutShape
   const KNOWN: LayoutShape[] = ['galley', 'l_shape', 'u_shape', 'island', 'peninsula', 'open', 'unsure']
   if (!KNOWN.includes(shape)) return null
   const plan = fromShapePreset(shape, { hasIsland: shape === 'island' })
-  const svg = renderFloorPlanSvg(plan, { showDimensions: false, showDisclaimer: false })
+  const svg = renderFloorPlanSvg(plan, { showDimensions: false, showDisclaimer: false, locale })
   return svgDataUrl(svg)
 }
 
@@ -115,7 +116,7 @@ function layoutTile(value: string): string | null {
  * Try to produce a fallback illustration for an option value. Returns null
  * when we don't know how to draw it; callers should fall back to a gradient.
  */
-export function getOptionFallbackImage(value: string): string | null {
+export function getOptionFallbackImage(value: string, locale?: Locale): string | null {
   const key = normalize(value)
-  return styleTile(key) ?? layoutTile(key)
+  return styleTile(key) ?? layoutTile(key, locale)
 }

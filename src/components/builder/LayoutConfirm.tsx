@@ -22,6 +22,7 @@ import {
 } from '@/lib/builder/unit-assembly'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { CabinetPattern, CabinetUnit } from '@/lib/builder/inventory'
+import { runLabel } from './runLabel'
 
 /**
  * The contract — what we'll build and price — and the place the homeowner
@@ -394,7 +395,7 @@ export function LayoutConfirm({
             return (
               <li key={r.id} className="space-y-2 rounded-2xl border border-border bg-background p-3.5">
                 <div className="flex items-baseline justify-between gap-4">
-                  <p className="truncate text-[14px] font-semibold text-foreground">{r.label}</p>
+                  <p className="truncate text-[14px] font-semibold text-foreground">{runLabel(r, tDynamic)}</p>
                   {editable && isWall ? (
                     <span className="inline-flex items-center gap-1">
                       <input

@@ -16,6 +16,7 @@ import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslations } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 export interface ChipOption<T> {
@@ -48,7 +49,7 @@ interface ChipSelectProps<T> {
    * reject). Used by the Size chip to accept "70 cm" / "8'6"".
    */
   onCustomValue?: (raw: string) => T | null
-  /** Placeholder for the custom-value input. */
+  /** Placeholder for the custom-value input. Defaults to "Type a value". */
   customPlaceholder?: string
   disabled?: boolean
   className?: string
@@ -66,10 +67,11 @@ export function ChipSelect<T>({
   variant = 'inline',
   tone = 'primary',
   onCustomValue,
-  customPlaceholder = 'Type a value',
+  customPlaceholder,
   disabled = false,
   className,
 }: ChipSelectProps<T>) {
+  const { t } = useTranslations()
   const [open, setOpen] = useState(false)
   const [customText, setCustomText] = useState('')
   const [customError, setCustomError] = useState<string | null>(null)
@@ -165,7 +167,7 @@ export function ChipSelect<T>({
     if (!onCustomValue) return
     const parsed = onCustomValue(customText)
     if (parsed === null) {
-      setCustomError('Try e.g. 60, 60 cm, 2′, or 2′ 6″')
+      setCustomError(t('floorPlan.chip.customError'))
       return
     }
     setCustomError(null)
@@ -236,7 +238,7 @@ export function ChipSelect<T>({
           {onCustomValue && (
             <div className="mt-1 shrink-0 border-t border-border/70 pt-1.5">
               <p className="px-2 pb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                Or type
+                {t('floorPlan.chip.orType')}
               </p>
               <div className="flex items-center gap-1 px-1.5">
                 <input
@@ -253,7 +255,7 @@ export function ChipSelect<T>({
                       commitCustom()
                     }
                   }}
-                  placeholder={customPlaceholder}
+                  placeholder={customPlaceholder ?? t('floorPlan.chip.customPlaceholder')}
                   className="min-w-0 flex-1 rounded-lg border border-border bg-background px-2 py-1 text-[12px] focus:outline-none focus:ring-1 focus:ring-ring"
                 />
                 <button
@@ -262,7 +264,7 @@ export function ChipSelect<T>({
                   disabled={!customText.trim()}
                   className="rounded-lg bg-primary px-2 py-1 text-[11px] font-semibold text-primary-foreground transition-opacity disabled:opacity-40"
                 >
-                  Set
+                  {t('floorPlan.chip.set')}
                 </button>
               </div>
               {customError && (

@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic'
 import type { ComponentProps } from 'react'
+import { useTranslations } from '@/lib/i18n'
 
 /**
  * The Konva editor depends on `window`. We dynamic-import it with `ssr: false`
@@ -12,13 +13,18 @@ const FloorPlanEditorImpl = dynamic(
   () => import('./Editor').then((m) => ({ default: m.FloorPlanEditor })),
   {
     ssr: false,
-    loading: () => (
-      <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-border bg-card text-sm text-muted-foreground">
-        Loading editor…
-      </div>
-    ),
+    loading: () => <EditorLoading />,
   }
 )
+
+function EditorLoading() {
+  const { t } = useTranslations()
+  return (
+    <div className="flex min-h-[420px] items-center justify-center rounded-2xl border border-border bg-card text-sm text-muted-foreground">
+      {t('floorPlan.loading')}
+    </div>
+  )
+}
 
 export type FloorPlanEditorProps = ComponentProps<typeof FloorPlanEditorImpl>
 export const FloorPlanEditor = FloorPlanEditorImpl

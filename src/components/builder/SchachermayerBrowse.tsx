@@ -19,7 +19,7 @@ export function SchachermayerBrowse({
   products,
   selectedSku,
   onPick,
-  emptyMessage = 'Nema dostupnih proizvoda za ovu kategoriju.',
+  emptyMessage,
   initialLimit = 8,
 }: {
   products: SchachermayerProduct[]
@@ -33,7 +33,7 @@ export function SchachermayerBrowse({
   const visible = showAll ? products : products.slice(0, initialLimit)
 
   if (products.length === 0) {
-    return <p className="text-[12px] text-muted-foreground/70">{emptyMessage}</p>
+    return <p className="text-[12px] text-muted-foreground/70">{emptyMessage ?? t('builder.browse.empty')}</p>
   }
 
   return (
@@ -115,7 +115,7 @@ function ProductCard({
           >
             {product.priceBasis === 'retail_incl_vat'
               ? `${product.supplier === 'elgrad' ? 'Elgrad' : product.supplier ?? ''} · ${product.observedAt ?? ''}`.trim()
-              : 'procjena · ref. cijena'}
+              : t('builder.browse.refPriceTag')}
           </p>
         )}
       </div>
