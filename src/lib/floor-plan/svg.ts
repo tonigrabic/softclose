@@ -86,11 +86,16 @@ export function renderFloorPlanSvg(plan: FloorPlan, opts: RenderOpts = {}): stri
 
   let body = ''
 
+  // Room interior first — everything else sits on it. Painted after the
+  // counters, its white fill hid them, and every plan (an L-shaped kitchen, the
+  // shape-picker cards, the maker's schematic) read as an empty box.
+  body += renderRoomFill(fit)
+
   // Counter bands per side, auto-segmented by doors/passages on that wall.
   body += renderCounters(plan, fit)
 
-  // Room rectangle with side-aware stroke (closed solid, open dashed).
-  body += renderRoom(plan, fit)
+  // Walls with side-aware strokes (closed solid, open dashed), over the counters' edge.
+  body += renderWalls(plan, fit)
 
   // Openings.
   for (const o of plan.openings) {
@@ -130,10 +135,14 @@ export function renderFloorPlanSvg(plan: FloorPlan, opts: RenderOpts = {}): stri
 
 // ─── Internals ───────────────────────────────────────────────────────────────
 
-function renderRoom(plan: FloorPlan, fit: FitResult): string {
+function renderRoomFill(fit: FitResult): string {
   const { x, y, w, h } = fit.inner
-  // White interior fill stays a single rect; per-side strokes drawn as 4 lines.
-  const fill = `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="white" />`
+  return `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="white" />`
+}
+
+function renderWalls(plan: FloorPlan, fit: FitResult): string {
+  const { x, y, w, h } = fit.inner
+  // Per-side strokes drawn as 4 lines.
   const sides = plan.room.sides
   const drawSide = (
     x1: number,
@@ -146,7 +155,6 @@ function renderRoom(plan: FloorPlan, fit: FitResult): string {
       ? `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${COLORS.wallOpen}" stroke-width="2" stroke-dasharray="6 4" />`
       : `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${COLORS.wall}" stroke-width="3" />`
   return (
-    fill +
     drawSide(x, y, x + w, y, sides.top.kind === 'open') +
     drawSide(x + w, y, x + w, y + h, sides.right.kind === 'open') +
     drawSide(x, y + h, x + w, y + h, sides.bottom.kind === 'open') +
