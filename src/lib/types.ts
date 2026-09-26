@@ -424,6 +424,13 @@ export interface Step {
 export interface WrapUpData {
   thankYouMessage: string
   summaryLines: string[]
+  /**
+   * The id this submit's brief is saved under, minted on the client when the
+   * homeowner sends (lib/handoff/brief-id). Rides in the snapshot so a wrap-up
+   * that remounts re-sends the SAME brief — which the server recognises —
+   * rather than creating a second one. Absent on snapshots from before.
+   */
+  briefId?: string
   /** Naive scope-band-based stub estimate range. PLACEHOLDER, not a quote. */
   estimateLow?: number
   estimateHigh?: number

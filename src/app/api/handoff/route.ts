@@ -4,6 +4,7 @@ import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import { offloadMedia, storageUploader } from '@/lib/db/media'
 import { notifyMakerOfBrief } from '@/lib/notify/maker-email'
 import { buildHandoffBundle } from '@/lib/handoff/bundle'
+import { decideBriefId, isBriefId } from '@/lib/handoff/brief-id'
 import type { ClientMessage, LeadProfile, MoodBoardItem } from '@/lib/types'
 
 interface HandoffRequest {
@@ -18,6 +19,9 @@ interface HandoffRequest {
   /** The project this brief belongs to. Without it the brief has no owner, and
    *  an ownerless brief is unreadable by anyone — see the block below. */
   projectId?: string
+  /** Client-minted id for this send (lib/handoff/brief-id): a repeat of the same
+   *  send gets the brief it already made. Absent from older clients. */
+  briefId?: string
 }
 
 export async function POST(req: Request) {
@@ -59,7 +63,28 @@ export async function POST(req: Request) {
           makerId = (project.maker_id as string | null) ?? null
         }
 
-        const briefId = crypto.randomUUID()
+        // A repeated send — the wrap-up remounted, or a retry after a lost
+        // response — must not insert a second brief and email the maker again.
+        // Checked before any media is uploaded.
+        const { data: existing } = isBriefId(body.briefId)
+          ? await db.from(TABLES.briefs).select('project_id').eq('id', body.briefId).maybeSingle()
+          : { data: null }
+        const decision = decideBriefId(
+          body.briefId,
+          existing ? { projectId: (existing.project_id as string | null) ?? null } : null,
+          projectId,
+          () => crypto.randomUUID()
+        )
+        if (decision.kind === 'reject') {
+          return Response.json({ error: 'conflict' }, { status: 409 })
+        }
+        if (decision.kind === 'reuse') {
+          bundle.briefId = decision.id
+          bundle.makerPath = `/maker/${decision.id}`
+          return Response.json(bundle)
+        }
+
+        const briefId = decision.id
         // One timestamp for the brief row AND the project's updated_at.
         // Letting the database default created_at and then updating the project
         // afterwards leaves updated_at a few milliseconds later, and the maker's
@@ -124,6 +149,13 @@ export async function POST(req: Request) {
           media_object_count: stored.count,
           media_bytes: stored.bytes,
         })
+        // Two sends of the same brief racing: the other one inserted first.
+        // Same outcome as a reuse — no second project update, no second email.
+        if (bErr?.code === '23505') {
+          bundle.briefId = briefId
+          bundle.makerPath = `/maker/${briefId}`
+          return Response.json(bundle)
+        }
         if (bErr) throw bErr
 
         // Point the project at its current brief and denormalise the range, so
