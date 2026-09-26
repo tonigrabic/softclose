@@ -114,6 +114,7 @@ export const enUS: Record<TranslationKey, string> = {
   'common.yes': 'Yes',
   'common.no': 'No',
   'common.optional': 'Optional',
+  'common.or': 'or',
   'common.retry': 'Try again',
 
   // Inspiration step
@@ -613,6 +614,8 @@ export const enUS: Record<TranslationKey, string> = {
   'contact.phoneLabel': 'Phone number',
   'contact.email.placeholder': 'you@email.com',
   'contact.phone.placeholder': '+1 (555) 000-0000',
+  'contact.phone.hint': 'Prefer a call? Leave a number too.',
+  'contact.account.note': 'The address you sign in with. Your designer will reach you here.',
 
   // ---- Concept render ----------------------------------------------------
   'concept.noAnchor':

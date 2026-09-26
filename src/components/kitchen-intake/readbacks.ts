@@ -1,6 +1,7 @@
 import type { LeadProfile } from '@/lib/types'
 import type { FlowStepId } from '@/lib/flow'
 import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n'
+import { contactChannels } from '@/lib/contact'
 
 /**
  * Short captured-value summary shown under a completed funnel step in the
@@ -60,8 +61,8 @@ export function readbackFor(
       return parts.length > 0 ? parts.join(' · ') : null
     }
     case 'contact': {
-      if (!p.name && !p.contactValue) return null
-      return [p.name, p.contactValue].filter(Boolean).join(' · ')
+      const parts = [p.name, ...contactChannels(p)].filter(Boolean)
+      return parts.length > 0 ? parts.join(' · ') : null
     }
   }
 }

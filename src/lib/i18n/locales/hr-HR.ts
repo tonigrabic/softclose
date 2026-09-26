@@ -116,6 +116,7 @@ export const hrHR = {
   'common.yes': 'Da',
   'common.no': 'Ne',
   'common.optional': 'Neobavezno',
+  'common.or': 'ili',
   'common.retry': 'Pokušaj ponovno',
 
   // Inspiration step
@@ -628,6 +629,8 @@ export const hrHR = {
   'contact.phoneLabel': 'Broj telefona',
   'contact.email.placeholder': 'ti@email.com',
   'contact.phone.placeholder': '+385 91 000 0000',
+  'contact.phone.hint': 'Ako ti je draži poziv, ostavi i broj.',
+  'contact.account.note': 'Adresa s kojom se prijavljuješ. Dizajner ti se javlja na nju.',
 
   // ---- Concept render ----------------------------------------------------
   'concept.noAnchor':

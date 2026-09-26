@@ -26,6 +26,12 @@ export async function POST(req: Request) {
 
   try {
     const body = (await req.json()) as HandoffRequest
+    // A customer's contact email is the address they signed in with — taken
+    // from the session, never from the client's copy. (A projectId that is not
+    // theirs is refused below, before anything is stored.)
+    if (body.brief && body.projectId && session.role === 'customer') {
+      body.brief = { ...body.brief, email: session.email }
+    }
     const bundle = buildHandoffBundle(body)
     const { brief, estimate } = bundle
 
@@ -88,6 +94,18 @@ export async function POST(req: Request) {
           projectId = created.id as string
         }
 
+        // The row holds one channel: the phone when given (the email is always
+        // recoverable through the project's customer), else the email, else
+        // the anonymous funnel's single value.
+        const phone = brief.phone?.trim()
+        const contact = phone
+          ? { type: 'phone', value: phone }
+          : brief.email
+            ? { type: 'email', value: brief.email }
+            : brief.contactValue
+              ? { type: brief.contactValue.includes('@') ? 'email' : 'phone', value: brief.contactValue }
+              : null
+
         const { error: bErr } = await db.from(TABLES.briefs).insert({
           id: briefId,
           created_at: submittedAt,
@@ -95,8 +113,8 @@ export async function POST(req: Request) {
           maker_id: makerId,
           locale: body.locale ?? null,
           contact_name: brief.name ?? null,
-          contact_type: brief.contactValue?.includes('@') ? 'email' : brief.contactValue ? 'phone' : null,
-          contact_value: brief.contactValue ?? null,
+          contact_type: contact?.type ?? null,
+          contact_value: contact?.value ?? null,
           estimate_low: estimate?.low ?? null,
           estimate_high: estimate?.high ?? null,
           estimate_all_in_low: estimate?.withAppliances?.low ?? null,
