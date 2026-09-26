@@ -7,9 +7,9 @@
  * where the homeowner actually chose, and the two can disagree ("shaker" from
  * the photos, slab doors in the build).
  *
- * Labels reuse the builder's own keys (doors.style.*, worktop.family.*,
- * backsplash.kind.*) and the catalog's decor names, so the summary repeats
- * exactly what the picker said. Pure and server-safe.
+ * Labels reuse the builder's own keys (doors.material.*, doors.profile.*,
+ * worktop.family.*, backsplash.kind.*) and the catalog's decor names, so the
+ * summary repeats exactly what the picker said. Pure and server-safe.
  */
 import { findDecor } from '@/lib/catalog'
 import { tDynamic, type Locale } from '@/lib/i18n/core'
@@ -47,8 +47,17 @@ export function builderPickLabels(saved: unknown, locale: Locale): BuilderPickLa
       : null
   const otherDecor = backsplash.kind === 'other' ? backsplash.otherDecor?.trim() : undefined
 
+  // Fronts are material first: a decor for iveral, a RAL colour + profile for
+  // lacquered MDF, nothing more to say for aluminium with glass.
+  const doorsDetail =
+    doors.material === 'iveral'
+      ? decor(doors.decorCode, doors.decorStructure)
+      : doors.material === 'lacquered_mdf'
+        ? join(doors.ralCode || null, label(`doors.profile.${doors.profile}`, doors.profile))
+        : null
+
   return {
-    doors: join(label(`doors.style.${doors.style}`, doors.style), decor(doors.decorCode, doors.decorStructure)),
+    doors: join(label(`doors.material.${doors.material}`, doors.material), doorsDetail),
     worktop: join(label(`worktop.family.${worktop.family}`, worktop.family), worktopDecor),
     // "Other" means the homeowner typed the decor — their words say more than "Other".
     backsplash: otherDecor || label(`backsplash.kind.${backsplash.kind}`, backsplash.kind),

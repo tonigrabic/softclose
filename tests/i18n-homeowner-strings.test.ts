@@ -97,14 +97,22 @@ describe('builderPickLabels (wrap-up style rows)', () => {
   test('says what the builder said, in Croatian', () => {
     const s = built()
     expect(builderPickLabels(s, 'hr-HR')).toEqual({
-      doors: 'Ravne fronte · Bijela premium (W1000)',
+      doors: 'Iveral · Bijela premium (W1000)',
       worktop: 'Laminat · Chicago beton svijetlo sivi (F186)',
       backsplash: 'U dekoru radne ploče',
     })
   })
 
   test('follows the locale, decor names included', () => {
-    expect(builderPickLabels(built(), 'en-US')?.doors).toBe('Flat slab · Premium white (W1000)')
+    expect(builderPickLabels(built(), 'en-US')?.doors).toBe('Melamine board (iveral) · Premium white (W1000)')
+  })
+
+  test('lacquered MDF reads as RAL colour and profile, aluminium as itself', () => {
+    const s = built()
+    const lacquered = { ...s, doors: { ...s.doors, material: 'lacquered_mdf' as const, ralCode: 'RAL 9016', profile: 'inset' as const } }
+    expect(builderPickLabels(lacquered, 'hr-HR')?.doors).toBe('Lakirani medijapan · RAL 9016 · S ukladom')
+    const alu = { ...s, doors: { ...s.doors, material: 'alu_glass' as const } }
+    expect(builderPickLabels(alu, 'hr-HR')?.doors).toBe('Aluminij sa staklom')
   })
 
   test('a stone worktop carries no laminate decor; typed cladding reads as typed', () => {
