@@ -32,6 +32,7 @@ import { LayoutConfirm } from '@/components/builder/LayoutConfirm'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { BuilderState } from '@/lib/builder/inventory'
 import type { UnitEdits } from '@/lib/builder/unit-assembly'
+import { builderPickLabels } from '@/lib/builder/pick-labels'
 import { derivePrefills } from '@/lib/derive-prefills'
 import { renderDerivedFloorPlan } from '@/lib/derive-layout'
 import { clearSnapshot, loadSnapshot, saveSnapshot, type StoredSnapshot } from '@/lib/session-store'
@@ -514,7 +515,7 @@ export function KitchenIntake({
       const res = await fetch('/api/summarize-brief', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile: finalProfile }),
+        body: JSON.stringify({ profile: finalProfile, locale }),
       })
       const data = await readJson(res)
       if (!res.ok || data.error) {
@@ -1554,18 +1555,32 @@ function summariseLayoutFromProfile(
   return parts.length > 0 ? parts.join(' · ') : undefined
 }
 
+/**
+ * The wrap-up's TL;DR when /api/summarize-brief fails. Same sources as the
+ * wrap-up rows: translated option labels, and the builder picks rather than
+ * the inspiration-photo guesses (see lib/builder/pick-labels).
+ */
 function buildFallbackSummary(profile: LeadProfile, locale: Locale): string[] {
-  const fill = (key: string, v: string) => tDynamic(key, locale).replace('{v}', v.replace(/_/g, ' '))
+  const fill = (key: string, v: string) => tDynamic(key, locale).replace('{v}', v)
+  const label = (key: string, raw: string) => {
+    const text = tDynamic(key, locale)
+    return text === key ? raw.replace(/_/g, ' ') : text
+  }
   const lines: string[] = []
-  if (profile.projectType) lines.push(fill('fallback.projectType', profile.projectType))
-  if (profile.timeline) lines.push(fill('fallback.timeline', profile.timeline))
-  if (profile.budgetRange) lines.push(fill('fallback.budget', profile.budgetRange))
+  if (profile.projectType) {
+    lines.push(fill('fallback.projectType', label(`option.projectType.${profile.projectType}`, profile.projectType)))
+  }
+  if (profile.timeline) {
+    lines.push(fill('fallback.timeline', label(`option.timeline.${profile.timeline}`, profile.timeline)))
+  }
   if (profile.stylePreferences?.length) {
-    const styles = profile.stylePreferences.map((s) => tDynamic(`style.${s}`, locale)).join(', ')
+    const styles = profile.stylePreferences.map((s) => label(`style.${s}`, s)).join(', ')
     lines.push(fill('fallback.style', styles))
   }
-  if (profile.doorMaterial) lines.push(fill('fallback.door', profile.doorMaterial))
-  if (profile.worktopPreference) lines.push(fill('fallback.worktop', profile.worktopPreference))
+  const picks = builderPickLabels(profile.builderState, locale)
+  if (picks?.doors) lines.push(fill('fallback.door', picks.doors))
+  if (picks?.worktop) lines.push(fill('fallback.worktop', picks.worktop))
+  if (picks?.backsplash) lines.push(fill('fallback.backsplash', picks.backsplash))
   while (lines.length < 3) lines.push(tDynamic('fallback.more', locale))
   return lines.slice(0, 6)
 }

@@ -58,9 +58,9 @@ export async function POST(req: Request) {
     )
   }
 
-  let body: { profile?: LeadProfile }
+  let body: { profile?: LeadProfile; locale?: string }
   try {
-    body = (await req.json()) as { profile?: LeadProfile }
+    body = (await req.json()) as { profile?: LeadProfile; locale?: string }
   } catch {
     return Response.json({ error: 'Invalid JSON' }, { status: 400 })
   }
@@ -73,10 +73,18 @@ export async function POST(req: Request) {
   const slim = slimProfile(body.profile)
   const profileJson = JSON.stringify(slim, null, 2)
 
+  // Both fields land on the homeowner's wrap-up, so they follow the UI locale
+  // (as space-vision's summary does). The profile's values are English enum
+  // ids; without this the model writes English and quotes them ("slab").
+  const langNote =
+    body.locale === 'hr-HR'
+      ? "\n- Write thankYouMessage and every summaryLines bullet in Croatian (hr-HR). Address the homeowner as \"ti\", never \"vi\" — the rest of the UI does. Use Croatian kitchen-trade vocabulary: fronte, korpus, radna ploča, zidna obloga, okovi, sudoper, napa, ugradbeni uređaji, spoj pod kutom (not \"mitre\"), J-ručka (not \"J-pull\"). The data's enum values are English ids — translate them, never quote them (\"ravne fronte\", not \"slab\")."
+      : ''
+
   try {
     const result = await generateText({
       model: openai('gpt-5.4-mini'),
-      system: SYSTEM,
+      system: SYSTEM + langNote,
       messages: [
         {
           role: 'user',
@@ -118,9 +126,17 @@ export async function POST(req: Request) {
  * base64 data URLs — several MB that the old shallow strip let through. That is
  * the most likely cause of the intermittent 500 seen on the real path
  * (2026-09-19). Walk the whole object and replace any data: URL string.
+ *
+ * Once there is a builder state, the inspiration-photo guesses go too: the
+ * builder is what the homeowner chose, and the wrap-up rows next to this
+ * summary show the builder picks (lib/builder/pick-labels). A bullet saying
+ * "shaker" beside a row saying slab would contradict it.
  */
+const PHOTO_GUESS_FIELDS = ['doorMaterial', 'worktopPreference', 'backsplashPreference', 'hardwareTier'] as const
+
 function slimProfile(p: LeadProfile): Partial<LeadProfile> {
   const { spacePhotos, ...rest } = p
+  if (rest.builderState) for (const k of PHOTO_GUESS_FIELDS) delete rest[k]
   const slim = stripDataUrls(rest) as Partial<LeadProfile>
   if (spacePhotos && spacePhotos.length > 0) {
     slim.spacePhotos = [`<<${spacePhotos.length} photos attached>>`]
