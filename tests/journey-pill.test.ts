@@ -22,14 +22,14 @@ describe('journeyPillLabel', () => {
     expect(t('flow.space_photos.label')).not.toBe(t('journey.act.space'))
   })
 
-  test('builder group: build act with groups + scope + wishlist as the total', () => {
+  test('builder group: build act with groups + wishlist as the total', () => {
     const label = journeyPillLabel({
       funnelStepId: 'builder',
       profile: {},
       builderGroupId: 'worktop',
     })
     const pos = BUILDER_GROUPS.findIndex((g) => g.id === 'worktop') + 1
-    const total = BUILDER_GROUPS.length + 2 // + scope + wishlist
+    const total = BUILDER_GROUPS.length + 1 // + wishlist (scope step cut 2026-09-23)
     expect(label).toBe(`${t('journey.act.build')} · ${t('builder.groups.worktop.label')} · ${pos}/${total}`)
   })
 

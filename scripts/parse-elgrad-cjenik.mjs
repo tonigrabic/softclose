@@ -14,6 +14,7 @@
  *   1. Drop the new PDF into data/elgrad-cjenik-YYYY-MM-DD.pdf
  *   2. Update DEFAULT_PDF below
  *   3. node scripts/parse-elgrad-cjenik.mjs
+ *   4. node scripts/refresh-elgrad-curated.mjs
  */
 
 import { execFileSync } from 'node:child_process'
@@ -24,7 +25,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const ROOT = resolve(__dirname, '..')
 
-const DEFAULT_PDF = resolve(ROOT, 'data/elgrad-cjenik-2026-03-30.pdf')
+const DEFAULT_PDF = resolve(ROOT, 'data/elgrad-cjenik-2026-09-09.pdf')
 const OUT_RAW = resolve(ROOT, 'src/lib/catalog/elgrad-decors-raw.json')
 
 const pdfPath = process.argv[2] ? resolve(process.cwd(), process.argv[2]) : DEFAULT_PDF
@@ -36,6 +37,11 @@ const text = execFileSync('pdftotext', ['-layout', pdfPath, '-']).toString('utf8
 
 const ROW_RE =
   /^\s*(\d+)\s+([A-Z][0-9A-Z]+)\s+(ST\d+|SM|SUPER MAT)\s+([^\d€]+?)(?=\s{2,}|$)/
+
+// A row the PDF split in two: "3  W960  ST7" alone on its line, with the name
+// and prices on the line ABOVE it (the main white board, W960 ST7, is laid out
+// like this — and was silently dropped until 2026-09-26).
+const HEAD_ONLY_RE = /^\s*(\d+)\s+([A-Z][0-9A-Z]+)\s+(ST\d+|SM|SUPER MAT)\s*$/
 
 // One-shot match for a price OR a placeholder marker, with capture group on
 // the thing that matters and full-match on the whole token.
@@ -80,8 +86,20 @@ function parseRow(line, cols) {
   if (!head) return null
   const [, rowNum, code, structure, rawName] = head
   const name = rawName.trim().replace(/\s{2,}/g, ' ')
-  const headEndX = head[0].length
+  return { rowNum: Number(rowNum), code, structure, name, prices: snapPrices(line, head[0].length, cols) }
+}
 
+/** The split layout: head on `headLine`, name + prices on `dataLine` (above). */
+function parseSplitRow(headLine, dataLine, cols) {
+  const head = headLine.match(HEAD_ONLY_RE)
+  if (!head || !dataLine || /^\s*\d+\s+[A-Z][0-9A-Z]+/.test(dataLine)) return null
+  const [, rowNum, code, structure] = head
+  const firstToken = dataLine.search(TOKEN_RE)
+  const name = (firstToken > 0 ? dataLine.slice(0, firstToken) : dataLine).trim().replace(/\s{2,}/g, ' ')
+  return { rowNum: Number(rowNum), code, structure, name, prices: snapPrices(dataLine, 0, cols) }
+}
+
+function snapPrices(line, headEndX, cols) {
   const tokens = []
   for (const m of line.matchAll(TOKEN_RE)) {
     if (m.index < headEndX) continue
@@ -111,8 +129,7 @@ function parseRow(line, cols) {
     if (prices[best.key] !== undefined) continue
     prices[best.key] = tok.price
   }
-
-  return { rowNum: Number(rowNum), code, structure, name, prices }
+  return prices
 }
 
 const lines = text.split(/\r?\n/)
@@ -121,19 +138,27 @@ const rows = []
 const HEADER_WINDOW = 8
 const recent = []
 
+let prevLine = ''
 for (const line of lines) {
   recent.push(line)
   if (recent.length > HEADER_WINDOW) recent.shift()
 
-  // Re-detect column positions when we hit the "Naziv dekora" header line.
+  // Re-detect column positions at every "Naziv dekora" header. A header with
+  // fewer than 4 of our columns starts a DIFFERENT table (other brands' 18 mm
+  // boards, compact worktops, plates) — stop there instead of snapping its
+  // prices to the previous table's columns. That stale snap is how compact
+  // prices (103–180 €) ended up as 18 mm board prices for H1180, H1318, H1330
+  // and F206 (fixed 2026-09-26).
   if (/Naziv dekora/.test(line)) {
     const detected = detectColumnsForPage(recent)
-    if (detected.length >= 4) currentCols = detected
+    currentCols = detected.length >= 4 ? detected : null
+    prevLine = ''
     continue
   }
   if (!currentCols) continue
-  const row = parseRow(line, currentCols)
+  const row = parseRow(line, currentCols) ?? parseSplitRow(line, prevLine, currentCols)
   if (row) rows.push(row)
+  if (line.trim()) prevLine = line
 }
 
 mkdirSync(dirname(OUT_RAW), { recursive: true })

@@ -18,7 +18,7 @@
  * no-op save that bumped updated_at would invent customer activity that never
  * happened.
  */
-import { FLOW, flowIndex, stepNumber, type FlowStepId } from '@/lib/flow'
+import { FLOW, resolveStepId, stepNumber, type FlowStepId } from '@/lib/flow'
 
 export type ProjectDisplayStatus =
   | 'invited'
@@ -70,8 +70,8 @@ export interface StepProgress {
  */
 export function stepProgress(step: string | null): StepProgress | null {
   if (!step) return null
-  if (flowIndex(step as FlowStepId) === -1) return null
-  const stepId = step as FlowStepId
+  const stepId = resolveStepId(step)
+  if (!stepId) return null
   // The builder step is excluded from the homeowner's numbering (see
   // lib/flow.ts), so show it as the step it follows rather than as a gap.
   const total = FLOW.filter((s) => s.id !== 'builder').length

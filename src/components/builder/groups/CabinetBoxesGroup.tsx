@@ -4,8 +4,8 @@
  * Cabinets — SPECIFICS ONLY. The cabinet layout (which units, patterns,
  * counts, the sink/dishwasher/oven slots) is the Part-1 contract: seeded once
  * by the unit assembler, edited only on the confirm-layout card, and shown
- * here as a locked recap with an "Edit layout" escape hatch. The one choice
- * that lives in the builder is the carcass material.
+ * here as a recap of the chosen layout with an "Edit layout" escape hatch. The
+ * one choice that lives in the builder is the carcass interior decor.
  *
  * (This screen used to re-seed and re-layer units with AI hints + forced
  * sink/hob placement — the source of the multi-sink bug and of estimates
@@ -21,8 +21,6 @@ import type { BuilderState, CarcassMaterial } from '@/lib/builder/inventory'
 const CARCASS_OPTIONS = [
   'white_melamine_standard',
   'colored_melamine',
-  'moisture_resistant_p3',
-  'matched_to_door',
 ] as const satisfies readonly CarcassMaterial[]
 
 interface CabinetBoxesGroupProps {

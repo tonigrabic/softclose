@@ -6,6 +6,7 @@ import type { HandoffBundle, LeadProfile, TranslatedField } from '@/lib/types'
 import type { FloorPlan } from '@/lib/floor-plan'
 import { FEATURE_DEFAULTS, OPENING_DEFAULTS, formatLength } from '@/lib/floor-plan'
 import { cn } from '@/lib/utils'
+import { contactChannels } from '@/lib/contact'
 
 type Confidence = 'H' | 'M' | 'L' | null
 
@@ -148,10 +149,12 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: M
               Generated {new Date(bundle.generatedAt).toLocaleString()}
             </p>
           </div>
-          <div className="flex items-center gap-2 text-right">
-            {profile.contactValue && (
-              <span className="font-mono text-[11px] text-slate-600">{profile.contactValue}</span>
-            )}
+          <div className="flex flex-col items-end gap-0.5 text-right">
+            {contactChannels(profile).map((channel) => (
+              <span key={channel} className="font-mono text-[11px] text-slate-600">
+                {channel}
+              </span>
+            ))}
           </div>
         </div>
       </header>
@@ -466,12 +469,6 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: M
               <FieldRow
                 label="Site access"
                 value={profile.logistics?.siteAccess}
-                confidence="H"
-                source="homeowner"
-              />
-              <FieldRow
-                label="Living plan"
-                value={profile.logistics?.livingDuringBuild}
                 confidence="H"
                 source="homeowner"
               />

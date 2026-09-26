@@ -24,6 +24,9 @@ export interface KitchenHomeProps {
   readOnly: boolean
   /** The journey as the server last saw it, for a resume on any device. */
   snapshot: ProjectSnapshot | null
+  /** The customer's account — their email is the brief's contact address. */
+  customerEmail: string | null
+  customerName: string | null
 }
 
 const ACTS = [
@@ -58,6 +61,8 @@ export function KitchenHome(props: KitchenHomeProps) {
         readOnly={props.readOnly}
         hasExistingBrief={Boolean(props.briefId)}
         initialSnapshot={props.snapshot}
+        customerEmail={props.customerEmail}
+        customerName={props.customerName}
       />
     )
   }

@@ -948,3 +948,61 @@ Vercel, apply 0004/0005 to production, then turn Vercel Deployment Protection
 OFF — or invited customers hit Vercel's SSO wall and never reach /login.
 
 Gate: 309 tests · tsc · eslint · build green (was 158 at the start).
+
+### 2026-09-23 — Maker-tester feedback, round 1: trade names, fewer questions
+Branch `feat/tester-feedback-builder` (off `feat/invite-only-auth`, not merged).
+Croatian makers walked the flow and sent a list (step 2 through logistics).
+The through-line: **ask only what moves the first quote, in trade words**.
+
+**Done, browser-verified on the local stack (mock AI):**
+- Intake: "Opseg radova" step and "Gdje ćeš živjeti tijekom radova?" gone;
+  "Odaberi stil"; style tiles translated (they were English in hr-HR);
+  "Natural organic" → "Rustikalni"; the "Iščitano iz tvojih odabira" list is
+  a one-line done row. Journeys saved on the old scope step resume at the
+  wishlist (`resolveStepId`).
+- Builder: Korpusi (dekor korpusa: klasična bijela / u boji), Odabrani
+  raspored, Fronte, Zidna obloga (u dekoru radne ploče / pločice / staklo /
+  drugo + text / bez, no height), LED yes/no, sokl 100/150 · drveni/plastični.
+  Okovi screen, worktop edge, cornice, end panels, open shelving removed from
+  the schema, the AI prefill and the BOM — fittings stay priced as the maker's
+  standard spec.
+- Supply first: "Nabava uređaja" / "Nabava sudopera i slavine" (homeowner by
+  default, "Kombinirano" cut). Types and models only when the maker buys.
+  Built-in vs freestanding is asked either way and now really prices: a
+  built-in fridge re-runs the assembler (18 → 19 korpusa, ~+230 €), a
+  freestanding dishwasher drops its front.
+- `normalizeBuilderState` maps retired values in saved states (relock and
+  computeBom), so old kitchens and saved briefs keep pricing.
+
+**Split off (their own sessions, discuss first):** floor plan before the
+render; multi-angle space photos (render anchors one photo — the L-kitchen
+"second wall ignored" report).
+
+**Next:** Fronte material (iveral → Elgrad decors with name + code and real
+grain; lakirani medijapan → RAL + ravna / s ukladom / reljef; alu + staklo),
+and worktop materials with thickness by material. Data research is in the
+session scratchpad: RAL Classic (216, RAL's own swatches, cross-checked) + a
+25-colour kitchen shortlist; EGGER texture URLs for all 198 Elgrad decors
+(all Elgrad codes are EGGER) — **reuse needs EGGER's permission**. The PDF
+parser dropped W960 ST7 (the white the testers named) and ~30 other rows.
+
+Gate: 316 tests · tsc · eslint green.
+
+### 2026-09-26 — Fronts: material first (tester feedback, round 1 cont.)
+- "Materijal fronte": iveral (Elgrad decors, real EGGER swatches, name +
+  code) / lakirani medijapan (ravna · s ukladom · reljef, drawn in the chosen
+  RAL; 25-colour kitchen shortlist + any solid RAL Classic code) / aluminij sa
+  staklom. Style chips gone; legacy states + older AI reads map across.
+- Fronts are their own BOM line. Lacquered MDF 95–135 €/m² (×1.2 inset,
+  ×1.35 relief) and alu + glass 170–250 €/m² are **reference bands** — replace
+  with a maker's lacquer-shop pricelist (LOOP.md Q7).
+- **Price bug fixed:** the cjenik parser read compact-worktop prices as 18 mm
+  board prices (H1180 179.65 → 35.82 €/m², H1318, H1330, F206 likewise), and
+  dropped W960 ST7. Both fixed in the parser, not by hand.
+- **EGGER images are hotlinked for testing only** (Toni's call). Before
+  launch: EGGER's written permission, then serve fixed sizes from our own
+  storage. Switch: `DECOR_IMAGES_ENABLED` in lib/builder/swatches.ts.
+- Worktops next: waiting on what the testers mean by "Laminat"; quartz =
+  Silestone / Technistone / Quartzforms (sold in Croatia, Toni's call).
+
+Gate: 328 tests · tsc · eslint green. Browser-verified in the /builder harness.

@@ -24,10 +24,13 @@ import type { BuilderScreenId, BuilderState } from '@/lib/builder/inventory'
 import type { BuilderAction } from '@/lib/builder/state'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
+import { assembleUnits, hintsFromHypothesis, type UnitEdits } from '@/lib/builder/unit-assembly'
+import { findDecor } from '@/lib/catalog'
+import { decorLabel } from '@/lib/builder/swatches'
+import type { ApplianceSelection } from '@/lib/builder/inventory'
 import { FactsRecap } from '../FactsRecap'
 import { CabinetBoxesGroup } from './CabinetBoxesGroup'
 import { DoorsGroup } from './DoorsGroup'
-import { HardwareGroup } from './HardwareGroup'
 import { WorktopGroup } from './WorktopGroup'
 import { BacksplashGroup } from './BacksplashGroup'
 import { AppliancesGroup } from './AppliancesGroup'
@@ -40,6 +43,8 @@ export interface GroupBodyProps {
   state: BuilderState
   hypothesis: BuilderHypothesis | null
   layoutContract: LayoutContract
+  /** The homeowner's per-row unit edits from the Part-1 contract card. */
+  unitEdits?: UnitEdits | null
   dispatch: React.Dispatch<BuilderAction>
   /** Escape hatch back to Part 1's confirm_look (absent in the dev harness). */
   onEditLayout?: () => void
@@ -50,6 +55,10 @@ export interface BuilderGroupModule {
   /** Captured-value one-liner under the completed step in the nav rail
    * (status visibility, P0). Return null when there's nothing to read back. */
   readback: (state: BuilderState, locale: Locale) => string | null
+}
+
+function integratedFridge(selections: ApplianceSelection[]): boolean {
+  return selections.find((s) => s.type === 'fridge')?.integrated ?? false
 }
 
 export const GROUP_MODULES: Record<BuilderScreenId, BuilderGroupModule> = {
@@ -70,13 +79,13 @@ export const GROUP_MODULES: Record<BuilderScreenId, BuilderGroupModule> = {
     Body: ({ state, dispatch }) => (
       <DoorsGroup state={state} onPatch={(patch) => dispatch({ type: 'patch_doors', patch })} />
     ),
-    readback: (s, locale) => tDynamic(`doors.style.${s.doors.style}`, locale),
-  },
-  hardware: {
-    Body: ({ state, dispatch }) => (
-      <HardwareGroup state={state} onPatch={(patch) => dispatch({ type: 'patch_hardware', patch })} />
-    ),
-    readback: (s, locale) => tDynamic(`hardware.tier.${s.hardware.drawerSystemTier}`, locale),
+    readback: (s, locale) => {
+      const d = s.doors
+      if (d.material === 'lacquered_mdf') return `${d.ralCode} · ${tDynamic(`doors.profile.${d.profile}`, locale)}`
+      if (d.material === 'alu_glass') return tDynamic('doors.material.alu_glass', locale)
+      const decor = findDecor(d.decorCode, d.decorStructure)
+      return decor ? decorLabel(locale === 'en-US' && decor.nameEn ? decor.nameEn : decor.name, decor.code, decor.structure) : null
+    },
   },
   worktop: {
     Body: ({ state, dispatch }) => (
@@ -89,17 +98,38 @@ export const GROUP_MODULES: Record<BuilderScreenId, BuilderGroupModule> = {
       <BacksplashGroup state={state} onPatch={(patch) => dispatch({ type: 'patch_backsplash', patch })} />
     ),
     readback: (s, locale) =>
-      s.backsplash.kind === 'none' ? null : tDynamic(`backsplash.kind.${s.backsplash.kind}`, locale),
+      s.backsplash.kind === 'none'
+        ? null
+        : s.backsplash.kind === 'other' && s.backsplash.otherDecor?.trim()
+          ? s.backsplash.otherDecor.trim()
+          : tDynamic(`backsplash.kind.${s.backsplash.kind}`, locale),
   },
   appliances: {
-    Body: ({ state, layoutContract, dispatch }) => (
+    Body: ({ state, hypothesis, layoutContract, unitEdits, dispatch }) => (
       <AppliancesGroup
         state={state}
         layoutContract={layoutContract}
-        onPatch={(patch) => dispatch({ type: 'patch_appliances', patch })}
+        onPatch={(patch) => {
+          dispatch({ type: 'patch_appliances', patch })
+          // A built-in fridge gets a tall housing carcass, so flipping it
+          // re-runs THE assembler (same call as hydration) — the korpus count
+          // and the estimate follow the answer.
+          const before = integratedFridge(state.appliances.selections)
+          const after = patch.selections ? integratedFridge(patch.selections) : before
+          if (after !== before) {
+            const { units } = assembleUnits({
+              contract: layoutContract,
+              hints: hintsFromHypothesis(hypothesis),
+              edits: unitEdits ?? null,
+              integratedFridge: after,
+            })
+            dispatch({ type: 'patch_cabinetBoxes', patch: { units } })
+          }
+        }}
       />
     ),
     readback: (s, locale) => {
+      if (s.appliances.supply !== 'maker_supplies') return tDynamic('appliances.supply.homeowner_supplies', locale)
       const n = s.appliances.selections.length
       return n > 0 ? tDynamic('readback.appliances', locale).replace('{n}', String(n)) : null
     },
@@ -108,26 +138,22 @@ export const GROUP_MODULES: Record<BuilderScreenId, BuilderGroupModule> = {
     Body: ({ state, dispatch }) => (
       <SinkTapsGroup state={state} onPatch={(patch) => dispatch({ type: 'patch_sinkTaps', patch })} />
     ),
-    readback: (s, locale) => tDynamic(`sinkTaps.material.${s.sinkTaps.sink.material}`, locale),
+    readback: (s, locale) =>
+      s.sinkTaps.supply === 'maker_supplies'
+        ? tDynamic(`sinkTaps.material.${s.sinkTaps.sink.material}`, locale)
+        : tDynamic('sinkTaps.supply.homeowner_supplies', locale),
   },
   lighting: {
     Body: ({ state, dispatch }) => (
       <LightingGroup state={state} onPatch={(patch) => dispatch({ type: 'patch_lighting', patch })} />
     ),
-    readback: (s, locale) => {
-      const n = [
-        s.lighting.underCabinetLed,
-        s.lighting.plinthLed,
-        s.lighting.pendantOverIsland,
-        s.lighting.smartControls,
-      ].filter(Boolean).length
-      return n > 0 ? tDynamic('readback.lightingLayers', locale).replace('{n}', String(n)) : null
-    },
+    readback: (s, locale) => tDynamic(s.lighting.led ? 'readback.led.yes' : 'readback.led.no', locale),
   },
   finishing: {
     Body: ({ state, dispatch }) => (
       <FinishingGroup state={state} onPatch={(patch) => dispatch({ type: 'patch_finishing', patch })} />
     ),
-    readback: (s, locale) => tDynamic(`finishing.plinthMaterial.${s.finishing.plinthMaterial}`, locale),
+    readback: (s, locale) =>
+      `${s.finishing.plinthHeightMm} mm · ${tDynamic(`finishing.plinthMaterial.${s.finishing.plinthMaterial}`, locale)}`,
   },
 }

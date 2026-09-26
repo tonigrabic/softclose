@@ -14,8 +14,9 @@ import { cn } from '@/lib/utils'
  * refactor; see handoff/IMPLEMENTATION.md).
  *
  * Two content modes:
- *  - no `rightRail`  → a single centered column (the capture/close steps, which
- *    look exactly as the funnel does today).
+ *  - no `rightRail`  → a single centered column (the capture/close steps),
+ *    pushed right of the fixed left nav when the viewport is too narrow to
+ *    center it clear of the nav.
  *  - with `rightRail` → a wide layout offset past the fixed left nav, with a
  *    persistent right rail (render anchor + live price range) — used by the
  *    builder and any step that wants the range in view.
@@ -90,8 +91,9 @@ export function AppShell({
         <LanguageSwitcher />
       </div>
 
-      {/* Fixed left nav — floats over the layout so the centered column doesn't
-          shift. Desktop only; mobile uses the sheet below. */}
+      {/* Fixed left nav. Desktop only; mobile uses the sheet below. It sits on
+          top of the page (z-30), so both content modes must keep clear of its
+          18rem — wide mode pads past it, centered mode clamps its margin. */}
       <aside className="fixed left-0 top-0 z-30 hidden h-dvh w-64 shrink-0 overflow-y-auto px-5 py-10 lg:flex lg:w-72 lg:flex-col lg:px-6">
         {nav}
       </aside>
@@ -109,10 +111,13 @@ export function AppShell({
           </div>
         </div>
       ) : (
-        // Centered mode: identical to today's funnel main.
+        // Centered mode: centered in the viewport when there's room, but the
+        // left margin never drops below the nav's width (18rem = the aside's
+        // lg:w-72), so between lg and ~1344px the column slides right instead
+        // of running under the fixed nav.
         <main
           className={cn(
-            'mx-auto w-full max-w-3xl px-8 py-14 lg:px-14 lg:py-16',
+            'mx-auto max-w-3xl px-8 py-14 lg:ml-[max(18rem,calc((100%_-_48rem)/2))] lg:px-14 lg:py-16',
             mobileDock && 'pb-28 lg:pb-16'
           )}
         >

@@ -26,7 +26,13 @@ function builderStateFromFixture(id: string) {
   const fixture = CONTRACT_FIXTURES.find((f) => f.id === id)
   if (!fixture) throw new Error(`unknown fixture ${id}`)
   const contract = floorPlanToLayout(fixture.build())
-  return hydrateFromHypothesis(null, { layoutContract: contract })
+  const s = hydrateFromHypothesis(null, { layoutContract: contract })
+  // Maker supplies the goods, so the all-in "with appliances" figure exists.
+  return {
+    ...s,
+    appliances: { ...s.appliances, supply: 'maker_supplies' as const },
+    sinkTaps: { ...s.sinkTaps, supply: 'maker_supplies' as const },
+  }
 }
 
 

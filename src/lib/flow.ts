@@ -17,7 +17,6 @@ export type FlowStepId =
   | 'concept_render'
   | 'confirm_look'
   | 'builder'
-  | 'scope'
   | 'wishlist'
   | 'logistics'
   | 'contact'
@@ -71,14 +70,9 @@ export const FLOW: FlowStepMeta[] = [
     why: 'Pick every component and see a live cost range.',
     group: 'build',
   },
-  // scope + wishlist live INSIDE the Build act — they shape the kitchen and
-  // move the price, so they belong with the live range, not after it.
-  {
-    id: 'scope',
-    label: 'Scope of work',
-    why: "What's actually being touched in this project.",
-    group: 'build',
-  },
+  // The wishlist lives INSIDE the Build act — it shapes the kitchen, so it
+  // belongs with the live range, not after it. (The old "scope of work" step
+  // was cut after maker testing, 2026-09-23: the estimate is the kitchen.)
   {
     id: 'wishlist',
     label: 'Wishlist',
@@ -90,7 +84,7 @@ export const FLOW: FlowStepMeta[] = [
   {
     id: 'logistics',
     label: 'Logistics',
-    why: 'Rough timing, site access, living arrangement.',
+    why: 'Rough timing and site access.',
     group: 'details',
   },
   {
@@ -100,6 +94,21 @@ export const FLOW: FlowStepMeta[] = [
     group: 'finish',
   },
 ]
+
+/**
+ * Steps that no longer exist, mapped to where a saved journey resumes instead.
+ * Snapshots are forward-tolerant (see lib/project/snapshot.ts), so a journey
+ * saved on a retired step must still land somewhere real.
+ */
+const RETIRED_STEPS: Record<string, FlowStepId> = {
+  scope: 'wishlist',
+}
+
+/** A stored step id → a live one (retired steps forward to their successor). */
+export function resolveStepId(id: string): FlowStepId | null {
+  if (FLOW.some((s) => s.id === id)) return id as FlowStepId
+  return RETIRED_STEPS[id] ?? null
+}
 
 export function flowIndex(id: FlowStepId): number {
   return FLOW.findIndex((s) => s.id === id)

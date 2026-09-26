@@ -1,20 +1,17 @@
 'use client'
 
 import { Lock, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useTranslations } from '@/lib/i18n'
 import { PickerSlot } from '../PickerSlot'
-import { ChipRow, ToggleRow } from '../ChipRow'
+import { ChipRow } from '../ChipRow'
 import { SchachermayerBrowse } from '../SchachermayerBrowse'
 import { appliancesForType } from '@/lib/catalog/hardware'
 import { inferApplianceFields } from '@/lib/builder/pick-inference'
 import type { ApplianceSelection, ApplianceSupply, BuilderState } from '@/lib/builder/inventory'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
 
-const SUPPLY_OPTIONS = [
-  'homeowner_supplies',
-  'maker_supplies',
-  'mixed',
-] as const satisfies readonly ApplianceSupply[]
+const SUPPLY_OPTIONS = ['homeowner_supplies', 'maker_supplies'] as const satisfies readonly ApplianceSupply[]
 
 const HOB_OPTIONS = ['induction', 'gas', 'ceramic', 'unknown'] as const
 const OVEN_OPTIONS = ['single', 'double', 'combi', 'unknown'] as const
@@ -30,7 +27,7 @@ const EXTRACTOR_OPTIONS = [
 /**
  * Each appliance is stored as a single ApplianceSelection in
  * state.appliances.selections. We expose a tiny chip picker for hob / oven /
- * extractor "kind", and toggles for fridge / dishwasher integrated state.
+ * extractor "kind", and a built-in / freestanding choice for fridge / dishwasher.
  */
 function getSelection(state: BuilderState, type: ApplianceSelection['type']): string | undefined {
   return state.appliances.selections.find((s) => s.type === type)?.config
@@ -78,6 +75,13 @@ function setIncluded(
   return state.appliances.selections.filter((s) => s.type !== type)
 }
 
+/**
+ * Who buys the appliances comes first (maker testing, 2026-09-23): only when
+ * the maker supplies them do hob / oven / extractor types and models matter
+ * for the quote. Built-in vs freestanding is asked either way — a built-in
+ * fridge needs a tall carcass and a front, a built-in dishwasher a front, so
+ * it moves the kitchen price whoever buys the appliance.
+ */
 export function AppliancesGroup({
   state,
   layoutContract,
@@ -95,6 +99,12 @@ export function AppliancesGroup({
   const hobLocked = placed.has('hob')
   const fridgeLocked = placed.has('fridge')
   const dishwasherLocked = placed.has('dishwasher')
+  const makerSupplies = state.appliances.supply === 'maker_supplies'
+
+  // When the homeowner buys, only appliances on the plan carry cabinetry, so
+  // only those get the built-in question.
+  const showFridge = fridgeLocked || makerSupplies
+  const showDishwasher = dishwasherLocked || makerSupplies
 
   return (
     <div className="space-y-5">
@@ -115,135 +125,170 @@ export function AppliancesGroup({
         />
       </PickerSlot>
 
-      <PickerSlot label={t('appliances.hobLabel')} meta={state.appliances.meta.hob}>
-        <IncludeToggle
-          on={hobLocked || isIncluded(state, 'hob')}
-          locked={hobLocked}
-          onChange={(on) => onPatch({ selections: setIncluded(state, 'hob', on, 'unknown') })}
-        />
-        {(hobLocked || isIncluded(state, 'hob')) && (
-          <ChipRow
-            keyPrefix="appliances.hob"
-            values={HOB_OPTIONS}
-            selected={getSelection(state, 'hob') ?? 'unknown'}
-            onChange={(v) =>
-              onPatch({
-                selections: upsert(state, 'hob', { config: v }),
-                meta: {
-                  ...state.appliances.meta,
-                  hob: { confidence: 'H', provenance: 'homeowner-edited' },
-                },
-              })
-            }
-          />
-        )}
-      </PickerSlot>
-
-      <PickerSlot label={t('appliances.ovenLabel')} meta={state.appliances.meta.oven}>
-        <IncludeToggle
-          on={isIncluded(state, 'oven')}
-          onChange={(on) => onPatch({ selections: setIncluded(state, 'oven', on, 'unknown') })}
-        />
-        {isIncluded(state, 'oven') && (
-          <ChipRow
-            keyPrefix="appliances.oven"
-            values={OVEN_OPTIONS}
-            selected={getSelection(state, 'oven') ?? 'unknown'}
-            onChange={(v) =>
-              onPatch({
-                selections: upsert(state, 'oven', { config: v }),
-                meta: {
-                  ...state.appliances.meta,
-                  oven: { confidence: 'H', provenance: 'homeowner-edited' },
-                },
-              })
-            }
-          />
-        )}
-      </PickerSlot>
-
-      <PickerSlot label={t('appliances.extractorLabel')} meta={state.appliances.meta.extractor}>
-        <IncludeToggle
-          on={isIncluded(state, 'extractor')}
-          onChange={(on) =>
-            onPatch({ selections: setIncluded(state, 'extractor', on, 'unknown') })
-          }
-        />
-        {isIncluded(state, 'extractor') && (
-          <ChipRow
-            keyPrefix="appliances.extractor"
-            values={EXTRACTOR_OPTIONS}
-            selected={getSelection(state, 'extractor') ?? 'unknown'}
-            onChange={(v) =>
-              onPatch({
-                selections: upsert(state, 'extractor', { config: v }),
-                meta: {
-                  ...state.appliances.meta,
-                  extractor: { confidence: 'H', provenance: 'homeowner-edited' },
-                },
-              })
-            }
-          />
-        )}
-      </PickerSlot>
-
-      <PickerSlot label={t('appliances.fridgeLabel')} meta={state.appliances.meta.fridge}>
-        <IncludeToggle
-          on={fridgeLocked || isIncluded(state, 'fridge')}
-          locked={fridgeLocked}
-          onChange={(on) => onPatch({ selections: setIncluded(state, 'fridge', on) })}
-        />
-        {(fridgeLocked || isIncluded(state, 'fridge')) && (
-          <ToggleRow
-            label={
-              getIntegrated(state, 'fridge')
-                ? t('appliances.fridgeIntegrated')
-                : t('appliances.fridgeStandalone')
-            }
-            on={getIntegrated(state, 'fridge')}
-            onChange={(on) =>
-              onPatch({
-                selections: upsert(state, 'fridge', { integrated: on, config: 'standard' }),
-                meta: {
-                  ...state.appliances.meta,
-                  fridge: { confidence: 'H', provenance: 'homeowner-edited' },
-                },
-              })
-            }
-          />
-        )}
-      </PickerSlot>
-
-      <PickerSlot label={t('appliances.dishwasherLabel')} meta={state.appliances.meta.dishwasher}>
-        <IncludeToggle
-          on={dishwasherLocked || isIncluded(state, 'dishwasher')}
-          locked={dishwasherLocked}
-          onChange={(on) => onPatch({ selections: setIncluded(state, 'dishwasher', on) })}
-        />
-        {(dishwasherLocked || isIncluded(state, 'dishwasher')) && (
-          <ToggleRow
-            label={
-              getIntegrated(state, 'dishwasher')
-                ? t('appliances.dishwasherIntegrated')
-                : t('appliances.dishwasherStandalone')
-            }
-            on={getIntegrated(state, 'dishwasher')}
-            onChange={(on) =>
-              onPatch({
-                selections: upsert(state, 'dishwasher', { integrated: on, config: 'standard' }),
-                meta: {
-                  ...state.appliances.meta,
-                  dishwasher: { confidence: 'H', provenance: 'homeowner-edited' },
-                },
-              })
-            }
-          />
-        )}
-      </PickerSlot>
-
-      {state.appliances.supply !== 'homeowner_supplies' && (
-        <ApplianceBrowsePanel state={state} onPatch={onPatch} />
+      {(showFridge || showDishwasher) && (
+        <p className="text-[13px] leading-relaxed text-muted-foreground">{t('appliances.builtInHelp')}</p>
       )}
+
+      {showFridge && (
+        <PickerSlot label={t('appliances.fridgeLabel')} meta={state.appliances.meta.fridge}>
+          {!fridgeLocked && (
+            <IncludeToggle
+              on={isIncluded(state, 'fridge')}
+              onChange={(on) => onPatch({ selections: setIncluded(state, 'fridge', on) })}
+            />
+          )}
+          {(fridgeLocked || isIncluded(state, 'fridge')) && (
+            <MountChoice
+              integrated={getIntegrated(state, 'fridge')}
+              labels={[t('appliances.fridgeIntegrated'), t('appliances.fridgeStandalone')]}
+              onChange={(integrated) =>
+                onPatch({
+                  selections: upsert(state, 'fridge', { integrated, config: 'standard' }),
+                  meta: {
+                    ...state.appliances.meta,
+                    fridge: { confidence: 'H', provenance: 'homeowner-edited' },
+                  },
+                })
+              }
+            />
+          )}
+        </PickerSlot>
+      )}
+
+      {showDishwasher && (
+        <PickerSlot label={t('appliances.dishwasherLabel')} meta={state.appliances.meta.dishwasher}>
+          {!dishwasherLocked && (
+            <IncludeToggle
+              on={isIncluded(state, 'dishwasher')}
+              onChange={(on) => onPatch({ selections: setIncluded(state, 'dishwasher', on) })}
+            />
+          )}
+          {(dishwasherLocked || isIncluded(state, 'dishwasher')) && (
+            <MountChoice
+              integrated={getIntegrated(state, 'dishwasher')}
+              labels={[t('appliances.dishwasherIntegrated'), t('appliances.dishwasherStandalone')]}
+              onChange={(integrated) =>
+                onPatch({
+                  selections: upsert(state, 'dishwasher', { integrated, config: 'standard' }),
+                  meta: {
+                    ...state.appliances.meta,
+                    dishwasher: { confidence: 'H', provenance: 'homeowner-edited' },
+                  },
+                })
+              }
+            />
+          )}
+        </PickerSlot>
+      )}
+
+      {makerSupplies && (
+        <>
+          <PickerSlot label={t('appliances.hobLabel')} meta={state.appliances.meta.hob}>
+            <IncludeToggle
+              on={hobLocked || isIncluded(state, 'hob')}
+              locked={hobLocked}
+              onChange={(on) => onPatch({ selections: setIncluded(state, 'hob', on, 'unknown') })}
+            />
+            {(hobLocked || isIncluded(state, 'hob')) && (
+              <ChipRow
+                keyPrefix="appliances.hob"
+                values={HOB_OPTIONS}
+                selected={getSelection(state, 'hob') ?? 'unknown'}
+                onChange={(v) =>
+                  onPatch({
+                    selections: upsert(state, 'hob', { config: v }),
+                    meta: {
+                      ...state.appliances.meta,
+                      hob: { confidence: 'H', provenance: 'homeowner-edited' },
+                    },
+                  })
+                }
+              />
+            )}
+          </PickerSlot>
+
+          <PickerSlot label={t('appliances.ovenLabel')} meta={state.appliances.meta.oven}>
+            <IncludeToggle
+              on={isIncluded(state, 'oven')}
+              onChange={(on) => onPatch({ selections: setIncluded(state, 'oven', on, 'unknown') })}
+            />
+            {isIncluded(state, 'oven') && (
+              <ChipRow
+                keyPrefix="appliances.oven"
+                values={OVEN_OPTIONS}
+                selected={getSelection(state, 'oven') ?? 'unknown'}
+                onChange={(v) =>
+                  onPatch({
+                    selections: upsert(state, 'oven', { config: v }),
+                    meta: {
+                      ...state.appliances.meta,
+                      oven: { confidence: 'H', provenance: 'homeowner-edited' },
+                    },
+                  })
+                }
+              />
+            )}
+          </PickerSlot>
+
+          <PickerSlot label={t('appliances.extractorLabel')} meta={state.appliances.meta.extractor}>
+            <IncludeToggle
+              on={isIncluded(state, 'extractor')}
+              onChange={(on) =>
+                onPatch({ selections: setIncluded(state, 'extractor', on, 'unknown') })
+              }
+            />
+            {isIncluded(state, 'extractor') && (
+              <ChipRow
+                keyPrefix="appliances.extractor"
+                values={EXTRACTOR_OPTIONS}
+                selected={getSelection(state, 'extractor') ?? 'unknown'}
+                onChange={(v) =>
+                  onPatch({
+                    selections: upsert(state, 'extractor', { config: v }),
+                    meta: {
+                      ...state.appliances.meta,
+                      extractor: { confidence: 'H', provenance: 'homeowner-edited' },
+                    },
+                  })
+                }
+              />
+            )}
+          </PickerSlot>
+
+          <ApplianceBrowsePanel state={state} onPatch={onPatch} />
+        </>
+      )}
+    </div>
+  )
+}
+
+/** Built-in / freestanding as two chips (the old switch changed its own label). */
+function MountChoice({
+  integrated,
+  labels,
+  onChange,
+}: {
+  integrated: boolean
+  labels: [builtIn: string, freestanding: string]
+  onChange: (integrated: boolean) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {([true, false] as const).map((v) => (
+        <button
+          key={String(v)}
+          type="button"
+          onClick={() => onChange(v)}
+          className={cn(
+            'rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors',
+            integrated === v
+              ? 'border-primary bg-primary/10 text-foreground'
+              : 'border-border bg-card text-muted-foreground hover:text-foreground'
+          )}
+        >
+          {v ? labels[0] : labels[1]}
+        </button>
+      ))}
     </div>
   )
 }

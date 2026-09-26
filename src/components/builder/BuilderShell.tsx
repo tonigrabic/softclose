@@ -136,6 +136,7 @@ export function BuilderShell({
       currentId={currentId}
       onCurrentChange={setCurrentId}
       hypothesis={hypothesis}
+      unitEdits={unitEdits}
       renderImageDataUrl={renderImageDataUrl}
       anchorPhotoDataUrl={anchorPhotoDataUrl}
       layoutSummary={layoutSummary}
@@ -182,6 +183,7 @@ function Shell({
   currentId,
   onCurrentChange,
   hypothesis,
+  unitEdits,
   renderImageDataUrl,
   anchorPhotoDataUrl,
   layoutSummary,
@@ -195,6 +197,7 @@ function Shell({
   currentId: BuilderScreenId
   onCurrentChange: (id: BuilderScreenId) => void
   hypothesis: BuilderHypothesis | null
+  unitEdits?: UnitEdits | null
   renderImageDataUrl?: string
   anchorPhotoDataUrl?: string
   layoutSummary?: string
@@ -307,6 +310,7 @@ function Shell({
                 state={state}
                 hypothesis={hypothesis}
                 layoutContract={layoutContract}
+                unitEdits={unitEdits}
                 dispatch={dispatch}
                 onEditLayout={onEditLayout ? () => onEditLayout(state) : undefined}
               />
