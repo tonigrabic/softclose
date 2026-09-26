@@ -110,6 +110,8 @@ const cabinetBoxesSchema = z.object({
 })
 
 const doorsSchema = z.object({
+  material: hint(z.enum(['iveral', 'lacquered_mdf', 'alu_glass'])).optional(),
+  profile: hint(z.enum(['flat', 'inset', 'relief'])).optional(),
   style: hint(
     z.enum(['slab', 'shaker', 'handleless_jpull', 'handleless_groove', 'glass_front', 'beaded'])
   ).optional(),
@@ -340,6 +342,7 @@ Rules:
 - Return only what you can see or reasonably infer. Skip a field rather than fabricate.
 - Confidence is per-field. 'H' only when the visual evidence is unambiguous; 'L' liberally — better empty than wrong.
 - For each field include a short \`reason\` (≤ 12 words) referencing the visual evidence ("matte black slab fronts visible", "concrete-textured worktop").
+- doors.material: 'lacquered_mdf' when the fronts look painted/lacquered — one solid colour, often with an inset panel or a routed relief; 'iveral' for melamine decors (wood grain, stone print, plain flat slabs); 'alu_glass' only when most fronts are aluminium-framed glass. doors.profile only for lacquered_mdf: 'flat', 'inset' (frame around a recessed panel, shaker) or 'relief' (routed decorative profile).
 - For decorCode suggestions: pick the closest match from the catalog below. Match family + tone + finish. If nothing close, leave decorCode empty and provide a colorDescription on the doors field.
 - For layout (shape, island, runs): READ THE LAYOUT FROM THE RENDER — this is the kitchen we are pricing. Set layout.shape and layout.hasIsland from what the render actually shows. An APPROXIMATE existing-space layout may also be provided as text in the user message: use its cm figures ONLY as a SCALE reference, cross-checked against the anchor photo, and reuse its run ids ("top", "left", "island") where they still apply so things line up. If the render adds an island or changes the shape vs. the existing space, FOLLOW THE RENDER. Per run, infer hasBase/hasWall (upper cabinets present?) and hasTall (a full-height tower present?). With no reference at all, fall back to: L-shape → two runs, galley → two facing, straight → one.
 - Hardware is mostly invisible in renders — set drawerSystemTier confidence 'L' unless handles are clearly visible.

@@ -14,14 +14,14 @@ import type { BuilderHypothesis } from './hypothesis'
 import { assembleUnits, hintsFromHypothesis, type UnitEdits } from './unit-assembly'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
 import { applianceFootprintCm } from '@/lib/contract/layout-contract'
-import { normalizeBuilderState } from './normalize'
+import { frontFromStyle, normalizeBuilderState } from './normalize'
+import { DEFAULT_RAL } from '@/lib/catalog/ral'
 import type {
   ApplianceSelection,
   BuilderGroupId,
   BuilderScreenId,
   BuilderState,
   ConfidenceLevel,
-  DoorStyle,
   FieldMeta,
   Provenance,
   WallRunDimensions,
@@ -92,6 +92,12 @@ export function hydrateFromHypothesis(
   const doorsHy = hypothesis?.doors
   const initialDoorsDecorCode = doorsHy?.decorCode?.value ?? 'W1000'
   const initialDoorsDecorStructure = doorsHy?.decorStructure?.value ?? 'ST9'
+  // Material + profile from the vision read; an older hypothesis only has the
+  // look ("shaker", "slab"), which maps onto them.
+  const styleFront = frontFromStyle(doorsHy?.style?.value)
+  const frontMaterial = doorsHy?.material?.value ?? styleFront.material
+  const frontProfile = doorsHy?.profile?.value ?? styleFront.profile
+  const frontMaterialHint = doorsHy?.material ?? doorsHy?.style
 
   // Worktop — match doors decor by default if the AI didn't pin one.
   const worktopHy = hypothesis?.worktop
@@ -156,14 +162,19 @@ export function hydrateFromHypothesis(
     },
 
     doors: {
-      style: (doorsHy?.style?.value ?? 'slab') as DoorStyle,
+      material: frontMaterial,
       decorCode: initialDoorsDecorCode,
       decorStructure: initialDoorsDecorStructure,
+      ralCode: DEFAULT_RAL,
+      profile: frontProfile,
       overlay: doorsHy?.overlay?.value ?? 'full',
       edgeProfile: doorsHy?.edgeProfile?.value ?? 'square',
       meta: {
-        style: metaFromHint(doorsHy?.style),
+        material: metaFromHint(frontMaterialHint),
         decorCode: metaFromHint(doorsHy?.decorCode),
+        // No vision read of the RAL code — it's always the homeowner's pick.
+        ralCode: { ...META_DEFAULT },
+        profile: metaFromHint(doorsHy?.profile ?? doorsHy?.style),
         overlay: metaFromHint(doorsHy?.overlay),
       },
     },

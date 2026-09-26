@@ -11,7 +11,28 @@
  * dashboard and the handoff bundle price saved briefs on the server. Pure and
  * idempotent: a current-shape state comes back unchanged.
  */
-import type { BuilderState, CarcassMaterial, FieldMeta, PlinthMaterial } from './inventory'
+import type {
+  BuilderState,
+  CarcassMaterial,
+  DoorStyle,
+  FieldMeta,
+  FrontMaterial,
+  MdfProfile,
+  PlinthMaterial,
+} from './inventory'
+import { DEFAULT_RAL } from '@/lib/catalog/ral'
+
+/**
+ * The old front "style" (and the vision model's style read) → the trade's
+ * material + profile. Shaker is an inset-panel lacquered front, beaded a routed
+ * relief; everything flat reads as iveral (a glass-front render is usually a
+ * few accent uppers, not the kitchen's front material).
+ */
+export function frontFromStyle(style: DoorStyle | string | undefined): { material: FrontMaterial; profile: MdfProfile } {
+  if (style === 'shaker') return { material: 'lacquered_mdf', profile: 'inset' }
+  if (style === 'beaded') return { material: 'lacquered_mdf', profile: 'relief' }
+  return { material: 'iveral', profile: 'flat' }
+}
 
 type Loose = Record<string, unknown>
 
@@ -54,6 +75,7 @@ export function normalizeBuilderState(state: BuilderState): BuilderState {
   const light = state.lighting as unknown as Loose & { meta?: Loose }
   const fin = state.finishing as unknown as Loose & { meta?: Loose }
   const sink = state.sinkTaps as unknown as Loose & { meta?: Loose }
+  const doors = state.doors as unknown as Loose & { meta?: Loose }
 
   const carcassMaterial = CARCASS[String(cab.carcassMaterial)] ?? 'white_melamine_standard'
 
@@ -73,7 +95,12 @@ export function normalizeBuilderState(state: BuilderState): BuilderState {
   // Before the sink had a supply question it was always priced as maker-bought.
   const sinkSupply = sink.supply === 'homeowner_supplies' ? 'homeowner_supplies' : 'maker_supplies'
 
+  // Fronts used to be a "style"; derive material + profile from it once.
+  const hasFrontMaterial = typeof doors.material === 'string'
+  const legacyFront = frontFromStyle(doors.style as string | undefined)
+
   const unchanged =
+    hasFrontMaterial &&
     carcassMaterial === cab.carcassMaterial &&
     kind === bs.kind &&
     typeof light.led === 'boolean' &&
@@ -86,6 +113,24 @@ export function normalizeBuilderState(state: BuilderState): BuilderState {
   return {
     ...state,
     cabinetBoxes: { ...state.cabinetBoxes, carcassMaterial },
+    doors: hasFrontMaterial
+      ? state.doors
+      : {
+          material: legacyFront.material,
+          decorCode: String(doors.decorCode ?? 'W1000'),
+          decorStructure: String(doors.decorStructure ?? 'ST9'),
+          ralCode: DEFAULT_RAL,
+          profile: legacyFront.profile,
+          overlay: (doors.overlay as BuilderState['doors']['overlay']) ?? 'full',
+          edgeProfile: (doors.edgeProfile as BuilderState['doors']['edgeProfile']) ?? 'square',
+          meta: {
+            material: meta(doors.meta?.style),
+            decorCode: meta(doors.meta?.decorCode),
+            ralCode: { ...META_DEFAULT },
+            profile: meta(doors.meta?.style),
+            overlay: meta(doors.meta?.overlay),
+          },
+        },
     appliances: { ...state.appliances, supply: applianceSupply },
     sinkTaps: {
       ...state.sinkTaps,

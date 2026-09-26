@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Sparkles, RefreshCw, Image as ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { findDecor } from '@/lib/catalog'
+import { findRal } from '@/lib/catalog/ral'
 import type { BuilderState } from '@/lib/builder/inventory'
 import { readJson } from '@/lib/api/client'
 import { compressImageDataUrl } from '@/lib/image'
@@ -34,7 +35,8 @@ interface RerenderPanelProps {
 }
 
 interface VisualSignature {
-  doorStyle: string
+  /** Material + profile + RAL — what a lacquered front looks like. */
+  doorFront: string
   doorDecor: string
   worktopFamily: string
   worktopDecor: string
@@ -43,7 +45,7 @@ interface VisualSignature {
 
 function visualSignature(state: BuilderState): VisualSignature {
   return {
-    doorStyle: state.doors.style,
+    doorFront: `${state.doors.material}-${state.doors.profile}-${state.doors.ralCode}`,
     doorDecor: `${state.doors.decorCode}-${state.doors.decorStructure}`,
     worktopFamily: state.worktop.family,
     worktopDecor: `${state.worktop.decorCode}-${state.worktop.decorStructure}`,
@@ -53,8 +55,12 @@ function visualSignature(state: BuilderState): VisualSignature {
 
 function whatChanged(prev: VisualSignature, next: VisualSignature): string[] {
   const changes: string[] = []
-  if (prev.doorDecor !== next.doorDecor) changes.push('door decor')
-  if (prev.doorStyle !== next.doorStyle) changes.push('door style')
+  // Only the visible attributes of the chosen material count as a change.
+  if (next.doorFront.startsWith('iveral')) {
+    if (prev.doorDecor !== next.doorDecor || !prev.doorFront.startsWith('iveral')) changes.push('door decor')
+  } else if (prev.doorFront !== next.doorFront) {
+    changes.push('door front')
+  }
   if (prev.worktopFamily !== next.worktopFamily) changes.push('worktop material')
   if (prev.worktopDecor !== next.worktopDecor) changes.push('worktop decor')
   if (prev.backsplashKind !== next.backsplashKind) changes.push('backsplash')
@@ -103,7 +109,9 @@ export function RerenderPanel({
     setIsRendering(true)
     setError(null)
     try {
-      const doorDecor = findDecor(state.doors.decorCode, state.doors.decorStructure)
+      const front = state.doors
+      const doorDecor = front.material === 'iveral' ? findDecor(front.decorCode, front.decorStructure) : null
+      const ral = front.material === 'lacquered_mdf' ? findRal(front.ralCode) : null
       const worktopDecor = findDecor(state.worktop.decorCode ?? '', state.worktop.decorStructure)
       const res = await fetch('/api/render-concept', {
         method: 'POST',
@@ -111,7 +119,12 @@ export function RerenderPanel({
         body: JSON.stringify({
           anchorPhoto: anchorPhotoDataUrl,
           // Map builder state to render-concept's existing prompt vocabulary.
-          doorMaterial: state.doors.style === 'shaker' ? 'shaker_painted' : 'slab',
+          doorMaterial:
+            front.material === 'alu_glass'
+              ? 'alu_glass'
+              : front.material === 'lacquered_mdf'
+                ? `lacquered_${front.profile}`
+                : 'slab',
           worktopPreference: state.worktop.family,
           backsplashPreference: state.backsplash.kind === 'tile' ? 'tile' : state.backsplash.kind === 'glass' ? 'glass' : undefined,
           hardwareTier:
@@ -122,6 +135,7 @@ export function RerenderPanel({
                 : 'budget',
           materialHints: [
             doorDecor ? `${doorDecor.name} (${doorDecor.family} ${doorDecor.tone}, ${doorDecor.finish})` : null,
+            ral ? `fronts lacquered in ${ral.code} ${ral.nameEn} (${ral.hex}), matt` : null,
             worktopDecor
               ? `${worktopDecor.name} ${state.worktop.family} worktop`
               : `${state.worktop.family} worktop`,

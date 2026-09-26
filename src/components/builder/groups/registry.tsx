@@ -25,6 +25,8 @@ import type { BuilderAction } from '@/lib/builder/state'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
 import { assembleUnits, hintsFromHypothesis, type UnitEdits } from '@/lib/builder/unit-assembly'
+import { findDecor } from '@/lib/catalog'
+import { decorLabel } from '@/lib/builder/swatches'
 import type { ApplianceSelection } from '@/lib/builder/inventory'
 import { FactsRecap } from '../FactsRecap'
 import { CabinetBoxesGroup } from './CabinetBoxesGroup'
@@ -77,7 +79,13 @@ export const GROUP_MODULES: Record<BuilderScreenId, BuilderGroupModule> = {
     Body: ({ state, dispatch }) => (
       <DoorsGroup state={state} onPatch={(patch) => dispatch({ type: 'patch_doors', patch })} />
     ),
-    readback: (s, locale) => tDynamic(`doors.style.${s.doors.style}`, locale),
+    readback: (s, locale) => {
+      const d = s.doors
+      if (d.material === 'lacquered_mdf') return `${d.ralCode} · ${tDynamic(`doors.profile.${d.profile}`, locale)}`
+      if (d.material === 'alu_glass') return tDynamic('doors.material.alu_glass', locale)
+      const decor = findDecor(d.decorCode, d.decorStructure)
+      return decor ? decorLabel(locale === 'en-US' && decor.nameEn ? decor.nameEn : decor.name, decor.code, decor.structure) : null
+    },
   },
   worktop: {
     Body: ({ state, dispatch }) => (
