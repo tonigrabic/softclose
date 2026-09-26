@@ -49,12 +49,13 @@ const STYLE_TILES: Record<string, StyleTile> = {
     hardware: 'pulls',
     worktopBand: '#e2e8f0',
   },
+  // Rustic: warm wood tones (was soft greens as "natural organic").
   natural_organic: {
-    primary: '#d4eedc',
-    secondary: '#bbe5c5',
-    accent: '#365314',
+    primary: '#d8b48a',
+    secondary: '#b98a5e',
+    accent: '#5b3a1e',
     hardware: 'knobs',
-    worktopBand: '#65a30d',
+    worktopBand: '#8b5a2b',
   },
 }
 

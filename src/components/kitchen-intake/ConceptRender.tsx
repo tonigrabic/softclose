@@ -11,6 +11,7 @@ import type {
   ConceptRender as ConceptRenderRecord,
   ConceptRenderInput,
   LeadProfile,
+  ProductReference,
 } from '@/lib/types'
 
 // Per-session render cap (UX side — disables the generate button + shows
@@ -45,11 +46,7 @@ const PRODUCT_LABEL_SUGGESTIONS = [
   'product.pendant_light',
 ] as const
 
-export interface ProductReference {
-  id: string
-  photo: string
-  label: string
-}
+export type { ProductReference }
 
 interface ConceptRenderProps {
   /** Anchor photos available — usually the homeowner's space photos. */

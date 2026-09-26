@@ -14,9 +14,11 @@ import type {
   SinkBowls,
   SinkMaterial,
   SinkMount,
+  SinkSupply,
   TapType,
 } from '@/lib/builder/inventory'
 
+const SUPPLY_OPTIONS = ['homeowner_supplies', 'maker_supplies'] as const satisfies readonly SinkSupply[]
 const BOWLS_OPTIONS = ['single', 'one_and_half', 'double'] as const satisfies readonly SinkBowls[]
 const MOUNT_OPTIONS = ['undermount', 'inset', 'flush', 'belfast'] as const satisfies readonly SinkMount[]
 const MATERIAL_OPTIONS = [
@@ -47,95 +49,121 @@ export function SinkTapsGroup({
   onPatch: (patch: Partial<BuilderState['sinkTaps']>) => void
 }) {
   const { t } = useTranslations()
+  const makerSupplies = state.sinkTaps.supply === 'maker_supplies'
 
+  // Who buys comes first (maker testing, 2026-09-23): the sink and tap only
+  // matter for the quote when the maker buys them. Either way the maker cuts
+  // the worktop and fits them — that's in the worktop and install lines.
   return (
     <div className="space-y-5">
-      <PickerSlot label={t('sinkTaps.bowlsLabel')} meta={state.sinkTaps.meta.sinkBowls}>
+      <PickerSlot label={t('sinkTaps.supplyLabel')} meta={state.sinkTaps.meta.supply}>
         <ChipRow
-          keyPrefix="sinkTaps.bowls"
-          values={BOWLS_OPTIONS}
-          selected={state.sinkTaps.sink.bowls}
+          keyPrefix="sinkTaps.supply"
+          values={SUPPLY_OPTIONS}
+          selected={state.sinkTaps.supply}
           onChange={(v) =>
             onPatch({
-              sink: { ...state.sinkTaps.sink, bowls: v },
-              meta: {
-                ...state.sinkTaps.meta,
-                sinkBowls: { confidence: 'H', provenance: 'homeowner-edited' },
-              },
+              supply: v,
+              meta: { ...state.sinkTaps.meta, supply: { confidence: 'H', provenance: 'homeowner-edited' } },
             })
           }
         />
       </PickerSlot>
 
-      <PickerSlot label={t('sinkTaps.mountLabel')} meta={state.sinkTaps.meta.sinkMount}>
-        <ChipRow
-          keyPrefix="sinkTaps.mount"
-          values={MOUNT_OPTIONS}
-          selected={state.sinkTaps.sink.mount}
-          onChange={(v) =>
-            onPatch({
-              sink: { ...state.sinkTaps.sink, mount: v },
-              meta: {
-                ...state.sinkTaps.meta,
-                sinkMount: { confidence: 'H', provenance: 'homeowner-edited' },
-              },
-            })
-          }
-        />
-      </PickerSlot>
+      {makerSupplies ? (
+        <>
+          <PickerSlot label={t('sinkTaps.bowlsLabel')} meta={state.sinkTaps.meta.sinkBowls}>
+            <ChipRow
+              keyPrefix="sinkTaps.bowls"
+              values={BOWLS_OPTIONS}
+              selected={state.sinkTaps.sink.bowls}
+              onChange={(v) =>
+                onPatch({
+                  sink: { ...state.sinkTaps.sink, bowls: v },
+                  meta: {
+                    ...state.sinkTaps.meta,
+                    sinkBowls: { confidence: 'H', provenance: 'homeowner-edited' },
+                  },
+                })
+              }
+            />
+          </PickerSlot>
 
-      <PickerSlot label={t('sinkTaps.materialLabel')} meta={state.sinkTaps.meta.sinkMaterial}>
-        <ChipRow
-          keyPrefix="sinkTaps.material"
-          values={MATERIAL_OPTIONS}
-          selected={state.sinkTaps.sink.material}
-          onChange={(v) =>
-            onPatch({
-              sink: { ...state.sinkTaps.sink, material: v },
-              meta: {
-                ...state.sinkTaps.meta,
-                sinkMaterial: { confidence: 'H', provenance: 'homeowner-edited' },
-              },
-            })
-          }
-        />
-      </PickerSlot>
+          <PickerSlot label={t('sinkTaps.mountLabel')} meta={state.sinkTaps.meta.sinkMount}>
+            <ChipRow
+              keyPrefix="sinkTaps.mount"
+              values={MOUNT_OPTIONS}
+              selected={state.sinkTaps.sink.mount}
+              onChange={(v) =>
+                onPatch({
+                  sink: { ...state.sinkTaps.sink, mount: v },
+                  meta: {
+                    ...state.sinkTaps.meta,
+                    sinkMount: { confidence: 'H', provenance: 'homeowner-edited' },
+                  },
+                })
+              }
+            />
+          </PickerSlot>
 
-      <PickerSlot label={t('sinkTaps.tapTypeLabel')} meta={state.sinkTaps.meta.tapType}>
-        <ChipRow
-          keyPrefix="sinkTaps.tap"
-          values={TAP_OPTIONS}
-          selected={state.sinkTaps.tap.type}
-          onChange={(v) =>
-            onPatch({
-              tap: { ...state.sinkTaps.tap, type: v },
-              meta: {
-                ...state.sinkTaps.meta,
-                tapType: { confidence: 'H', provenance: 'homeowner-edited' },
-              },
-            })
-          }
-        />
-      </PickerSlot>
+          <PickerSlot label={t('sinkTaps.materialLabel')} meta={state.sinkTaps.meta.sinkMaterial}>
+            <ChipRow
+              keyPrefix="sinkTaps.material"
+              values={MATERIAL_OPTIONS}
+              selected={state.sinkTaps.sink.material}
+              onChange={(v) =>
+                onPatch({
+                  sink: { ...state.sinkTaps.sink, material: v },
+                  meta: {
+                    ...state.sinkTaps.meta,
+                    sinkMaterial: { confidence: 'H', provenance: 'homeowner-edited' },
+                  },
+                })
+              }
+            />
+          </PickerSlot>
 
-      <PickerSlot label={t('hardware.finishLabel')} meta={state.sinkTaps.meta.tapFinish}>
-        <ChipRow
-          keyPrefix="hardware.finish"
-          values={FINISH_OPTIONS}
-          selected={state.sinkTaps.tap.finish}
-          onChange={(v) =>
-            onPatch({
-              tap: { ...state.sinkTaps.tap, finish: v },
-              meta: {
-                ...state.sinkTaps.meta,
-                tapFinish: { confidence: 'H', provenance: 'homeowner-edited' },
-              },
-            })
-          }
-        />
-      </PickerSlot>
+          <PickerSlot label={t('sinkTaps.tapTypeLabel')} meta={state.sinkTaps.meta.tapType}>
+            <ChipRow
+              keyPrefix="sinkTaps.tap"
+              values={TAP_OPTIONS}
+              selected={state.sinkTaps.tap.type}
+              onChange={(v) =>
+                onPatch({
+                  tap: { ...state.sinkTaps.tap, type: v },
+                  meta: {
+                    ...state.sinkTaps.meta,
+                    tapType: { confidence: 'H', provenance: 'homeowner-edited' },
+                  },
+                })
+              }
+            />
+          </PickerSlot>
 
-      <SinkTapBrowsePanel state={state} onPatch={onPatch} />
+          <PickerSlot label={t('hardware.finishLabel')} meta={state.sinkTaps.meta.tapFinish}>
+            <ChipRow
+              keyPrefix="hardware.finish"
+              values={FINISH_OPTIONS}
+              selected={state.sinkTaps.tap.finish}
+              onChange={(v) =>
+                onPatch({
+                  tap: { ...state.sinkTaps.tap, finish: v },
+                  meta: {
+                    ...state.sinkTaps.meta,
+                    tapFinish: { confidence: 'H', provenance: 'homeowner-edited' },
+                  },
+                })
+              }
+            />
+          </PickerSlot>
+
+          <SinkTapBrowsePanel state={state} onPatch={onPatch} />
+        </>
+      ) : (
+        <p className="rounded-xl border border-border bg-card/50 px-3 py-2 text-[13px] text-muted-foreground">
+          {t('sinkTaps.homeownerNote')}
+        </p>
+      )}
     </div>
   )
 }

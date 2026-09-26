@@ -2,18 +2,17 @@
 
 exports[`estimate drift — totals per fixture > galley: total range snapshot 1`] = `
 {
-  "confirmedBandPct": 12,
-  "displayedBandPct": 15,
-  "high": 7850,
+  "confirmedBandPct": 11,
+  "displayedBandPct": 14,
+  "high": 5966,
   "lines": [
+    "fronts",
     "boards",
     "worktop",
     "backsplash",
     "edgeBanding",
     "hardware",
     "accessories",
-    "sinkTaps",
-    "appliances",
     "lighting",
     "finishing",
     "design",
@@ -21,7 +20,7 @@ exports[`estimate drift — totals per fixture > galley: total range snapshot 1`
     "assembly",
     "install",
   ],
-  "low": 5865,
+  "low": 4519,
 }
 `;
 
@@ -29,16 +28,15 @@ exports[`estimate drift — totals per fixture > island: total range snapshot 1`
 {
   "confirmedBandPct": 9,
   "displayedBandPct": 12,
-  "high": 5522,
+  "high": 4678,
   "lines": [
+    "fronts",
     "boards",
     "worktop",
     "backsplash",
     "edgeBanding",
     "hardware",
     "accessories",
-    "sinkTaps",
-    "appliances",
     "lighting",
     "finishing",
     "design",
@@ -46,24 +44,23 @@ exports[`estimate drift — totals per fixture > island: total range snapshot 1`
     "assembly",
     "install",
   ],
-  "low": 4333,
+  "low": 3696,
 }
 `;
 
 exports[`estimate drift — totals per fixture > l-shape: total range snapshot 1`] = `
 {
-  "confirmedBandPct": 14,
-  "displayedBandPct": 17,
-  "high": 8467,
+  "confirmedBandPct": 13,
+  "displayedBandPct": 16,
+  "high": 5899,
   "lines": [
+    "fronts",
     "boards",
     "worktop",
     "backsplash",
     "edgeBanding",
     "hardware",
     "accessories",
-    "sinkTaps",
-    "appliances",
     "lighting",
     "finishing",
     "design",
@@ -71,7 +68,7 @@ exports[`estimate drift — totals per fixture > l-shape: total range snapshot 1
     "assembly",
     "install",
   ],
-  "low": 6068,
+  "low": 4266,
 }
 `;
 
@@ -79,16 +76,15 @@ exports[`estimate drift — totals per fixture > peninsula: total range snapshot
 {
   "confirmedBandPct": 10,
   "displayedBandPct": 13,
-  "high": 7509,
+  "high": 6665,
   "lines": [
+    "fronts",
     "boards",
     "worktop",
     "backsplash",
     "edgeBanding",
     "hardware",
     "accessories",
-    "sinkTaps",
-    "appliances",
     "lighting",
     "finishing",
     "design",
@@ -96,23 +92,23 @@ exports[`estimate drift — totals per fixture > peninsula: total range snapshot
     "assembly",
     "install",
   ],
-  "low": 5810,
+  "low": 5173,
 }
 `;
 
 exports[`estimate drift — totals per fixture > single: total range snapshot 1`] = `
 {
   "confirmedBandPct": 11,
-  "displayedBandPct": 15,
-  "high": 3573,
+  "displayedBandPct": 14,
+  "high": 3134,
   "lines": [
+    "fronts",
     "boards",
     "worktop",
     "backsplash",
     "edgeBanding",
     "hardware",
     "accessories",
-    "sinkTaps",
     "lighting",
     "finishing",
     "design",
@@ -120,7 +116,7 @@ exports[`estimate drift — totals per fixture > single: total range snapshot 1`
     "assembly",
     "install",
   ],
-  "low": 2670,
+  "low": 2377,
 }
 `;
 
@@ -128,16 +124,15 @@ exports[`estimate drift — totals per fixture > u-shape: total range snapshot 1
 {
   "confirmedBandPct": 14,
   "displayedBandPct": 17,
-  "high": 12188,
+  "high": 9622,
   "lines": [
+    "fronts",
     "boards",
     "worktop",
     "backsplash",
     "edgeBanding",
     "hardware",
     "accessories",
-    "sinkTaps",
-    "appliances",
     "lighting",
     "finishing",
     "design",
@@ -145,6 +140,6 @@ exports[`estimate drift — totals per fixture > u-shape: total range snapshot 1
     "assembly",
     "install",
   ],
-  "low": 8730,
+  "low": 6929,
 }
 `;

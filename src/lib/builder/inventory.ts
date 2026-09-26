@@ -1,7 +1,7 @@
 /**
  * Builder inventory — the typed component schema for Phase 2.
  *
- * The Builder walks the homeowner through 10 component groups. The AI render
+ * The Builder walks the homeowner through its component groups. The AI render
  * from Phase 1 is the *starting hypothesis*; for each group, vision pre-fills
  * a best-guess + confidence, and the user confirms or swaps.
  *
@@ -77,11 +77,12 @@ export interface LayoutGroup {
 
 /* ─────────────────────────── 2. Cabinet boxes (carcass) ────────────────── */
 
-export type CarcassMaterial =
-  | 'white_melamine_standard'
-  | 'colored_melamine'
-  | 'moisture_resistant_p3'
-  | 'matched_to_door'
+/**
+ * The carcass (korpus) interior decor — the one carcass choice the homeowner
+ * makes. Cut to the two options makers actually quote (testing, 2026-09-23):
+ * classic white, or a coloured decor. Board grade (P2/P3) is the maker's call.
+ */
+export type CarcassMaterial = 'white_melamine_standard' | 'colored_melamine'
 
 export type CornerSolution =
   | 'magic_corner'
@@ -144,8 +145,13 @@ export interface CabinetBoxesGroup {
   meta: { carcassMaterial: FieldMeta }
 }
 
-/* ─────────────────────────── 3. Doors & fronts ─────────────────────────── */
+/* ─────────────────────────── 3. Fronts (fronte) ────────────────────────── */
 
+/**
+ * AI-render vocabulary for a front's look. No longer a homeowner choice (the
+ * material + profile below replace it, maker testing 2026-09-23) — kept for
+ * the vision hypothesis, which hydration maps onto material + profile.
+ */
 export type DoorStyle =
   | 'slab' // flat front, modern
   | 'shaker' // 5-piece frame
@@ -154,17 +160,37 @@ export type DoorStyle =
   | 'glass_front' // framed glass
   | 'beaded' // traditional
 
+/**
+ * What the front is made of — the first front question, in the trade's terms:
+ * iveral (decorative chipboard, Elgrad decors), lakirani medijapan (lacquered
+ * MDF, RAL colour + profile) or an aluminium frame with glass.
+ */
+export type FrontMaterial = 'iveral' | 'lacquered_mdf' | 'alu_glass'
+
+/** Lacquered-MDF profile: ravna / s ukladom (inset panel) / reljef (routed). */
+export type MdfProfile = 'flat' | 'inset' | 'relief'
+
 export type DoorOverlay = 'full' | 'partial' | 'inset'
 export type EdgeProfile = 'square' | 'softened' | 'bevel' | 'radius'
 
 export interface DoorsGroup {
-  style: DoorStyle
-  /** Reference to a decor in elgrad-decors.json (CatalogDecor.code). */
+  material: FrontMaterial
+  /** Iveral: a decor in elgrad-decors.json (CatalogDecor.code + structure). */
   decorCode: string
   decorStructure: string
+  /** Lacquered MDF: RAL Classic code, "RAL 9016". */
+  ralCode: string
+  /** Lacquered MDF: the front's profile. */
+  profile: MdfProfile
   overlay: DoorOverlay
   edgeProfile: EdgeProfile
-  meta: { style: FieldMeta; decorCode: FieldMeta; overlay: FieldMeta }
+  meta: {
+    material: FieldMeta
+    decorCode: FieldMeta
+    ralCode: FieldMeta
+    profile: FieldMeta
+    overlay: FieldMeta
+  }
 }
 
 /* ─────────────────────────── 4. Worktop ────────────────────────────────── */
@@ -177,40 +203,37 @@ export type WorktopFamily =
   | 'solid_wood'
   | 'stainless'
 
-export type WorktopEdge = 'square' | 'bevel' | 'mitred_waterfall' | 'radius'
-
 export interface WorktopGroup {
   family: WorktopFamily
   /** Decor code if family = laminate or compact (Elgrad catalog). */
   decorCode?: string
   decorStructure?: string
   thicknessMm: 38 | 20 | 12
-  edge: WorktopEdge
   /** Total linear meters across all runs (computed from layout, editable). */
   totalLengthM: number
   /** Mitre joins (each adds labor cost). */
   mitreJoinCount: number
-  meta: { family: FieldMeta; decorCode: FieldMeta; edge?: FieldMeta; thickness?: FieldMeta }
+  meta: { family: FieldMeta; decorCode: FieldMeta; thickness?: FieldMeta }
 }
 
-/* ─────────────────────────── 5. Backsplash ─────────────────────────────── */
+/* ─────────────────────────── 5. Wall cladding (zidna obloga) ───────────── */
 
 export type BacksplashKind =
-  | 'matching_slab' // continuation of worktop
+  | 'matching_slab' // in the worktop's decor
   | 'tile'
   | 'glass'
-  | 'wall_panel' // Elgrad zidne letve
-  | 'painted'
+  | 'other' // homeowner types the decor
   | 'none'
+
+/** Cladding strip height in cm — the standard gap between worktop and wall
+ * units. Not asked any more (maker testing, 2026-09-23); the maker measures. */
+export const BACKSPLASH_HEIGHT_CM = 60
 
 export interface BacksplashGroup {
   kind: BacksplashKind
-  /** If matching slab or wall panel, which decor. */
-  decorCode?: string
-  decorStructure?: string
-  /** Strip height in cm (60 = standard between worktop and wall cabinets). */
-  heightCm: 60 | 90 | 120 | 150
-  meta: { kind: FieldMeta; decorCode: FieldMeta; heightCm: FieldMeta }
+  /** Free-text decor when kind = 'other' ("oak wall slats", "marble-effect panel"). */
+  otherDecor?: string
+  meta: { kind: FieldMeta }
 }
 
 /* ─────────────────────────── 6. Hardware ───────────────────────────────── */
@@ -254,7 +277,12 @@ export interface HardwareGroup {
 
 /* ─────────────────────────── 7. Appliances ─────────────────────────────── */
 
-export type ApplianceSupply = 'homeowner_supplies' | 'maker_supplies' | 'mixed'
+/**
+ * Who buys the appliances. Only when the maker supplies them do their types
+ * and models matter for the quote (maker testing, 2026-09-23) — "mixed" was
+ * cut. Built-in vs freestanding is asked either way: it moves the cabinetry.
+ */
+export type ApplianceSupply = 'homeowner_supplies' | 'maker_supplies'
 
 export interface ApplianceSelection {
   type: 'hob' | 'oven' | 'extractor' | 'fridge' | 'dishwasher' | 'microwave' | 'wine_fridge' | 'coffee'
@@ -293,7 +321,11 @@ export type SinkMaterial = 'stainless' | 'granite_composite' | 'ceramic' | 'frag
 
 export type TapType = 'single_lever' | 'pull_out' | 'boiling_water' | 'filtered_three_way'
 
+/** Same rule as appliances: sink + tap only get picked when the maker buys them. */
+export type SinkSupply = 'homeowner_supplies' | 'maker_supplies'
+
 export interface SinkTapsGroup {
+  supply: SinkSupply
   sink: {
     bowls: SinkBowls
     mount: SinkMount
@@ -318,6 +350,7 @@ export interface SinkTapsGroup {
     pickedPriceEur?: number
   }
   meta: {
+    supply: FieldMeta
     sinkBowls: FieldMeta
     sinkMount: FieldMeta
     sinkMaterial: FieldMeta
@@ -328,37 +361,27 @@ export interface SinkTapsGroup {
 
 /* ─────────────────────────── 9. Lighting ───────────────────────────────── */
 
+/**
+ * One question: do we build in LED lighting. The rest (pendants, plinth LED,
+ * smart controls) doesn't move a first quote (maker testing, 2026-09-23).
+ */
 export interface LightingGroup {
-  underCabinetLed: boolean
-  plinthLed: boolean
-  pendantOverIsland: boolean
-  pendantCount: number
-  smartControls: boolean
-  meta: {
-    underCabinetLed: FieldMeta
-    plinthLed: FieldMeta
-    pendantOverIsland: FieldMeta
-    smartControls: FieldMeta
-  }
+  led: boolean
+  meta: { led: FieldMeta }
 }
 
 /* ─────────────────────────── 10. Finishing ─────────────────────────────── */
 
-export type CorniceStyle = 'none' | 'flat' | 'crown' | 'custom_match_door'
-export type PlinthMaterial = 'matched_door' | 'matched_floor' | 'black_recessed' | 'metal_strip'
+/** Plinth (sokl) only — cornice, end panels and open shelving were cut after
+ * maker testing (2026-09-23): they don't move a first quote. */
+export type PlinthMaterial = 'wood' | 'plastic'
 
 export interface FinishingGroup {
-  plinthHeightMm: 100 | 120 | 150
+  plinthHeightMm: 100 | 150
   plinthMaterial: PlinthMaterial
-  corniceStyle: CorniceStyle
-  endPanelsCount: number
-  openShelvingMeters: number
   meta: {
     plinthHeightMm: FieldMeta
     plinthMaterial: FieldMeta
-    corniceStyle: FieldMeta
-    endPanelsCount: FieldMeta
-    openShelvingMeters: FieldMeta
   }
 }
 
@@ -425,8 +448,10 @@ export type BuilderGroupId =
 /**
  * Builder screens = the navigable steps. `layout` is a state slice (owned by
  * Phase 1 via the contract) but NOT a screen — it has no step of its own.
+ * `hardware` is the same since maker testing (2026-09-23): fittings are the
+ * maker's standard spec, priced but not asked.
  */
-export type BuilderScreenId = Exclude<BuilderGroupId, 'layout'>
+export type BuilderScreenId = Exclude<BuilderGroupId, 'layout' | 'hardware'>
 
 export interface BuilderGroupMeta {
   id: BuilderScreenId
@@ -444,13 +469,12 @@ export const BUILDER_GROUPS: BuilderGroupMeta[] = [
   // already-defined room.
   { id: 'cabinetBoxes', labelKey: 'builder.groups.cabinetBoxes.label', whyKey: 'builder.groups.cabinetBoxes.why', order: 1 },
   { id: 'doors', labelKey: 'builder.groups.doors.label', whyKey: 'builder.groups.doors.why', order: 2 },
-  { id: 'hardware', labelKey: 'builder.groups.hardware.label', whyKey: 'builder.groups.hardware.why', order: 3 },
-  { id: 'worktop', labelKey: 'builder.groups.worktop.label', whyKey: 'builder.groups.worktop.why', order: 4 },
-  { id: 'backsplash', labelKey: 'builder.groups.backsplash.label', whyKey: 'builder.groups.backsplash.why', order: 5 },
-  { id: 'appliances', labelKey: 'builder.groups.appliances.label', whyKey: 'builder.groups.appliances.why', order: 6 },
-  { id: 'sinkTaps', labelKey: 'builder.groups.sinkTaps.label', whyKey: 'builder.groups.sinkTaps.why', order: 7 },
-  { id: 'lighting', labelKey: 'builder.groups.lighting.label', whyKey: 'builder.groups.lighting.why', order: 8 },
-  { id: 'finishing', labelKey: 'builder.groups.finishing.label', whyKey: 'builder.groups.finishing.why', order: 9 },
+  { id: 'worktop', labelKey: 'builder.groups.worktop.label', whyKey: 'builder.groups.worktop.why', order: 3 },
+  { id: 'backsplash', labelKey: 'builder.groups.backsplash.label', whyKey: 'builder.groups.backsplash.why', order: 4 },
+  { id: 'appliances', labelKey: 'builder.groups.appliances.label', whyKey: 'builder.groups.appliances.why', order: 5 },
+  { id: 'sinkTaps', labelKey: 'builder.groups.sinkTaps.label', whyKey: 'builder.groups.sinkTaps.why', order: 6 },
+  { id: 'lighting', labelKey: 'builder.groups.lighting.label', whyKey: 'builder.groups.lighting.why', order: 7 },
+  { id: 'finishing', labelKey: 'builder.groups.finishing.label', whyKey: 'builder.groups.finishing.why', order: 8 },
 ]
 
 export function builderGroupOrder(id: BuilderScreenId): number {

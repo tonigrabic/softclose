@@ -18,4 +18,13 @@ describe('maker email', () => {
     expect(m.html).not.toContain('<Test>')
     expect(m.text).toContain('Sve uključeno: 5.099 € – 7.492 €')
   })
+
+  test('a signed-in customer shows their account email and the optional phone', () => {
+    const signedIn = {
+      ...bundle,
+      brief: { name: 'Ana', email: 'ana@example.com', phone: '+385 91 123 4567' },
+    } as unknown as HandoffBundle
+    const m = buildMakerEmail({ briefId: 'abc-123', bundle: signedIn, baseUrl: 'https://app.example' })
+    expect(m.text).toContain('Homeowner: Ana · ana@example.com · +385 91 123 4567')
+  })
 })

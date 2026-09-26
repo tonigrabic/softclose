@@ -12,13 +12,14 @@
 import { generateText, tool } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
-import { rateLimit } from '@/lib/rate-limit'
+import { rateLimitKey } from '@/lib/rate-limit'
 import { decors } from '@/lib/catalog'
+import { apiAccount } from '@/lib/auth/dal'
 import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
 import { mockHypothesis } from '@/lib/api/mock-fixtures/builder-hypothesis'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
-import { providerFailure, AI_UNAVAILABLE } from '@/lib/api/errors'
+import { providerFailure, unauthorized, AI_UNAVAILABLE } from '@/lib/api/errors'
 
 const MAX_BYTES_PER_PHOTO = 6 * 1024 * 1024
 const MAX_CALLS_PER_SESSION_WINDOW = 4
@@ -84,14 +85,7 @@ const cabinetPatternEnum = z.enum([
 ])
 
 const cabinetBoxesSchema = z.object({
-  carcassMaterial: hint(
-    z.enum([
-      'white_melamine_standard',
-      'colored_melamine',
-      'moisture_resistant_p3',
-      'matched_to_door',
-    ])
-  ).optional(),
+  carcassMaterial: hint(z.enum(['white_melamine_standard', 'colored_melamine'])).optional(),
   cornerSolution: hint(
     z.enum(['magic_corner', 'lazy_susan', 'diagonal_corner', 'dead_corner', 'none'])
   ).optional(),
@@ -116,6 +110,8 @@ const cabinetBoxesSchema = z.object({
 })
 
 const doorsSchema = z.object({
+  material: hint(z.enum(['iveral', 'lacquered_mdf', 'alu_glass'])).optional(),
+  profile: hint(z.enum(['flat', 'inset', 'relief'])).optional(),
   style: hint(
     z.enum(['slab', 'shaker', 'handleless_jpull', 'handleless_groove', 'glass_front', 'beaded'])
   ).optional(),
@@ -133,16 +129,10 @@ const worktopSchema = z.object({
   decorCode: hint(z.string()).optional(),
   decorStructure: hint(z.string()).optional(),
   thicknessMm: hint(z.union([z.literal(38), z.literal(20), z.literal(12)])).optional(),
-  edge: hint(z.enum(['square', 'bevel', 'mitred_waterfall', 'radius'])).optional(),
 })
 
 const backsplashSchema = z.object({
-  kind: hint(
-    z.enum(['matching_slab', 'tile', 'glass', 'wall_panel', 'painted', 'none'])
-  ).optional(),
-  decorCode: hint(z.string()).optional(),
-  decorStructure: hint(z.string()).optional(),
-  heightCm: hint(z.union([z.literal(60), z.literal(90), z.literal(120), z.literal(150)])).optional(),
+  kind: hint(z.enum(['matching_slab', 'tile', 'glass', 'other', 'none'])).optional(),
 })
 
 const hardwareSchema = z.object({
@@ -214,18 +204,12 @@ const sinkTapsSchema = z.object({
 })
 
 const lightingSchema = z.object({
-  underCabinetLed: hint(z.boolean()).optional(),
-  plinthLed: hint(z.boolean()).optional(),
-  pendantOverIsland: hint(z.boolean()).optional(),
-  pendantCount: hint(z.number().int().min(0).max(6)).optional(),
+  led: hint(z.boolean()).optional(),
 })
 
 const finishingSchema = z.object({
-  plinthHeightMm: hint(z.union([z.literal(100), z.literal(120), z.literal(150)])).optional(),
-  plinthMaterial: hint(
-    z.enum(['matched_door', 'matched_floor', 'black_recessed', 'metal_strip'])
-  ).optional(),
-  corniceStyle: hint(z.enum(['none', 'flat', 'crown', 'custom_match_door'])).optional(),
+  plinthHeightMm: hint(z.union([z.literal(100), z.literal(150)])).optional(),
+  plinthMaterial: hint(z.enum(['wood', 'plastic'])).optional(),
 })
 
 const hypothesisSchema = z.object({
@@ -347,7 +331,7 @@ const CATALOG_HINT = decors
 
 const SYSTEM = `You are a kitchen-trade vision assistant analysing an AI-rendered kitchen concept.
 
-Your job: produce a structured BuilderHypothesis covering all 10 component groups so a homeowner can walk through the builder with each value pre-filled.
+Your job: produce a structured BuilderHypothesis covering every component group so a homeowner can walk through the builder with each value pre-filled.
 
 You may receive TWO images:
 1. The RENDER (always first) — the INTENDED NEW design. This is the kitchen we are pricing. Read the design FROM HERE: shape, runs, island, cabinet configuration, fronts, worktop, appliances.
@@ -358,6 +342,7 @@ Rules:
 - Return only what you can see or reasonably infer. Skip a field rather than fabricate.
 - Confidence is per-field. 'H' only when the visual evidence is unambiguous; 'L' liberally — better empty than wrong.
 - For each field include a short \`reason\` (≤ 12 words) referencing the visual evidence ("matte black slab fronts visible", "concrete-textured worktop").
+- doors.material: 'lacquered_mdf' when the fronts look painted/lacquered — one solid colour, often with an inset panel or a routed relief; 'iveral' for melamine decors (wood grain, stone print, plain flat slabs); 'alu_glass' only when most fronts are aluminium-framed glass. doors.profile only for lacquered_mdf: 'flat', 'inset' (frame around a recessed panel, shaker) or 'relief' (routed decorative profile).
 - For decorCode suggestions: pick the closest match from the catalog below. Match family + tone + finish. If nothing close, leave decorCode empty and provide a colorDescription on the doors field.
 - For layout (shape, island, runs): READ THE LAYOUT FROM THE RENDER — this is the kitchen we are pricing. Set layout.shape and layout.hasIsland from what the render actually shows. An APPROXIMATE existing-space layout may also be provided as text in the user message: use its cm figures ONLY as a SCALE reference, cross-checked against the anchor photo, and reuse its run ids ("top", "left", "island") where they still apply so things line up. If the render adds an island or changes the shape vs. the existing space, FOLLOW THE RENDER. Per run, infer hasBase/hasWall (upper cabinets present?) and hasTall (a full-height tower present?). With no reference at all, fall back to: L-shape → two runs, galley → two facing, straight → one.
 - Hardware is mostly invisible in renders — set drawerSystemTier confidence 'L' unless handles are clearly visible.
@@ -370,13 +355,20 @@ Rules:
   - corniceVisible: only if a top trim/cornice is rendered.
   - floorColorHint / wallColorHint: short descriptors for the maker ("light oak floor", "off-white walls").
 - cabinetBoxes.unitPatterns: pre-segment cabinet patterns along visible runs when possible. Use the trade-language enum (drawer_bank, sink_unit, oven_housing, corner_magic, pullout_larder, etc). Each entry pins one pattern at a positionPctAlongRun (0–100). Skip slots you can't read.
-- Lighting: under-cabinet 'H' if a glow is visible under wall units; pendant only if a pendant is rendered.
+- Lighting: led = true 'H' only if built-in LED light is visible (a glow under wall units, in shelves or the plinth). Pendants and ceiling lights don't count.
+- backsplash.kind: 'matching_slab' when the wall behind the worktop is in the worktop's decor; 'other' for panels, slats or paint.
 - Set usable: false if the render is unintelligible (pure noise, completely empty room, wrong room type).
 
 CATALOG (Croatian decors available via Elgrad):
 ${CATALOG_HINT}`
 
 export async function POST(req: Request) {
+  // Auth first, before the mock short-circuit — "fully protected" must not have
+  // an exception you have to remember. These routes spend real money (a render
+  // is ~75 s of gpt-image-2) and were open to the internet until now.
+  const session = await apiAccount()
+  if (!session) return unauthorized()
+
   // Mock-AI mode: the decor hypothesis fixture built against the request's
   // contract (run ids must echo or seeding silently ignores the hints).
   if (mockAiEnabled()) {
@@ -389,7 +381,7 @@ export async function POST(req: Request) {
     }
     return Response.json({ hypothesis: mockHypothesis(contract) })
   }
-  const limit = rateLimit(req, 'builder-hypothesis', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
+  const limit = rateLimitKey(session.accountId, 'builder-hypothesis', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
   if (!limit.ok) {
     return Response.json(
       { error: 'Too many builder calls — please wait a moment.', retryAfterMs: limit.retryAfterMs },

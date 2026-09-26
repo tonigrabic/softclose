@@ -6,12 +6,9 @@ import { cn } from '@/lib/utils'
 import type { SelectOption } from '@/lib/types'
 import { getOptionFallbackImage } from '@/lib/option-visuals'
 import { fileToCompressedDataUrl } from '@/lib/image'
+import { useTranslations } from '@/lib/i18n'
+import type { UploadedReference } from '@/lib/types'
 
-interface UploadedReference {
-  id: string
-  imageUrl: string
-  source: 'upload' | 'url'
-}
 
 interface ImageSelectProps {
   options: SelectOption[]
@@ -36,6 +33,7 @@ export function ImageSelect({
   uploadedRefs,
   onUploadedRefsChange,
 }: ImageSelectProps) {
+  const { t } = useTranslations()
   const fileRef = useRef<HTMLInputElement>(null)
   const [urlValue, setUrlValue] = useState('')
   const [urlError, setUrlError] = useState<string | null>(null)
@@ -62,7 +60,7 @@ export function ImageSelect({
         throw new Error()
       }
     } catch {
-      setUrlError('Paste a full URL (https://…)')
+      setUrlError(t('imageSelect.badUrl'))
       return
     }
     setUrlError(null)
@@ -81,7 +79,7 @@ export function ImageSelect({
         className="grid grid-cols-2 gap-3 sm:grid-cols-3"
         role="listbox"
         aria-multiselectable
-        aria-label="Visual choices"
+        aria-label={t('imageSelect.choices')}
       >
         {options.map((option) => {
           const isSelected = selected.includes(option.value)
@@ -115,7 +113,7 @@ export function ImageSelect({
               <div className="absolute inset-x-0 bottom-0 flex items-end bg-gradient-to-t from-black/55 via-black/15 to-transparent p-2.5 pt-8">
                 <span
                   className={cn(
-                    'text-xs font-semibold leading-tight tracking-tight',
+                    'text-left text-xs font-semibold leading-tight tracking-tight',
                     hasImage ? 'text-white drop-shadow-sm' : 'text-stone-700'
                   )}
                 >
@@ -166,7 +164,7 @@ export function ImageSelect({
                 removeRef(ref.id)
               }}
               className="absolute right-2 top-2 flex size-5 items-center justify-center rounded-full bg-foreground/85 text-background opacity-0 shadow-md backdrop-blur-sm transition-all hover:bg-foreground group-hover:opacity-100"
-              aria-label="Remove inspiration"
+              aria-label={t('imageSelect.remove')}
             >
               <X className="size-3" aria-hidden />
             </button>
@@ -180,7 +178,7 @@ export function ImageSelect({
             className="group flex aspect-[4/3] flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed border-border bg-card/40 text-xs font-semibold text-muted-foreground transition-colors hover:border-primary/40 hover:bg-accent/40 hover:text-foreground"
           >
             <ImagePlus className="size-5 stroke-[1.5]" aria-hidden />
-            Upload your own
+            {t('imageSelect.upload')}
           </button>
         )}
       </div>
@@ -202,7 +200,7 @@ export function ImageSelect({
             <input
               type="url"
               inputMode="url"
-              placeholder="Or paste an image link"
+              placeholder={t('imageSelect.pasteLink')}
               value={urlValue}
               onChange={(e) => setUrlValue(e.target.value)}
               onKeyDown={(e) => {
@@ -219,7 +217,7 @@ export function ImageSelect({
               disabled={!urlValue.trim()}
               className="bg-foreground/[0.06] px-3 text-xs font-semibold text-foreground transition-colors hover:bg-foreground/[0.1] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Add
+              {t('imageSelect.add')}
             </button>
           </div>
           {urlError && <p className="text-xs font-medium text-destructive">{urlError}</p>}

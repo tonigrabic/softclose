@@ -1,11 +1,12 @@
 import { generateText, tool } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
-import { rateLimit } from '@/lib/rate-limit'
+import { rateLimitKey } from '@/lib/rate-limit'
+import { apiAccount } from '@/lib/auth/dal'
 import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
 import { MOCK_SUMMARY } from '@/lib/api/mock-fixtures/summarize-brief'
 import type { LeadProfile } from '@/lib/types'
-import { providerFailure, AI_UNAVAILABLE } from '@/lib/api/errors'
+import { providerFailure, unauthorized, AI_UNAVAILABLE } from '@/lib/api/errors'
 
 const MAX_CALLS_PER_SESSION_WINDOW = 5
 const SESSION_WINDOW_MS = 30 * 60 * 1000
@@ -38,12 +39,18 @@ Rules:
 - Keep each bullet under 140 characters.`
 
 export async function POST(req: Request) {
+  // Auth first, before the mock short-circuit — "fully protected" must not have
+  // an exception you have to remember. These routes spend real money (a render
+  // is ~75 s of gpt-image-2) and were open to the internet until now.
+  const session = await apiAccount()
+  if (!session) return unauthorized()
+
   // Mock-AI mode: canned fixture before rate limiting, so devs can spam freely.
   if (mockAiEnabled()) {
     await mockDelay()
     return Response.json({ result: MOCK_SUMMARY })
   }
-  const limit = rateLimit(req, 'summarize-brief', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
+  const limit = rateLimitKey(session.accountId, 'summarize-brief', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
   if (!limit.ok) {
     return Response.json(
       { error: 'Too many summarise calls — please wait.', retryAfterMs: limit.retryAfterMs },

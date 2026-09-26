@@ -1,11 +1,12 @@
 import { generateText, tool } from 'ai'
 import { openai } from '@ai-sdk/openai'
 import { z } from 'zod'
-import { rateLimit } from '@/lib/rate-limit'
+import { rateLimitKey } from '@/lib/rate-limit'
+import { apiAccount } from '@/lib/auth/dal'
 import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
 import { mockTranslate } from '@/lib/api/mock-fixtures/translate-wishlist'
 import type { TranslatedField } from '@/lib/types'
-import { providerFailure, AI_UNAVAILABLE } from '@/lib/api/errors'
+import { providerFailure, unauthorized, AI_UNAVAILABLE } from '@/lib/api/errors'
 
 const MAX_CHARS_PER_BUCKET = 600
 const MAX_CALLS_PER_SESSION_WINDOW = 10
@@ -50,6 +51,12 @@ interface RequestBody {
 }
 
 export async function POST(req: Request) {
+  // Auth first, before the mock short-circuit — "fully protected" must not have
+  // an exception you have to remember. These routes spend real money (a render
+  // is ~75 s of gpt-image-2) and were open to the internet until now.
+  const session = await apiAccount()
+  if (!session) return unauthorized()
+
   // Mock-AI mode: deterministic echo-translation before rate limiting.
   if (mockAiEnabled()) {
     await mockDelay()
@@ -60,7 +67,7 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Invalid JSON' }, { status: 400 })
     }
   }
-  const limit = rateLimit(req, 'translate-wishlist', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
+  const limit = rateLimitKey(session.accountId, 'translate-wishlist', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
   if (!limit.ok) {
     return Response.json(
       { error: 'Too many translate calls — please wait a moment.', retryAfterMs: limit.retryAfterMs },

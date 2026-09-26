@@ -18,7 +18,9 @@ import { decors as catalogDecors, services, doorPricePerM2, worktopPricePerM, fi
 import { makerPriceForSku } from '@/lib/catalog/maker-pricing'
 import { elgradTierBand } from '@/lib/catalog/hardware'
 import { PATTERN_SPECS, unitDrawerCount } from './cabinet-patterns'
-import type { BuilderState, CabinetUnit, DrawerSystemTier, FieldMeta } from './inventory'
+import { BACKSPLASH_HEIGHT_CM, type BuilderState, type CabinetUnit, type DrawerSystemTier, type FieldMeta } from './inventory'
+import { normalizeBuilderState } from './normalize'
+import { decorLabel } from './swatches'
 import type { LeadProfile } from '@/lib/types'
 import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/core'
 
@@ -32,6 +34,7 @@ import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/core'
  * `cabinets`; the backsplash rides with `worktops` (the surfaces decision).
  */
 const LINE_SCOPE_KEY: Partial<Record<BomLineItem['key'], keyof NonNullable<LeadProfile['scope']>>> = {
+  fronts: 'cabinets',
   boards: 'cabinets',
   edgeBanding: 'cabinets',
   hardware: 'cabinets',
@@ -57,6 +60,7 @@ function lineInScope(key: BomLineItem['key'], scope: LeadProfile['scope'] | unde
 export interface BomLineItem {
   /** Stable id usable as React key + i18n routing. */
   key:
+    | 'fronts'
     | 'boards'
     | 'worktop'
     | 'backsplash'
@@ -179,7 +183,9 @@ function boardAreaForRun(r: {
  * conservative averages tuned against typical Croatian-market frameless
  * carcasses; they're meant to react to user edits, not to be quote-accurate.
  */
-function unitDoorAreaM2(u: CabinetUnit): number {
+function unitDoorAreaM2(u: CabinetUnit, freestandingDishwasher: boolean): number {
+  // A freestanding dishwasher keeps its own door — no decor front to make.
+  if (u.boundTo === 'dishwasher' && freestandingDishwasher) return 0
   const wM = u.widthMm / 1000
   if (u.type === 'tall') return wM * (u.heightMm / 1000) // full-height door
   // Base + wall: door height tracks unit height (≈ 0.72 m typical).
@@ -325,6 +331,17 @@ export function handleStyleBase(): Record<string, number> {
 }
 
 /**
+ * Bought-in fronts, € per m² of front (reference bands, Croatian market,
+ * 2026-09). Lacquered MDF is a flat matt front from a lacquer shop; the
+ * profile factor covers the extra machining of an inset panel or a relief.
+ */
+const FRONT_RATE_M2: Record<'lacquered_mdf' | 'alu_glass', { low: number; high: number }> = {
+  lacquered_mdf: { low: 95, high: 135 },
+  alu_glass: { low: 170, high: 250 },
+}
+const MDF_PROFILE_FACTOR: Record<'flat' | 'inset' | 'relief', number> = { flat: 1, inset: 1.2, relief: 1.35 }
+
+/**
  * Manual-work rates from the maker's real cost sheet (EUR). Each labour line is
  * driven by a concrete quantity — design hours, CNC positions, carcasses,
  * install metres — not a vague % of materials, so the estimate is tight.
@@ -341,10 +358,12 @@ const LABOUR_RATES = {
 /* ───────────────────────── Main calculator ───────────────────────── */
 
 export function computeBom(
-  state: BuilderState,
+  savedState: BuilderState,
   locale: Locale = DEFAULT_LOCALE,
   opts: { scope?: LeadProfile['scope']; pricing?: 'retail' | 'maker' } = {}
 ): BomEstimate {
+  // Saved briefs outlive schema changes; price them in the current shape.
+  const state = normalizeBuilderState(savedState)
   const lineItems: BomLineItem[] = []
 
   // Retail (homeowner-facing) vs maker B2B cost. In 'maker' mode a picked SKU's
@@ -386,9 +405,11 @@ export function computeBom(
 
   let doorAreaM2 = 0
   let carcassAreaM2 = 0
+  const dishwasherSel = state.appliances.selections.find((s) => s.type === 'dishwasher')
+  const freestandingDishwasher = dishwasherSel ? !dishwasherSel.integrated : false
   if (usingUnitModel) {
     for (const u of units) {
-      doorAreaM2 += unitDoorAreaM2(u)
+      doorAreaM2 += unitDoorAreaM2(u, freestandingDishwasher)
       carcassAreaM2 += unitCarcassAreaM2(u) + unitDrawerBoxAreaM2(u)
     }
   } else {
@@ -399,45 +420,64 @@ export function computeBom(
   }
   const totalBoardM2 = doorAreaM2 + carcassAreaM2
 
-  const doorDecor = findDecor(state.doors.decorCode, state.doors.decorStructure)
-  const doorPriceM2 = doorDecor ? doorPricePerM2(doorDecor) ?? 22 : 22 // catalog mean fallback
-  // Carcass: standard white melamine 18mm if mismatched to door, otherwise
-  // the door price (matched-to-door costs the same as the door panel).
-  const carcassPriceM2 =
-    state.cabinetBoxes.carcassMaterial === 'matched_to_door'
-      ? doorPriceM2
-      : state.cabinetBoxes.carcassMaterial === 'moisture_resistant_p3'
-        ? 18
-        : state.cabinetBoxes.carcassMaterial === 'colored_melamine'
-          ? 16
-          : 13 // white_melamine_standard
-  // Door style premium — shaker/glass/beaded need more machining + material.
-  const styleFactor =
-    state.doors.style === 'glass_front'
-      ? 1.5
-      : state.doors.style === 'beaded'
-        ? 1.4
-        : state.doors.style === 'shaker'
-          ? 1.35
-          : state.doors.style === 'handleless_jpull' || state.doors.style === 'handleless_groove'
-            ? 1.05
-            : 1
-  const boardLow = doorAreaM2 * doorPriceM2 * styleFactor + carcassAreaM2 * carcassPriceM2
-  const boardHigh = boardLow * 1.18 // waste factor
-  const boardMetas = [
-    state.doors.meta.style,
-    state.doors.meta.decorCode,
-    state.cabinetBoxes.meta.carcassMaterial,
+  /* 1a. Fronts — by material. Iveral fronts are Elgrad board at the decor's
+     €/m² (+ waste). Lacquered MDF and aluminium + glass fronts are bought-in
+     products priced per m² of front: reference bands until the maker's
+     lacquer-shop pricelist lands (LOOP.md Q7). The RAL colour does not move
+     the price, so it doesn't drive the band either. */
+  const front = state.doors
+  const doorDecor = front.material === 'iveral' ? findDecor(front.decorCode, front.decorStructure) : null
+  let frontLow: number
+  let frontHigh: number
+  if (front.material === 'iveral') {
+    const doorPriceM2 = doorDecor ? doorPricePerM2(doorDecor) ?? 22 : 22 // catalog mean fallback
+    frontLow = doorAreaM2 * doorPriceM2
+    frontHigh = frontLow * 1.18 // waste factor
+  } else {
+    const band = FRONT_RATE_M2[front.material]
+    const profileFactor = front.material === 'lacquered_mdf' ? MDF_PROFILE_FACTOR[front.profile] : 1
+    frontLow = doorAreaM2 * band.low * profileFactor
+    frontHigh = doorAreaM2 * band.high * profileFactor
+  }
+  const frontMetas = [
+    front.meta.material,
+    ...(front.material === 'iveral' ? [front.meta.decorCode] : []),
+    ...(front.material === 'lacquered_mdf' ? [front.meta.profile] : []),
   ]
-  const boardsSource = widenByConfidence(boardLow, boardHigh, !doorDecor)
-  const boardsRange = narrowByMeta(boardsSource.low, boardsSource.high, boardMetas)
-  const unitCountSuffix = usingUnitModel ? ` · ${units.length} ${tr('cabinets', 'ormarića')}` : ''
+  const frontSource = widenByConfidence(frontLow, frontHigh, front.material === 'iveral' && !doorDecor)
+  const frontRange = narrowByMeta(frontSource.low, frontSource.high, frontMetas)
+  const frontDetail =
+    front.material === 'iveral'
+      ? doorDecor
+        ? decorLabel(doorDecor.name, doorDecor.code, doorDecor.structure)
+        : `${front.decorCode} ${front.decorStructure}`
+      : front.material === 'lacquered_mdf'
+        ? `${tr('Lacquered MDF', 'Lakirani medijapan')} ${front.ralCode}, ${label('doors.profile', front.profile).toLowerCase()}`
+        : tr('Aluminium frame + glass', 'Aluminij sa staklom')
+  lineItems.push({
+    key: 'fronts',
+    section: 'works',
+    worksKind: 'material',
+    detail: frontDetail,
+    quantity: `${doorAreaM2.toFixed(1)} m²`,
+    low: round(frontRange.low),
+    high: round(frontRange.high),
+  })
+
+  /* 1b. Carcasses — interior decor: standard white melamine 18 mm, or coloured. */
+  const carcassPriceM2 = state.cabinetBoxes.carcassMaterial === 'colored_melamine' ? 16 : 13
+  const carcassLow = carcassAreaM2 * carcassPriceM2
+  const carcassMetas = [state.cabinetBoxes.meta.carcassMaterial]
+  const boardsRange = narrowByMeta(carcassLow, carcassLow * 1.18, carcassMetas)
+  // Driving fields of the board-derived lines below (edge banding).
+  const boardMetas = [...frontMetas, ...carcassMetas]
+  const unitCountSuffix = usingUnitModel ? ` · ${units.length} ${tr('carcasses', 'korpusa')}` : ''
   lineItems.push({
     key: 'boards',
     section: 'works',
     worksKind: 'material',
-    detail: `${doorDecor?.name ?? state.doors.decorCode} (${state.doors.decorCode}/${state.doors.decorStructure}) ${tr('door', 'vrata')} + ${label('cabinetBoxes.carcass', state.cabinetBoxes.carcassMaterial)} ${tr('carcass', 'korpus')}${unitCountSuffix}`,
-    quantity: `${totalBoardM2.toFixed(1)} m²`,
+    detail: `${label('cabinetBoxes.carcass', state.cabinetBoxes.carcassMaterial)}${unitCountSuffix}`,
+    quantity: `${carcassAreaM2.toFixed(1)} m²`,
     low: round(boardsRange.low),
     high: round(boardsRange.high),
   })
@@ -455,10 +495,7 @@ export function computeBom(
   if (!wtPricePerM) {
     wtPricePerM = state.worktop.family === 'quartz' ? 90 : state.worktop.family === 'sintered_stone' ? 130 : 38
   }
-  // Edge profile premium — a mitred waterfall is a major add; radius a small one.
-  const edgeFactor =
-    state.worktop.edge === 'mitred_waterfall' ? 1.25 : state.worktop.edge === 'radius' ? 1.06 : 1
-  const wtLow = state.worktop.totalLengthM * wtPricePerM * edgeFactor
+  const wtLow = state.worktop.totalLengthM * wtPricePerM
   const wtHigh = wtLow * 1.15 + state.worktop.mitreJoinCount * 25
   const wtSource = widenByConfidence(wtLow, wtHigh, !wtDecor)
   const wtRange = narrowByMeta(wtSource.low, wtSource.high, [
@@ -475,28 +512,26 @@ export function computeBom(
     high: round(wtRange.high),
   })
 
-  /* 3. Backsplash ──────────────────────────────────────────────────────── */
+  /* 3. Wall cladding (zidna obloga) ───────────────────────────────────────
+     Standard strip height; the maker measures the real one. "Other" has no
+     rate of its own (panels, slats, paint…), so it widens like a missing
+     catalog source. */
   if (state.backsplash.kind !== 'none') {
-    const bsArea = state.worktop.totalLengthM * (state.backsplash.heightCm / 100)
-    const bsRate =
-      state.backsplash.kind === 'tile'
-        ? 60
-        : state.backsplash.kind === 'glass'
-          ? 80
-          : state.backsplash.kind === 'matching_slab'
-            ? wtPricePerM // reuse worktop rate per linear m
-            : 25
-    const bsLow = state.backsplash.kind === 'matching_slab' ? state.worktop.totalLengthM * wtPricePerM * 0.6 : bsArea * bsRate
-    const bsHigh = bsLow * 1.25
-    const bsRange = narrowByMeta(bsLow, bsHigh, [
-      state.backsplash.meta.kind,
-      state.backsplash.meta.heightCm,
-    ])
+    const bsArea = state.worktop.totalLengthM * (BACKSPLASH_HEIGHT_CM / 100)
+    const bsRate = state.backsplash.kind === 'tile' ? 60 : state.backsplash.kind === 'glass' ? 80 : 25
+    const bsBase =
+      state.backsplash.kind === 'matching_slab' ? state.worktop.totalLengthM * wtPricePerM * 0.6 : bsArea * bsRate
+    const bsSource = widenByConfidence(bsBase, bsBase * 1.25, state.backsplash.kind === 'other')
+    const bsRange = narrowByMeta(bsSource.low, bsSource.high, [state.backsplash.meta.kind])
+    const bsKind =
+      state.backsplash.kind === 'other' && state.backsplash.otherDecor?.trim()
+        ? state.backsplash.otherDecor.trim()
+        : label('backsplash.kind', state.backsplash.kind)
     lineItems.push({
       key: 'backsplash',
       section: 'works',
       worksKind: 'material',
-      detail: `${label('backsplash.kind', state.backsplash.kind)}, ${state.backsplash.heightCm} cm`,
+      detail: `${bsKind}, ${BACKSPLASH_HEIGHT_CM} cm`,
       quantity: `${state.worktop.totalLengthM.toFixed(2)} m`,
       low: round(bsRange.low),
       high: round(bsRange.high),
@@ -504,8 +539,9 @@ export function computeBom(
   }
 
   /* 4. Edge banding + cutting services ─────────────────────────────────── */
-  // Rough proxy: edge banding length scales with board area — ~3 m of edge per m² of board.
-  const edgeM = totalBoardM2 * 3
+  // Rough proxy: edge banding length scales with board area — ~3 m of edge per
+  // m² of board. Lacquered and aluminium fronts carry no ABS edge.
+  const edgeM = (front.material === 'iveral' ? totalBoardM2 : carcassAreaM2) * 3
   const edgePerM = services.edgeBanding.abs_08mm_under20mmThick_pricePerM ?? 1.02
   const edgeLow = edgeM * edgePerM
   const edgeHigh = edgeLow * 1.15
@@ -668,89 +704,91 @@ export function computeBom(
     })
   }
 
-  /* 6. Sink + tap ──────────────────────────────────────────────────────── */
-  const sinkBaseLow =
-    state.sinkTaps.sink.material === 'ceramic'
-      ? 220
-      : state.sinkTaps.sink.material === 'granite_composite'
-        ? 180
-        : state.sinkTaps.sink.material === 'fragranite'
-          ? 200
-          : 120
-  // Bowl count: 1.5 ≈ +35 %, 2 bowls ≈ +60 %.
-  const bowlMultiplier =
-    state.sinkTaps.sink.bowls === 'double' ? 1.6 : state.sinkTaps.sink.bowls === 'one_and_half' ? 1.35 : 1.0
-  // Mounting: undermount/flush more expensive than inset; belfast premium.
-  const mountMultiplier =
-    state.sinkTaps.sink.mount === 'belfast'
-      ? 1.5
-      : state.sinkTaps.sink.mount === 'undermount' || state.sinkTaps.sink.mount === 'flush'
-        ? 1.2
-        : 1.0
-  const sinkLow = sinkBaseLow * bowlMultiplier * mountMultiplier
-  const sinkHigh = sinkLow * (state.sinkTaps.sink.pickedName ? 1.15 : 1.5)
-  const tapBaseLow =
-    state.sinkTaps.tap.type === 'boiling_water'
-      ? 350
-      : state.sinkTaps.tap.type === 'filtered_three_way'
-        ? 280
-        : state.sinkTaps.tap.type === 'pull_out'
-          ? 130
-          : 80
-  // Finish moves the tap price too (brass is a premium line, chrome the base).
-  const TAP_FINISH_MUL: Record<string, number> = {
-    brass: 1.5,
-    matte_black: 1.15,
-    brushed_steel: 1.1,
-    chrome: 1.0,
-    matched_to_door: 1.05,
+  /* 6. Sink + tap — only when the maker buys them. When the homeowner does,
+     the cut-out and fitting are already in the worktop and install lines. */
+  if (state.sinkTaps.supply === 'maker_supplies') {
+    const sinkBaseLow =
+      state.sinkTaps.sink.material === 'ceramic'
+        ? 220
+        : state.sinkTaps.sink.material === 'granite_composite'
+          ? 180
+          : state.sinkTaps.sink.material === 'fragranite'
+            ? 200
+            : 120
+    // Bowl count: 1.5 ≈ +35 %, 2 bowls ≈ +60 %.
+    const bowlMultiplier =
+      state.sinkTaps.sink.bowls === 'double' ? 1.6 : state.sinkTaps.sink.bowls === 'one_and_half' ? 1.35 : 1.0
+    // Mounting: undermount/flush more expensive than inset; belfast premium.
+    const mountMultiplier =
+      state.sinkTaps.sink.mount === 'belfast'
+        ? 1.5
+        : state.sinkTaps.sink.mount === 'undermount' || state.sinkTaps.sink.mount === 'flush'
+          ? 1.2
+          : 1.0
+    const sinkLow = sinkBaseLow * bowlMultiplier * mountMultiplier
+    const sinkHigh = sinkLow * (state.sinkTaps.sink.pickedName ? 1.15 : 1.5)
+    const tapBaseLow =
+      state.sinkTaps.tap.type === 'boiling_water'
+        ? 350
+        : state.sinkTaps.tap.type === 'filtered_three_way'
+          ? 280
+          : state.sinkTaps.tap.type === 'pull_out'
+            ? 130
+            : 80
+    // Finish moves the tap price too (brass is a premium line, chrome the base).
+    const TAP_FINISH_MUL: Record<string, number> = {
+      brass: 1.5,
+      matte_black: 1.15,
+      brushed_steel: 1.1,
+      chrome: 1.0,
+      matched_to_door: 1.05,
+    }
+    const tapFinishMul = TAP_FINISH_MUL[state.sinkTaps.tap.finish] ?? 1
+    const tapLow = tapBaseLow * tapFinishMul
+    const tapHigh = tapLow * (state.sinkTaps.tap.pickedName ? 1.15 : 1.5)
+    const sinkPicked = state.sinkTaps.sink.pickedName
+      ? `${state.sinkTaps.sink.pickedBrand ?? ''} ${state.sinkTaps.sink.pickedName}`.trim()
+      : null
+    const tapPicked = state.sinkTaps.tap.pickedName
+      ? `${state.sinkTaps.tap.pickedBrand ?? ''} ${state.sinkTaps.tap.pickedName}`.trim()
+      : null
+    // A picked model with a catalog price is EXACT — no class estimate, no
+    // narrowing. Each piece prices independently so a single pick already
+    // tightens the line; both picked → the whole line is exact.
+    const sinkPriceEur = effPrice(state.sinkTaps.sink.pickedPriceEur, state.sinkTaps.sink.sku)
+    const tapPriceEur = effPrice(state.sinkTaps.tap.pickedPriceEur, state.sinkTaps.tap.sku)
+    const sinkPart =
+      sinkPriceEur != null
+        ? { low: sinkPriceEur, high: sinkPriceEur }
+        : narrowByMeta(sinkLow, sinkHigh, [
+            state.sinkTaps.meta.sinkBowls,
+            state.sinkTaps.meta.sinkMount,
+            state.sinkTaps.meta.sinkMaterial,
+          ])
+    const tapPart =
+      tapPriceEur != null
+        ? { low: tapPriceEur, high: tapPriceEur }
+        : narrowByMeta(tapLow, tapHigh, [state.sinkTaps.meta.tapType, state.sinkTaps.meta.tapFinish])
+    const sinkTapsRange = { low: sinkPart.low + tapPart.low, high: sinkPart.high + tapPart.high }
+    lineItems.push({
+      key: 'sinkTaps',
+      section: 'goods',
+      exact: sinkPriceEur != null && tapPriceEur != null,
+      detail:
+        `${label('sinkTaps.bowls', state.sinkTaps.sink.bowls)} · ${label('sinkTaps.material', state.sinkTaps.sink.material)} ${tr('sink', 'sudoper')}, ${label('sinkTaps.tap', state.sinkTaps.tap.type)} ${tr('tap', 'slavina')}` +
+        (sinkPicked ? ` · ${tr('sink', 'sudoper')}: ${sinkPicked}` : '') +
+        (tapPicked ? ` · ${tr('tap', 'slavina')}: ${tapPicked}` : ''),
+      quantity: tr('1 set', '1 komplet'),
+      low: round(sinkTapsRange.low),
+      high: round(sinkTapsRange.high),
+    })
   }
-  const tapFinishMul = TAP_FINISH_MUL[state.sinkTaps.tap.finish] ?? 1
-  const tapLow = tapBaseLow * tapFinishMul
-  const tapHigh = tapLow * (state.sinkTaps.tap.pickedName ? 1.15 : 1.5)
-  const sinkPicked = state.sinkTaps.sink.pickedName
-    ? `${state.sinkTaps.sink.pickedBrand ?? ''} ${state.sinkTaps.sink.pickedName}`.trim()
-    : null
-  const tapPicked = state.sinkTaps.tap.pickedName
-    ? `${state.sinkTaps.tap.pickedBrand ?? ''} ${state.sinkTaps.tap.pickedName}`.trim()
-    : null
-  // A picked model with a catalog price is EXACT — no class estimate, no
-  // narrowing. Each piece prices independently so a single pick already
-  // tightens the line; both picked → the whole line is exact.
-  const sinkPriceEur = effPrice(state.sinkTaps.sink.pickedPriceEur, state.sinkTaps.sink.sku)
-  const tapPriceEur = effPrice(state.sinkTaps.tap.pickedPriceEur, state.sinkTaps.tap.sku)
-  const sinkPart =
-    sinkPriceEur != null
-      ? { low: sinkPriceEur, high: sinkPriceEur }
-      : narrowByMeta(sinkLow, sinkHigh, [
-          state.sinkTaps.meta.sinkBowls,
-          state.sinkTaps.meta.sinkMount,
-          state.sinkTaps.meta.sinkMaterial,
-        ])
-  const tapPart =
-    tapPriceEur != null
-      ? { low: tapPriceEur, high: tapPriceEur }
-      : narrowByMeta(tapLow, tapHigh, [state.sinkTaps.meta.tapType, state.sinkTaps.meta.tapFinish])
-  const sinkTapsRange = { low: sinkPart.low + tapPart.low, high: sinkPart.high + tapPart.high }
-  lineItems.push({
-    key: 'sinkTaps',
-    section: 'goods',
-    exact: sinkPriceEur != null && tapPriceEur != null,
-    detail:
-      `${label('sinkTaps.bowls', state.sinkTaps.sink.bowls)} · ${label('sinkTaps.material', state.sinkTaps.sink.material)} ${tr('sink', 'sudoper')}, ${label('sinkTaps.tap', state.sinkTaps.tap.type)} ${tr('tap', 'slavina')}` +
-      (sinkPicked ? ` · ${tr('sink', 'sudoper')}: ${sinkPicked}` : '') +
-      (tapPicked ? ` · ${tr('tap', 'slavina')}: ${tapPicked}` : ''),
-    quantity: tr('1 set', '1 komplet'),
-    low: round(sinkTapsRange.low),
-    high: round(sinkTapsRange.high),
-  })
 
   /* 7. Appliances ──────────────────────────────────────────────────────── */
-  // Skip when the homeowner supplies their own kit. Otherwise: count the
-  // appliance kinds that have actually been selected (or pinned to a SKU)
-  // and price each by class so swapping induction → gas, single → double
-  // oven actually moves the line.
-  if (state.appliances.supply !== 'homeowner_supplies' && state.appliances.selections.length > 0) {
+  // Only when the maker supplies the kit. Then: count the appliance kinds that
+  // have actually been selected (or pinned to a SKU) and price each by class
+  // so swapping induction → gas, single → double oven actually moves the line.
+  if (state.appliances.supply === 'maker_supplies' && state.appliances.selections.length > 0) {
     // Per-type estimate bands for an UNPICKED appliance. Grounded against the
     // Schachermayer hr-HR reference-RRP scrape (src/lib/catalog, see
     // appliancesForType): each band is calibrated to CONTAIN the real catalog
@@ -825,12 +863,6 @@ export function computeBom(
       const m = applianceMetaMap[sel.type]
       if (m) estimatedMetas.push(m)
     }
-    if (state.appliances.supply === 'mixed') {
-      // Halving models "homeowner supplies some of these" — it only applies
-      // to the unpicked estimate; an explicitly picked model is in the build.
-      apLow *= 0.5
-      apHigh *= 0.5
-    }
     // Line confidence = worst meta among the ESTIMATED types only (picked
     // models are facts; types without tracked meta — microwave, wine fridge,
     // coffee — already narrowed per selection above).
@@ -848,84 +880,38 @@ export function computeBom(
   }
 
   /* 8. Lighting ─────────────────────────────────────────────────────────
-     Mid-market component bands (profile + strip + driver per metre; one
-     fixture per pendant). The fixture choice itself stays the homeowner's —
-     a designer pendant blows any band, so the range covers the standard
-     trade catalog, not the long tail. */
-  let lightLow = 0
-  let lightHigh = 0
-  if (state.lighting.underCabinetLed) {
-    lightLow += wallM * 30
-    lightHigh += wallM * 55
-  }
-  if (state.lighting.plinthLed) {
-    lightLow += baseM * 18
-    lightHigh += baseM * 38
-  }
-  if (state.lighting.pendantOverIsland && state.lighting.pendantCount > 0) {
-    lightLow += state.lighting.pendantCount * 110
-    lightHigh += state.lighting.pendantCount * 250
-  }
-  if (state.lighting.smartControls) {
-    lightLow += 150
-    lightHigh += 300
-  }
-  if (lightLow > 0) {
-    const lightRange = narrowByMeta(lightLow, lightHigh, [
-      state.lighting.meta.underCabinetLed,
-      state.lighting.meta.plinthLed,
-      state.lighting.meta.pendantOverIsland,
-    ])
+     One yes/no: built-in LED strip (profile + strip + driver per metre),
+     along the wall units — or along the base run when there are none. */
+  const ledM = wallM > 0 ? wallM : baseM
+  if (state.lighting.led && ledM > 0) {
+    const lightRange = narrowByMeta(ledM * 30, ledM * 55, [state.lighting.meta.led])
     lineItems.push({
       key: 'lighting',
       section: 'works',
       worksKind: 'material',
-      detail: tr('LED + pendants', 'LED + viseće'),
-      quantity: tr('Layered', 'Slojevito'),
+      detail: tr('Built-in LED lighting', 'Ugradna LED rasvjeta'),
+      quantity: `${ledM.toFixed(1)} m`,
       low: round(lightRange.low),
       high: round(lightRange.high),
     })
   }
 
-  /* 8b. Finishing — plinth / cornice / end panels / open shelving. */
-  const plinthRate =
-    state.finishing.plinthMaterial === 'metal_strip'
-      ? 16
-      : state.finishing.plinthMaterial === 'matched_door'
-        ? 14
-        : state.finishing.plinthMaterial === 'black_recessed'
-          ? 12
-          : 9
-  // Plinth height scales the plinth board: 100/120/150 mm are real choices with
-  // a real (small) cost difference — 120 mm is the reference.
-  const plinthHeightFactor = (state.finishing.plinthHeightMm || 120) / 120
-  let finLow = baseM * plinthRate * plinthHeightFactor * 0.9
-  let finHigh = baseM * plinthRate * plinthHeightFactor * 1.15
-  if (state.finishing.corniceStyle !== 'none') {
-    const corniceRate =
-      state.finishing.corniceStyle === 'crown' ? 22 : state.finishing.corniceStyle === 'custom_match_door' ? 18 : 12
-    finLow += wallM * corniceRate * 0.9
-    finHigh += wallM * corniceRate * 1.2
-  }
-  if (state.finishing.endPanelsCount > 0) {
-    finLow += state.finishing.endPanelsCount * 35
-    finHigh += state.finishing.endPanelsCount * 70
-  }
-  if (state.finishing.openShelvingMeters > 0) {
-    finLow += state.finishing.openShelvingMeters * 45
-    finHigh += state.finishing.openShelvingMeters * 90
-  }
+  /* 8b. Finishing — the plinth (sokl). €/m at 100 mm; a 150 mm plinth needs
+     half again the board. */
+  const plinthRate = state.finishing.plinthMaterial === 'plastic' ? 9 : 12
+  const plinthHeightFactor = state.finishing.plinthHeightMm / 100
+  const finLow = baseM * plinthRate * plinthHeightFactor * 0.9
+  const finHigh = baseM * plinthRate * plinthHeightFactor * 1.15
   if (finHigh > 0) {
     const finRange = narrowByMeta(finLow, finHigh, [
       state.finishing.meta.plinthHeightMm,
       state.finishing.meta.plinthMaterial,
-      state.finishing.meta.corniceStyle,
     ])
     lineItems.push({
       key: 'finishing',
       section: 'works',
       worksKind: 'material',
-      detail: tr('Plinth, cornice & panels', 'Sokl, vijenac i bočni panel'),
+      detail: `${tr('Plinth', 'Sokl')} ${state.finishing.plinthHeightMm} mm, ${label('finishing.plinthMaterial', state.finishing.plinthMaterial)}`,
       quantity: `${baseM.toFixed(1)} m`,
       low: round(finRange.low),
       high: round(finRange.high),

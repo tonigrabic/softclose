@@ -81,7 +81,7 @@ export const HYPOTHESIS_FIXTURES: HypothesisFixture[] = [
             integrated: { value: true, confidence: 'M' },
           },
         },
-        lighting: { underCabinetLed: { value: true, confidence: 'M' } },
+        lighting: { led: { value: true, confidence: 'M' } },
       }
     },
   },

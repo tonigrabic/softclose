@@ -6,7 +6,7 @@ import { decorsByUse } from '@/lib/catalog'
 import { useTranslations, tDynamic } from '@/lib/i18n'
 import { PickerSlot } from '../PickerSlot'
 import { DecorSwatch } from '../DecorSwatch'
-import type { BuilderState, WorktopFamily, WorktopEdge } from '@/lib/builder/inventory'
+import type { BuilderState, WorktopFamily } from '@/lib/builder/inventory'
 
 const FAMILY_OPTIONS: WorktopFamily[] = [
   'laminate',
@@ -17,7 +17,6 @@ const FAMILY_OPTIONS: WorktopFamily[] = [
   'stainless',
 ]
 
-const EDGE_OPTIONS: WorktopEdge[] = ['square', 'radius', 'bevel', 'mitred_waterfall']
 const THICKNESS_OPTIONS: Array<38 | 20 | 12> = [38, 20, 12]
 
 interface WorktopGroupProps {
@@ -67,13 +66,6 @@ export function WorktopGroup({ state, onPatch }: WorktopGroupProps) {
     })
   }
 
-  function setEdge(edge: WorktopEdge) {
-    onPatch({
-      edge,
-      meta: { ...state.worktop.meta, edge: { confidence: 'H', provenance: 'homeowner-edited' } },
-    })
-  }
-
   function setThickness(thicknessMm: 38 | 20 | 12) {
     onPatch({
       thicknessMm,
@@ -107,13 +99,13 @@ export function WorktopGroup({ state, onPatch }: WorktopGroupProps) {
         <PickerSlot label={t('worktop.decorLabel')} meta={state.worktop.meta.decorCode}>
           {/* family filter chips can be added later — start with full grid */}
           <div className="sr-only">filter: {familyFilter}</div>
-          <div className="grid grid-cols-5 gap-3 sm:grid-cols-6">
+          <div className="grid grid-cols-3 gap-3">
             {visibleDecors.map((d) => (
               <DecorSwatch
                 key={`${d.code}-${d.structure}`}
                 code={d.code}
                 structure={d.structure}
-                size="md"
+                size="fill"
                 selected={state.worktop.decorCode === d.code && state.worktop.decorStructure === d.structure}
                 onClick={() => setDecor(d.code, d.structure)}
                 showLabel
@@ -123,26 +115,6 @@ export function WorktopGroup({ state, onPatch }: WorktopGroupProps) {
           </div>
         </PickerSlot>
       )}
-
-      <PickerSlot label={t('worktop.edgeLabel')} meta={state.worktop.meta.edge}>
-        <div className="flex flex-wrap gap-1.5">
-          {EDGE_OPTIONS.map((e) => (
-            <button
-              key={e}
-              type="button"
-              onClick={() => setEdge(e)}
-              className={cn(
-                'rounded-full border px-3 py-1.5 text-[12px] font-medium transition-colors',
-                state.worktop.edge === e
-                  ? 'border-primary bg-primary/10 text-foreground'
-                  : 'border-border bg-card text-muted-foreground hover:text-foreground'
-              )}
-            >
-              {tDynamic(`worktop.edge.${e}`, locale)}
-            </button>
-          ))}
-        </div>
-      </PickerSlot>
 
       <PickerSlot label={t('worktop.thicknessLabel')} meta={state.worktop.meta.thickness}>
         <div className="flex flex-wrap gap-1.5">

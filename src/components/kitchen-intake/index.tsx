@@ -13,7 +13,6 @@ import { SpaceCapture } from './SpaceCapture'
 import { Inspiration } from './Inspiration'
 import { ConceptRender as ConceptRenderUI, type ProductReference } from './ConceptRender'
 import { LayoutReview } from './LayoutReview'
-import { ChipMulti } from './ChipMulti'
 import { VisualScale } from './VisualScale'
 import { ContactForm, type ContactValue } from './ContactForm'
 import { WrapUpScreen } from './WrapUpScreen'
@@ -24,6 +23,7 @@ import {
   flowIndex,
   nextStepId,
   prevStepId,
+  resolveStepId,
   stepNumber,
   type FlowStepId,
 } from '@/lib/flow'
@@ -35,6 +35,8 @@ import type { UnitEdits } from '@/lib/builder/unit-assembly'
 import { derivePrefills } from '@/lib/derive-prefills'
 import { renderDerivedFloorPlan } from '@/lib/derive-layout'
 import { clearSnapshot, loadSnapshot, saveSnapshot, type StoredSnapshot } from '@/lib/session-store'
+import type { ProjectSnapshot as IntakeSnapshot } from '@/lib/project/snapshot'
+import { useProjectCheckpoint } from './useProjectCheckpoint'
 import { DESIGNER_NAME } from '@/lib/system-prompt'
 import type { UploadedReference } from './ImageSelect'
 import type { FloorPlan } from '@/lib/floor-plan'
@@ -49,6 +51,7 @@ import type {
 } from '@/lib/types'
 import type { InspirationVisionResult } from '@/app/api/inspiration-vision/route'
 import { readJson } from '@/lib/api/client'
+import { contactChannels } from '@/lib/contact'
 
 /** Sign-off timestamp, read through a module-level helper so the React purity
  * lint doesn't flag `Date.now()` in the component's event handlers. */
@@ -64,29 +67,6 @@ const TIMELINE_BANDS = [
   { value: 'no_rush', label: 'No rush', caption: 'Just exploring' },
 ]
 
-const SCOPE_OPTIONS = [
-  { value: 'cabinets', label: 'Cabinets', icon: 'palette' },
-  { value: 'worktops', label: 'Worktops', icon: 'gem' },
-  { value: 'sinkTaps', label: 'Sink + taps', icon: 'wrench' },
-  { value: 'appliancesSupply', label: 'Appliances', icon: 'refrigerator' },
-  { value: 'flooring', label: 'Flooring', icon: 'grid' },
-  { value: 'walls', label: 'Walls', icon: 'palette' },
-  { value: 'lighting', label: 'Lighting', icon: 'lightbulb' },
-  { value: 'plumbingRelocation', label: 'Move plumbing', icon: 'wrench' },
-  { value: 'electricalWork', label: 'New electrical', icon: 'zap' },
-  { value: 'structural', label: 'Move walls', icon: 'hammer' },
-  { value: 'demolitionDisposal', label: 'Demo + disposal', icon: 'hammer' },
-  { value: 'installation', label: 'Installation', icon: 'wrench' },
-]
-
-/** Selected scope chips → the scope flags object. The estimate (computeBom)
- * drops out-of-scope lines from these flags; see LINE_SCOPE_KEY in bom.ts. */
-function scopeFromSelected(selected: string[]): NonNullable<LeadProfile['scope']> {
-  const scope: Record<string, boolean> = {}
-  for (const opt of SCOPE_OPTIONS) scope[opt.value] = selected.includes(opt.value)
-  return scope as NonNullable<LeadProfile['scope']>
-}
-
 const SITE_ACCESS_OPTIONS = [
   { value: 'street_level', label: 'Street level' },
   { value: 'one_flight', label: 'One flight up' },
@@ -94,17 +74,49 @@ const SITE_ACCESS_OPTIONS = [
   { value: 'lift', label: 'Lift / elevator' },
   { value: 'restricted', label: 'Restricted access' },
 ]
-const LIVING_OPTIONS = [
-  { value: 'in_place', label: 'Stay in place' },
-  { value: 'partial_move', label: 'Partial move-out' },
-  { value: 'fully_relocate', label: 'Fully relocate' },
-]
 
 interface IntakeFlowState {
   currentStepId: FlowStepId
 }
 
-export function KitchenIntake() {
+export interface KitchenIntakeProps {
+  /** Set when the journey belongs to a customer's project. Absent = the old
+   *  anonymous, local-only funnel, whose behaviour is unchanged. */
+  projectId?: string
+  /** The maker's display name, for the line telling the customer who can see
+   *  their progress. AGENTS.md rule 8 cuts both ways. */
+  makerName?: string | null
+  /** The project row's current revision, for optimistic-concurrency writes. */
+  initialRevision?: number
+  /** True when the viewer is the maker looking in. The brief's whole value is
+   *  that it is the homeowner's own answers, so the maker never writes to it. */
+  readOnly?: boolean
+  /** The project already has a brief: re-submitting becomes explicit. */
+  hasExistingBrief?: boolean
+  /**
+   * The journey as the server last saw it. Image-free by design (checkpoints
+   * strip inline images), so it restores everything structural and nothing
+   * visual — which is exactly what a second device can be given today.
+   */
+  initialSnapshot?: IntakeSnapshot | null
+  /** The customer's account email. It is the brief's contact address, so the
+   *  contact step shows it and asks only for a name and an optional phone.
+   *  Absent in the anonymous funnel, which still asks for one way to reach them. */
+  customerEmail?: string | null
+  /** The name the maker invited them under — prefilled, still editable. */
+  customerName?: string | null
+}
+
+export function KitchenIntake({
+  projectId,
+  makerName,
+  initialRevision = 0,
+  readOnly = false,
+  hasExistingBrief = false,
+  initialSnapshot = null,
+  customerEmail = null,
+  customerName = null,
+}: KitchenIntakeProps = {}) {
   const { locale } = useTranslations()
   const [state, setState] = useState<IntakeFlowState>({
     currentStepId: 'space_photos',
@@ -138,14 +150,13 @@ export function KitchenIntake() {
   const [conceptRenders, setConceptRenders] = useState<ConceptRender[]>([])
   const [chosenRenderId, setChosenRenderId] = useState<string | null>(null)
   const [productReferences, setProductReferences] = useState<ProductReference[]>([])
-  const [scopeSelected, setScopeSelected] = useState<string[]>([])
   const [siteAccess, setSiteAccess] = useState<string | null>(null)
-  const [livingPlan, setLivingPlan] = useState<string | null>(null)
-  const [contactDraft, setContactDraft] = useState<ContactValue>({
-    name: '',
+  const blankContact = (): ContactValue => ({
+    name: customerName ?? '',
     contactType: 'email',
     contactValue: '',
   })
+  const [contactDraft, setContactDraft] = useState<ContactValue>(blankContact)
 
   // Wishlist free-text drafts (translated into TranslatedField on submit).
   const [mustHavesText, setMustHavesText] = useState('')
@@ -165,52 +176,49 @@ export function KitchenIntake() {
   // Everything `resetAll` clears is snapshotted to IndexedDB (debounced) and
   // offered back on the next visit. Saving is held until the load attempt has
   // settled, so the empty initial state can never clobber a stored journey.
-  type IntakeSnapshot = {
-    currentStepId: FlowStepId
-    profile: LeadProfile
-    transcript: ClientMessage[]
-    isDone: boolean
-    wrapUpData: WrapUpData | null
-    spacePhotos: string[]
-    spaceVision: SpaceVisionResult | null
-    floorPlan: FloorPlan | null
-    unitEdits: UnitEdits | null
-    inspirationStyles: string[]
-    inspirationRefs: UploadedReference[]
-    inspirationVision: InspirationVisionResult | null
-    conceptRenders: ConceptRender[]
-    chosenRenderId: string | null
-    productReferences: ProductReference[]
-    scopeSelected: string[]
-    siteAccess: string | null
-    livingPlan: string | null
-    contactDraft: ContactValue
-    mustHavesText: string
-    niceToHavesText: string
-    dealBreakersText: string
-    builderHypothesis: BuilderHypothesis | null
-    builderStartedNoAI: boolean
-  }
   const [resumeOffer, setResumeOffer] = useState<StoredSnapshot<IntakeSnapshot> | null>(null)
   const persistenceReady = useRef(false)
+  // Dual write: IndexedDB stays the fast local cache, the server copy is what
+  // survives a different device and what the maker's dashboard reads.
+  const checkpoint = useProjectCheckpoint({
+    projectId: readOnly ? undefined : projectId,
+    initialRevision,
+  })
 
   useEffect(() => {
     let cancelled = false
-    void loadSnapshot<IntakeSnapshot>().then((rec) => {
+    void loadSnapshot<IntakeSnapshot>(projectId).then((rec) => {
       if (cancelled) return
       const d = rec?.data
       const worthResuming =
         d && (d.currentStepId !== 'space_photos' || Object.keys(d.profile ?? {}).length > 0 || d.spacePhotos?.length > 0)
-      if (worthResuming) setResumeOffer(rec)
-      else persistenceReady.current = true
+      // In project mode there is nothing to ask about: the customer already
+      // chose "continue" on their project home, and the local copy is a cache
+      // of their own journey rather than a maybe-stranger's session. Restore it
+      // and move on. Leaving the offer up would also hold persistenceReady
+      // false, which silently blocks every checkpoint until it is answered.
+      //
+      // Local wins over the server copy when it exists, because it is the same
+      // journey WITH its photos — the server copy is image-free. On a second
+      // device there is no local copy, and the server snapshot restores
+      // everything except the pictures.
+      if (projectId) {
+        if (worthResuming) applySnapshot(d)
+        else if (initialSnapshot) applySnapshot(initialSnapshot)
+      } else if (worthResuming) {
+        setResumeOffer(rec)
+      }
+      persistenceReady.current = true
     })
     return () => {
       cancelled = true
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   }, [])
 
   function applySnapshot(d: IntakeSnapshot) {
-    setState({ currentStepId: d.currentStepId })
+    // A journey saved on a since-retired step resumes at its successor.
+    setState({ currentStepId: resolveStepId(d.currentStepId) ?? 'space_photos' })
     setProfile(d.profile ?? {})
     setTranscript(d.transcript ?? [])
     setIsDone(Boolean(d.isDone))
@@ -226,10 +234,12 @@ export function KitchenIntake() {
     setConceptRenders(d.conceptRenders ?? [])
     setChosenRenderId(d.chosenRenderId ?? null)
     setProductReferences(d.productReferences ?? [])
-    setScopeSelected(d.scopeSelected ?? [])
     setSiteAccess(d.siteAccess ?? null)
-    setLivingPlan(d.livingPlan ?? null)
-    setContactDraft(d.contactDraft ?? { name: '', contactType: 'email', contactValue: '' })
+    setContactDraft(
+      d.contactDraft
+        ? { ...d.contactDraft, name: d.contactDraft.name || (customerName ?? '') }
+        : blankContact()
+    )
     setMustHavesText(d.mustHavesText ?? '')
     setNiceToHavesText(d.niceToHavesText ?? '')
     setDealBreakersText(d.dealBreakersText ?? '')
@@ -244,7 +254,7 @@ export function KitchenIntake() {
   }
 
   function discardSavedSession() {
-    void clearSnapshot()
+    void clearSnapshot(projectId)
     setResumeOffer(null)
     persistenceReady.current = true
   }
@@ -270,9 +280,7 @@ export function KitchenIntake() {
       conceptRenders,
       chosenRenderId,
       productReferences,
-      scopeSelected,
       siteAccess,
-      livingPlan,
       contactDraft,
       mustHavesText,
       niceToHavesText,
@@ -280,16 +288,18 @@ export function KitchenIntake() {
       builderHypothesis,
       builderStartedNoAI,
     }
-    const t = setTimeout(() => void saveSnapshot(snapshot), 800)
+    const t = setTimeout(() => void saveSnapshot(snapshot, projectId), 800)
+    checkpoint.queue(snapshot)
     return () => clearTimeout(t)
   }, [
     state.currentStepId, profile, transcript, isDone, wrapUpData, spacePhotos, spaceVision, floorPlan,
     unitEdits, inspirationStyles, inspirationRefs, inspirationVision, conceptRenders, chosenRenderId,
-    productReferences, scopeSelected, siteAccess, livingPlan, contactDraft, mustHavesText,
+    productReferences, siteAccess, contactDraft, mustHavesText,
     niceToHavesText, dealBreakersText, builderHypothesis, builderStartedNoAI,
+    checkpoint, projectId,
   ])
 
-  const resumeBanner = resumeOffer ? (
+  const resumeBanner = resumeOffer && !projectId ? (
     <div
       role="dialog"
       aria-labelledby="resume-title"
@@ -434,15 +444,6 @@ export function KitchenIntake() {
     goNext()
   }
 
-  function commitScope() {
-    patchProfile({ scope: scopeFromSelected(scopeSelected) })
-    logTurn(
-      'user',
-      `Scope: ${scopeSelected.length === 0 ? '(none selected)' : scopeSelected.join(', ')}`
-    )
-    goNext()
-  }
-
   async function commitWishlist() {
     if (!mustHavesText.trim() && !niceToHavesText.trim() && !dealBreakersText.trim()) {
       goNext()
@@ -493,38 +494,32 @@ export function KitchenIntake() {
   }
 
   function commitLogistics() {
-    if (!siteAccess && !livingPlan) {
+    if (!siteAccess) {
       goNext()
       return
     }
     patchProfile({
-      logistics: {
-        ...(siteAccess ? { siteAccess: siteAccess as NonNullable<LeadProfile['logistics']>['siteAccess'] } : {}),
-        ...(livingPlan
-          ? { livingDuringBuild: livingPlan as NonNullable<LeadProfile['logistics']>['livingDuringBuild'] }
-          : {}),
-      },
+      logistics: { siteAccess: siteAccess as NonNullable<LeadProfile['logistics']>['siteAccess'] },
     })
     logTurn(
       'user',
-      `Logistics: ${[profile.timeline, siteAccess, livingPlan].filter(Boolean).join(' · ') || '(skipped)'}`
+      `Logistics: ${[profile.timeline, siteAccess].filter(Boolean).join(' · ') || '(skipped)'}`
     )
     goNext()
   }
 
   async function commitContact() {
-    const trimmedName = contactDraft.name.trim()
-    const trimmedContact = contactDraft.contactValue.trim()
-    if (!trimmedName || !trimmedContact) return
-    patchProfile({
-      name: trimmedName,
-      contactValue: trimmedContact,
-    })
-    logTurn('user', `Contact: ${trimmedName} (${trimmedContact})`)
-    await finalise({
-      name: trimmedName,
-      contactValue: trimmedContact,
-    })
+    const name = contactDraft.name.trim()
+    if (!name) return
+    // Signed in: the account email is the contact and a phone is optional (a
+    // stale anonymous-form value is dropped). Anonymous: the one channel typed.
+    const patch: Partial<LeadProfile> = customerEmail
+      ? { name, email: customerEmail, phone: contactDraft.phone?.trim() || undefined, contactValue: undefined }
+      : { name, contactValue: contactDraft.contactValue.trim() }
+    if (!customerEmail && !patch.contactValue) return
+    patchProfile(patch)
+    logTurn('user', `Contact: ${name} (${contactChannels(patch).join(', ')})`)
+    await finalise(patch)
   }
 
   /** Wrap-up: apply final patch, fetch summary, mark done. */
@@ -569,8 +564,16 @@ export function KitchenIntake() {
     }
   }
 
+  /**
+   * Wipe the journey and start again.
+   *
+   * Only reachable in the anonymous funnel. A customer working inside a project
+   * has exactly one kitchen and cannot start another without a new invite from
+   * their maker, so a one-click irreversible wipe has no safe meaning there —
+   * the callers pass `hidden` when projectId is set.
+   */
   function resetAll() {
-    void clearSnapshot()
+    void clearSnapshot(projectId)
     setState({ currentStepId: 'space_photos' })
     setProfile({})
     setTranscript([])
@@ -588,10 +591,8 @@ export function KitchenIntake() {
     setConceptRenders([])
     setChosenRenderId(null)
     setProductReferences([])
-    setScopeSelected([])
     setSiteAccess(null)
-    setLivingPlan(null)
-    setContactDraft({ name: '', contactType: 'email', contactValue: '' })
+    setContactDraft(blankContact())
     setMustHavesText('')
     setNiceToHavesText('')
     setDealBreakersText('')
@@ -701,8 +702,10 @@ export function KitchenIntake() {
         nav={
           <>
             <header className="mb-5 flex items-center justify-end">
+              {/* Hidden in project mode: see the note on resetAll. */}
               <button
                 type="button"
+                hidden={Boolean(projectId)}
                 onClick={resetAll}
                 className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
                 title={tDynamic('nav.startOver', locale)}
@@ -720,6 +723,8 @@ export function KitchenIntake() {
           profile={profile}
           explorationRefs={[]}
           transcript={transcript}
+          projectId={projectId}
+          hasExistingBrief={hasExistingBrief}
         />
       </AppShell>
     )
@@ -786,19 +791,13 @@ export function KitchenIntake() {
   const rightRailSteps: FlowStepId[] = [
     'confirm_look',
     'builder',
-    'scope',
     'wishlist',
     'logistics',
     'contact',
   ]
-  // The live range respects scope. On the scope step itself it tracks the
-  // homeowner's live picks (so the range reacts as they tick items) — but only
-  // once at least one is picked, so arriving on an empty selection still shows
-  // the full kitchen, not €0. Elsewhere it uses the committed profile.scope.
-  const liveScope =
-    state.currentStepId === 'scope' && scopeSelected.length > 0
-      ? scopeFromSelected(scopeSelected)
-      : profile.scope
+  // Journeys saved before the scope step was cut may still carry a scope;
+  // new ones never do, so the range is the whole kitchen.
+  const liveScope = profile.scope
   const funnelRightRail =
     rightRailSteps.includes(state.currentStepId) && funnelRenderSrc ? (
       <div className="flex flex-col gap-5">
@@ -825,8 +824,10 @@ export function KitchenIntake() {
         <>
           {Object.keys(profile).length > 0 && (
             <header className="mb-5 flex items-center justify-end">
+              {/* Hidden in project mode: see the note on resetAll. */}
               <button
                 type="button"
+                hidden={Boolean(projectId)}
                 onClick={resetAll}
                 className="inline-flex items-center gap-1 text-[10px] font-semibold text-muted-foreground transition-colors hover:text-foreground"
                 title={tDynamic('nav.startOver', locale)}
@@ -837,6 +838,11 @@ export function KitchenIntake() {
             </header>
           )}
           <JourneyNavRail funnelStepId={state.currentStepId} profile={profile} locale={locale} />
+          {projectId && makerName ? (
+            <p className="mt-5 text-[10px] leading-relaxed text-muted-foreground">
+              {tDynamic('kitchen.makerSees', locale).replace('{maker}', makerName)}
+            </p>
+          ) : null}
         </>
       }
     >
@@ -887,14 +893,11 @@ export function KitchenIntake() {
                 onChooseRender={chooseRender}
                 productReferences={productReferences}
                 onProductReferencesChange={setProductReferences}
-                scopeSelected={scopeSelected}
-                onScopeChange={setScopeSelected}
                 siteAccess={siteAccess}
                 onSiteAccessChange={setSiteAccess}
-                livingPlan={livingPlan}
-                onLivingPlanChange={setLivingPlan}
                 contactDraft={contactDraft}
                 onContactDraftChange={setContactDraft}
+                customerEmail={customerEmail}
                 mustHavesText={mustHavesText}
                 onMustHavesTextChange={setMustHavesText}
                 niceToHavesText={niceToHavesText}
@@ -947,9 +950,8 @@ export function KitchenIntake() {
                   inspirationStyles.length > 0 || inspirationRefs.length > 0
                 }
                 hasContactDraft={
-                  Boolean(contactDraft.name.trim() && contactDraft.contactValue.trim())
+                  Boolean(contactDraft.name.trim() && (customerEmail || contactDraft.contactValue.trim()))
                 }
-                scopeCount={scopeSelected.length}
                 hasFloorPlan={Boolean(floorPlan)}
                 hasSpacePhotos={spacePhotos.length > 0}
               />
@@ -980,9 +982,6 @@ export function KitchenIntake() {
         // is a "skip the builder" affordance and just advances the outer flow.
         logTurn('user', 'Skipped the detailed builder — using minimal brief.')
         goNext()
-        break
-      case 'scope':
-        commitScope()
         break
       case 'wishlist':
         void commitWishlist()
@@ -1023,14 +1022,12 @@ interface StepBodyProps {
   onChooseRender: (id: string) => void
   productReferences: ProductReference[]
   onProductReferencesChange: (refs: ProductReference[]) => void
-  scopeSelected: string[]
-  onScopeChange: (s: string[]) => void
   siteAccess: string | null
   onSiteAccessChange: (s: string | null) => void
-  livingPlan: string | null
-  onLivingPlanChange: (s: string | null) => void
   contactDraft: ContactValue
   onContactDraftChange: (c: ContactValue) => void
+  /** Signed-in customer's account email — the contact step shows it instead of asking. */
+  customerEmail: string | null
   mustHavesText: string
   onMustHavesTextChange: (t: string) => void
   niceToHavesText: string
@@ -1075,14 +1072,11 @@ function StepBody(props: StepBodyProps) {
     onChooseRender,
     productReferences,
     onProductReferencesChange,
-    scopeSelected,
-    onScopeChange,
     siteAccess,
     onSiteAccessChange,
-    livingPlan,
-    onLivingPlanChange,
     contactDraft,
     onContactDraftChange,
+    customerEmail,
     mustHavesText,
     onMustHavesTextChange,
     niceToHavesText,
@@ -1203,27 +1197,6 @@ function StepBody(props: StepBodyProps) {
       )
     }
 
-    case 'scope':
-      return (
-        <StepFrame
-          eyebrow={stepEyebrow('scope')}
-          title={t('funnel.scope.title')}
-          subtitle={t('funnel.scope.subtitle')}
-        >
-          <ChipMulti
-            options={SCOPE_OPTIONS.map((o) => ({ ...o, label: tDynamic(`option.scope.${o.value}`) }))}
-            selected={scopeSelected}
-            onToggle={(v) =>
-              onScopeChange(
-                scopeSelected.includes(v)
-                  ? scopeSelected.filter((x) => x !== v)
-                  : [...scopeSelected, v]
-              )
-            }
-          />
-        </StepFrame>
-      )
-
     case 'wishlist':
       return (
         <StepFrame
@@ -1304,30 +1277,6 @@ function StepBody(props: StepBodyProps) {
                 ))}
               </div>
             </div>
-            <div>
-              <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                {t('funnel.field.living')}
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {LIVING_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() =>
-                      onLivingPlanChange(livingPlan === opt.value ? null : opt.value)
-                    }
-                    className={cn(
-                      'rounded-full border px-3.5 py-2 text-[13px] font-medium transition-all',
-                      livingPlan === opt.value
-                        ? 'border-primary bg-primary text-primary-foreground'
-                        : 'border-border bg-card hover:border-primary/40'
-                    )}
-                  >
-                    {tDynamic(`option.living.${opt.value}`)}
-                  </button>
-                ))}
-              </div>
-            </div>
           </div>
         </StepFrame>
       )
@@ -1339,7 +1288,7 @@ function StepBody(props: StepBodyProps) {
           title={t('funnel.contact.title')}
           subtitle={t('funnel.contact.subtitle')}
         >
-          <ContactForm value={contactDraft} onChange={onContactDraftChange} />
+          <ContactForm value={contactDraft} onChange={onContactDraftChange} accountEmail={customerEmail} />
         </StepFrame>
       )
   }
@@ -1417,7 +1366,6 @@ function FooterNav({
   profile,
   hasInspirationInput,
   hasContactDraft,
-  scopeCount,
   hasFloorPlan,
   hasSpacePhotos,
 }: {
@@ -1429,7 +1377,6 @@ function FooterNav({
   profile: LeadProfile
   hasInspirationInput: boolean
   hasContactDraft: boolean
-  scopeCount: number
   hasFloorPlan: boolean
   hasSpacePhotos: boolean
 }) {
@@ -1454,8 +1401,6 @@ function FooterNav({
         // The layout is the lock (it freezes the contract the builder prices);
         // decor below is optional. Gate on having a plan to confirm.
         return hasFloorPlan
-      case 'scope':
-        return scopeCount > 0
       case 'wishlist':
         return true
       case 'logistics':

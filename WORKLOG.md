@@ -886,3 +886,123 @@ plus a live click-through of every chip in mock mode. Findings and fixes:
   link to /maker/<id>; dormant until RESEND_API_KEY + MAKER_NOTIFY_EMAIL exist
   (local + Vercel). maker_notified_at stamped when sent.
 - Vision summary now returned in the homeowner's language (locale passed).
+
+### 2026-09-22 — Invite-only auth: the app is closed, both sides work
+Branch `feat/invite-only-auth` (not merged, not deployed; production DB untouched).
+
+**The shape.** One passwordless system, two roles. A maker signs in with an
+emailed link. A customer's INVITE *is* their magic link: creating it creates a
+pending account on that email plus the one project it opens into. One invite =
+one kitchen; they sign back in with the same address to see and edit it.
+
+**What exists now that did not.**
+- `softclose_accounts`, `softclose_auth_tokens`, and `softclose_sessions`
+  renamed to `softclose_projects` — it always was the project row (status/step/
+  updated_at/profile, written once at submit), so `draft` and `step` were dead
+  columns waiting for exactly this.
+- `/login`, `/auth/verify`, `/logout`, `src/proxy.ts` (Next 16's name for
+  middleware), and a DAL that every page and route calls for itself.
+- **`/dashboard` — the first maker inbox this product has ever had.** Before
+  this the only way to a brief was the link in a notification email.
+- **`/kitchen/[projectId]` — the customer's home**: the walkthrough before they
+  start, the status page afterwards (sent / your maker opened it / the range).
+  The customer half of rule 8 did not exist at all.
+- Server checkpoints, so the maker sees "korak 2/8 · Inspiracija" as it happens
+  and a customer can resume on another device.
+- `npm run maker -- add|list|disable|adopt`, which is also the lockout recovery
+  path: `add` prints a working sign-in link.
+- A local Supabase stack (Toni's call), so schema work never touches production.
+
+**Decisions worth remembering.**
+- `/auth/verify` does NOT consume on GET. Outlook SafeLinks and corporate
+  gateways prefetch links to scan them, which would burn single-use tokens
+  before the human clicks — a failure indistinguishable from "it's broken". The
+  page auto-submits a form; the consume happens on POST, plus a 2-minute grace
+  window so double submits and two tabs also succeed.
+- Not-yours is `notFound()`, never 403. A 403 confirms the id exists.
+- Checkpoints are image-free (a real snapshot is ~700 bytes) and conditional on
+  a revision. A 409 whose fingerprint matches what we sent is our own write
+  landing, not a conflict — that is what stops StrictMode's double-mount showing
+  a conflict banner on every dev load.
+- Auth fails closed: no AUTH_SECRET means nobody signs in, including us. There
+  is deliberately no dev bypass flag.
+
+**Found by running it, not by the gate.**
+- The resume banner silently disabled every checkpoint — `persistenceReady`
+  stays false until it is answered. Gone in project mode.
+- The IndexedDB key was the global `'current'`: on a shared browser, customer B
+  would be offered customer A's journey, photos included. Keyed per project now.
+- Wrap-up submits on mount, so re-opening a finished kitchen would insert
+  another brief and re-email the maker on every visit. Re-submit is a button.
+- Every fresh brief arrived flagged "changed since you got it": the project is
+  updated just after the brief is inserted, and that comparison is what the flag
+  is derived from. 0005 makes the touch trigger honour an explicit updated_at.
+- A 404 was retried forever on a backoff; any 4xx is permanent now.
+
+**Still open.** Brief versioning on re-submit (supersedes / is_current / a
+change summary in the email) — a re-submit currently makes a new brief and
+repoints the project, which works but says nothing about what moved. Media at
+capture time, so a mid-flow device switch keeps its photos. And the ops step:
+verify a softclose sending domain in Resend, set AUTH_SECRET + RESEND_* on
+Vercel, apply 0004/0005 to production, then turn Vercel Deployment Protection
+OFF — or invited customers hit Vercel's SSO wall and never reach /login.
+
+Gate: 309 tests · tsc · eslint · build green (was 158 at the start).
+
+### 2026-09-23 — Maker-tester feedback, round 1: trade names, fewer questions
+Branch `feat/tester-feedback-builder` (off `feat/invite-only-auth`, not merged).
+Croatian makers walked the flow and sent a list (step 2 through logistics).
+The through-line: **ask only what moves the first quote, in trade words**.
+
+**Done, browser-verified on the local stack (mock AI):**
+- Intake: "Opseg radova" step and "Gdje ćeš živjeti tijekom radova?" gone;
+  "Odaberi stil"; style tiles translated (they were English in hr-HR);
+  "Natural organic" → "Rustikalni"; the "Iščitano iz tvojih odabira" list is
+  a one-line done row. Journeys saved on the old scope step resume at the
+  wishlist (`resolveStepId`).
+- Builder: Korpusi (dekor korpusa: klasična bijela / u boji), Odabrani
+  raspored, Fronte, Zidna obloga (u dekoru radne ploče / pločice / staklo /
+  drugo + text / bez, no height), LED yes/no, sokl 100/150 · drveni/plastični.
+  Okovi screen, worktop edge, cornice, end panels, open shelving removed from
+  the schema, the AI prefill and the BOM — fittings stay priced as the maker's
+  standard spec.
+- Supply first: "Nabava uređaja" / "Nabava sudopera i slavine" (homeowner by
+  default, "Kombinirano" cut). Types and models only when the maker buys.
+  Built-in vs freestanding is asked either way and now really prices: a
+  built-in fridge re-runs the assembler (18 → 19 korpusa, ~+230 €), a
+  freestanding dishwasher drops its front.
+- `normalizeBuilderState` maps retired values in saved states (relock and
+  computeBom), so old kitchens and saved briefs keep pricing.
+
+**Split off (their own sessions, discuss first):** floor plan before the
+render; multi-angle space photos (render anchors one photo — the L-kitchen
+"second wall ignored" report).
+
+**Next:** Fronte material (iveral → Elgrad decors with name + code and real
+grain; lakirani medijapan → RAL + ravna / s ukladom / reljef; alu + staklo),
+and worktop materials with thickness by material. Data research is in the
+session scratchpad: RAL Classic (216, RAL's own swatches, cross-checked) + a
+25-colour kitchen shortlist; EGGER texture URLs for all 198 Elgrad decors
+(all Elgrad codes are EGGER) — **reuse needs EGGER's permission**. The PDF
+parser dropped W960 ST7 (the white the testers named) and ~30 other rows.
+
+Gate: 316 tests · tsc · eslint green.
+
+### 2026-09-26 — Fronts: material first (tester feedback, round 1 cont.)
+- "Materijal fronte": iveral (Elgrad decors, real EGGER swatches, name +
+  code) / lakirani medijapan (ravna · s ukladom · reljef, drawn in the chosen
+  RAL; 25-colour kitchen shortlist + any solid RAL Classic code) / aluminij sa
+  staklom. Style chips gone; legacy states + older AI reads map across.
+- Fronts are their own BOM line. Lacquered MDF 95–135 €/m² (×1.2 inset,
+  ×1.35 relief) and alu + glass 170–250 €/m² are **reference bands** — replace
+  with a maker's lacquer-shop pricelist (LOOP.md Q7).
+- **Price bug fixed:** the cjenik parser read compact-worktop prices as 18 mm
+  board prices (H1180 179.65 → 35.82 €/m², H1318, H1330, F206 likewise), and
+  dropped W960 ST7. Both fixed in the parser, not by hand.
+- **EGGER images are hotlinked for testing only** (Toni's call). Before
+  launch: EGGER's written permission, then serve fixed sizes from our own
+  storage. Switch: `DECOR_IMAGES_ENABLED` in lib/builder/swatches.ts.
+- Worktops next: waiting on what the testers mean by "Laminat"; quartz =
+  Silestone / Technistone / Quartzforms (sold in Croatia, Toni's call).
+
+Gate: 328 tests · tsc · eslint green. Browser-verified in the /builder harness.

@@ -4,7 +4,8 @@ import { getOptionFallbackImage } from '@/lib/option-visuals'
 /**
  * Canonical style directions the homeowner picks from. Mirrors the values the
  * AI was previously emitting in the chat-orchestrated flow, but now lives in
- * code so the inspiration step is fully deterministic.
+ * code so the inspiration step is fully deterministic. `label` is the English
+ * fallback; the UI shows the `style.<value>` translation.
  */
 export const STYLE_OPTIONS: SelectOption[] = [
   {
@@ -37,10 +38,12 @@ export const STYLE_OPTIONS: SelectOption[] = [
     description: 'Deep navy or charcoal, contrasting hardware.',
     icon: 'gem',
   },
+  // Shown as "Rustic" since maker testing (2026-09-23). The value stays
+  // `natural_organic` so saved journeys and the render prompt keep matching.
   {
     value: 'natural_organic',
-    label: 'Natural organic',
-    description: 'Light wood, soft greens, hand-finished.',
+    label: 'Rustic',
+    description: 'Solid wood with visible grain, warm earthy tones.',
     icon: 'leaf',
   },
 ].map((opt) => ({

@@ -1,0 +1,207 @@
+{
+ "source": {
+  "manufacturer": "EGGER",
+  "retrieved": "2026-09-23",
+  "terms": "EGGER's photos are copyrighted; reuse needs their permission. Hotlinked for maker TESTING only (Toni, 2026-09-26) — before launch get EGGER's OK and copy fixed sizes into our own storage (the image ids are not stable across collections)."
+ },
+ "images": {
+  "W960 ST7": {
+   "swatch": "https://cdn.egger.com/img/pim/8854565781534/8855317544990/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854565912606/8854565945374/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/W960_7?country=HR"
+  },
+  "W1000 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854478389278/8855434395678/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854478520350/8854478553118/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/W1000_9?country=HR"
+  },
+  "W1100 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854481797150/8855434690590/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854481928222/8854481960990/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/W1100_9?country=HR"
+  },
+  "W1200 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854484942878/8855434952734/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854485073950/8854565027870/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/W1200_9?country=HR"
+  },
+  "U104 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854424059934/8855429873694/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854424191006/8854424223774/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/U104_9?country=HR"
+  },
+  "U156 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854427598878/8855430168606/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854427729950/8854547628062/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/U156_9?country=HR"
+  },
+  "U222 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854429958174/8855430365214/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854430089246/8854548447262/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/U222_9?country=HR"
+  },
+  "U702 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854449225758/8855431970846/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854449356830/8854449389598/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/U702_9?country=HR"
+  },
+  "U708 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854452371486/8855432232990/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854452502558/8854557032478/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/U708_9?country=HR"
+  },
+  "U727 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854455517214/8855432495134/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854455648286/8854455681054/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/U727_9?country=HR"
+  },
+  "U740 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854459449374/8855432822814/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854459580446/8854558015518/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/U740_9?country=HR"
+  },
+  "U750 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854460629022/8855432921118/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854460760094/8854558507038/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/U750_9?country=HR"
+  },
+  "U780 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854463840286/8855433183262/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854463971358/8854559981598/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/U780_9?country=HR"
+  },
+  "U788 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854464233502/8855433216030/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854464364574/8854560079902/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/U788_9?country=HR"
+  },
+  "U961 ST7": {
+   "swatch": "https://cdn.egger.com/img/pim/8854560866334/8855316529182/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854560931870/8854560964638/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/U961_7?country=HR"
+  },
+  "U963 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854470131742/8855433707550/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854470262814/8854561259550/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/U963_9?country=HR"
+  },
+  "U899 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854466199582/8855433379870/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854466330654/8854560374814/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/U899_9?country=HR"
+  },
+  "U999 ST7": {
+   "swatch": "https://cdn.egger.com/img/pim/8854562865182/8855316922398/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854562930718/8854562963486/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/U999_7?country=HR"
+  },
+  "U998 ST38": {
+   "swatch": "https://cdn.egger.com/img/pim/8854471704606/8855433838622/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854471835678/8854561849374/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/U998_38?country=HR"
+  },
+  "H1145 ST10": {
+   "swatch": "https://cdn.egger.com/img/pim/8854363406366/8854522429470/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854363537438/8854522462238/original.jpg?width=1024&srcext=png",
+   "isWood": true,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/H1145_10?country=HR"
+  },
+  "H1180 ST37": {
+   "swatch": "https://cdn.egger.com/img/pim/8854365372446/8854523117598/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854365503518/8854523150366/original.jpg?width=1024&srcext=png",
+   "isWood": true,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/H1180_37?country=HR"
+  },
+  "H1199 ST12": {
+   "swatch": "https://cdn.egger.com/img/pim/8854366158878/8854523314206/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854366289950/8854523346974/original.jpg?width=1024&srcext=png",
+   "isWood": true,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/H1199_12?country=HR"
+  },
+  "H1318 ST10": {
+   "swatch": "https://cdn.egger.com/img/pim/8854374809630/8854527672350/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854374940702/8854527705118/original.jpg?width=1024&srcext=png",
+   "isWood": true,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/H1318_10?country=HR"
+  },
+  "H1330 ST10": {
+   "swatch": "https://cdn.egger.com/img/pim/8854375202846/8854527770654/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854375333918/8854527803422/original.jpg?width=1024&srcext=png",
+   "isWood": true,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/H1330_10?country=HR"
+  },
+  "H1346 ST32": {
+   "swatch": "https://cdn.egger.com/img/pim/8854377562142/8854528065566/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854377693214/8854528098334/original.jpg?width=1024&srcext=png",
+   "isWood": true,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/H1346_32?country=HR"
+  },
+  "H3303 ST10": {
+   "swatch": "https://cdn.egger.com/img/pim/8854408724510/8854540386334/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854408855582/8854540419102/original.jpg?width=1024&srcext=png",
+   "isWood": true,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/H3303_10?country=HR"
+  },
+  "H3331 ST10": {
+   "swatch": "https://cdn.egger.com/img/pim/8854411083806/8854541762590/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854411214878/8854541795358/original.jpg?width=1024&srcext=png",
+   "isWood": true,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/H3331_10?country=HR"
+  },
+  "H3702 ST10": {
+   "swatch": "https://cdn.egger.com/img/pim/8854419734558/8854545006622/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854419865630/8854545039390/original.jpg?width=1024&srcext=png",
+   "isWood": true,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/H3702_10?country=HR"
+  },
+  "F186 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854324674590/8854505488414/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854324805662/8854505521182/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/F186_9?country=HR"
+  },
+  "F206 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854326640670/8854505979934/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854326771742/8854506012702/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/F206_9?country=HR"
+  },
+  "F235 ST76": {
+   "swatch": "https://cdn.egger.com/img/pim/8854510501918/8854510534686/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854510632990/8854510665758/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/F235_76?country=HR"
+  },
+  "F243 ST76": {
+   "swatch": "https://cdn.egger.com/img/pim/8854511878174/8854511910942/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854512009246/8854512042014/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/F243_76?country=HR"
+  },
+  "F800 ST9": {
+   "swatch": "https://cdn.egger.com/img/pim/8854519775262/8854519808030/AR_4_3.webp?width=768&srcext=png",
+   "texture": "https://cdn.egger.com/img/pim/8854519906334/8854519939102/original.jpg?width=1024&srcext=png",
+   "isWood": false,
+   "sourcePage": "https://www.egger.com/hr/namjestaj-i-unutarnje-uredenje/dekori/F800_9?country=HR"
+  }
+ }
+}
