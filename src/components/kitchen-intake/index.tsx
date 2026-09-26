@@ -38,7 +38,6 @@ import { renderDerivedFloorPlan } from '@/lib/derive-layout'
 import { clearSnapshot, loadSnapshot, saveSnapshot, type StoredSnapshot } from '@/lib/session-store'
 import type { ProjectSnapshot as IntakeSnapshot } from '@/lib/project/snapshot'
 import { useProjectCheckpoint } from './useProjectCheckpoint'
-import { DESIGNER_NAME } from '@/lib/system-prompt'
 import type { UploadedReference } from './ImageSelect'
 import type { FloorPlan } from '@/lib/floor-plan'
 import { planFromProfile, validate, fromShapePreset } from '@/lib/floor-plan'
@@ -533,8 +532,7 @@ export function KitchenIntake({
       setProfile(finalProfile)
       setWrapUpData({
         thankYouMessage: tDynamic('funnel.thanksFallback', locale)
-          .replace('{name}', finalProfile.name ? `, ${finalProfile.name}` : '')
-          .replace('{designer}', DESIGNER_NAME),
+          .replace('{name}', finalProfile.name ? `, ${finalProfile.name}` : ''),
         summaryLines: buildFallbackSummary(finalProfile, locale),
       })
       setFinaliseError(err instanceof Error ? err.message : 'Summary unavailable')

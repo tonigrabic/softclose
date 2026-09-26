@@ -946,7 +946,7 @@ export const hrHR = {
   'api.error.tooLarge': 'Datoteka je prevelika za slanje. Pokušaj s manjom fotografijom.',
   'funnel.wishlist.error': 'Nismo uspjeli spremiti listu želja.',
   'funnel.builderEntry.error': 'Nismo uspjeli pročitati tvoj render. Pokušaj ponovno ili započni bez AI prijedloga.',
-  'funnel.thanksFallback': 'Hvala{name} — {designer} uskoro dobiva tvoj sažetak.',
+  'funnel.thanksFallback': 'Hvala{name} — tvoj sažetak je spreman.',
   'wrapup.error.bundle': 'Nismo uspjeli složiti tvoj sažetak.',
   'wrapup.error.export': 'Preuzimanje sažetka nije uspjelo.',
   'wrapup.fixAnything': 'Nešto ispraviti?',

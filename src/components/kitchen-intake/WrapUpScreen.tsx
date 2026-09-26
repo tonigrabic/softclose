@@ -10,7 +10,6 @@ import type {
   LeadProfile,
   WrapUpData,
 } from '@/lib/types'
-import { DESIGNER_NAME, STUDIO_NAME } from '@/lib/system-prompt'
 import { hasPlan, planFromProfile } from '@/lib/floor-plan'
 import { builderPickLabels } from '@/lib/builder/pick-labels'
 import { useTranslations, type TranslationKey } from '@/lib/i18n'
@@ -177,9 +176,6 @@ export function WrapUpScreen({
         <h2 className="text-2xl font-semibold text-foreground">{t('wrapup.title')}</h2>
         <p className="mt-1 text-sm text-muted-foreground">{data.thankYouMessage}</p>
         <p className="text-xs text-muted-foreground/70">{t('wrapup.review')}</p>
-        <p className="mt-1 text-[11px] text-muted-foreground/60">
-          — {DESIGNER_NAME}, {STUDIO_NAME}
-        </p>
       </div>
 
       {/* Estimate — always a range, never a quote. The badge is honest about
