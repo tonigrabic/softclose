@@ -12,6 +12,7 @@ import type {
 } from '@/lib/types'
 import { DESIGNER_NAME, STUDIO_NAME } from '@/lib/system-prompt'
 import { hasPlan, planFromProfile } from '@/lib/floor-plan'
+import { builderPickLabels } from '@/lib/builder/pick-labels'
 import { useTranslations, type TranslationKey } from '@/lib/i18n'
 import { FloorPlanStatic } from './FloorPlanStatic'
 import { MakerDashboardPreview } from './MakerDashboardPreview'
@@ -61,6 +62,7 @@ export function WrapUpScreen({
   const showPlan = hasPlan(profile) && plan !== null
   const moodBoard = profile.moodBoardItems ?? []
   const chosenRender = profile.conceptRenders?.find((r) => r.id === profile.conceptRenderChosenId)
+  const picks = builderPickLabels(profile.builderState, locale)
 
   function fmtMoney(n: number): string {
     return `${Math.round(n).toLocaleString(locale)} €`
@@ -79,6 +81,7 @@ export function WrapUpScreen({
     const label = td(`style.${value}`)
     return label === `style.${value}` ? humanize(value) : label
   }
+  const styles = profile.stylePreferences?.map(styleLabel).join(', ') || null
 
   // Wrap-up renders after the flow completes, so the bundle inputs are frozen —
   // loadBundle captures them once (deps []) and is reused for the manual retry.
@@ -311,21 +314,14 @@ export function WrapUpScreen({
         </SectionWithFix>
       )}
 
-      {/* Project basics */}
-      <BriefSection title={t('wrapup.section.basics')} onFix={null}>
-        <SummaryRow label={t('wrapup.row.projectType')} value={optionLabel('projectType', profile.projectType)} />
-        <SummaryRow label={t('wrapup.row.timeline')} value={optionLabel('timeline', profile.timeline)} />
-        <SummaryRow
-          label={t('wrapup.row.budget')}
-          value={
-            profile.budgetRange
-              ? humanize(profile.budgetRange)
-              : profile.budgetShared === false
-                ? t('wrapup.row.budgetPrivate')
-                : null
-          }
-        />
-      </BriefSection>
+      {/* Project basics. No budget row: the flow has no up-front budget any
+          more — the live range above is the budget conversation. */}
+      {(profile.projectType || profile.timeline) && (
+        <BriefSection title={t('wrapup.section.basics')} onFix={null}>
+          <SummaryRow label={t('wrapup.row.projectType')} value={optionLabel('projectType', profile.projectType)} />
+          <SummaryRow label={t('wrapup.row.timeline')} value={optionLabel('timeline', profile.timeline)} />
+        </BriefSection>
+      )}
 
       {/* Scope */}
       {profile.scope && (
@@ -343,42 +339,19 @@ export function WrapUpScreen({
         </BriefSection>
       )}
 
-      {/* Style + materials */}
-      <BriefSection title={t('wrapup.section.style')} onFix={null}>
-        <SummaryRow
-          label={t('wrapup.row.style')}
-          value={profile.stylePreferences?.map(styleLabel).join(', ')}
-        />
-        <SummaryRow label={t('wrapup.row.door')} value={profile.doorMaterial && humanize(profile.doorMaterial)} />
-        <SummaryRow
-          label={t('wrapup.row.construction')}
-          value={profile.cabinetConstruction && humanize(profile.cabinetConstruction)}
-        />
-        <SummaryRow
-          label={t('wrapup.row.worktop')}
-          value={profile.worktopPreference && humanize(profile.worktopPreference)}
-        />
-        <SummaryRow
-          label={t('wrapup.row.backsplash')}
-          value={profile.backsplashPreference && humanize(profile.backsplashPreference)}
-        />
-        <SummaryRow
-          label={t('wrapup.row.hardwareTier')}
-          value={profile.hardwareTier && humanize(profile.hardwareTier)}
-        />
-        <SummaryRow
-          label={t('wrapup.row.hardwareBrand')}
-          value={profile.hardwareBrand && humanize(profile.hardwareBrand)}
-        />
-        <SummaryRow
-          label={t('wrapup.row.specialty')}
-          value={profile.specialtyCabinets?.map(humanize).join(', ')}
-        />
-        <SummaryRow
-          label={t('wrapup.row.appliances')}
-          value={profile.appliancesIntegrated && humanize(profile.appliancesIntegrated)}
-        />
-      </BriefSection>
+      {/* Style + materials — the tagged styles, then what the homeowner picked
+          in the builder. Not profile.doorMaterial & co.: those are the
+          inspiration-photo guesses from before the builder, and can contradict
+          the build (see lib/builder/pick-labels). Fittings are the maker's
+          standard spec, so there is no hardware row. */}
+      {(styles || picks) && (
+        <BriefSection title={t('wrapup.section.style')} onFix={null}>
+          <SummaryRow label={t('wrapup.row.style')} value={styles} />
+          <SummaryRow label={t('wrapup.row.door')} value={picks?.doors} />
+          <SummaryRow label={t('wrapup.row.worktop')} value={picks?.worktop} />
+          <SummaryRow label={t('wrapup.row.backsplash')} value={picks?.backsplash} />
+        </BriefSection>
+      )}
 
       {/* Trades */}
       {profile.trades && Object.keys(profile.trades).length > 0 && (
@@ -647,9 +620,11 @@ function SummaryRow({ label, value }: { label: string; value: string | null | un
   return (
     <div className="flex items-baseline justify-between gap-3 text-sm">
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 truncate text-right font-medium text-foreground" title={value}>
-        {value}
-      </dd>
+      {/* Wraps rather than truncates: builder picks carry the decor name and
+          code ("Shaker (s okvirom) · Bijela premium (W1000)"), too long for a
+          phone row, and a summary the homeowner can't read to the end hides
+          exactly the detail they came to check. */}
+      <dd className="min-w-0 break-words text-right font-medium text-foreground">{value}</dd>
     </div>
   )
 }

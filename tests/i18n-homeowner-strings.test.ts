@@ -15,6 +15,9 @@ import { fromShapePreset, makeFeature, renderFloorPlanSvg, validate } from '@/li
 import { ApiError, apiErrorKey } from '@/lib/api/client'
 import { tDynamic } from '@/lib/i18n/core'
 import { runLabel } from '@/components/builder/runLabel'
+import { floorPlanToLayout } from '@/lib/contract/layout-contract'
+import { hydrateFromHypothesis } from '@/lib/builder/state'
+import { builderPickLabels } from '@/lib/builder/pick-labels'
 
 function slots(s: string): string[] {
   return [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort()
@@ -84,5 +87,41 @@ describe('apiErrorKey', () => {
     expect(
       apiErrorKey(new ApiError('x', 429), 'concept.error.renderFailed', { 429: 'concept.error.capReached' })
     ).toBe('concept.error.capReached')
+  })
+})
+
+describe('builderPickLabels (wrap-up style rows)', () => {
+  const built = () =>
+    hydrateFromHypothesis(null, { layoutContract: floorPlanToLayout(validate(fromShapePreset('l_shape'))) })
+
+  test('says what the builder said, in Croatian', () => {
+    const s = built()
+    expect(builderPickLabels(s, 'hr-HR')).toEqual({
+      doors: 'Ravne fronte · Bijela premium (W1000)',
+      worktop: 'Laminat · Chicago beton svijetlo sivi (F186)',
+      backsplash: 'U dekoru radne ploče',
+    })
+  })
+
+  test('follows the locale, decor names included', () => {
+    expect(builderPickLabels(built(), 'en-US')?.doors).toBe('Flat slab · Premium white (W1000)')
+  })
+
+  test('a stone worktop carries no laminate decor; typed cladding reads as typed', () => {
+    const s = built()
+    const picks = builderPickLabels(
+      {
+        ...s,
+        worktop: { ...s.worktop, family: 'quartz' },
+        backsplash: { ...s.backsplash, kind: 'other', otherDecor: '  zidne letve u hrastu ' },
+      },
+      'hr-HR'
+    )
+    expect(picks?.worktop).toBe('Kvarc')
+    expect(picks?.backsplash).toBe('zidne letve u hrastu')
+  })
+
+  test('no builder run, no rows', () => {
+    expect(builderPickLabels(undefined, 'hr-HR')).toBeNull()
   })
 })
