@@ -18,9 +18,15 @@ const IDLE_MS = 2_500
 /** …but never hold a write longer than this, so continuous fiddling in the
  *  builder still reaches the server. */
 const MAX_WAIT_MS = 15_000
+/** A flush holds up a submit at most this long; the submit never waits on a slow save. */
+const FLUSH_TIMEOUT_MS = 4_000
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
 
 export interface CheckpointApi {
   queue: (snapshot: ProjectSnapshot, opts?: { immediate?: boolean }) => void
+  /** Write `snapshot` now and resolve once it has landed (or failed, or timed out). */
+  flush: (snapshot: ProjectSnapshot) => Promise<void>
   state: CheckpointState
 }
 
@@ -184,6 +190,28 @@ export function useProjectCheckpoint(opts: { projectId?: string; initialRevision
     [projectId, send]
   )
 
+  // Submitting the brief must be the project's LAST write. The maker's "changed
+  // since submit" flag is `updated_at > brief.created_at`, and the submit itself
+  // changes the snapshot (isDone, wrapUpData) — left to the idle timer, that save
+  // lands a few seconds after the brief and flags every fresh brief as edited.
+  // Flushed first, the same snapshot queued afterwards is a fingerprint no-op.
+  // A save that fails or stalls must not block the submit: it degrades to the
+  // old behaviour (a false "changed"), never to a lost brief.
+  const flush = useCallback(
+    async (snapshot: ProjectSnapshot) => {
+      if (!projectId || halted.current) return
+      const write = (async () => {
+        // A save already on the wire finishes first, so ours is the one that lands last.
+        while (inFlight.current) await sleep(50)
+        pendingSnapshot.current = snapshot
+        clearTimers()
+        await send()
+      })()
+      await Promise.race([write, sleep(FLUSH_TIMEOUT_MS)])
+    },
+    [projectId, send]
+  )
+
   // Flush when the tab is hidden — a closing tab, a phone going to sleep.
   // Deliberately not `pagehide` + `keepalive`: keepalive caps the body at 64 KB
   // and a real snapshot is bigger, so it would silently drop the save.
@@ -201,5 +229,5 @@ export function useProjectCheckpoint(opts: { projectId?: string; initialRevision
 
   useEffect(() => clearTimers, [])
 
-  return { queue, state }
+  return { queue, flush, state }
 }

@@ -80,6 +80,7 @@ export function buildHandoffBundle(input: HandoffBundleInput): HandoffBundle {
       basis: `Estimated from your build — ±${Math.round(bom.sections.works.bandWidthPct / 2)}%. An estimate your maker confirms, never a final quote.`,
       placeholder: false,
       bandPct: Math.round(bom.sections.works.bandWidthPct / 2),
+      lines: bom.lineItems,
     }
     // Maker-only cost basis: same build priced at the maker's B2B account
     // prices. Only attached once the maker has supplied prices; the homeowner

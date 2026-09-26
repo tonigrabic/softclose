@@ -52,6 +52,27 @@ describe('maker handoff — estimate comes from the real build', () => {
     expect(bundle.estimate!.bandPct).toBeLessThanOrEqual(20)
   })
 
+  test('the brief carries the build line by line, and the lines add up to its ranges', () => {
+    const builderState = builderStateFromFixture('l-shape')
+    const { estimate } = buildHandoffBundle({ brief: { builderState } })
+    const lines = estimate!.lines!
+
+    // The maker sees what the range is made of, not just the range.
+    expect(lines.map((l) => l.key)).toEqual(expect.arrayContaining(['fronts', 'boards', 'worktop']))
+    expect(lines.every((l) => l.detail.length > 0)).toBe(true)
+
+    const sum = (section: string, side: 'low' | 'high') =>
+      lines.filter((l) => l.section === section).reduce((n, l) => n + l[side], 0)
+    expect(sum('works', 'low')).toBeCloseTo(estimate!.low, 0)
+    expect(sum('works', 'high')).toBeCloseTo(estimate!.high, 0)
+    expect(sum('works', 'low') + sum('goods', 'low')).toBeCloseTo(estimate!.withAppliances!.low, 0)
+  })
+
+  test('no build, no lines: the budget-band stub has nothing to itemise', () => {
+    const { estimate } = buildHandoffBundle({ brief: { budgetRange: '15k_30k' } })
+    expect(estimate!.lines).toBeUndefined()
+  })
+
   // `budgetRange`, not `budgetBand` — the latter is not a LeadProfile field, so
   // this case used to fall through to the scope-count fallback while claiming to
   // test the budget band. Untyped JSON through the route hid it; the pure

@@ -453,6 +453,13 @@ export interface StubEstimate {
    * (src/lib/catalog/maker-pricing.json); omitted otherwise.
    */
   makerCost?: { low: number; high: number }
+  /**
+   * The build line by line, priced by the same computeBom call as the totals
+   * above so the two always agree. Stored at submit because prices and the
+   * catalog move between deploys. Absent on the budget-band stub and on briefs
+   * sent before it was stored.
+   */
+  lines?: import('@/lib/builder/bom').BomLineItem[]
 }
 
 /** Shape returned by /api/handoff for the designer-facing pack. */

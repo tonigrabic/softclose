@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import { ArrowLeft, Check, AlertTriangle, MessageCircle, X, Quote } from 'lucide-react'
 import type { HandoffBundle, LeadProfile, TranslatedField } from '@/lib/types'
+import type { BomLineItem } from '@/lib/builder/bom'
 import type { FloorPlan } from '@/lib/floor-plan'
 import { formatLength } from '@/lib/floor-plan'
-import { t } from '@/lib/i18n/core'
+import { t, tDynamic } from '@/lib/i18n/core'
 import { cn } from '@/lib/utils'
 import { contactChannels } from '@/lib/contact'
 
@@ -105,6 +106,73 @@ function FieldRow({
         )}
       </dd>
     </div>
+  )
+}
+
+/** Full-figure EUR for line items (the headline uses the compact fmtMoney). */
+function fmtEur(n: number): string {
+  return `${Math.round(n).toLocaleString('hr-HR')} €`
+}
+
+function lineLabel(key: string): string {
+  const k = `bom.lineItem.${key}`
+  const label = tDynamic(k, 'en-US')
+  return label === k ? key : label
+}
+
+const LINE_GROUPS = [
+  { section: 'works', title: 'Kitchen' },
+  { section: 'goods', title: 'Appliances, sink & tap' },
+  { section: 'project', title: 'Project allowances' },
+] as const
+
+/**
+ * What the homeowner actually built, as the builder priced it: fronts, carcasses,
+ * worktop, cladding, hardware, appliances… each with its trade detail, quantity
+ * and range. Without it the maker gets a total and none of what it is made of.
+ */
+function BuildLines({ lines }: { lines: BomLineItem[] }) {
+  return (
+    <section className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+      <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">What they built</h2>
+      <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+        Priced line by line when the brief was sent — the build the range above comes from.
+      </p>
+      <div className="mt-3 space-y-3">
+        {LINE_GROUPS.map(({ section, title }) => {
+          const group = lines.filter((l) => l.section === section)
+          if (group.length === 0) return null
+          return (
+            <div key={section}>
+              <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-500">{title}</p>
+              <ul className="mt-1 divide-y divide-slate-100">
+                {group.map((line) => (
+                  <li key={line.key} className="flex items-baseline justify-between gap-3 py-1.5">
+                    <div className="min-w-0">
+                      <p className="text-[12px] font-semibold text-slate-800">
+                        {lineLabel(line.key)}
+                        {line.exact && (
+                          <span className="ml-1.5 rounded bg-emerald-100 px-1 py-px font-mono text-[9px] font-bold uppercase text-emerald-800">
+                            exact
+                          </span>
+                        )}
+                      </p>
+                      <p className="text-[11px] leading-snug text-slate-600">
+                        {line.detail}
+                        {line.quantity ? ` · ${line.quantity}` : ''}
+                      </p>
+                    </div>
+                    <span className="shrink-0 font-mono text-[11px] tabular-nums text-slate-700">
+                      {line.low === line.high ? fmtEur(line.low) : `${fmtEur(line.low)} – ${fmtEur(line.high)}`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )
+        })}
+      </div>
+    </section>
   )
 }
 
@@ -269,6 +337,18 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: M
               </>
             )}
           </section>
+
+          {summary?.lines && summary.lines.length > 0 ? (
+            <BuildLines lines={summary.lines} />
+          ) : profile.builderState ? (
+            <section className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">What they built</h2>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-600">
+                This brief was sent before builds were stored line by line. The range above still comes from
+                the homeowner&apos;s build.
+              </p>
+            </section>
+          ) : null}
 
           {/* Floor plan */}
           {bundle.floorPlan && (

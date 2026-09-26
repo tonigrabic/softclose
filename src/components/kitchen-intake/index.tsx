@@ -248,12 +248,11 @@ export function KitchenIntake({
     persistenceReady.current = true
   }
 
-  useEffect(() => {
-    if (!persistenceReady.current) return
-    const hasSomething =
-      state.currentStepId !== 'space_photos' || Object.keys(profile).length > 0 || spacePhotos.length > 0
-    if (!hasSomething) return
-    const snapshot: IntakeSnapshot = {
+  // One snapshot per render, shared by the debounced save below and the flush
+  // the wrap-up runs before submitting — so the two can never disagree, and the
+  // save that follows a flush is recognised as the same write.
+  const snapshot = useMemo<IntakeSnapshot>(
+    () => ({
       currentStepId: state.currentStepId,
       profile,
       transcript,
@@ -276,17 +275,26 @@ export function KitchenIntake({
       dealBreakersText,
       builderHypothesis,
       builderStartedNoAI,
-    }
+    }),
+    [
+      state.currentStepId, profile, transcript, isDone, wrapUpData, spacePhotos, spaceVision, floorPlan,
+      unitEdits, inspirationStyles, inspirationRefs, inspirationVision, conceptRenders, chosenRenderId,
+      productReferences, siteAccess, contactDraft, mustHavesText,
+      niceToHavesText, dealBreakersText, builderHypothesis, builderStartedNoAI,
+    ]
+  )
+
+  useEffect(() => {
+    if (!persistenceReady.current) return
+    const hasSomething =
+      snapshot.currentStepId !== 'space_photos' ||
+      Object.keys(snapshot.profile).length > 0 ||
+      snapshot.spacePhotos.length > 0
+    if (!hasSomething) return
     const t = setTimeout(() => void saveSnapshot(snapshot, projectId), 800)
     checkpoint.queue(snapshot)
     return () => clearTimeout(t)
-  }, [
-    state.currentStepId, profile, transcript, isDone, wrapUpData, spacePhotos, spaceVision, floorPlan,
-    unitEdits, inspirationStyles, inspirationRefs, inspirationVision, conceptRenders, chosenRenderId,
-    productReferences, siteAccess, contactDraft, mustHavesText,
-    niceToHavesText, dealBreakersText, builderHypothesis, builderStartedNoAI,
-    checkpoint, projectId,
-  ])
+  }, [snapshot, checkpoint, projectId])
 
   const resumeBanner = resumeOffer && !projectId ? (
     <div
@@ -719,6 +727,7 @@ export function KitchenIntake({
           transcript={transcript}
           projectId={projectId}
           hasExistingBrief={hasExistingBrief}
+          beforeSubmit={() => checkpoint.flush(snapshot)}
         />
       </AppShell>
     )
