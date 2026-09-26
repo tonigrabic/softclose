@@ -16,6 +16,7 @@ import { useTranslations, type TranslationKey } from '@/lib/i18n'
 import { FloorPlanStatic } from './FloorPlanStatic'
 import { MakerDashboardPreview } from './MakerDashboardPreview'
 import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
+import { contactChannels } from '@/lib/contact'
 
 interface WrapUpScreenProps {
   data: WrapUpData
@@ -48,6 +49,7 @@ export function WrapUpScreen({
   hasExistingBrief = false,
 }: WrapUpScreenProps) {
   const { t, tDynamic: td, locale } = useTranslations()
+  const contact = contactChannels(profile)
   const [bundle, setBundle] = useState<HandoffBundle | null>(null)
   const [bundleError, setBundleError] = useState<TranslationKey | null>(null)
   // Only "loading" when we are about to submit on mount; on a revisit there
@@ -261,8 +263,8 @@ export function WrapUpScreen({
           {bundle.briefId ? (
             <ul className="space-y-1.5 text-sm text-foreground/85">
               <li>{t('wrapup.next.saved')}</li>
-              {profile.contactValue && (
-                <li>{t('wrapup.next.contact').replace('{contact}', profile.contactValue)}</li>
+              {contact.length > 0 && (
+                <li>{t('wrapup.next.contact').replace('{contact}', contact.join(` ${t('common.or')} `))}</li>
               )}
               <li className="font-mono text-[11px] text-muted-foreground">
                 {t('wrapup.next.ref').replace('{id}', bundle.briefId.slice(0, 8))}

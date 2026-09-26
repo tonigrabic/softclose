@@ -98,13 +98,13 @@ export function WorktopGroup({ state, onPatch }: WorktopGroupProps) {
       {(state.worktop.family === 'laminate' || state.worktop.family === 'compact') && (
         <PickerSlot label={t('worktop.decorLabel')} meta={state.worktop.meta.decorCode}>
           {/* family filter chips can be added later — start with full grid */}
-          <div className="grid grid-cols-5 gap-3 sm:grid-cols-6">
+          <div className="grid grid-cols-3 gap-3">
             {visibleDecors.map((d) => (
               <DecorSwatch
                 key={`${d.code}-${d.structure}`}
                 code={d.code}
                 structure={d.structure}
-                size="md"
+                size="fill"
                 selected={state.worktop.decorCode === d.code && state.worktop.decorStructure === d.structure}
                 onClick={() => setDecor(d.code, d.structure)}
                 showLabel

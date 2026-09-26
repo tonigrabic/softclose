@@ -79,6 +79,10 @@ const MATERIAL_LANGUAGE: Record<string, string> = {
   veneer: 'wood veneer cabinet doors',
   thermofoil: 'thermofoil cabinet doors',
   glass_front: 'glass-front upper cabinets',
+  lacquered_flat: 'flat lacquered (painted) slab cabinet doors',
+  lacquered_inset: 'lacquered cabinet doors with a frame around a recessed centre panel (shaker)',
+  lacquered_relief: 'lacquered cabinet doors with a routed decorative relief profile',
+  alu_glass: 'aluminium-framed glass cabinet doors',
   // Worktop
   quartz: 'quartz worktops',
   quartzite: 'quartzite worktops',

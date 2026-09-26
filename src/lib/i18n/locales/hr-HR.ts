@@ -97,7 +97,7 @@ export const hrHR = {
   'builder.groups.cabinetBoxes.label': 'Korpusi',
   'builder.groups.cabinetBoxes.why': 'Dekor korpusa — raspored je preuzet iz tvog potvrđenog tlocrta.',
   'builder.groups.doors.label': 'Fronte',
-  'builder.groups.doors.why': 'Stil, materijal i dekor prednje plohe ormarića.',
+  'builder.groups.doors.why': 'Materijal fronte — pa dekor ili RAL boja.',
   'builder.groups.worktop.label': 'Radna ploča',
   'builder.groups.worktop.why': 'Materijal, dekor i debljina.',
   'builder.groups.backsplash.label': 'Zidna obloga',
@@ -116,6 +116,7 @@ export const hrHR = {
   'common.yes': 'Da',
   'common.no': 'Ne',
   'common.optional': 'Neobavezno',
+  'common.or': 'ili',
   'common.retry': 'Pokušaj ponovno',
 
   // Inspiration step
@@ -155,14 +156,30 @@ export const hrHR = {
   'layout.runs.length': 'Dužina',
 
   // ---- Doors group -------------------------------------------------------
-  'doors.style.slab': 'Ravne fronte',
-  'doors.style.shaker': 'Shaker (s okvirom)',
-  'doors.style.handleless_jpull': 'Bez ručki — J-profil',
-  'doors.style.handleless_groove': 'Bez ručki — utor',
-  'doors.style.glass_front': 'Sa staklenim oknima',
-  'doors.style.beaded': 'Klasične s rubom',
-  'doors.styleLabel': 'Stil prednje plohe',
-  'doors.decor.pickPrompt': 'Izaberi dekor vrata',
+  'doors.decor.pickPrompt': 'Dekor fronte',
+  'doors.materialLabel': 'Materijal fronte',
+  'doors.material.iveral': 'Iveral',
+  'doors.material.iveral.hint': 'Oplemenjena iverica u Elgrad dekorima — drvo, jednobojno, kamen.',
+  'doors.material.lacquered_mdf': 'Lakirani medijapan',
+  'doors.material.lacquered_mdf.hint': 'Lakiran u RAL boji — ravan, s ukladom ili s reljefom.',
+  'doors.material.alu_glass': 'Aluminij sa staklom',
+  'doors.material.alu_glass.hint': 'Aluminijski okvir sa staklenim punilom.',
+  'doors.decor.disclaimer':
+    'Prikaz dekora je približan — boju i strukturu provjeri na uzorku kod izrađivača.',
+  'doors.profileLabel': 'Izgled fronte',
+  'doors.profile.flat': 'Ravna',
+  'doors.profile.flat.hint': 'Glatka ploča bez profila.',
+  'doors.profile.inset': 'S ukladom',
+  'doors.profile.inset.hint': 'Okvir oko udubljene središnje plohe.',
+  'doors.profile.relief': 'Reljef',
+  'doors.profile.relief.hint': 'Glodani ukrasni profil na fronti.',
+  'doors.ralLabel': 'RAL boja',
+  'doors.ral.popular': 'Najčešće za kuhinje',
+  'doors.ral.otherLabel': 'Druga RAL boja',
+  'doors.ral.otherPlaceholder': 'npr. 7044',
+  'doors.ral.unknown': 'Ne poznajemo tu RAL oznaku — provjeri broj.',
+  'doors.ral.disclaimer': 'Boje na ekranu su približne. Konačnu boju provjeri na RAL karti kod izrađivača.',
+  'doors.alu.note': 'Boju okvira i vrstu stakla dogovorit ćeš s izrađivačem.',
   'doors.decor.familyFilter.all': 'Sve',
   'doors.decor.family.white': 'Bijela',
   'doors.decor.family.cream': 'Krem',
@@ -187,7 +204,8 @@ export const hrHR = {
   'worktop.thicknessLabel': 'Debljina',
 
   // ---- Live BOM panel ----------------------------------------------------
-  'bom.lineItem.boards': 'Ploče (korpus + vrata)',
+  'bom.lineItem.boards': 'Korpusi',
+  'bom.lineItem.fronts': 'Fronte',
   'bom.lineItem.worktop': 'Radna ploča',
   'bom.lineItem.backsplash': 'Zidna obloga',
   'bom.lineItem.edgeBanding': 'Rubne trake',
@@ -604,6 +622,8 @@ export const hrHR = {
   'contact.phoneLabel': 'Broj telefona',
   'contact.email.placeholder': 'ti@email.com',
   'contact.phone.placeholder': '+385 91 000 0000',
+  'contact.phone.hint': 'Ako ti je draži poziv, ostavi i broj.',
+  'contact.account.note': 'Adresa s kojom se prijavljuješ. Dizajner ti se javlja na nju.',
 
   // ---- Concept render ----------------------------------------------------
   'concept.noAnchor':

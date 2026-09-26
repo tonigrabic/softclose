@@ -131,7 +131,7 @@ describe('built-in vs freestanding moves the kitchen, whoever buys', () => {
         selections: s.appliances.selections.map((a) => (a.type === 'dishwasher' ? { ...a, integrated: false } : a)),
       },
     }
-    const boards = (st: typeof s) => computeBom(st).lineItems.find((l) => l.key === 'boards')!
-    expect(boards(freestanding).low).toBeLessThan(boards(s).low)
+    const fronts = (st: typeof s) => computeBom(st).lineItems.find((l) => l.key === 'fronts')!
+    expect(fronts(freestanding).low).toBeLessThan(fronts(s).low)
   })
 })

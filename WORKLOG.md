@@ -1048,3 +1048,22 @@ submits. Snapshots saved before this keep their old `wrapUpData.thankYouMessage`
 text (it is persisted, not re-rendered).
 
 Gate: 324 tests · tsc · eslint green.
+
+### 2026-09-26 — Fronts: material first (tester feedback, round 1 cont.)
+- "Materijal fronte": iveral (Elgrad decors, real EGGER swatches, name +
+  code) / lakirani medijapan (ravna · s ukladom · reljef, drawn in the chosen
+  RAL; 25-colour kitchen shortlist + any solid RAL Classic code) / aluminij sa
+  staklom. Style chips gone; legacy states + older AI reads map across.
+- Fronts are their own BOM line. Lacquered MDF 95–135 €/m² (×1.2 inset,
+  ×1.35 relief) and alu + glass 170–250 €/m² are **reference bands** — replace
+  with a maker's lacquer-shop pricelist (LOOP.md Q7).
+- **Price bug fixed:** the cjenik parser read compact-worktop prices as 18 mm
+  board prices (H1180 179.65 → 35.82 €/m², H1318, H1330, F206 likewise), and
+  dropped W960 ST7. Both fixed in the parser, not by hand.
+- **EGGER images are hotlinked for testing only** (Toni's call). Before
+  launch: EGGER's written permission, then serve fixed sizes from our own
+  storage. Switch: `DECOR_IMAGES_ENABLED` in lib/builder/swatches.ts.
+- Worktops next: waiting on what the testers mean by "Laminat"; quartz =
+  Silestone / Technistone / Quartzforms (sold in Croatia, Toni's call).
+
+Gate: 328 tests · tsc · eslint green. Browser-verified in the /builder harness.

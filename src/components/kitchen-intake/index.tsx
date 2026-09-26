@@ -51,6 +51,7 @@ import type {
 } from '@/lib/types'
 import type { InspirationVisionResult } from '@/app/api/inspiration-vision/route'
 import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
+import { contactChannels } from '@/lib/contact'
 
 /** Sign-off timestamp, read through a module-level helper so the React purity
  * lint doesn't flag `Date.now()` in the component's event handlers. */
@@ -87,6 +88,12 @@ export interface KitchenIntakeProps {
    * visual — which is exactly what a second device can be given today.
    */
   initialSnapshot?: IntakeSnapshot | null
+  /** The customer's account email. It is the brief's contact address, so the
+   *  contact step shows it and asks only for a name and an optional phone.
+   *  Absent in the anonymous funnel, which still asks for one way to reach them. */
+  customerEmail?: string | null
+  /** The name the maker invited them under — prefilled, still editable. */
+  customerName?: string | null
 }
 
 export function KitchenIntake({
@@ -96,6 +103,8 @@ export function KitchenIntake({
   readOnly = false,
   hasExistingBrief = false,
   initialSnapshot = null,
+  customerEmail = null,
+  customerName = null,
 }: KitchenIntakeProps = {}) {
   const { locale } = useTranslations()
   const [state, setState] = useState<IntakeFlowState>({
@@ -131,11 +140,12 @@ export function KitchenIntake({
   const [chosenRenderId, setChosenRenderId] = useState<string | null>(null)
   const [productReferences, setProductReferences] = useState<ProductReference[]>([])
   const [siteAccess, setSiteAccess] = useState<string | null>(null)
-  const [contactDraft, setContactDraft] = useState<ContactValue>({
-    name: '',
+  const blankContact = (): ContactValue => ({
+    name: customerName ?? '',
     contactType: 'email',
     contactValue: '',
   })
+  const [contactDraft, setContactDraft] = useState<ContactValue>(blankContact)
 
   // Wishlist free-text drafts (translated into TranslatedField on submit).
   const [mustHavesText, setMustHavesText] = useState('')
@@ -214,7 +224,11 @@ export function KitchenIntake({
     setChosenRenderId(d.chosenRenderId ?? null)
     setProductReferences(d.productReferences ?? [])
     setSiteAccess(d.siteAccess ?? null)
-    setContactDraft(d.contactDraft ?? { name: '', contactType: 'email', contactValue: '' })
+    setContactDraft(
+      d.contactDraft
+        ? { ...d.contactDraft, name: d.contactDraft.name || (customerName ?? '') }
+        : blankContact()
+    )
     setMustHavesText(d.mustHavesText ?? '')
     setNiceToHavesText(d.niceToHavesText ?? '')
     setDealBreakersText(d.dealBreakersText ?? '')
@@ -485,18 +499,17 @@ export function KitchenIntake({
   }
 
   async function commitContact() {
-    const trimmedName = contactDraft.name.trim()
-    const trimmedContact = contactDraft.contactValue.trim()
-    if (!trimmedName || !trimmedContact) return
-    patchProfile({
-      name: trimmedName,
-      contactValue: trimmedContact,
-    })
-    logTurn('user', `Contact: ${trimmedName} (${trimmedContact})`)
-    await finalise({
-      name: trimmedName,
-      contactValue: trimmedContact,
-    })
+    const name = contactDraft.name.trim()
+    if (!name) return
+    // Signed in: the account email is the contact and a phone is optional (a
+    // stale anonymous-form value is dropped). Anonymous: the one channel typed.
+    const patch: Partial<LeadProfile> = customerEmail
+      ? { name, email: customerEmail, phone: contactDraft.phone?.trim() || undefined, contactValue: undefined }
+      : { name, contactValue: contactDraft.contactValue.trim() }
+    if (!customerEmail && !patch.contactValue) return
+    patchProfile(patch)
+    logTurn('user', `Contact: ${name} (${contactChannels(patch).join(', ')})`)
+    await finalise(patch)
   }
 
   /** Wrap-up: apply final patch, fetch summary, mark done. */
@@ -570,7 +583,7 @@ export function KitchenIntake({
     setChosenRenderId(null)
     setProductReferences([])
     setSiteAccess(null)
-    setContactDraft({ name: '', contactType: 'email', contactValue: '' })
+    setContactDraft(blankContact())
     setMustHavesText('')
     setNiceToHavesText('')
     setDealBreakersText('')
@@ -878,6 +891,7 @@ export function KitchenIntake({
                 onSiteAccessChange={setSiteAccess}
                 contactDraft={contactDraft}
                 onContactDraftChange={setContactDraft}
+                customerEmail={customerEmail}
                 mustHavesText={mustHavesText}
                 onMustHavesTextChange={setMustHavesText}
                 niceToHavesText={niceToHavesText}
@@ -930,7 +944,7 @@ export function KitchenIntake({
                   inspirationStyles.length > 0 || inspirationRefs.length > 0
                 }
                 hasContactDraft={
-                  Boolean(contactDraft.name.trim() && contactDraft.contactValue.trim())
+                  Boolean(contactDraft.name.trim() && (customerEmail || contactDraft.contactValue.trim()))
                 }
                 hasFloorPlan={Boolean(floorPlan)}
                 hasSpacePhotos={spacePhotos.length > 0}
@@ -1006,6 +1020,8 @@ interface StepBodyProps {
   onSiteAccessChange: (s: string | null) => void
   contactDraft: ContactValue
   onContactDraftChange: (c: ContactValue) => void
+  /** Signed-in customer's account email — the contact step shows it instead of asking. */
+  customerEmail: string | null
   mustHavesText: string
   onMustHavesTextChange: (t: string) => void
   niceToHavesText: string
@@ -1054,6 +1070,7 @@ function StepBody(props: StepBodyProps) {
     onSiteAccessChange,
     contactDraft,
     onContactDraftChange,
+    customerEmail,
     mustHavesText,
     onMustHavesTextChange,
     niceToHavesText,
@@ -1265,7 +1282,7 @@ function StepBody(props: StepBodyProps) {
           title={t('funnel.contact.title')}
           subtitle={t('funnel.contact.subtitle')}
         >
-          <ContactForm value={contactDraft} onChange={onContactDraftChange} />
+          <ContactForm value={contactDraft} onChange={onContactDraftChange} accountEmail={customerEmail} />
         </StepFrame>
       )
   }

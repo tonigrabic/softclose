@@ -7,6 +7,7 @@ import type { FloorPlan } from '@/lib/floor-plan'
 import { formatLength } from '@/lib/floor-plan'
 import { t } from '@/lib/i18n/core'
 import { cn } from '@/lib/utils'
+import { contactChannels } from '@/lib/contact'
 
 type Confidence = 'H' | 'M' | 'L' | null
 
@@ -149,10 +150,12 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: M
               Generated {new Date(bundle.generatedAt).toLocaleString()}
             </p>
           </div>
-          <div className="flex items-center gap-2 text-right">
-            {profile.contactValue && (
-              <span className="font-mono text-[11px] text-slate-600">{profile.contactValue}</span>
-            )}
+          <div className="flex flex-col items-end gap-0.5 text-right">
+            {contactChannels(profile).map((channel) => (
+              <span key={channel} className="font-mono text-[11px] text-slate-600">
+                {channel}
+              </span>
+            ))}
           </div>
         </div>
       </header>

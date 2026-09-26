@@ -145,8 +145,13 @@ export interface CabinetBoxesGroup {
   meta: { carcassMaterial: FieldMeta }
 }
 
-/* ─────────────────────────── 3. Doors & fronts ─────────────────────────── */
+/* ─────────────────────────── 3. Fronts (fronte) ────────────────────────── */
 
+/**
+ * AI-render vocabulary for a front's look. No longer a homeowner choice (the
+ * material + profile below replace it, maker testing 2026-09-23) — kept for
+ * the vision hypothesis, which hydration maps onto material + profile.
+ */
 export type DoorStyle =
   | 'slab' // flat front, modern
   | 'shaker' // 5-piece frame
@@ -155,17 +160,37 @@ export type DoorStyle =
   | 'glass_front' // framed glass
   | 'beaded' // traditional
 
+/**
+ * What the front is made of — the first front question, in the trade's terms:
+ * iveral (decorative chipboard, Elgrad decors), lakirani medijapan (lacquered
+ * MDF, RAL colour + profile) or an aluminium frame with glass.
+ */
+export type FrontMaterial = 'iveral' | 'lacquered_mdf' | 'alu_glass'
+
+/** Lacquered-MDF profile: ravna / s ukladom (inset panel) / reljef (routed). */
+export type MdfProfile = 'flat' | 'inset' | 'relief'
+
 export type DoorOverlay = 'full' | 'partial' | 'inset'
 export type EdgeProfile = 'square' | 'softened' | 'bevel' | 'radius'
 
 export interface DoorsGroup {
-  style: DoorStyle
-  /** Reference to a decor in elgrad-decors.json (CatalogDecor.code). */
+  material: FrontMaterial
+  /** Iveral: a decor in elgrad-decors.json (CatalogDecor.code + structure). */
   decorCode: string
   decorStructure: string
+  /** Lacquered MDF: RAL Classic code, "RAL 9016". */
+  ralCode: string
+  /** Lacquered MDF: the front's profile. */
+  profile: MdfProfile
   overlay: DoorOverlay
   edgeProfile: EdgeProfile
-  meta: { style: FieldMeta; decorCode: FieldMeta; overlay: FieldMeta }
+  meta: {
+    material: FieldMeta
+    decorCode: FieldMeta
+    ralCode: FieldMeta
+    profile: FieldMeta
+    overlay: FieldMeta
+  }
 }
 
 /* ─────────────────────────── 4. Worktop ────────────────────────────────── */

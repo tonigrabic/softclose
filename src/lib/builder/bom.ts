@@ -20,6 +20,7 @@ import { elgradTierBand } from '@/lib/catalog/hardware'
 import { PATTERN_SPECS, unitDrawerCount } from './cabinet-patterns'
 import { BACKSPLASH_HEIGHT_CM, type BuilderState, type CabinetUnit, type DrawerSystemTier, type FieldMeta } from './inventory'
 import { normalizeBuilderState } from './normalize'
+import { decorLabel } from './swatches'
 import type { LeadProfile } from '@/lib/types'
 import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/core'
 
@@ -33,6 +34,7 @@ import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/core'
  * `cabinets`; the backsplash rides with `worktops` (the surfaces decision).
  */
 const LINE_SCOPE_KEY: Partial<Record<BomLineItem['key'], keyof NonNullable<LeadProfile['scope']>>> = {
+  fronts: 'cabinets',
   boards: 'cabinets',
   edgeBanding: 'cabinets',
   hardware: 'cabinets',
@@ -58,6 +60,7 @@ function lineInScope(key: BomLineItem['key'], scope: LeadProfile['scope'] | unde
 export interface BomLineItem {
   /** Stable id usable as React key + i18n routing. */
   key:
+    | 'fronts'
     | 'boards'
     | 'worktop'
     | 'backsplash'
@@ -328,6 +331,17 @@ export function handleStyleBase(): Record<string, number> {
 }
 
 /**
+ * Bought-in fronts, € per m² of front (reference bands, Croatian market,
+ * 2026-09). Lacquered MDF is a flat matt front from a lacquer shop; the
+ * profile factor covers the extra machining of an inset panel or a relief.
+ */
+const FRONT_RATE_M2: Record<'lacquered_mdf' | 'alu_glass', { low: number; high: number }> = {
+  lacquered_mdf: { low: 95, high: 135 },
+  alu_glass: { low: 170, high: 250 },
+}
+const MDF_PROFILE_FACTOR: Record<'flat' | 'inset' | 'relief', number> = { flat: 1, inset: 1.2, relief: 1.35 }
+
+/**
  * Manual-work rates from the maker's real cost sheet (EUR). Each labour line is
  * driven by a concrete quantity — design hours, CNC positions, carcasses,
  * install metres — not a vague % of materials, so the estimate is tight.
@@ -406,37 +420,64 @@ export function computeBom(
   }
   const totalBoardM2 = doorAreaM2 + carcassAreaM2
 
-  const doorDecor = findDecor(state.doors.decorCode, state.doors.decorStructure)
-  const doorPriceM2 = doorDecor ? doorPricePerM2(doorDecor) ?? 22 : 22 // catalog mean fallback
-  // Carcass interior decor: standard white melamine 18 mm, or a coloured decor.
-  const carcassPriceM2 = state.cabinetBoxes.carcassMaterial === 'colored_melamine' ? 16 : 13
-  // Door style premium — shaker/glass/beaded need more machining + material.
-  const styleFactor =
-    state.doors.style === 'glass_front'
-      ? 1.5
-      : state.doors.style === 'beaded'
-        ? 1.4
-        : state.doors.style === 'shaker'
-          ? 1.35
-          : state.doors.style === 'handleless_jpull' || state.doors.style === 'handleless_groove'
-            ? 1.05
-            : 1
-  const boardLow = doorAreaM2 * doorPriceM2 * styleFactor + carcassAreaM2 * carcassPriceM2
-  const boardHigh = boardLow * 1.18 // waste factor
-  const boardMetas = [
-    state.doors.meta.style,
-    state.doors.meta.decorCode,
-    state.cabinetBoxes.meta.carcassMaterial,
+  /* 1a. Fronts — by material. Iveral fronts are Elgrad board at the decor's
+     €/m² (+ waste). Lacquered MDF and aluminium + glass fronts are bought-in
+     products priced per m² of front: reference bands until the maker's
+     lacquer-shop pricelist lands (LOOP.md Q7). The RAL colour does not move
+     the price, so it doesn't drive the band either. */
+  const front = state.doors
+  const doorDecor = front.material === 'iveral' ? findDecor(front.decorCode, front.decorStructure) : null
+  let frontLow: number
+  let frontHigh: number
+  if (front.material === 'iveral') {
+    const doorPriceM2 = doorDecor ? doorPricePerM2(doorDecor) ?? 22 : 22 // catalog mean fallback
+    frontLow = doorAreaM2 * doorPriceM2
+    frontHigh = frontLow * 1.18 // waste factor
+  } else {
+    const band = FRONT_RATE_M2[front.material]
+    const profileFactor = front.material === 'lacquered_mdf' ? MDF_PROFILE_FACTOR[front.profile] : 1
+    frontLow = doorAreaM2 * band.low * profileFactor
+    frontHigh = doorAreaM2 * band.high * profileFactor
+  }
+  const frontMetas = [
+    front.meta.material,
+    ...(front.material === 'iveral' ? [front.meta.decorCode] : []),
+    ...(front.material === 'lacquered_mdf' ? [front.meta.profile] : []),
   ]
-  const boardsSource = widenByConfidence(boardLow, boardHigh, !doorDecor)
-  const boardsRange = narrowByMeta(boardsSource.low, boardsSource.high, boardMetas)
-  const unitCountSuffix = usingUnitModel ? ` · ${units.length} ${tr('cabinets', 'ormarića')}` : ''
+  const frontSource = widenByConfidence(frontLow, frontHigh, front.material === 'iveral' && !doorDecor)
+  const frontRange = narrowByMeta(frontSource.low, frontSource.high, frontMetas)
+  const frontDetail =
+    front.material === 'iveral'
+      ? doorDecor
+        ? decorLabel(doorDecor.name, doorDecor.code, doorDecor.structure)
+        : `${front.decorCode} ${front.decorStructure}`
+      : front.material === 'lacquered_mdf'
+        ? `${tr('Lacquered MDF', 'Lakirani medijapan')} ${front.ralCode}, ${label('doors.profile', front.profile).toLowerCase()}`
+        : tr('Aluminium frame + glass', 'Aluminij sa staklom')
+  lineItems.push({
+    key: 'fronts',
+    section: 'works',
+    worksKind: 'material',
+    detail: frontDetail,
+    quantity: `${doorAreaM2.toFixed(1)} m²`,
+    low: round(frontRange.low),
+    high: round(frontRange.high),
+  })
+
+  /* 1b. Carcasses — interior decor: standard white melamine 18 mm, or coloured. */
+  const carcassPriceM2 = state.cabinetBoxes.carcassMaterial === 'colored_melamine' ? 16 : 13
+  const carcassLow = carcassAreaM2 * carcassPriceM2
+  const carcassMetas = [state.cabinetBoxes.meta.carcassMaterial]
+  const boardsRange = narrowByMeta(carcassLow, carcassLow * 1.18, carcassMetas)
+  // Driving fields of the board-derived lines below (edge banding).
+  const boardMetas = [...frontMetas, ...carcassMetas]
+  const unitCountSuffix = usingUnitModel ? ` · ${units.length} ${tr('carcasses', 'korpusa')}` : ''
   lineItems.push({
     key: 'boards',
     section: 'works',
     worksKind: 'material',
-    detail: `${doorDecor?.name ?? state.doors.decorCode} (${state.doors.decorCode}/${state.doors.decorStructure}) ${tr('door', 'vrata')} + ${label('cabinetBoxes.carcass', state.cabinetBoxes.carcassMaterial)} ${tr('carcass', 'korpus')}${unitCountSuffix}`,
-    quantity: `${totalBoardM2.toFixed(1)} m²`,
+    detail: `${label('cabinetBoxes.carcass', state.cabinetBoxes.carcassMaterial)}${unitCountSuffix}`,
+    quantity: `${carcassAreaM2.toFixed(1)} m²`,
     low: round(boardsRange.low),
     high: round(boardsRange.high),
   })
@@ -498,8 +539,9 @@ export function computeBom(
   }
 
   /* 4. Edge banding + cutting services ─────────────────────────────────── */
-  // Rough proxy: edge banding length scales with board area — ~3 m of edge per m² of board.
-  const edgeM = totalBoardM2 * 3
+  // Rough proxy: edge banding length scales with board area — ~3 m of edge per
+  // m² of board. Lacquered and aluminium fronts carry no ABS edge.
+  const edgeM = (front.material === 'iveral' ? totalBoardM2 : carcassAreaM2) * 3
   const edgePerM = services.edgeBanding.abs_08mm_under20mmThick_pricePerM ?? 1.02
   const edgeLow = edgeM * edgePerM
   const edgeHigh = edgeLow * 1.15

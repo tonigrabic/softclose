@@ -24,7 +24,10 @@ const raw = JSON.parse(readFileSync(RAW, 'utf8'))
 const curated = JSON.parse(readFileSync(CURATED, 'utf8'))
 
 const rows = raw.rows ?? raw.decors ?? []
-const byKey = new Map(rows.map((r) => [`${r.code}|${r.structure}`, r]))
+// First row per code+structure wins: the standard board precedes its variants
+// (e.g. U708 ST9 row 41 = 18 mm standard, row 42 = 19 mm P3 moisture-resistant).
+const byKey = new Map()
+for (const r of rows) if (!byKey.has(`${r.code}|${r.structure}`)) byKey.set(`${r.code}|${r.structure}`, r)
 const byCode = new Map()
 for (const r of rows) if (!byCode.has(r.code)) byCode.set(r.code, r)
 

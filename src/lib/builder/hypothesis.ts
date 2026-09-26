@@ -21,6 +21,8 @@ import type {
   DoorOverlay,
   DoorStyle,
   DrawerSystemTier,
+  FrontMaterial,
+  MdfProfile,
   EdgeProfile,
   HandleFinish,
   HandleStyle,
@@ -86,6 +88,11 @@ export interface CabinetBoxesHypothesis {
 
 /* 3. Doors */
 export interface DoorsHypothesis {
+  /** What the fronts are made of, read from the render. */
+  material?: Hint<FrontMaterial>
+  /** Lacquered MDF only: flat / inset panel / routed relief. */
+  profile?: Hint<MdfProfile>
+  /** Legacy look read — hydration maps it when `material` is absent. */
   style?: Hint<DoorStyle>
   /** Catalog decor code suggestion — must match a code in elgrad-decors.json. */
   decorCode?: Hint<string>
