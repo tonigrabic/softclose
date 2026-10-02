@@ -38,6 +38,7 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 | 28 | IMP-28 | Tests for routes, actions and the checkpoint hook | medium | M | IMP-02 | todo |
 | 29 | IMP-29 | Confirm step: progressive disclosure, keyboard path, focus | medium | L | main | todo |
 | 30 | IMP-30 | Repo hygiene | low | S | main | todo |
+| 31 | IMP-31 | Layout before render; the render is constrained by the confirmed plan | high | L | main | todo |
 
 ---
 
@@ -175,8 +176,8 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 **Stack on.** IMP-03.
 
 ### 20. IMP-20 — Worktop and hardware pricing bugs
-**Problem.** Compact, solid wood and stainless worktops price at the 38 €/m laminate fallback; thickness only changes the detail string; a curated decor with `worktop600: null` silently takes the fallback with no widening; islands are priced at 600 mm width though 920 mm prices exist. Handles count one per unit (a four-drawer bank needs four); picked hinges skip patterns with doors. A plan-placed oven or hood can be toggled off while its housing stays priced and relock re-adds it. The tap finish offers "Uskladi s vratima". Catalog data: two mis-parsed `worktop920` prices, a duplicate oven, a wine cooler typed as fridge.
-**Fix.** Per-family €/m table with a thickness factor; treat a null catalog price as a missing source; 920 mm for island runs; `doorCount`/`handleCount` per pattern; lock oven and hood like the hob; `TapFinish` without matched_to_door; parser sanity checks and a catalog-integrity test; export `APPLIANCE_PRICE` so the grounding test imports it instead of copying.
+**Problem.** Maker-tester round 1 (2026-09-23) asked for the trade list Iveral, Laminat, Compact, Kvarc, Kerrock, Inox, Mramor with thickness per material (Iveral 38 or 20, Compact 10/12/13, stone and marble decors from their own suppliers); the builder still offers laminate/compact/quartz/sintered/solid wood/stainless with one 38/20/12 chip row for all. **Problem.** Compact, solid wood and stainless worktops price at the 38 €/m laminate fallback; thickness only changes the detail string; a curated decor with `worktop600: null` silently takes the fallback with no widening; islands are priced at 600 mm width though 920 mm prices exist. Handles count one per unit (a four-drawer bank needs four); picked hinges skip patterns with doors. A plan-placed oven or hood can be toggled off while its housing stays priced and relock re-adds it. The tap finish offers "Uskladi s vratima". Catalog data: two mis-parsed `worktop920` prices, a duplicate oven, a wine cooler typed as fridge.
+**Fix.** Families renamed to the trade list with thickness options per family (and `normalizeBuilderState` mapping the old values); per-family €/m table with a thickness factor; treat a null catalog price as a missing source; 920 mm for island runs; `doorCount`/`handleCount` per pattern; lock oven and hood like the hob; `TapFinish` without matched_to_door; parser sanity checks and a catalog-integrity test; export `APPLIANCE_PRICE` so the grounding test imports it instead of copying.
 **Files.** src/lib/builder/bom.ts, cabinet-patterns.ts, groups/AppliancesGroup.tsx, SinkTapsGroup.tsx, normalize.ts, scripts/parse-elgrad-cjenik.mjs, build-elgrad-catalog.mjs, tests.
 **Done when.** 38 mm vs 20 mm quartz differ in price; a 10 m compact top is no longer 267–685 €; snapshots regenerated with the reason logged.
 **Stack on.** IMP-04.
@@ -250,6 +251,13 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 **Files.** README.md, LOOP.md, PLAN.md, handoff/, public/*.svg, data/, package.json, src/lib/material-options.ts, src/components/ui/{card,progress,badge}.tsx, AGENTS.md, WORKLOG.md.
 **Done when.** `npm run gate` green after deletions; a fresh clone can follow the README to a working local stack.
 **Stack on.** main.
+
+### 31. IMP-31 — Layout before render; the render is constrained by the confirmed plan
+**Problem.** Two maker-tester items from 2026-09-23 were split off and never built. (1) The testers gave two photos of an L-kitchen from two angles and the AI "focused on one wall and ignored the other": the vision read does take up to four photos, but the render anchors a single photo and the layout hypothesis is read back from that render, so the second wall is lost on the path that actually seeds the plan. (2) They asked for the floor plan to come before the render. Today the order is photos → inspiration → render → confirm layout, so the most expensive, slowest step runs before the homeowner has confirmed a single dimension, and the layout is derived from an AI picture of an AI picture.
+**Fix.** Reorder to photos → confirm layout → inspiration → render. Seed the plan from the vision read (all photos) and the shape presets; the render prompt then receives the confirmed contract (shape, counter walls, sink and hob walls, island yes/no) as hard constraints, and the builder hypothesis is demoted to decor and material hints only. `resolveStepId` forwards saved journeys. This also removes the "render read ignored the render I chose" class of bugs in IMP-22.
+**Files.** src/lib/flow.ts, src/components/kitchen-intake/index.tsx, src/app/api/render-concept/route.ts, src/app/api/builder-hypothesis/route.ts, src/lib/derive-layout.ts, readbacks.ts, locales, tests/flow-steps, derive-layout, confirm-tally-parity.
+**Done when.** The mock journey locks the same contract as today from the photo read alone; a render prompt test contains the contract constraints; the two-angle L-kitchen photos from the testers produce two counter walls.
+**Stack on.** main. Recommended: yes, do it, after IMP-11 lands, because it changes what "confirmed" means for every downstream band.
 
 ---
 
