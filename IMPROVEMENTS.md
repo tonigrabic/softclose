@@ -1,0 +1,273 @@
+# softclose — improvement spec
+
+_Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, builder, cost model, maker side, auth/infra, AI seams, i18n/compliance, tooling, product gap) plus a mock-mode browser run of the whole homeowner journey. Every item below cites the code that produces it. Status column is the tracker; implement as stacked PRs from #1._
+
+**Verdict.** The journey runs end to end and the engineering underneath (contract-driven layout, single unit assembler, auth, checkpoints) is sound. What fails is the product promise at its two ends: the **range is not honest** (a fabricated number when the builder is skipped, VAT and margin never stated, "confirmed" stamped on things nobody confirmed) and the **maker cannot act** (quote / clarify / decline are demo no-ops, the homeowner is promised notifications that do not exist, re-submits make blind copies). Fix those two, then stop the money and data leaks (render cap, B2B cost in the homeowner response, builder state lost on reload), then compliance, then polish.
+
+## Priority order
+
+| # | ID | Improvement | Sev | Effort | Stack on | Status |
+|---|----|-------------|-----|--------|----------|--------|
+| 1 | IMP-01 | Remove the fabricated stub estimate | critical | S | main | todo |
+| 2 | IMP-02 | CI gate on every PR and on main | high | S | main | todo |
+| 3 | IMP-03 | Maker decision persists and reaches the homeowner | critical | M | main | todo |
+| 4 | IMP-04 | Range states VAT, margin, exclusions; one range line everywhere | critical | M | IMP-01 | todo |
+| 5 | IMP-05 | Strip maker-only controls and B2B cost from the homeowner wrap-up | high | S | main | todo |
+| 6 | IMP-06 | Builder state autosaves | critical | M | main | todo |
+| 7 | IMP-07 | Review before send; edits after submit are possible | high | M | IMP-06 | todo |
+| 8 | IMP-08 | Email works in production; UI tells the truth when it does not | high | S + ops | main | todo |
+| 9 | IMP-09 | AI disclosure, photo notice, privacy page, delete-my-kitchen, EGGER flag | high | M | main | todo |
+| 10 | IMP-10 | Render cap and AI spend enforced per project | high | M | main | todo |
+| 11 | IMP-11 | Confidence and provenance tell the truth | high | M | main | todo |
+| 12 | IMP-12 | "Neka odluči izrađivač" in every builder group | high | M | IMP-11 | todo |
+| 13 | IMP-13 | Re-renders use the chosen decor, RAL and anchor photo | high | S | main | todo |
+| 14 | IMP-14 | Maker brief: photos, SKUs, line provenance, capped-band note, shell | high | M | IMP-04 | todo |
+| 15 | IMP-15 | Brief export: print/PDF and JSON | medium | S | IMP-14 | todo |
+| 16 | IMP-16 | Customer notifications that exist, plus a response-time line | high | M | IMP-03, IMP-08 | todo |
+| 17 | IMP-17 | Resume on another device without broken images; honest save state | high | M | main | todo |
+| 18 | IMP-18 | Dashboard: no 404 rows, resend invite, archive, paging, invite collisions | high | M | main | todo |
+| 19 | IMP-19 | Re-submit versioning with a diff | medium | M | IMP-03 | todo |
+| 20 | IMP-20 | Worktop and hardware pricing bugs | high | M | IMP-04 | todo |
+| 21 | IMP-21 | Rate card out of code | medium | M | IMP-04 | todo |
+| 22 | IMP-22 | Intake dead ends and silent fallbacks | medium | M | main | todo |
+| 23 | IMP-23 | AI routes: slim bodies, timeouts, invalid tool calls, logging, audit log | medium | M | main | todo |
+| 24 | IMP-24 | Croatian copy pack | medium | S | main | todo |
+| 25 | IMP-25 | Everything the maker reads is in their language | medium | S | main | todo |
+| 26 | IMP-26 | Two site-visit facts and the decision-maker chip | medium | S | main | todo |
+| 27 | IMP-27 | Production config and script safety | medium | M | IMP-02 | todo |
+| 28 | IMP-28 | Tests for routes, actions and the checkpoint hook | medium | M | IMP-02 | todo |
+| 29 | IMP-29 | Confirm step: progressive disclosure, keyboard path, focus | medium | L | main | todo |
+| 30 | IMP-30 | Repo hygiene | low | S | main | todo |
+
+---
+
+### 1. IMP-01 — Remove the fabricated stub estimate
+**Problem.** "Preskoči — pošalji samo osnovni brief" falls back to `buildStubEstimate`, which keys off `budgetRange` and `scope`, neither of which any step sets any more. It returns `SCOPE_MIDPOINTS_USD[0]` = 12,000 ±20% as 9,600–14,400 €. That number lands on the wrap-up, the kitchen home, the dashboard row, the brief row and the maker email subject as if it were a real ±20% range. Four readers found it independently.
+**Fix.** Delete `src/lib/stub-estimate.ts`. In `buildHandoffBundle` set `estimate = null` when `brief.builderState` is absent. Wrap-up, kitchen home, dashboard and email already render the null case; add one line "Raspon dobivaš kad sastaviš kuhinju" with a link back to the builder.
+**Files.** src/lib/stub-estimate.ts, src/lib/handoff/bundle.ts, src/components/kitchen-intake/WrapUpScreen.tsx, src/lib/notify/maker-email.ts, src/app/kitchen/[projectId]/KitchenHome.tsx, tests/scope-estimate.test.ts.
+**Done when.** No `USD` constant in src/; a skipped-builder handoff stores null estimate columns; the email subject says "raspon nije dostupan"; a test asserts `buildHandoffBundle` without builderState yields `estimate === null`.
+**Stack on.** main.
+
+### 2. IMP-02 — CI gate on every PR and on main
+**Problem.** There is no `.github/` and no vercel config; a merge to main deploys production untested. Thirty stacked PRs are about to be merged.
+**Fix.** `.github/workflows/gate.yml` on pull_request and push to main: `npm ci`, `vitest run`, `tsc --noEmit`, `eslint .` (about 3 s; skip `next build`, Vercel builds anyway). Make it a required check on main. Add `typecheck` and `gate:fast` scripts; rename the package to `softclose`.
+**Files.** .github/workflows/gate.yml, package.json.
+**Done when.** A PR with a failing test shows a red check; `npm run gate:fast` exists.
+**Stack on.** main.
+
+### 3. IMP-03 — Maker decision persists and reaches the homeowner
+**Problem.** On the real brief page the three buttons Za ponudu / Pojasni / Odbij only flip local state and print "Demo radnja (bez učinka)". `maker_status` never moves past `viewed`, the homeowner never learns the outcome, the dashboard's "quoted" flag is derived from `!== 'new'` so a glance counts as a quote, and nothing records the price the maker actually quoted, so the ±20% hit rate can never be measured. This is rule 8 and Definition of Done #3.
+**Fix.** Migration 0006: `maker_note`, `decided_at`, `quoted_eur` on briefs. Server action `decideBrief(briefId, status, note?, quotedEur?)` behind `requireBriefAccess`, wired to the three buttons; `declined` archives the project. Show the decision as a chip on the brief, the dashboard row and the homeowner's kitchen home. `quoted = makerStatus === 'quoted'`. Record ±20% definition in WORKLOG: total works range vs the maker's first formal quote.
+**Files.** db/migrations/0006_*.sql, src/app/maker/[id]/actions.ts, MakerDashboardPreview.tsx, src/app/dashboard/page.tsx, src/lib/project/status.ts, KitchenHome.tsx, locales.
+**Done when.** Clicking Za ponudu with 6,200 € writes status + amount; the kitchen home shows "{maker} je poslao ponudu"; a test covers the action's ownership check and the status transitions.
+**Stack on.** main.
+
+### 4. IMP-04 — Range states VAT, margin, exclusions; one range line everywhere
+**Problem.** Boards are priced from Elgrad's wholesale list and labour from the maker's cost sheet (net, no margin or overhead); appliances and hardware are retail incl. 25% PDV. They are summed into one "Ukupno" and the string "PDV" does not exist in src/. The homeowner sees what the kitchen costs the shop to make, labelled "Sve uključeno". Nothing states what is excluded (removal of the old kitchen, electrical/plumbing, delivery, templating); the scope allowances are dead code since the scope step was cut. Kitchen home and the dashboard print the range bare, with no ± or "maker confirms" line. Rounding differs per surface.
+**Fix.** Add `VAT_RATE = 0.25`, `vatBasis` per catalog source and a margin band (open decision below) to `computeBom`; normalise works to gross for the homeowner, show "Rad radionice i marža" as its own line. Add `assumptions: string[]` to `BomEstimate` built from state (montaža uključena, bez rušenja i odvoza, bez elektro/vodo radova, uređaje nabavlja kupac, cijene s PDV-om). One `RangeLine` component (low–high · ±pct · s PDV-om · "raspon koji {maker} potvrđuje") and one `formatRange` rounding helper used by wrap-up, kitchen home, dashboard, panel, dock, email and brief. Render `estimate.lines` grouped on the wrap-up. Hide the "0 € – 0 €" goods row when the homeowner supplies.
+**Files.** src/lib/builder/bom.ts, src/lib/types.ts, LiveBOMPanel.tsx, MobileRangeDock.tsx, WrapUpScreen.tsx, KitchenHome.tsx, DashboardList.tsx, maker-email.ts, MakerDashboardPreview.tsx, locales, tests/band-invariant + snapshots.
+**Done when.** Every range on every surface carries the PDV line and the assumptions list; fixture snapshots regenerated once with the reason logged; band-invariant still ≤ 20.
+**Stack on.** IMP-01.
+
+### 5. IMP-05 — Strip maker-only controls and B2B cost from the homeowner wrap-up
+**Problem.** After submit the wrap-up offers "Otvori pogled izrađivača" (404 for a customer) and a "Demo: pogledaj što vidi izrađivač" button that renders the maker view, including the "Tvoja nabavna cijena (B2B) · kupac ovo nikad ne vidi" box. `/api/handoff` returns `estimate.makerCost` to the customer and the JSON download writes it to disk. Dormant only because maker-pricing.json is empty.
+**Fix.** In project mode drop both controls and show "Natrag na moju kuhinju" → /kitchen/[projectId]. Compute `makerCost` only in `maker/[id]/page.tsx`; strip it from the handoff response. Keep the demo toggle only in the /builder harness.
+**Files.** WrapUpScreen.tsx, src/lib/handoff/bundle.ts, src/app/api/handoff/route.ts, src/app/maker/[id]/page.tsx.
+**Done when.** A test asserts the customer response has no `makerCost`; no `/maker/` link renders for a customer session.
+**Stack on.** main.
+
+### 6. IMP-06 — Builder state autosaves
+**Problem.** `BuilderShell` keeps the whole build in a local reducer and hands it out only on the last Continue or the escape hatch. A reload, tab close or device switch anywhere in the eight groups loses every pick and every paid re-render.
+**Fix.** `onStateChange` prop on `BuilderShell`, debounced ~500 ms, wired in the intake to `patchProfile({ builderState })` so the existing snapshot + checkpoint carry it. Persist the current group id too.
+**Files.** src/components/builder/BuilderShell.tsx, src/components/kitchen-intake/index.tsx, src/lib/project/snapshot.ts.
+**Done when.** Reload at group 4 restores picks, re-renders and the group; a hook test covers the debounce.
+**Stack on.** main.
+
+### 7. IMP-07 — Review before send; edits after submit are possible
+**Problem.** The wrap-up header says "Pregledaj što šaljemo — ispravi sve što ne valja", but `loadBundle()` fires on mount, so the brief is inserted and the maker emailed before the homeowner reads a line, and every section passes `onFix={null}`. "Izmijeni kuhinju" from the kitchen home lands on the done screen whose only control is "Pošalji ponovno", which inserts an identical brief. Revisiting the wrap-up shows "Procjena još nije dostupna" until they re-send.
+**Fix.** Split into review → explicit "Pošalji izrađivaču". Wire `onFix` per section to `goTo(step)` and make done rail steps navigable. On revisit pass the saved range + briefId as `initialResult`. In the builder, "Izmijeni" opens at the last step with `isDone=false`.
+**Files.** WrapUpScreen.tsx, kitchen-intake/index.tsx, JourneyNavRail.tsx, KitchenHome.tsx.
+**Done when.** No `/api/handoff` call happens before the send button; Back works from the wrap-up; a revisit shows the saved range.
+**Stack on.** IMP-06.
+
+### 8. IMP-08 — Email works in production; UI tells the truth when it does not
+**Problem.** Vercel has no `RESEND_API_KEY`, so `sendEmail` returns `skipped` in production, yet `requestLoginLink` returns `sent` and the login page says the link is on its way. Nobody can sign in by email; makers never get "Novi sažetak". The maker email also prints "Homeowner" and raw ids (`l_shape`, `3_6_months`); the default sender is Resend's onboarding address, which delivers only to the account owner.
+**Fix.** Ops: verify a sending domain in Resend, set `RESEND_API_KEY` + `RESEND_FROM` on Vercel. Code: when the outcome is `skipped`/`failed` in production return an honest error ("E-pošta trenutno nije dostupna, zatraži link od izrađivača"); show a banner on /dashboard and /login when `emailProvider() === 'none'`; label rows through `tDynamic`, map enums, log loudly at boot when `RESEND_FROM` is unset in production.
+**Files.** src/app/login/actions.ts, src/app/login/LoginForm.tsx, src/app/dashboard/page.tsx, src/lib/notify/maker-email.ts, src/lib/notify/send.ts, tests/maker-email.test.ts.
+**Done when.** A production login attempt with no provider shows the honest message; the maker email test asserts no `_` ids and no "Homeowner".
+**Stack on.** main.
+
+### 9. IMP-09 — AI disclosure, photo notice, privacy page, delete-my-kitchen, EGGER flag
+**Problem.** A grep of src for privatnost/privacy/gdpr/impressum/kolači/consent returns nothing user-facing. The kitchen home never says an AI reads the photos; the photo step sends home photos to OpenAI with no notice; there is no privacy page, no impressum, and no way for a homeowner to delete their kitchen (deletion is a dev script). EU AI Act Article 50 is in force since August 2026. EGGER swatches are hotlinked behind a compile-time `const = true` that the owner marked "testing only, permission required".
+**Fix.** One sentence on the kitchen home and in the invite email ("Kroz korake te vodi AI asistent; {maker} osobno pregledava sve što podijeliš"); one calm line under the photo drop zone with a link; a static /privatnost page (processing purpose, retention, OpenAI as processor, contact) linked from a `LegalFooter` in `AuthShell`; a "Izbriši moju kuhinju" server action that ports delete-brief (storage objects, briefs, snapshot, tokens, account). `DECOR_IMAGES_ENABLED` from `NEXT_PUBLIC_DECOR_IMAGES === '1'`, default off, `referrerPolicy="no-referrer"`.
+**Files.** KitchenHome.tsx, SpaceCapture.tsx, src/components/AuthShell.tsx, src/app/privatnost/page.tsx, src/app/kitchen/[projectId]/actions.ts, src/lib/notify/auth-email.ts, src/lib/builder/swatches.ts, locales.
+**Done when.** The disclosure line renders on first load; delete removes every row and object for a test project; a test asserts the decor flag is false under `NODE_ENV=production`.
+**Stack on.** main.
+
+### 10. IMP-10 — Render cap and AI spend enforced per project
+**Problem.** The 5-renders cap is an in-memory 30-minute bucket per Vercel instance: it refills, resets on cold start and multiplies across instances. `RerenderPanel` keeps a separate `useState(0)` counter that resets on remount. A maker opening a customer's kitchen in read-only mode can still drive every AI call under their own key and store the customer's journey in their browser.
+**Fix.** Migration: `renders_used` on projects. `/api/render-concept` takes `projectId`, checks ownership and claims a slot atomically (`update ... where renders_used < 5`), returns `remaining`; the panel shows the true budget. Thread `readOnly` into StepBody/BuilderShell: disable Continue and AI buttons, skip IndexedDB, show "Pregledavaš kupčev napredak". Keep the in-memory bucket as a burst guard only.
+**Files.** db/migrations/0006_*.sql, src/app/api/render-concept/route.ts, RerenderPanel.tsx, ConceptRender.tsx, kitchen-intake/index.tsx, BuilderShell.tsx.
+**Done when.** The sixth render for a project is refused regardless of time or instance; a route test covers the atomic claim; a read-only maker cannot trigger a render.
+**Stack on.** main.
+
+### 11. IMP-11 — Confidence and provenance tell the truth
+**Problem.** Pressing Continue runs `confirmGroupMetas`, which stamps every field in the group as `homeowner-confirmed` (graded H, band ×0.6), including AI defaults merely scrolled past and fields the screen never rendered (sink chips under "Ja nabavljam", hob config under homeowner supply). A picked Schachermayer reference RRP becomes an "exact · točno" line. Typing a wall length on the confirm card leaves `room.confidence` at the AI value while the canvas input stamps H. The confirm step is titled "Provjeri što smo izmjerili" though nothing was measured; a silent 280 cm ceiling default prints as fact; `PickerSlot` labels plain defaults as AI suggestions.
+**Fix.** New provenance `homeowner-seen` mapped to at most M; each group module exposes `confirmableMetaKeys(state)` for what it actually rendered; card edits stamp H/homeowner; carry `priceBasis` into picks so `exact` only for `retail_incl_vat`; `ceilingSource` on the plan; retitle the card "Provjeri dimenzije — AI ih je procijenio s fotografije" with a per-wall pill (procjena / izmjereno) and one sentence inviting a tape measure; a neutral "Zadano" tone in `PickerSlot`.
+**Files.** src/lib/builder/state.ts, bom.ts, groups/registry.tsx + groups/*, PickerSlot.tsx, LayoutConfirm.tsx, LayoutReview.tsx, src/lib/floor-plan/model.ts, locales, tests/band-invariant.
+**Done when.** Walking past a group without touching it leaves its band unchanged; a card wall edit narrows the labour band in a test; no "točno" badge on a reference-priced pick.
+**Stack on.** main.
+
+### 12. IMP-12 — "Neka odluči izrađivač" in every builder group
+**Problem.** Only hob/oven/extractor have an "unknown" chip. Fronts, decor, worktop family, backsplash, carcass, built-in fridge/dishwasher, all sink/tap chips, LED and plinth force a pick, and every pick is stamped H, so a guess narrows the band like a decision. Foundations and the intake catalog make the "I don't know" path a rule.
+**Fix.** `deferred` on `FieldMeta`; one shared "Neka odluči izrađivač" chip in `PickerSlot` that keeps the default, sets confidence L + deferred, is excluded from confirmation, and shows on the maker brief as "kupac prepušta izrađivaču".
+**Files.** PickerSlot.tsx, groups/*, src/lib/builder/state.ts, bom.ts, MakerDashboardPreview.tsx, locales.
+**Done when.** Every group has the chip; a deferred field widens its line to L in a test; the brief lists deferred fields.
+**Stack on.** IMP-11.
+
+### 13. IMP-13 — Re-renders use the chosen decor, RAL and anchor photo
+**Problem.** `buildPrompt` in render-concept never reads `materialHints`/`styleHints`, which is the only channel through which `RerenderPanel` sends the chosen Elgrad decor, RAL code or worktop; the builder's paid re-renders ignore the picks. The hypothesis and re-renders always anchor to `spacePhotos[0]`, not the photo the homeowner chose. Changing RAL or profile yields the change id `door front` with no locale key, so the panel prints the key.
+**Fix.** Append sanitised material and style hints to the prompt (cap 6 × 120 chars); use `spacePhotos[chosenRender.anchorPhotoIndex]`; add the `door_front` keys. Export `buildPrompt` and test that a RAL hint appears.
+**Files.** src/app/api/render-concept/route.ts, kitchen-intake/index.tsx, RerenderPanel.tsx, locales.
+**Done when.** Prompt test passes; a re-render after picking a RAL shows the colour in mock output and on the live model.
+**Stack on.** main.
+
+### 14. IMP-14 — Maker brief: photos, SKUs, line provenance, capped-band note, shell
+**Problem.** The maker never sees the homeowner's space photos (stored, never rendered). BOM lines print product names but not the SKUs the maker quotes from. Lines carry no price basis, date or confidence, so a dated Elgrad price and a hand-set band look the same. `capBand` silently shrinks a ±22–30% band to ±20% and sets `bandCapped`, which no surface reads, and the capped lines no longer sum to the headline. Spec rows show H/M/L pills that are hard-coded per row. `/maker/[id]` has no shell: no back link, no sign-out.
+**Fix.** "Fotografije prostora" grid; `skus` on `BomLineItem`; `confidence`, `basis`, `asOf` set where each line is pushed, rendered as a pill + date; when `bandCapped` show "model: ±{raw}% — nedostaje: …" and store `band_pct_raw`; drop hard-coded pills; wrap the page in `AuthShell` with "Natrag na popis" and the project link.
+**Files.** MakerDashboardPreview.tsx, MakerBriefView.tsx, src/lib/builder/bom.ts, src/lib/types.ts, src/app/api/handoff/route.ts, migration for `band_pct_raw`.
+**Done when.** A brief with a reference-priced sink shows "ref. cijena · 2026-05"; the photos render; the capped note appears on the u-shape fixture.
+**Stack on.** IMP-04.
+
+### 15. IMP-15 — Brief export: print/PDF and JSON
+**Problem.** The only download in the app is the homeowner's JSON. The maker cannot hand the brief to the workshop, a lacquer shop or a designer who does not log in (Definition of Done #4).
+**Fix.** `@media print` stylesheet for the brief (hide actions and transcript, plan + render on page 1, line table) with an "Ispiši / spremi PDF" button; `/api/briefs/[id]/export` behind `requireBriefAccess` returning the bundle with signed image URLs.
+**Files.** MakerBriefView.tsx, globals.css, src/app/api/briefs/[id]/export/route.ts.
+**Done when.** Print preview fits A4 with sections intact; the export route answers 404 for another maker.
+**Stack on.** IMP-14.
+
+### 16. IMP-16 — Customer notifications that exist, plus a response-time line
+**Problem.** The kitchen home promises "javit ćemo ti kad ga otvori" and "{maker} dobiva obavijest o izmjeni"; the only emails in the codebase are login, invite and maker-notify. Nothing is sent when the maker opens the brief or decides, and no response-time expectation is set.
+**Fix.** `notify/customer-email.ts` with "opened" (sent once when `maker_viewed_at` is first set) and "decision" (from IMP-03's action, canned Croatian per status). `sla_hours` on the maker account (default 48) rendered as "obično odgovara u roku {n} h". Reword any promise the app cannot keep.
+**Files.** src/lib/notify/customer-email.ts, src/app/maker/[id]/page.tsx, src/app/maker/[id]/actions.ts, KitchenHome.tsx, locales, tests.
+**Done when.** Opening a brief sends exactly one email to the customer; the status page shows the SLA line; a test covers both templates.
+**Stack on.** IMP-03, IMP-08.
+
+### 17. IMP-17 — Resume on another device without broken images; honest save state
+**Problem.** Checkpoints replace images with `omitted://image` and nothing on the client recognises the marker: a second device resumes with that string as the space photo, the render step POSTs it as the anchor (400), the hypothesis sends it, and "Pošalji izmjene" inserts a brief whose photos are marker strings and emails the maker. The local IndexedDB copy wins over a newer server snapshot because the first checkpoint carries a matching revision. `useProjectCheckpoint` exposes `state` (error / conflict / disabled) that no component reads: a 401, 404, 413 or real conflict silently stops saving while the rail says "{maker} vidi tvoj napredak". When the free-tier Supabase pauses, `findAccountById` swallows the error and the app says signed out.
+**Fix.** Drop markers in `applySnapshot`, flag `imageMissing` on renders, skip autoStart/hypothesis without an image, show "Fotografije ostaju na uređaju gdje si ih snimio"; persist `revision` in IndexedDB and prefer local only if newer; in handoff restore `storage://` refs from the previous brief for marker strings; a small save line driven by `checkpoint.state` with a sign-in link on 401; distinguish DB error from "no row" and show a maintenance panel. Media at capture time stays a follow-on (L).
+**Files.** kitchen-intake/index.tsx, useProjectCheckpoint.ts, src/lib/project/snapshot.ts, src/app/api/handoff/route.ts, src/lib/auth/accounts.ts, src/lib/auth/dal.ts.
+**Done when.** A snapshot with markers never reaches an AI route (test); a stale local copy does not overwrite a newer revision (test); the save line shows "Nije spremljeno — prijavi se" on 401.
+**Stack on.** main.
+
+### 18. IMP-18 — Dashboard: no 404 rows, resend invite, archive, paging, invite collisions
+**Problem.** Rows for "pozvan" and "otvorio, stao" link to `/dashboard/project/[id]`, which calls `notFound()` when there is no snapshot, so the two states the maker is told to chase dead-end on a 404; `resendInvite` exists but is wired to nothing. `archived` is never set and hidden rows are still counted; the list caps at 100 with no paging or search. Inviting an address that is already another maker's customer silently creates a second project and makes `/` land on the empty one.
+**Fix.** Render a project card (customer, status, invite dates, "Pošalji novi link") instead of 404; "Arhiviraj" action and "Prikaži arhivirane" toggle; "učitaj starije" cursor paging; refuse an invite for an address with a live project under another maker (same `unavailable` shape, no leak), or route `/` to a list, per the decision below.
+**Files.** src/app/dashboard/project/[id]/page.tsx, LiveProjectView.tsx, DashboardList.tsx, src/app/dashboard/actions.ts, src/lib/auth/projects.ts, locales.
+**Done when.** No row on the dashboard 404s; the resend form issues a new token and revokes the old; archived rows are excluded from counts.
+**Stack on.** main.
+
+### 19. IMP-19 — Re-submit versioning with a diff
+**Problem.** Every re-submit inserts a new brief with `maker_status = 'new'`, repoints the project and sends "Novi sažetak kuhinje" again. Nothing links the two, the maker's stamps on the old one are orphaned, and neither the email nor the page says what moved.
+**Fix.** `supersedes_brief_id` + `version` on briefs (set from `project.current_brief_id`); pure `diffBriefs(prev, next)` over estimate, dimensions, BOM lines by key, wishlist and appliances; render the diff on the brief page and put the three biggest changes in the email; keep the previous decision visible.
+**Files.** db/migrations, src/app/api/handoff/route.ts, src/lib/handoff/diff.ts, MakerDashboardPreview.tsx, maker-email.ts, DashboardList.tsx.
+**Done when.** A second submit shows "v2 · promjene: radna ploča, +1 ladičar, raspon +340 €"; `diffBriefs` has unit tests.
+**Stack on.** IMP-03.
+
+### 20. IMP-20 — Worktop and hardware pricing bugs
+**Problem.** Compact, solid wood and stainless worktops price at the 38 €/m laminate fallback; thickness only changes the detail string; a curated decor with `worktop600: null` silently takes the fallback with no widening; islands are priced at 600 mm width though 920 mm prices exist. Handles count one per unit (a four-drawer bank needs four); picked hinges skip patterns with doors. A plan-placed oven or hood can be toggled off while its housing stays priced and relock re-adds it. The tap finish offers "Uskladi s vratima". Catalog data: two mis-parsed `worktop920` prices, a duplicate oven, a wine cooler typed as fridge.
+**Fix.** Per-family €/m table with a thickness factor; treat a null catalog price as a missing source; 920 mm for island runs; `doorCount`/`handleCount` per pattern; lock oven and hood like the hob; `TapFinish` without matched_to_door; parser sanity checks and a catalog-integrity test; export `APPLIANCE_PRICE` so the grounding test imports it instead of copying.
+**Files.** src/lib/builder/bom.ts, cabinet-patterns.ts, groups/AppliancesGroup.tsx, SinkTapsGroup.tsx, normalize.ts, scripts/parse-elgrad-cjenik.mjs, build-elgrad-catalog.mjs, tests.
+**Done when.** 38 mm vs 20 mm quartz differ in price; a 10 m compact top is no longer 267–685 €; snapshots regenerated with the reason logged.
+**Stack on.** IMP-04.
+
+### 21. IMP-21 — Rate card out of code
+**Problem.** Labour rates, carcass €/m², MDF and alu fronts €/m², sink/tap/appliance class bands, allowances and confidence multipliers are constants in `bom.ts`. A second maker, a regional rate or a price refresh needs a deploy. Makers are created by CLI and have no settings at all.
+**Fix.** `src/lib/catalog/rate-card.json` with `basis`/`asOf`/`vat` per block and today's values as defaults, loaded by `computeBom(state, locale, { rates })`; later a `softclose_maker_settings` row (labour, margin, VAT mode, SLA, phone, studio name) keyed by maker and a read-only view of it on the dashboard.
+**Files.** src/lib/builder/bom.ts, src/lib/catalog/rate-card.json, src/lib/handoff/bundle.ts, src/app/dashboard/*.
+**Done when.** Fixture totals are byte-identical with the default card; changing one rate in JSON moves the fixture without a code change.
+**Stack on.** IMP-04.
+
+### 22. IMP-22 — Intake dead ends and silent fallbacks
+**Problem.** The wishlist cannot be passed when translate-wishlist fails (the only way out is deleting the text). Render-vision failure on the confirm step is silent: the plan seeds from the photo and the homeowner confirms a layout that ignores the render they chose. Continue stays enabled while a paid render generates, and "Odaberi ovo" is cosmetic because the newest render wins anyway. Choosing a different render keeps the first render's layout and hypothesis. Continue on the photo step skips the only cm-scale read without saying so. The "no anchor photo" copy promises catalog references that nothing produces.
+**Fix.** Store the verbatim wishlist as untranslated L and advance; amber one-liner with retry on the confirm step; include `isGenerating` in `isBusy` and make the footer "Koristi ovaj render"; reset hypothesis and reseed the plan on render change when there are no homeowner edits; "Pročitaj i nastavi" as the primary action with "Nastavi bez čitanja" secondary; fix the copy.
+**Files.** kitchen-intake/index.tsx, ConceptRender.tsx, SpaceCapture.tsx, locales.
+**Done when.** Each of the six paths has a test or a documented browser check in WORKLOG.
+**Stack on.** main.
+
+### 23. IMP-23 — AI routes: slim bodies, timeouts, invalid tool calls, logging, audit log
+**Problem.** `loadHypothesis` posts the whole profile including every data URL, and the server slices 2,000 chars of base64 into the prompt; the body recreates the 4.5 MB 413. No route sets `maxDuration`, a timeout or an abort signal, so a slow image call retries toward 300 s while the homeowner has left. Routes never check `toolCall.invalid`. Four of five text routes log nothing on "no structured result"; `providerFailure` drops the status and body where OpenAI explains refusals. Mocks run before validation. The hypothesis schema still asks for fields retired on 2026-09-23. Renders are forced to 1024×1024, which re-composes a portrait phone photo. There is no audit log of any inference (foundations: table stakes; also the only way to back-test ±20%).
+**Fix.** Slim client payload + `stripDataUrls` server-side; `maxDuration = 300`, `maxRetries` 0–1, `timeout`, `abortSignal: req.signal`, client AbortController; `structuredResult()` helper that checks `invalid` and parses once; `noStructuredResult()` logger and richer `providerFailure`; move mocks after validation and schema-test all six fixtures; prune the schema; `size: 'auto'`; `softclose_ai_calls` table + `recordAiCall()` from the six routes (no images).
+**Files.** src/app/api/*/route.ts, src/lib/api/errors.ts, src/lib/api/mock.ts, src/lib/db/ai-calls.ts, db/migrations, tests/mock-fixtures.test.ts.
+**Done when.** Hypothesis request body is under 1 MB for the sample journey; every 500 branch logs; each AI call writes one row.
+**Stack on.** main.
+
+### 24. IMP-24 — Croatian copy pack
+**Problem.** The rail labels act 3 "Vaša ponuda" while the app insists it is not a quote; those are also the only Vi-form strings. Seventeen strings call the maker "dizajner"; the glossary says izrađivač. Sixteen past-tense verbs are masculine-only ("Promijenio si"). Wrong terms: "Šolja ručke", "Paralelne klupe", "Filtrirana voda (3-pute)", "Sintetizirani kamen", "Fragranite" as a material; "{n} kupaca" for 1–4; "+{n} više". The tab title is "Kitchen Studio — Project intake" on every page.
+**Fix.** One locale PR: "Tvoj sažetak i raspon", izrađivač everywhere, gender-neutral phrasing, corrected trade terms, a plural helper, root metadata `softclose` with per-page titles. Add a test that no hr value contains "ponuda" or "dizajner" outside the explicit disclaimer keys. Have one Croatian maker read the diff.
+**Files.** src/lib/i18n/locales/hr-HR.ts, en-US.ts, src/app/layout.tsx, page metadata, tests/i18n-homeowner-strings.test.ts.
+**Done when.** The string test passes; every page has a Croatian title.
+**Stack on.** main.
+
+### 25. IMP-25 — Everything the maker reads is in their language
+**Problem.** `/api/translate-wishlist` takes no locale and is prompted in English, so the Croatian maker gets English trade phrases next to the Croatian verbatim. Vision `styleHints`/`materialHints` and hypothesis `colorDescription` arrive in English and print raw; `FactsRecap` looks up `doors.style.*`, a key family that no longer exists, and shows keys. The server renders pages in the account's stored locale while the switcher only writes localStorage, so a homeowner who switches sees two languages on one page. `estimate.basis` is an English sentence persisted into every brief; four wrap-up rows print raw enums.
+**Fix.** Pass `locale` to translate-wishlist and extend the hr instruction block; localise the hint fields; map `style` through `frontFromStyle`; persist the switcher choice to `softclose_accounts.locale` and set `<html lang>`; store `basisKey` instead of a sentence; route the enum rows through `optionLabel`.
+**Files.** src/app/api/translate-wishlist/route.ts, space-vision/route.ts, builder-hypothesis/route.ts, FactsRecap.tsx, LanguageSwitcher.tsx, src/lib/i18n/index.tsx, bundle.ts, WrapUpScreen.tsx.
+**Done when.** A Croatian brief has no English trade line; the hardcoded-string test extends to the maker surface.
+**Stack on.** main.
+
+### 26. IMP-26 — Two site-visit facts and the decision-maker chip
+**Problem.** Not a re-proposal of the cut scope step. Three first-visit facts cost one chip row each and are what makers get surprised by on day one: who removes the old kitchen, whether the sink and hob stay where they are (the render puts them where the design wants, the photo read saw where they are, nothing compares), and whether the decision is sole or joint (the intake catalog's spec-ready floor, item 1.1).
+**Fix.** Two chip rows on logistics with "Ne znam" first-class (`scope.demolitionDisposal`, `trades.plumbing.sinkPosition`), three chips on contact (`decisionMaker`); one row each on the brief and in the email; feed the demolition answer into IMP-04's exclusions line.
+**Files.** kitchen-intake/index.tsx, src/lib/types.ts, MakerDashboardPreview.tsx, maker-email.ts, locales.
+**Done when.** The three fields reach the brief with L confidence when skipped and H when answered.
+**Stack on.** main.
+
+### 27. IMP-27 — Production config and script safety
+**Problem.** `delete-brief.mjs` reads `.env.local` (production) directly, ignores `--local`, asks nothing and deletes the customer's whole project; two scrapers also skip the target print. A fresh clone that copies `.env.example` to `.env.local` and runs `npm run dev` talks to production. Migrations are applied by hand with no tracking. `next.config.ts` sets no security headers and leaves `X-Powered-By` on. Logout only deletes the cookie (the session epoch is untouched); magic-link origins fall back to the Host header on previews; auth tokens and rate-limit buckets are never pruned.
+**Fix.** Route every script through `loadEnv()` + `targetLabel()` + `confirm()`; rename production env to `.env.production.local` and make `.env.local` the local stack; move migrations to `supabase/migrations/` and baseline production; `headers()` with frame-ancestors, referrer-policy, nosniff, permissions-policy and `poweredByHeader: false`; bump `session_epoch` on logout; `appOrigin()` that refuses to issue without a known origin in production; a prune cron or SQL job; `scripts/check-env.mjs` in `prebuild`.
+**Files.** scripts/*.mjs, scripts/_env.mjs, .env.example, README.md, supabase/migrations/, next.config.ts, src/app/logout/route.ts, src/lib/auth/origin.ts, src/lib/rate-limit.ts.
+**Done when.** `node scripts/delete-brief.mjs` without `--yes` prints the target and asks; `supabase migration list --linked` shows 0001–0006; curl shows the headers.
+**Stack on.** IMP-02.
+
+### 28. IMP-28 — Tests for routes, actions and the checkpoint hook
+**Problem.** The 36 test files import only lib modules. The seven route handlers, the three server-action files and the auth DAL are never executed by a test, and vitest cannot run React at all (node environment, `.ts` only). The 1,613-line intake and the checkpoint hook that owns resume and conflicts have no safety net beyond manual browser runs.
+**Fix.** `tests/routes/*.test.ts` calling handlers with a `Request` and an in-memory fake of the Supabase client; happy-dom + Testing Library as a second vitest project for `.test.tsx`; first tests: checkpoint 409 fingerprint, handoff ownership, decideBrief transitions, useProjectCheckpoint halting rules.
+**Files.** vitest.config.ts, tests/routes/, tests/hooks/, package.json.
+**Done when.** Each route has at least one ownership test; CI runs both projects.
+**Stack on.** IMP-02.
+
+### 29. IMP-29 — Confirm step: progressive disclosure, keyboard path, focus
+**Problem.** One plan is edited on two overlapping surfaces: a Konva canvas with undo/redo, keyboard shortcuts, cm/ft toggle, per-wall counter depth and anchors, and a card with wall lengths again plus per-unit chips where the homeowner picks "Magični kut" versus "Lazy Susan". It reads as a CAD tool, a red line. Selection on the canvas is pointer-only and the overlay is aria-hidden; step changes never move focus or announce anything.
+**Fix.** First slice: default view = static plan picture + one sentence row per wall (length input, upper/tall toggles, appliance pills) with the canvas and unit chips behind "Prilagodi detaljno"; a visually light list of sides and elements as real buttons under the canvas; `tabIndex={-1}` heading focused on step change and one polite live region in `AppShell`. Keep every feature; change the default.
+**Files.** LayoutConfirm.tsx, floor-plan-editor/Editor.tsx, AppShell.tsx, kitchen-intake/index.tsx.
+**Done when.** A homeowner can confirm a layout without opening the canvas; keyboard-only selection of a wall works; the mock journey still locks the same contract (parity test unchanged).
+**Stack on.** main.
+
+### 30. IMP-30 — Repo hygiene
+**Problem.** README is create-next-app boilerplate around one real section; LOOP.md tells a newcomer to work in a worktree that no longer exists; PLAN.md is a merged June plan. `handoff/` (1.6 MB prototype), a duplicate Elgrad PDF and five template SVGs are committed. `material-options.ts`, three shadcn ui files and `use-image` are dead; `shadcn` sits in runtime deps. Fifteen merged branches and 3.2 GB of worktrees linger; the only unmerged commit (562a54c) was superseded by 946f5a4.
+**Fix.** Rewrite README (what it is, local stack, mock mode, gate, env layout, scripts table); move LOOP.md, PLAN.md, handoff/ and app-analysis.md to `context/archive/`; delete dead files and deps; prune branches and worktrees; add the four missing docs to the AGENTS.md table; append the missing WORKLOG entries for PRs #8–#10.
+**Files.** README.md, LOOP.md, PLAN.md, handoff/, public/*.svg, data/, package.json, src/lib/material-options.ts, src/components/ui/{card,progress,badge}.tsx, AGENTS.md, WORKLOG.md.
+**Done when.** `npm run gate` green after deletions; a fresh clone can follow the README to a working local stack.
+**Stack on.** main.
+
+---
+
+## Not doing (and why)
+
+- **Embeddable widget on the maker's site.** The 2026-09-22 invite-only pivot was deliberate; the maker-settings part of DoD #1 is covered by IMP-21.
+- **Up-front budget band.** Dropped on purpose ("the live range is the budget conversation"); the dead budget row and stub branch go with IMP-01. See the open decision.
+- **Scope step and "where will you live during works".** Cut after maker testing on 2026-09-23; IMP-04's exclusions line and IMP-26's two facts replace them.
+- **Conversational chat engine.** The fixed step flow is a long-standing design; the AI promise is honoured by vision, render, wishlist translation and summary.
+- **Houzz Pro / Builder Prime / 2020 integrations.** Roadmap items; nothing to integrate until IMP-15's export exists.
+- **Media at capture time (photos uploaded as taken).** Right fix for cross-device resume, L effort; IMP-17 ships the short-term guard first.
+- **Splitting the three god files.** Mechanical, low value until the items above settle; IMP-29 touches the editor anyway.
+
+## Open decisions for Toni
+
+1. **Margin and VAT basis (IMP-04).** Recommended default: homeowner sees gross incl. 25% PDV with a 30–45% workshop margin band on material + make, shown as its own line; maker sees net cost and the gross headline.
+2. **Band floor (LOOP Q6).** Fully confirmed states display ±9%. Recommended: floor at ±10% until a maker's own rate card is in (IMP-21).
+3. **Budget question.** Keep it dropped (recommended) and delete the dead row and keys in IMP-01, or add one optional "Okvirni budžet" chip row on contact.
+4. **Invite collisions (IMP-18).** Recommended: refuse an invite for an address that already has a live project under another maker, with a neutral message.
+5. **inspiration-vision.** A paid 20-second call whose enum guesses nothing downstream reads. Recommended: drop it in IMP-23 and keep the tagged styles and reference images.
+6. **Confidence pills for the homeowner.** Recommended: no H/M/L on homeowner surfaces; show provenance words only ("procjena" / "izmjereno" / "prepušteno izrađivaču").
