@@ -17,7 +17,7 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 | 7 | IMP-05 | Strip maker-only controls and B2B cost from the homeowner wrap-up | high | S | main | todo |
 | 8 | IMP-06 | Builder state autosaves | critical | M | main | todo |
 | 9 | IMP-07 | Review before send; edits after submit are possible | high | M | IMP-06 | todo |
-| 10 | IMP-08 | Email works in production; UI tells the truth when it does not | high | S + ops | main | todo |
+| 10 | IMP-08 | Maker email in Croatian; login reports a failed send honestly | medium | S | main | todo |
 | 11 | IMP-09 | AI disclosure, photo notice, privacy page, delete-my-kitchen, EGGER flag | high | M | main | todo |
 | 12 | IMP-10 | Render cap and AI spend enforced per project | high | M | main | todo |
 | 13 | IMP-11 | Confidence and provenance tell the truth | high | M | main | todo |
@@ -25,7 +25,7 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 | 15 | IMP-13 | Re-renders use the chosen decor, RAL and anchor photo | high | S | main | todo |
 | 16 | IMP-14 | Maker brief: photos, SKUs, line provenance, capped-band note, shell | high | M | IMP-04 | todo |
 | 17 | IMP-15 | Brief export: print/PDF and JSON | medium | S | IMP-14 | todo |
-| 18 | IMP-16 | Customer notifications that exist, plus a response-time line | high | M | IMP-03, IMP-08 | todo |
+| 18 | IMP-16 | Customer notifications that exist, plus a response-time line | high | M | IMP-03 | todo |
 | 19 | IMP-17 | Resume on another device without broken images; honest save state | high | M | main | todo |
 | 20 | IMP-18 | Dashboard: no 404 rows, resend invite, archive, paging, invite collisions | high | M | main | todo |
 | 21 | IMP-19 | Re-submit versioning with a diff | medium | M | IMP-03 | todo |
@@ -106,11 +106,11 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 **Done when.** No `/api/handoff` call happens before the send button; Back works from the wrap-up; a revisit shows the saved range.
 **Stack on.** IMP-06.
 
-### 10. IMP-08 — Email works in production; UI tells the truth when it does not
-**Problem.** Vercel has no `RESEND_API_KEY`, so `sendEmail` returns `skipped` in production, yet `requestLoginLink` returns `sent` and the login page says the link is on its way. Nobody can sign in by email; makers never get "Novi sažetak". The maker email also prints "Homeowner" and raw ids (`l_shape`, `3_6_months`); the default sender is Resend's onboarding address, which delivers only to the account owner.
-**Fix.** Ops: verify a sending domain in Resend, set `RESEND_API_KEY` + `RESEND_FROM` on Vercel. Code: when the outcome is `skipped`/`failed` in production return an honest error ("E-pošta trenutno nije dostupna, zatraži link od izrađivača"); show a banner on /dashboard and /login when `emailProvider() === 'none'`; label rows through `tDynamic`, map enums, log loudly at boot when `RESEND_FROM` is unset in production.
-**Files.** src/app/login/actions.ts, src/app/login/LoginForm.tsx, src/app/dashboard/page.tsx, src/lib/notify/maker-email.ts, src/lib/notify/send.ts, tests/maker-email.test.ts.
-**Done when.** A production login attempt with no provider shows the honest message; the maker email test asserts no `_` ids and no "Homeowner".
+### 10. IMP-08 — Maker email in Croatian; login reports a failed send honestly
+**Problem.** The maker's "Novi sažetak kuhinje" email prints a row labelled "Homeowner" and raw ids for layout and timeline (`l_shape`, `3_6_months`). Separately, `requestLoginLink` returns `sent` whatever `sendEmail` returned, so if the provider ever rejects a message (bad from-address, quota, outage) the login page still says the link is on its way. Correction: the audit's claim that Resend was not configured was wrong. RESEND_API_KEY and RESEND_FROM were set on Vercel on 2026-10-02 and email login works.
+**Fix.** Label rows through `tDynamic`, map the two enums through `layout.shape.*` and `option.timeline.*`, add the project link next to the brief link. In the login and invite actions return an honest error when the outcome is `failed` or `skipped` ("Slanje nije uspjelo, zatraži link od izrađivača") and log the provider status.
+**Files.** src/lib/notify/maker-email.ts, src/app/login/actions.ts, src/app/dashboard/actions.ts, locales, tests/maker-email.test.ts.
+**Done when.** The maker email test asserts no `_` ids and no "Homeowner"; a mocked failed send shows the error state on the login form.
 **Stack on.** main.
 
 ### 11. IMP-09 — AI disclosure, photo notice, privacy page, delete-my-kitchen, EGGER flag
@@ -167,7 +167,7 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 **Fix.** `notify/customer-email.ts` with "opened" (sent once when `maker_viewed_at` is first set) and "decision" (from IMP-03's action, canned Croatian per status). `sla_hours` on the maker account (default 48) rendered as "obično odgovara u roku {n} h". Reword any promise the app cannot keep.
 **Files.** src/lib/notify/customer-email.ts, src/app/maker/[id]/page.tsx, src/app/maker/[id]/actions.ts, KitchenHome.tsx, locales, tests.
 **Done when.** Opening a brief sends exactly one email to the customer; the status page shows the SLA line; a test covers both templates.
-**Stack on.** IMP-03, IMP-08.
+**Stack on.** IMP-03.
 
 ### 19. IMP-17 — Resume on another device without broken images; honest save state
 **Problem.** Checkpoints replace images with `omitted://image` and nothing on the client recognises the marker: a second device resumes with that string as the space photo, the render step POSTs it as the anchor (400), the hypothesis sends it, and "Pošalji izmjene" inserts a brief whose photos are marker strings and emails the maker. The local IndexedDB copy wins over a newer server snapshot because the first checkpoint carries a matching revision. `useProjectCheckpoint` exposes `state` (error / conflict / disabled) that no component reads: a 401, 404, 413 or real conflict silently stops saving while the rail says "{maker} vidi tvoj napredak". When the free-tier Supabase pauses, `findAccountById` swallows the error and the app says signed out.
