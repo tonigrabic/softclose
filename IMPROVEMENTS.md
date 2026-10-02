@@ -36,9 +36,10 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 | 26 | IMP-26 | Two site-visit facts and the decision-maker chip | medium | S | main | todo |
 | 27 | IMP-27 | Production config and script safety | medium | M | IMP-02 | todo |
 | 28 | IMP-28 | Tests for routes, actions and the checkpoint hook | medium | M | IMP-02 | todo |
-| 29 | IMP-29 | Confirm step: progressive disclosure, keyboard path, focus | medium | L | main | todo |
+| 29 | IMP-29 | Floor plan becomes a picture; editing moves to sentence rows | medium | M | IMP-31 | todo |
 | 30 | IMP-30 | Repo hygiene | low | S | main | todo |
-| 31 | IMP-31 | Layout before render; the render is constrained by the confirmed plan | high | L | main | todo |
+| 31 | IMP-31 | Room first: vision reconciles all photos, homeowner confirms shape and measures | high | M | IMP-11 | todo |
+| 32 | IMP-32 | Render constrained by the measured room; light post-render confirm | high | M | IMP-31 | todo |
 
 ---
 
@@ -238,12 +239,12 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 **Done when.** Each route has at least one ownership test; CI runs both projects.
 **Stack on.** IMP-02.
 
-### 29. IMP-29 — Confirm step: progressive disclosure, keyboard path, focus
-**Problem.** One plan is edited on two overlapping surfaces: a Konva canvas with undo/redo, keyboard shortcuts, cm/ft toggle, per-wall counter depth and anchors, and a card with wall lengths again plus per-unit chips where the homeowner picks "Magični kut" versus "Lazy Susan". It reads as a CAD tool, a red line. Selection on the canvas is pointer-only and the overlay is aria-hidden; step changes never move focus or announce anything.
-**Fix.** First slice: default view = static plan picture + one sentence row per wall (length input, upper/tall toggles, appliance pills) with the canvas and unit chips behind "Prilagodi detaljno"; a visually light list of sides and elements as real buttons under the canvas; `tabIndex={-1}` heading focused on step change and one polite live region in `AppShell`. Keep every feature; change the default.
-**Files.** LayoutConfirm.tsx, floor-plan-editor/Editor.tsx, AppShell.tsx, kitchen-intake/index.tsx.
-**Done when.** A homeowner can confirm a layout without opening the canvas; keyboard-only selection of a wall works; the mock journey still locks the same contract (parity test unchanged).
-**Stack on.** main.
+### 29. IMP-29 — Floor plan becomes a picture; editing moves to sentence rows
+**Problem.** One plan is edited on two overlapping surfaces: a Konva canvas with undo/redo, keyboard shortcuts, cm/ft toggle, counter depth and anchors, and a card with wall lengths again plus per-unit chips where the homeowner picks "Magični kut" versus "Lazy Susan". It reads as a CAD tool, a red line, and the chips are maker decisions. Selection on the canvas is pointer-only and nothing announces a step change.
+**Fix.** Default view is the SVG plan picture plus one sentence row per wall (length, window or door, sink or hob, uppers and tall toggles). The canvas sits behind one "Prilagodi na skici" link. Per-unit chips leave the homeowner side; the maker brief keeps the derived tally. A visually light list of walls as real buttons, the heading focused on step change, one polite live region.
+**Files.** LayoutConfirm.tsx, floor-plan-editor/Editor.tsx, src/lib/floor-plan/svg.ts, AppShell.tsx, kitchen-intake/index.tsx.
+**Done when.** A homeowner completes IMP-31 and IMP-32 without opening the canvas; keyboard-only wall selection works; the parity test still locks the same contract.
+**Stack on.** IMP-31.
 
 ### 30. IMP-30 — Repo hygiene
 **Problem.** README is create-next-app boilerplate around one real section; LOOP.md tells a newcomer to work in a worktree that no longer exists; PLAN.md is a merged June plan. `handoff/` (1.6 MB prototype), a duplicate Elgrad PDF and five template SVGs are committed. `material-options.ts`, three shadcn ui files and `use-image` are dead; `shadcn` sits in runtime deps. Fifteen merged branches and 3.2 GB of worktrees linger; the only unmerged commit (562a54c) was superseded by 946f5a4.
@@ -252,12 +253,19 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 **Done when.** `npm run gate` green after deletions; a fresh clone can follow the README to a working local stack.
 **Stack on.** main.
 
-### 31. IMP-31 — Layout before render; the render is constrained by the confirmed plan
-**Problem.** Two maker-tester items from 2026-09-23 were split off and never built. (1) The testers gave two photos of an L-kitchen from two angles and the AI "focused on one wall and ignored the other": the vision read does take up to four photos, but the render anchors a single photo and the layout hypothesis is read back from that render, so the second wall is lost on the path that actually seeds the plan. (2) They asked for the floor plan to come before the render. Today the order is photos → inspiration → render → confirm layout, so the most expensive, slowest step runs before the homeowner has confirmed a single dimension, and the layout is derived from an AI picture of an AI picture.
-**Fix.** Reorder to photos → confirm layout → inspiration → render. Seed the plan from the vision read (all photos) and the shape presets; the render prompt then receives the confirmed contract (shape, counter walls, sink and hob walls, island yes/no) as hard constraints, and the builder hypothesis is demoted to decor and material hints only. `resolveStepId` forwards saved journeys. This also removes the "render read ignored the render I chose" class of bugs in IMP-22.
-**Files.** src/lib/flow.ts, src/components/kitchen-intake/index.tsx, src/app/api/render-concept/route.ts, src/app/api/builder-hypothesis/route.ts, src/lib/derive-layout.ts, readbacks.ts, locales, tests/flow-steps, derive-layout, confirm-tally-parity.
-**Done when.** The mock journey locks the same contract as today from the photo read alone; a render prompt test contains the contract constraints; the two-angle L-kitchen photos from the testers produce two counter walls.
-**Stack on.** main. Recommended: yes, do it, after IMP-11 lands, because it changes what "confirmed" means for every downstream band.
+### 31. IMP-31 — Room first: the vision read reconciles all photos, the homeowner confirms the shape and measures
+**Problem.** Today the order is photos → inspiration → render → confirm layout. The layout is read back from a render anchored to one photo, so the testers' second wall was lost, and the dimensions are AI guesses that vary run to run (320×240, 360×260, 420×260 from one photo) and never have to be confirmed. Decision 2026-10-03: the homeowner measures; the AI number is only a hint.
+**Fix.** (1) Vision: all photos are one room from different positions; add a per-photo `view` (which wall or corner it shows) and reconcile into one plan; show the labels on the next screen with tap-to-correct. (2) New step "Tvoj prostor danas" right after photos: the shape card pre-selected (L, U, galley, single wall, island, empty room), one chip row "keep this layout / add an island / move the sink / change it", then the measure screen: plan picture with the walls lettered, one numeric field per counter-bearing wall, empty, the AI estimate greyed as a hint, Continue disabled until every wall has a typed value. No "use the estimate" button. Ceiling height optional and flagged "nije izmjereno". "Nemaš metar pri ruci? Spremi i nastavi kasnije" relies on the existing checkpoint resume. Typed values stamp H/homeowner (IMP-11). (3) Inspiration moves after it; `resolveStepId` forwards saved journeys.
+**Files.** src/lib/flow.ts, kitchen-intake/index.tsx, src/app/api/space-vision/route.ts, SpaceCapture.tsx, LayoutReview.tsx, src/lib/derive-layout.ts, src/lib/floor-plan/model.ts, readbacks.ts, locales, tests/flow-steps, derive-layout, vision-wall-reconcile.
+**Done when.** The testers' two-angle L photos produce two counter walls with view labels; the render button is unreachable without typed wall lengths; a journey saved on the old step order resumes at the room step.
+**Stack on.** IMP-11.
+
+### 32. IMP-32 — Render constrained by the measured room; light post-render confirm
+**Problem.** The render prompt knows nothing of the room: it invents walls, and the post-render step then re-derives the whole layout from the picture. The other space photos never reach the render, and the maker never learns whether the sink moves.
+**Fix.** render-concept receives the confirmed contract (shape, counter walls, window wall, sink and hob walls, island, dimensions) as hard constraints; the other space photos go in as "same room, other side" references; the anchor is the widest shot (vision ranks, homeowner can override); an optional "Prikaži drugi zid" button renders from the other photo and spends one of the five. The post-render confirm shrinks to the plan picture, three toggles (island, sink stays, uppers per wall) and the tally. builder-hypothesis is demoted to decor and material hints. The difference between the as-is and to-be sink and hob walls is written to the brief as "voda/plin se sele".
+**Files.** src/app/api/render-concept/route.ts, ConceptRender.tsx, LayoutConfirm.tsx, src/app/api/builder-hypothesis/route.ts, src/lib/derive-layout.ts, src/lib/handoff/bundle.ts, MakerDashboardPreview.tsx, locales.
+**Done when.** A prompt test contains the constraints; with "keep this layout" the tally after the render equals the tally before it; the brief shows whether the sink moves.
+**Stack on.** IMP-31.
 
 ---
 
