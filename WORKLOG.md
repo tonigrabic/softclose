@@ -1214,8 +1214,15 @@ the confirm step then re-read the layout off the picture.
   ostaje na zidu A"; the wrap-up says "seli se na zid D". Schematics carry the
   wall letters.
 
-Implemented as six reviewed steps (one implementer per plan step, each green
-and committed), then an adversarial review.
+Implemented as six steps (one implementer per plan step, each green and
+committed), then an adversarial review: 4 lenses, 6 confirmed (an island along
+B/D dropped as "No island"; a wall added under "Promijeni raspored" sent a
+render with no room; the design reference contradicting tweak chips after a
+camera change; legacy confirm tally vs builder relock) — all fixed, with
+regression tests. The confirm card copy no longer offers length editing and
+its title no longer says "what we measured".
+
+Gate: 549 tests · tsc · eslint · next build green.
 
 Browser-verified (mock AI, invited customer, 4 photos): anchor = the corner
 shot; prompt carries room 420 × 300, runs on A and D, "Walls B and C carry
