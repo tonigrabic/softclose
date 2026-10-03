@@ -22,7 +22,7 @@ type Confidence = 'H' | 'M' | 'L' | null
 
 interface MakerDashboardPreviewProps {
   bundle: HandoffBundle
-  /** Present only in the in-funnel demo; the real /maker/[id] page passes nothing and gets no DEMO banner. */
+  /** Present only in the /builder harness demo; the real /maker/[id] page passes nothing and gets no DEMO banner. */
   onBack?: () => void
   /**
    * Hide quote / clarify / decline.
@@ -36,7 +36,7 @@ interface MakerDashboardPreviewProps {
   /**
    * The real decision panel, rendered in place of the three demo buttons.
    *
-   * Passed by /maker/[id] only (IMP-03). Without it — the in-funnel WrapUp
+   * Passed by /maker/[id] only (IMP-03). Without it — the /builder harness
    * demo — the buttons keep their local, no-effect behaviour and the "Demo
    * radnja" line. A slot rather than an import so this component never pulls a
    * server action into the homeowner's bundle.
@@ -197,8 +197,9 @@ function BuildLines({ lines }: { lines: BomLineItem[] }) {
  * MAKER-ONLY (IMP-04): what the homeowner's range is made of. The works at
  * cost (material + make + install, before the margin), the workshop margin on
  * material and make, and the range the homeowner reads. Rendered only when
- * the stored brief carries `estimate.maker`; the customer's copy of the bundle
- * never does (toCustomerBundle), so the funnel demo shows nothing here.
+ * the bundle carries `estimate.maker`: the stored brief, or the full bundle the
+ * /builder harness demo builds. The customer's copy of the bundle never does
+ * (toCustomerBundle), and no homeowner surface renders this component (IMP-05).
  *
  * Net + margin = the homeowner's range to the euro (computeBom carries a
  * capped or floored band down to the net lines too); each figure is rounded

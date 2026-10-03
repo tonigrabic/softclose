@@ -949,6 +949,7 @@ export function KitchenIntake({
           transcript={transcript}
           projectId={projectId}
           makerName={makerName}
+          readOnly={readOnly}
           hasExistingBrief={hasExistingBrief || sentInSession}
           beforeSubmit={async () => {
             await checkpoint.flush(snapshot)

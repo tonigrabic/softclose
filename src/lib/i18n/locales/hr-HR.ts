@@ -551,7 +551,8 @@ export const hrHR = {
   'wrapup.moodboard.more': '+{n} više',
   'wrapup.actions.download': 'Preuzmi sažetak (JSON)',
   'wrapup.actions.preparing': 'Pripremam…',
-  'wrapup.actions.makerDemo': 'Demo: pogledaj što vidi izrađivač',
+  'wrapup.actions.backToKitchen': 'Natrag na moju kuhinju',
+  'wrapup.actions.backToKitchenMaker': 'Natrag na kuhinju kupca',
   'builder.rerender.changedPrefix': 'Promijenio si:',
   'builder.rerender.changedSuffix': '. Render iznad to još ne prikazuje.',
   'builder.rerender.rendering': 'Renderiram ponovno…',
@@ -574,7 +575,6 @@ export const hrHR = {
   'wrapup.next.contact': 'Dizajner pregledava tvoj plan i raspon te ti se javlja na {contact}.',
   'wrapup.next.ref': 'Oznaka sažetka: {id}',
   'wrapup.next.unsaved': 'Ovaj sažetak nije spremljen na poslužitelj (ovdje nema baze). Preuzmi JSON ispod i pošalji ga sam.',
-  'wrapup.actions.openMaker': 'Otvori pogled izrađivača (spremljeni sažetak)',
   'wrapup.yes': 'Da',
   'wrapup.no': 'Ne',
 

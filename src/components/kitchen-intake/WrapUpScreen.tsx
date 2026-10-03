@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Download, ExternalLink, Sparkles, AlertCircle, Hammer } from 'lucide-react'
+import { ArrowLeft, Download, Sparkles, AlertCircle, Hammer } from 'lucide-react'
 import type {
   ClientMessage,
   ConceptVisualRef,
@@ -34,7 +34,6 @@ import {
 import { builderPickLabels } from '@/lib/builder/pick-labels'
 import { useTranslations, type TranslationKey } from '@/lib/i18n'
 import { FloorPlanStatic } from './FloorPlanStatic'
-import { MakerDashboardPreview } from './MakerDashboardPreview'
 import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
 import { mintBriefId } from '@/lib/handoff/brief-id'
 import { contactChannels } from '@/lib/contact'
@@ -62,6 +61,9 @@ interface WrapUpScreenProps {
   onSent?: () => void
   /** The maker's display name, for "a range {maker} confirms". Absent → "your maker". */
   makerName?: string | null
+  /** True when the viewer is the maker looking in at their customer's kitchen.
+   *  Only changes the back link's words: nothing on this screen is maker-only. */
+  readOnly?: boolean
 }
 
 function humanize(v: string): string {
@@ -84,6 +86,7 @@ export function WrapUpScreen({
   onOpenBuilder,
   onSent,
   makerName,
+  readOnly = false,
 }: WrapUpScreenProps) {
   const { t, tDynamic: td, locale } = useTranslations()
   const contact = contactChannels(profile)
@@ -94,7 +97,6 @@ export function WrapUpScreen({
   const [isLoadingBundle, setIsLoadingBundle] = useState(!hasExistingBrief)
   const [isExporting, setIsExporting] = useState(false)
   const [exportError, setExportError] = useState<TranslationKey | null>(null)
-  const [showMakerView, setShowMakerView] = useState(false)
 
   const plan = planFromProfile(profile)
   const showPlan = hasPlan(profile) && plan !== null
@@ -222,10 +224,6 @@ export function WrapUpScreen({
     } finally {
       setIsExporting(false)
     }
-  }
-
-  if (showMakerView && bundle) {
-    return <MakerDashboardPreview bundle={bundle} onBack={() => setShowMakerView(false)} />
   }
 
   const estimate = bundle?.estimate
@@ -561,16 +559,21 @@ export function WrapUpScreen({
           </div>
         )}
 
-        {/* Demo-only link to the maker dashboard preview. Production removes this. */}
-        <button
-          type="button"
-          onClick={() => setShowMakerView(true)}
-          disabled={!bundle}
-          className="flex w-full items-center justify-center gap-1.5 rounded-xl py-2 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
-        >
-          <ExternalLink className="size-3 stroke-[1.75]" aria-hidden />
-          {t('wrapup.actions.makerDemo')}
-        </button>
+        {/* Back to the kitchen home, which says where the brief got to. No
+            link into the maker's side and no maker demo (IMP-05): this screen
+            is the homeowner's, and the maker looking in sees the same one.
+            A plain <a>, not next/link: this screen sits inside KitchenHome at
+            this same URL, and a soft navigation keeps its `entered` state, so
+            the wrap-up would stay up. The full load also re-reads the brief. */}
+        {projectId && (
+          <a
+            href={`/kitchen/${projectId}`}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-accent/40"
+          >
+            <ArrowLeft className="size-4 stroke-[1.75]" aria-hidden />
+            {t(readOnly ? 'wrapup.actions.backToKitchenMaker' : 'wrapup.actions.backToKitchen')}
+          </a>
+        )}
       </div>
     </motion.div>
   )

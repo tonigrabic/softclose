@@ -534,7 +534,8 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.moodboard.more': '+{n} more',
   'wrapup.actions.download': 'Download brief (JSON)',
   'wrapup.actions.preparing': 'Preparing…',
-  'wrapup.actions.makerDemo': 'Demo: see what the maker sees',
+  'wrapup.actions.backToKitchen': 'Back to my kitchen',
+  'wrapup.actions.backToKitchenMaker': "Back to the customer's kitchen",
   'builder.rerender.changedPrefix': 'You changed:',
   'builder.rerender.changedSuffix': '. The render above does not reflect this yet.',
   'builder.rerender.rendering': 'Re-rendering…',
@@ -557,7 +558,6 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.next.contact': 'The designer reviews your plan and range and gets back to you at {contact}.',
   'wrapup.next.ref': 'Brief reference: {id}',
   'wrapup.next.unsaved': 'This brief was not saved to a server (no database configured here). Download the JSON below and send it yourself.',
-  'wrapup.actions.openMaker': 'Open the maker view (saved brief)',
   'wrapup.yes': 'Yes',
   'wrapup.no': 'No',
 
