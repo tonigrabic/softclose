@@ -683,7 +683,16 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: M
                       {t('maker.render.inputsNote')}
                     </p>
                     <div className="space-y-2">
-                      {(['anchor', 'previous_render', 'style', 'product'] as const).map((role) => {
+                      {(
+                        [
+                          'anchor',
+                          'room_reference',
+                          'previous_render',
+                          'design_reference',
+                          'style',
+                          'product',
+                        ] as const
+                      ).map((role) => {
                         const items = bundle.chosenRender!.inputs.filter((i) => i.role === role)
                         if (items.length === 0) return null
                         const heading = td(`maker.render.role.${role}`)

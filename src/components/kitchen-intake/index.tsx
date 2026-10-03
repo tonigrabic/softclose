@@ -68,6 +68,7 @@ import type {
 import type { InspirationVisionResult } from '@/app/api/inspiration-vision/route'
 import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
 import { decorProfileHints } from '@/lib/api/decor-profile-hints'
+import { roomConstraintsFor } from '@/lib/render/room-constraints'
 import { contactChannels } from '@/lib/contact'
 import { mintBriefId } from '@/lib/handoff/brief-id'
 
@@ -817,10 +818,11 @@ export function KitchenIntake({
     [state.currentStepId, isDone]
   )
 
-  // The render the builder anchors to: the explicitly chosen one, else the latest.
-  const chosenRender = chosenRenderId
-    ? conceptRenders.find((r) => r.id === chosenRenderId)
-    : conceptRenders[conceptRenders.length - 1]
+  // The render the builder anchors to: the explicitly chosen one, else the
+  // latest main render — an other-side render (IMP-32) is never the design.
+  const mainRenders = conceptRenders.filter((r) => r.view !== 'other_side')
+  const latestMainRender = mainRenders[mainRenders.length - 1]
+  const chosenRender = chosenRenderId ? conceptRenders.find((r) => r.id === chosenRenderId) : latestMainRender
 
   // The render read, as the builder may use it (IMP-32). Once the room step is
   // done the plan owns the layout, so the read is demoted to decor and
@@ -996,7 +998,7 @@ export function KitchenIntake({
     (chosenRenderId
       ? conceptRenders.find((r) => r.id === chosenRenderId)?.imageDataUrl
       : undefined) ??
-    conceptRenders[conceptRenders.length - 1]?.imageDataUrl ??
+    latestMainRender?.imageDataUrl ??
     spacePhotos[0]
   const funnelBuilderState = profile.builderState as BuilderState | undefined
   const rightRailSteps: FlowStepId[] = [
@@ -1430,6 +1432,13 @@ function StepBody(props: StepBodyProps) {
             autoStart
             roomMeasured={roomMeasured}
             onMeasureRoom={onMeasureRoom}
+            room={roomConstraintsFor({
+              plan: floorPlan ?? profile.floorPlan,
+              existing: profile.existingFloorPlan,
+              intent: profile.layoutIntent,
+              existingRoom: profile.existingRoom,
+            })}
+            photoViews={spaceVision?.photoViews}
           />
         </StepFrame>
       )

@@ -7,12 +7,22 @@ import { cn } from '@/lib/utils'
 import { useTranslations } from '@/lib/i18n'
 import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
 import { compressImageDataUrl, fileToCompressedDataUrl } from '@/lib/image'
+import {
+  defaultAnchorIndex,
+  isUsablePhoto,
+  otherSidePhotoIndex,
+  roomReferenceIndices,
+  viewFor,
+} from '@/lib/render/anchor'
+import { sanitizePhotoViewTarget, type RenderRoomConstraints } from '@/lib/render/room-constraints'
 import type {
   ConceptRender as ConceptRenderRecord,
   ConceptRenderInput,
   LeadProfile,
+  PhotoView,
   ProductReference,
 } from '@/lib/types'
+import { photoViewLabel } from './RoomStep'
 
 // Per-session render cap (UX side — disables the generate button + shows
 // "remaining"). Mirrors the server cap in render-concept/route.ts. Defaults to
@@ -20,6 +30,9 @@ import type {
 const MAX_RENDERS_PER_SESSION =
   Number(process.env.NEXT_PUBLIC_RENDER_CAP_PER_SESSION) || 5
 const MAX_PRODUCT_REFS = 4
+/** Mirrors the server: style refs and other photos of the room sent per call. */
+const MAX_STYLE_REFS = 3
+const MAX_ROOM_REFS = 2
 
 // `value` is the English instruction sent to the renderer (keep stable for the
 // model); `labelKey` is the localized chip text the homeowner sees.
@@ -87,6 +100,13 @@ interface ConceptRenderProps {
    */
   roomMeasured?: boolean
   onMeasureRoom?: () => void
+  /**
+   * The measured room as render rules (`roomConstraintsFor`, IMP-32). Sent
+   * with every render; its counter walls also rank the anchor photos.
+   */
+  room?: RenderRoomConstraints | null
+  /** What each space photo shows (the photo read, corrected on the room step). */
+  photoViews?: PhotoView[]
 }
 
 export function ConceptRender({
@@ -103,16 +123,32 @@ export function ConceptRender({
   autoStart = false,
   roomMeasured = true,
   onMeasureRoom,
+  room = null,
+  photoViews,
 }: ConceptRenderProps) {
   const { t } = useTranslations()
-  const [anchorIndex, setAnchorIndex] = useState(0)
+  const planWalls = room?.counterWalls.map((w) => w.wall) ?? []
+  // Main renders only: an other-side render shows the rest of the room for
+  // the main one it was made from, and is never iterated on or chosen.
+  const mains = renders.filter((r) => r.view !== 'other_side')
+  // The camera the last main render used, else the widest shot of the
+  // kitchen. Lazy, so it is right before autoStart's first render.
+  const [anchorIndex, setAnchorIndex] = useState(() => {
+    const last = mains[mains.length - 1]?.anchorPhotoIndex
+    return last != null && isUsablePhoto(anchorPhotos[last])
+      ? last
+      : defaultAnchorIndex(anchorPhotos, photoViews, planWalls)
+  })
   const [activeNudges, setActiveNudges] = useState<string[]>([])
   const [freeTextNudge, setFreeTextNudge] = useState('')
-  const [isGenerating, setIsGenerating] = useState(false)
+  const [generatingView, setGeneratingView] = useState<'main' | 'other_side' | null>(null)
+  const isGenerating = generatingView !== null
   const [error, setError] = useState<string | null>(null)
   const [pendingLabel, setPendingLabel] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const autoStartedRef = useRef(false)
+  // Room references go out recompressed (~768 px); once per photo.
+  const roomRefCache = useRef(new Map<number, { src: string; out: Promise<string> }>())
 
   // Forwardable style refs: only data: + http(s) URLs.
   const forwardableStyleRefs = styleReferences.filter(
@@ -145,25 +181,81 @@ export function ConceptRender({
     )
   }
 
-  const currentRender = renders[renders.length - 1] ?? null
+  const currentRender = mains[mains.length - 1] ?? null
+  const otherSideRender = currentRender
+    ? (renders.find((r) => r.view === 'other_side' && r.basedOnRenderId === currentRender.id) ?? null)
+    : null
+  // The photo that shows the kitchen walls the current main render cannot.
+  const otherSideIndex = currentRender
+    ? otherSidePhotoIndex(anchorPhotos, photoViews, currentRender.anchorPhotoIndex, planWalls)
+    : null
   const used = renders.length
   const remaining = Math.max(0, MAX_RENDERS_PER_SESSION - used)
   const capped = remaining === 0
+  // The other photos the next main render sends along.
+  const nextRoomRefs = roomReferenceIndices(anchorPhotos, photoViews, anchorIndex, planWalls, MAX_ROOM_REFS)
+  const sentStyleCount = Math.min(MAX_STYLE_REFS, forwardableStyleRefs.length)
+  const sendingCount = 1 + nextRoomRefs.length + sentStyleCount + productReferences.length
 
-  async function generate() {
+  function compressedRoomRef(i: number): Promise<string> {
+    const src = anchorPhotos[i]
+    const hit = roomRefCache.current.get(i)
+    if (hit && hit.src === src) return hit.out
+    const out = compressImageDataUrl(src, { maxDim: 768, quality: 0.72 })
+    roomRefCache.current.set(i, { src, out })
+    return out
+  }
+
+  /**
+   * One render. 'main' renders from the chosen anchor: from the previous
+   * render when the camera is the same, else matching its finishes from the
+   * new camera. 'other_side' renders the same design from the photo that
+   * shows the rest of the kitchen, and spends one of the five like any other.
+   */
+  async function generate(view: 'main' | 'other_side' = 'main') {
     if (capped || !roomMeasured) return
-    setIsGenerating(true)
+    const base = currentRender
+    const otherSide = view === 'other_side'
+    if (otherSide && (!base || otherSideIndex === null)) return
+    const anchorAt = otherSide && otherSideIndex !== null ? otherSideIndex : anchorIndex
+    // A different camera conflicts with "start from this version": the
+    // previous render then only lends its finishes (design reference).
+    const sameCamera = !otherSide && base?.anchorPhotoIndex === anchorAt
+    setGeneratingView(view)
     setError(null)
     try {
-      const trimmedFreeText = freeTextNudge.trim()
+      const trimmedFreeText = otherSide ? '' : freeTextNudge.trim()
+      const sentNudges = otherSide ? [] : activeNudges
+      const refIndices = roomReferenceIndices(
+        anchorPhotos,
+        photoViews,
+        anchorAt,
+        planWalls,
+        MAX_ROOM_REFS,
+        otherSide && base ? [base.anchorPhotoIndex] : []
+      )
+      const roomReferences = (
+        await Promise.all(
+          refIndices.map(async (i) => ({
+            photo: await compressedRoomRef(i),
+            shows: viewFor(photoViews, i)?.shows ?? 'unclear',
+            photoIndex: i,
+          }))
+        )
+      ).filter((r) => r.photo.startsWith('data:image/'))
       const res = await fetch('/api/render-concept', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          anchorPhoto: anchorPhotos[anchorIndex],
-          styleReferences: forwardableStyleRefs,
+          anchorPhoto: anchorPhotos[anchorAt],
+          anchorShows: viewFor(photoViews, anchorAt)?.shows,
+          room: room ?? undefined,
+          roomReferences,
+          view,
+          styleReferences: forwardableStyleRefs.slice(0, MAX_STYLE_REFS),
           productReferences: productReferences.map((p) => ({ photo: p.photo, label: p.label })),
-          previousRenderImage: currentRender?.imageDataUrl,
+          previousRenderImage: sameCamera ? base?.imageDataUrl : undefined,
+          designReference: base && !sameCamera ? base.imageDataUrl : undefined,
           freeTextNudge: trimmedFreeText || undefined,
           style: profile.stylePreferences?.[0],
           doorMaterial: profile.doorMaterial,
@@ -173,11 +265,8 @@ export function ConceptRender({
           hardwareBrand: profile.hardwareBrand,
           cabinetConstruction: profile.cabinetConstruction,
           appliancesIntegrated: profile.appliancesIntegrated,
-          visionSummary: profile.spaceVisionResult?.summary,
-          styleHints: profile.spaceVisionResult?.styleHints,
-          materialHints: profile.spaceVisionResult?.materialHints,
-          nudges: activeNudges,
-          previousRenderId: currentRender?.id,
+          nudges: sentNudges,
+          previousRenderId: base?.id,
         }),
       })
       const data = await readJson<{
@@ -203,21 +292,26 @@ export function ConceptRender({
         imageDataUrl: compressedRender,
         prompt: data.prompt,
         modelVersion: data.modelVersion,
-        anchorPhotoIndex: anchorIndex,
-        nudges: data.nudges ?? activeNudges,
+        anchorPhotoIndex: anchorAt,
+        nudges: data.nudges ?? sentNudges,
         freeTextNudge: data.freeTextNudge ?? (trimmedFreeText || undefined),
         inputs: (data.inputs as ConceptRenderInput[] | undefined) ?? [],
         generatedAt: data.generatedAt,
+        view,
+        ...(otherSide && base ? { basedOnRenderId: base.id } : {}),
       }
       onRenderAdded(record)
-      setActiveNudges([])
-      setFreeTextNudge('')
+      // The tweaks belong to the next main render; the other side carries none.
+      if (!otherSide) {
+        setActiveNudges([])
+        setFreeTextNudge('')
+      }
     } catch (err) {
       console.warn('[render-concept]', err)
       // A 429 here is the per-session render cap, not "slow down".
       setError(t(apiErrorKey(err, 'concept.error.renderFailed', { 429: 'concept.error.capReached' })))
     } finally {
-      setIsGenerating(false)
+      setGeneratingView(null)
     }
   }
 
@@ -242,7 +336,7 @@ export function ConceptRender({
     if (!hasSignal) return
     autoStartedRef.current = true
     queueMicrotask(() => {
-      void generate()
+      void generate('main')
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart, anchorPhotos.length, renders.length, roomMeasured])
@@ -285,6 +379,12 @@ export function ConceptRender({
     )
   }
 
+  /** The room step's label for what photo `i` shows ("Zid A", "Kut A–D"); none when unclear. */
+  function photoChip(i: number): string | null {
+    const shows = sanitizePhotoViewTarget(viewFor(photoViews, i)?.shows)
+    return shows && shows !== 'unclear' ? photoViewLabel(t, shows) : null
+  }
+
   function toggleNudge(value: string) {
     setActiveNudges((prev) =>
       prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
@@ -318,7 +418,7 @@ export function ConceptRender({
                 alt={t('concept.renderAlt')}
                 className="h-auto w-full"
               />
-              {isGenerating && (
+              {generatingView === 'main' && (
                 <div className="absolute inset-0 flex items-center justify-center bg-black/45 text-white">
                   <div className="flex items-center gap-2 rounded-full bg-black/70 px-4 py-2 text-xs font-semibold">
                     <span className="inline-block size-2 animate-pulse rounded-full bg-white" />
@@ -346,7 +446,7 @@ export function ConceptRender({
           <button
             type="button"
             key="generate-first"
-            onClick={generate}
+            onClick={() => void generate('main')}
             disabled={isGenerating}
             className={cn(
               'flex w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border bg-card/50 py-14 text-sm font-semibold transition-colors',
@@ -381,6 +481,45 @@ export function ConceptRender({
         )}
       </AnimatePresence>
 
+      {/* The other side of the room: the same design from the photo that
+          shows the kitchen walls the main render cannot (IMP-32). */}
+      {currentRender &&
+        (otherSideRender ? (
+          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+            <div className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={otherSideRender.imageDataUrl} alt={t('concept.otherSide.badge')} className="h-auto w-full" />
+              <span className="absolute left-2 top-2 rounded-full bg-amber-500/90 px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white shadow">
+                {t('concept.badge')} · {t('concept.otherSide.badge')}
+              </span>
+            </div>
+          </div>
+        ) : generatingView === 'other_side' ? (
+          <div className="flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border bg-card/50 py-10 text-xs font-semibold text-muted-foreground">
+            <span className="inline-block size-2 animate-pulse rounded-full bg-primary/60" />
+            {t('concept.generatingNew')}
+          </div>
+        ) : (
+          !capped &&
+          otherSideIndex !== null && (
+            <button
+              type="button"
+              onClick={() => void generate('other_side')}
+              disabled={isGenerating}
+              className={cn(
+                'flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-semibold transition-colors',
+                isGenerating ? 'cursor-wait opacity-60' : 'hover:bg-accent/40'
+              )}
+            >
+              <Camera className="size-4 stroke-[1.75]" aria-hidden />
+              {t('concept.otherSide.button')}
+              <span className="text-xs font-normal text-muted-foreground">
+                ({t('concept.otherSide.cost').replace('{n}', String(MAX_RENDERS_PER_SESSION))})
+              </span>
+            </button>
+          )
+        ))}
+
       {/* What we're feeding the renderer */}
       <div className="space-y-3 rounded-2xl border border-border/70 bg-card/40 p-3">
         <div className="flex items-center justify-between">
@@ -388,10 +527,7 @@ export function ConceptRender({
             {t('concept.sending')}
           </p>
           <span className="text-[10px] font-medium text-muted-foreground">
-            {1 + forwardableStyleRefs.length + productReferences.length}{' '}
-            {1 + forwardableStyleRefs.length + productReferences.length === 1
-              ? t('concept.imageWord')
-              : t('concept.imagesWord')}
+            {sendingCount} {sendingCount === 1 ? t('concept.imageWord') : t('concept.imagesWord')}
           </span>
         </div>
 
@@ -401,29 +537,59 @@ export function ConceptRender({
             {t('concept.anchorRow')}
           </p>
           <div className="flex flex-wrap gap-2">
-            {anchorPhotos.map((photo, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setAnchorIndex(i)}
-                className={cn(
-                  'relative size-14 overflow-hidden rounded-lg ring-1 transition-all',
-                  anchorIndex === i ? 'ring-2 ring-primary' : 'ring-border hover:ring-foreground/30'
-                )}
-                aria-pressed={anchorIndex === i}
-                title={anchorPhotos.length > 1 ? `${t('concept.anchorShot')} ${i + 1}` : t('concept.anchorShot')}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={photo} alt={t('concept.anchorShot')} className="h-full w-full object-cover" />
-                {anchorIndex === i && (
-                  <span className="absolute right-0.5 top-0.5 rounded bg-primary px-1 text-[8px] font-bold text-primary-foreground">
-                    {t('concept.anchorUse')}
-                  </span>
-                )}
-              </button>
-            ))}
+            {anchorPhotos.map((photo, i) => {
+              const viewLabel = photoChip(i)
+              const shot = anchorPhotos.length > 1 ? `${t('concept.anchorShot')} ${i + 1}` : t('concept.anchorShot')
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => setAnchorIndex(i)}
+                  className={cn(
+                    'relative size-14 overflow-hidden rounded-lg ring-1 transition-all',
+                    anchorIndex === i ? 'ring-2 ring-primary' : 'ring-border hover:ring-foreground/30'
+                  )}
+                  aria-pressed={anchorIndex === i}
+                  title={viewLabel ? `${shot} · ${viewLabel}` : shot}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photo} alt={t('concept.anchorShot')} className="h-full w-full object-cover" />
+                  {anchorIndex === i && (
+                    <span className="absolute right-0.5 top-0.5 rounded bg-primary px-1 text-[8px] font-bold text-primary-foreground">
+                      {t('concept.anchorUse')}
+                    </span>
+                  )}
+                  {viewLabel && <PhotoChip label={viewLabel} />}
+                </button>
+              )
+            })}
           </div>
         </div>
+
+        {/* Other photos of the same room (read-only — picked from the photo labels) */}
+        {nextRoomRefs.length > 0 && (
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-foreground/70">
+              {t('concept.roomRefsRow')}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {nextRoomRefs.map((i) => {
+                const viewLabel = photoChip(i)
+                return (
+                  <div
+                    key={i}
+                    className="relative size-14 overflow-hidden rounded-lg ring-1 ring-border"
+                    title={viewLabel ? `${t('concept.anchorShot')} ${i + 1} · ${viewLabel}` : `${t('concept.anchorShot')} ${i + 1}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={anchorPhotos[i]} alt={t('concept.roomRefsRow')} className="h-full w-full object-cover" />
+                    {viewLabel && <PhotoChip label={viewLabel} />}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Style refs row (read-only — pulled from Inspiration step) */}
         {forwardableStyleRefs.length > 0 && (
@@ -432,7 +598,7 @@ export function ConceptRender({
               {t('concept.styleRefsRow')}
             </p>
             <div className="flex flex-wrap gap-2">
-              {forwardableStyleRefs.slice(0, 3).map((src, i) => (
+              {forwardableStyleRefs.slice(0, MAX_STYLE_REFS).map((src, i) => (
                 <div
                   key={`${src}-${i}`}
                   className="size-14 overflow-hidden rounded-lg ring-1 ring-border"
@@ -442,9 +608,9 @@ export function ConceptRender({
                   <img src={src} alt={t('concept.styleRefTitle')} className="h-full w-full object-cover" />
                 </div>
               ))}
-              {forwardableStyleRefs.length > 3 && (
+              {forwardableStyleRefs.length > MAX_STYLE_REFS && (
                 <div className="flex size-14 items-center justify-center rounded-lg border border-dashed border-border text-[10px] text-muted-foreground">
-                  +{forwardableStyleRefs.length - 3}
+                  +{forwardableStyleRefs.length - MAX_STYLE_REFS}
                 </div>
               )}
             </div>
@@ -596,7 +762,7 @@ export function ConceptRender({
         <div className="flex flex-col gap-2 sm:flex-row">
           <button
             type="button"
-            onClick={generate}
+            onClick={() => void generate('main')}
             disabled={isGenerating || capped}
             className={cn(
               'flex flex-1 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-3 text-sm font-semibold transition-colors',
@@ -660,5 +826,14 @@ export function ConceptRender({
         <p className="text-xs font-medium text-destructive">{error}</p>
       )}
     </div>
+  )
+}
+
+/** A wall or corner label along the bottom of a photo thumbnail. */
+function PhotoChip({ label }: { label: string }) {
+  return (
+    <span className="absolute inset-x-0 bottom-0 truncate bg-black/60 px-0.5 py-px text-center text-[8px] font-semibold text-white">
+      {label}
+    </span>
   )
 }
