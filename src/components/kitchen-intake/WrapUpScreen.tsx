@@ -7,10 +7,14 @@ import type {
   ClientMessage,
   ConceptVisualRef,
   HandoffBundle,
+  HandoffEstimate,
   LeadProfile,
   WallSide,
   WrapUpData,
 } from '@/lib/types'
+import type { BomLineItem } from '@/lib/builder/bom'
+import { formatEUR, formatRange, groupEstimateLines, type EstimateGroupId } from '@/lib/builder/range'
+import { RangeLine } from '@/components/range/RangeLine'
 import {
   WALL_LETTER,
   counterWalls,
@@ -48,6 +52,8 @@ interface WrapUpScreenProps {
   /** Called once this screen has saved a brief, so the intake knows one went
    *  out in this visit and the next send is an explicit act, not a mount. */
   onSent?: () => void
+  /** The maker's display name, for "a range {maker} confirms". Absent → "your maker". */
+  makerName?: string | null
 }
 
 function humanize(v: string): string {
@@ -69,6 +75,7 @@ export function WrapUpScreen({
   beforeSubmit,
   onOpenBuilder,
   onSent,
+  makerName,
 }: WrapUpScreenProps) {
   const { t, tDynamic: td, locale } = useTranslations()
   const contact = contactChannels(profile)
@@ -103,10 +110,6 @@ export function WrapUpScreen({
   const moodBoard = profile.moodBoardItems ?? []
   const chosenRender = profile.conceptRenders?.find((r) => r.id === profile.conceptRenderChosenId)
   const picks = builderPickLabels(profile.builderState, locale)
-
-  function fmtMoney(n: number): string {
-    return `${Math.round(n).toLocaleString(locale)} €`
-  }
 
   /** Translate an option value via its `option.*` family, humanized fallback. */
   function optionLabel(family: string, value: string | null | undefined): string | null {
@@ -218,9 +221,6 @@ export function WrapUpScreen({
   }
 
   const estimate = bundle?.estimate
-  const estimateBasis = estimate
-    ? t('wrapup.estimate.basisBom').replace('{pct}', String(estimate.bandPct ?? 20))
-    : null
   // The range is priced from the build alone. No build, no range — say how to
   // get one rather than showing a number made of nothing.
   const noBuild = !profile.builderState
@@ -271,34 +271,7 @@ export function WrapUpScreen({
         ) : isLoadingBundle ? (
           <p className="text-sm text-muted-foreground">{t('wrapup.estimate.loading')}</p>
         ) : estimate ? (
-          <>
-            {estimate.withAppliances && (
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {t('wrapup.estimate.kitchenLabel')}
-              </p>
-            )}
-            <p className="text-3xl font-bold tabular-nums text-foreground">
-              {fmtMoney(estimate.low)} <span className="text-muted-foreground">–</span> {fmtMoney(estimate.high)}
-            </p>
-            {estimate.withAppliances && (
-              <div className="mt-2 border-t border-border/60 pt-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {t('wrapup.estimate.allInLabel')}
-                </p>
-                <p className="text-xl font-semibold tabular-nums text-foreground">
-                  {fmtMoney(estimate.withAppliances.low)} <span className="text-muted-foreground">–</span>{' '}
-                  {fmtMoney(estimate.withAppliances.high)}
-                </p>
-              </div>
-            )}
-            {estimateBasis && (
-              <p className="mt-2 text-xs text-muted-foreground">{estimateBasis}</p>
-            )}
-            <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
-              <AlertCircle className="mt-0.5 size-3 shrink-0 stroke-[1.75]" aria-hidden />
-              {t('wrapup.estimate.makerConfirms')}
-            </p>
-          </>
+          <WrapUpEstimate estimate={estimate} makerName={makerName} />
         ) : hasExistingBrief && !bundle ? (
           // Built, not sent yet: the maker's copy is older than this build.
           <p className="text-sm text-muted-foreground">{t('wrapup.estimate.afterResend')}</p>
@@ -604,6 +577,102 @@ export function WrapUpScreen({
         </button>
       </div>
     </motion.div>
+  )
+}
+
+const GROUP_LABEL: Record<EstimateGroupId, TranslationKey> = {
+  material: 'builder.shell.bom.material',
+  make: 'builder.shell.bom.make',
+  install: 'builder.shell.bom.install',
+  goods: 'builder.shell.bom.goods',
+  project: 'builder.shell.bom.project',
+}
+
+/**
+ * The estimate on the wrap-up (IMP-04): the one range line every surface
+ * shows (what the homeowner pays, the ±, who confirms it, what it leaves out),
+ * the kitchen with appliances when the maker supplies them, then the build
+ * line by line, grouped the way the kitchen is quoted. Every figure prints
+ * through `formatRange`; an exact sum (picked models) prints as is.
+ */
+export function WrapUpEstimate({
+  estimate,
+  makerName,
+}: {
+  estimate: HandoffEstimate
+  makerName?: string | null
+}) {
+  const { t, tDynamic: td, locale } = useTranslations()
+  const groups = groupEstimateLines<BomLineItem>(estimate.lines)
+  const money = (r: { low: number; high: number }, exact: boolean) =>
+    exact ? formatEUR(r.low, locale) : formatRange(r, locale)
+  const lineLabel = (key: string) => {
+    const label = td(`bom.lineItem.${key}`)
+    return label === `bom.lineItem.${key}` ? humanize(key) : label
+  }
+
+  return (
+    <>
+      <RangeLine
+        voice="homeowner"
+        makerName={makerName}
+        label={t('wrapup.estimate.kitchenLabel')}
+        range={{
+          low: estimate.low,
+          high: estimate.high,
+          bandPct: estimate.bandPct,
+          assumptions: estimate.assumptions,
+        }}
+      />
+      {estimate.withAppliances && (
+        <div className="mt-3 flex items-baseline justify-between gap-3 border-t border-border/60 pt-2 text-sm">
+          <span className="text-muted-foreground">{t('wrapup.estimate.allInLabel')}</span>
+          <span className="shrink-0 font-semibold tabular-nums text-foreground">
+            {formatRange(estimate.withAppliances, locale)}
+          </span>
+        </div>
+      )}
+      {groups.length > 0 && (
+        <div className="mt-4 border-t border-border/60 pt-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            {t('wrapup.estimate.linesTitle')}
+          </p>
+          <div className="mt-2 space-y-3" data-estimate-lines>
+            {groups.map((g) => (
+              <div key={g.id} data-estimate-group={g.id}>
+                <p className="flex items-baseline justify-between gap-3 text-[13px] font-medium text-foreground">
+                  <span>{t(GROUP_LABEL[g.id])}</span>
+                  <span className="shrink-0 tabular-nums">{money(g, g.exact)}</span>
+                </p>
+                <ul className="mt-1 space-y-0.5">
+                  {g.lines.map((l) => (
+                    <li
+                      key={l.key}
+                      className="flex items-baseline justify-between gap-3 text-[12px] text-muted-foreground"
+                    >
+                      <span className="min-w-0">
+                        {lineLabel(l.key)}
+                        {l.quantity ? (
+                          <>
+                            <span aria-hidden> · </span>
+                            <span className="tabular-nums">{l.quantity}</span>
+                          </>
+                        ) : null}
+                      </span>
+                      <span className="shrink-0 tabular-nums">{money(l, l.exact === true)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      <p className="mt-3 flex items-start gap-1.5 text-[11px] leading-relaxed text-muted-foreground">
+        <AlertCircle className="mt-0.5 size-3 shrink-0 stroke-[1.75]" aria-hidden />
+        {t('wrapup.estimate.makerConfirms')}
+      </p>
+    </>
   )
 }
 

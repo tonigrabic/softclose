@@ -1,7 +1,7 @@
 /**
  * The one range line (IMP-04): `low – high · ±pct · who confirms it`, then the
- * assumptions. The live panel and the mobile dock render it today; the
- * wrap-up, kitchen home, dashboard and brief follow.
+ * assumptions. The live panel, the mobile dock, the wrap-up and the kitchen
+ * home render it; the dashboard and the brief follow.
  *
  *  - no range (the builder was skipped, IMP-01) renders the fallback, never 0 €;
  *  - a missing band leaves the ± out instead of inventing ±20;
@@ -15,6 +15,12 @@ import { describe, expect, test } from 'vitest'
 import { RangeLine, type RangeLineProps } from '@/components/range/RangeLine'
 import { LiveBOMPanel } from '@/components/builder/LiveBOMPanel'
 import { MobileRangeDock } from '@/components/builder/MobileRangeDock'
+import { WrapUpEstimate } from '@/components/kitchen-intake/WrapUpScreen'
+import { KitchenHome, type KitchenHomeProps } from '@/app/kitchen/[projectId]/KitchenHome'
+import { buildHandoffBundle, toCustomerBundle } from '@/lib/handoff/bundle'
+import { formatRange, groupEstimateLines } from '@/lib/builder/range'
+import type { BomLineItem } from '@/lib/builder/bom'
+import type { HandoffEstimate } from '@/lib/types'
 import { CONTRACT_FIXTURES } from '@/lib/builder/fixtures'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import { hydrateFromHypothesis } from '@/lib/builder/state'
@@ -135,5 +141,162 @@ describe('live panel and dock', () => {
     for (const html of [panel(lShape(true)), dock(lShape(true))]) {
       expect(text(html)).not.toMatch(/PDV|\bVAT\b|marž|margin|konačnu cijenu/i)
     }
+  })
+})
+
+describe('groupEstimateLines', () => {
+  const line = (l: Partial<BomLineItem> & Pick<BomLineItem, 'key' | 'section'>): BomLineItem => ({
+    detail: '',
+    quantity: '',
+    low: 100,
+    high: 120,
+    ...l,
+  })
+
+  test('material, make, install, goods, project — in that order, lines in their own order', () => {
+    const groups = groupEstimateLines([
+      line({ key: 'install', section: 'works', worksKind: 'install' }),
+      line({ key: 'appliances', section: 'goods', low: 900, high: 1200 }),
+      line({ key: 'fronts', section: 'works', worksKind: 'material' }),
+      line({ key: 'cnc', section: 'works', worksKind: 'make' }),
+      line({ key: 'boards', section: 'works', worksKind: 'material', low: 200, high: 260 }),
+      line({ key: 'demolition', section: 'project', low: 400, high: 1500 }),
+    ])
+    expect(groups.map((g) => g.id)).toEqual(['material', 'make', 'install', 'goods', 'project'])
+    expect(groups[0].lines.map((l) => l.key)).toEqual(['fronts', 'boards'])
+    expect(groups[0]).toMatchObject({ low: 300, high: 380, exact: false })
+  })
+
+  test('0 € lines and empty groups are dropped; no lines → no groups', () => {
+    const groups = groupEstimateLines([
+      line({ key: 'fronts', section: 'works', worksKind: 'material' }),
+      line({ key: 'sinkTaps', section: 'goods', low: 0, high: 0 }),
+    ])
+    expect(groups.map((g) => g.id)).toEqual(['material'])
+    expect(groupEstimateLines(undefined)).toEqual([])
+    expect(groupEstimateLines(null)).toEqual([])
+  })
+
+  test('a group of picked catalog prices is exact', () => {
+    const [goods] = groupEstimateLines([
+      line({ key: 'appliances', section: 'goods', exact: true, low: 1500, high: 1500 }),
+      line({ key: 'sinkTaps', section: 'goods', exact: true, low: 320, high: 320 }),
+    ])
+    expect(goods).toMatchObject({ id: 'goods', low: 1820, high: 1820, exact: true })
+  })
+})
+
+describe('wrap-up', () => {
+  const estimateFor = (state: BuilderState): HandoffEstimate =>
+    toCustomerBundle(buildHandoffBundle({ brief: { builderState: state } })).estimate!
+  const wrapUp = (estimate: HandoffEstimate, makerName?: string) =>
+    renderToStaticMarkup(createElement(WrapUpEstimate, { estimate, makerName }))
+
+  test('the headline is the range line: rounded, ±, the maker named, the assumptions', () => {
+    const est = estimateFor(lShape())
+    const html = wrapUp(est, 'Stolarija Horvat')
+    expect(html).toContain('data-range-line="lg"')
+    const out = text(html)
+    expect(out).toContain(hrHR['wrapup.estimate.kitchenLabel'])
+    expect(out).toContain(formatRange(est))
+    expect(out).toContain(`±${est.bandPct}${NBSP}%`)
+    expect(out).toContain('raspon koji Stolarija Horvat potvrđuje')
+    expect(out).toContain('uređaje nabavlja kupac')
+    expect(out).toContain(hrHR['range.assumption.siteCheckByMaker'])
+  })
+
+  test('the build line by line, grouped material → make → install, each group with its subtotal', () => {
+    const est = estimateFor(lShape())
+    const html = wrapUp(est)
+    const order = [...html.matchAll(/data-estimate-group="(\w+)"/g)].map((m) => m[1])
+    expect(order).toEqual(['material', 'make', 'install'])
+    const out = text(html)
+    expect(out).toContain(hrHR['wrapup.estimate.linesTitle'])
+    for (const g of groupEstimateLines(est.lines)) {
+      expect(out).toContain(`${hrHR[`builder.shell.bom.${g.id}` as const]}${formatRange(g)}`)
+    }
+    // Every priced line, by name and quantity.
+    for (const l of est.lines!.filter((x) => x.high > 0)) {
+      expect(out).toContain(hrHR[`bom.lineItem.${l.key}` as keyof typeof hrHR])
+      expect(out).toContain(l.quantity)
+    }
+  })
+
+  test('homeowner buys the appliances: no goods group, no figure with appliances, no "0 € – 0 €"', () => {
+    const out = text(wrapUp(estimateFor(lShape())))
+    expect(out).not.toContain(hrHR['builder.shell.bom.goods'])
+    expect(out).not.toContain(hrHR['wrapup.estimate.allInLabel'])
+    expect(out).not.toContain(`0${NBSP}€ – 0${NBSP}€`)
+  })
+
+  test('maker supplies them: "Kuhinja s uređajima" and a goods group, never "Sve uključeno"', () => {
+    const est = estimateFor(lShape(true))
+    const out = text(wrapUp(est))
+    expect(out).toContain(`${hrHR['wrapup.estimate.allInLabel']}${formatRange(est.withAppliances!)}`)
+    expect(out).toContain(hrHR['builder.shell.bom.goods'])
+    expect(out).toContain('uređaji se obračunavaju zasebno')
+    expect(out).not.toMatch(/Sve uključeno|PDV|\bVAT\b|marž|margin/i)
+  })
+
+  test('a brief without a band or lines: no invented ±20, no lines block, the legacy assumptions', () => {
+    const out = text(wrapUp({ low: 5291, high: 7376, withAppliances: null, basis: '' }))
+    expect(out).toContain(`5.300${NBSP}€ – 7.400${NBSP}€`)
+    expect(out).not.toContain('±')
+    expect(out).not.toContain(hrHR['wrapup.estimate.linesTitle'])
+    expect(out).toContain(hrHR['range.assumption.noDemolition'])
+  })
+})
+
+describe('kitchen home', () => {
+  const home = (props: Partial<KitchenHomeProps>) =>
+    text(
+      renderToStaticMarkup(
+        createElement(KitchenHome, {
+          projectId: 'p1',
+          makerName: 'Stolarija Horvat',
+          stepLabel: null,
+          submittedAt: '3. 10. 2026.',
+          makerViewedAt: null,
+          briefId: 'b1',
+          range: { low: 5291, high: 7376, bandPct: 14, assumptions: ['installIncluded', 'noTrades'] },
+          decision: null,
+          closed: false,
+          started: true,
+          revision: 1,
+          readOnly: false,
+          snapshot: null,
+          customerEmail: null,
+          customerName: null,
+          ...props,
+        })
+      )
+    )
+
+  test('the stored range prints as the range line: rounded, ±, the maker, the assumptions', () => {
+    const out = home({})
+    expect(out).toContain(hrHR['kitchen.home.status.rangeLabel'])
+    expect(out).toContain(`5.300${NBSP}€ – 7.400${NBSP}€`)
+    expect(out).toContain(`±14${NBSP}%`)
+    expect(out).toContain('raspon koji Stolarija Horvat potvrđuje')
+    expect(out).toContain('bez elektro i vodoinstalaterskih radova')
+  })
+
+  test('no maker name: the heading says "Tvoj izrađivač", the range line "tvoj izrađivač"', () => {
+    const out = home({ makerName: null })
+    expect(out).toContain('Tvoj izrađivač ga još nije otvorio')
+    expect(out).toContain('raspon koji tvoj izrađivač potvrđuje')
+  })
+
+  test('no range: the way to the builder, never a number', () => {
+    const out = home({ range: null })
+    expect(out).toContain(hrHR['kitchen.home.status.noRange'])
+    expect(out).toContain(hrHR['kitchen.home.cta.build'])
+    expect(out).not.toContain('€')
+  })
+
+  test('no range on a closed project: nothing to build, so nothing at all', () => {
+    const out = home({ range: null, closed: true })
+    expect(out).not.toContain(hrHR['kitchen.home.status.noRange'])
+    expect(out).not.toContain('€')
   })
 })

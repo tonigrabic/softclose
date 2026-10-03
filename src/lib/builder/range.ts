@@ -105,3 +105,60 @@ export function normalizeAssumptions(raw: unknown): BomAssumption[] {
 export function assumptionKey(a: BomAssumption): TranslationKey {
   return `range.assumption.${a}`
 }
+
+/**
+ * The groups a priced build reads in, in the order a kitchen is quoted: the
+ * three parts of the works range (material, make, install), then the goods the
+ * homeowner may buy through the maker, then any legacy project allowance.
+ */
+export const ESTIMATE_GROUPS = ['material', 'make', 'install', 'goods', 'project'] as const
+export type EstimateGroupId = (typeof ESTIMATE_GROUPS)[number]
+
+/** The fields grouping needs; structurally a `BomLineItem` (kept loose so this
+ *  module stays free of the BOM calculator and its catalog). */
+export interface GroupableLine {
+  section: 'works' | 'goods' | 'project'
+  worksKind?: 'material' | 'make' | 'install'
+  exact?: boolean
+  low: number
+  high: number
+}
+
+export interface EstimateGroup<L extends GroupableLine> {
+  id: EstimateGroupId
+  lines: L[]
+  /** The sum of this group's lines. */
+  low: number
+  high: number
+  /** Every line is a picked catalog price: print the sum as is, not as a range. */
+  exact: boolean
+}
+
+/**
+ * The stored lines of an estimate, grouped (`ESTIMATE_GROUPS` order, the
+ * lines' own order inside a group). A line priced at 0 € (the homeowner buys
+ * it) is dropped, and so is a group left with no lines, so nobody reads
+ * "0 € – 0 €". Each group carries its own subtotal and there is deliberately
+ * no grand total: once the band is capped or floored the lines no longer add
+ * up to the headline, and a second figure that disagrees with it is worse
+ * than none. Missing lines (a brief sent before they were stored) → no groups.
+ */
+export function groupEstimateLines<L extends GroupableLine>(
+  lines: readonly L[] | null | undefined
+): EstimateGroup<L>[] {
+  if (!lines) return []
+  const groupOf = (l: L): EstimateGroupId => (l.section === 'works' ? (l.worksKind ?? 'material') : l.section)
+  return ESTIMATE_GROUPS.flatMap((id) => {
+    const inGroup = lines.filter((l) => l.high > 0 && groupOf(l) === id)
+    if (inGroup.length === 0) return []
+    return [
+      {
+        id,
+        lines: inGroup,
+        low: inGroup.reduce((s, l) => s + l.low, 0),
+        high: inGroup.reduce((s, l) => s + l.high, 0),
+        exact: inGroup.every((l) => l.exact === true),
+      },
+    ]
+  })
+}

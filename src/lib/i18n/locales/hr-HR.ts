@@ -261,6 +261,7 @@ export const hrHR = {
   'builder.cabinetBoxes.pattern.wine_pullout': 'Vinska izvlaka',
   'builder.cabinetBoxes.pattern.open_shelves': 'Otvorene police',
   'bom.lineItem.accessories': 'Mehanizmi i dodatni okovi',
+  'bom.lineItem.walls': 'Priprema i bojanje zidova',
 
   // ---- Backsplash group --------------------------------------------------
   'backsplash.kindLabel': 'Tip zidne obloge',
@@ -489,14 +490,14 @@ export const hrHR = {
   'wrapup.review': 'Pregledaj što šaljemo — ispravi sve što ne valja.',
   'wrapup.estimate.title': 'Okvirni raspon cijene',
   'wrapup.estimate.kitchenLabel': 'Kuhinja — izrada i montaža',
-  'wrapup.estimate.allInLabel': 'Sve uključeno — s uređajima i radovima',
+  'wrapup.estimate.allInLabel': 'Kuhinja s uređajima',
   'wrapup.estimate.bomBadge': 'Iz tvoje gradnje',
   'wrapup.estimate.loading': 'Računamo okvirni raspon…',
   'wrapup.estimate.unavailable': 'Procjena još nije dostupna.',
   'wrapup.estimate.afterResend': 'Raspon iz tvoje gradnje vidiš kad pošalješ izmjene.',
   'wrapup.estimate.noBuild': 'Raspon dobivaš kad sastaviš kuhinju.',
   'wrapup.estimate.openBuilder': 'Sastavi kuhinju',
-  'wrapup.estimate.basisBom': 'Procijenjeno iz tvoje gradnje — raspon ±{pct}%.',
+  'wrapup.estimate.linesTitle': 'Od čega se raspon sastoji',
   'wrapup.estimate.makerConfirms':
     'Tvoj dizajner će ovo pretvoriti u pravu ponudu u razgovoru. Nikad ti ne šaljemo goli broj bez čovjeka s druge strane.',
   'wrapup.section.render': 'Tvoj koncept render',
@@ -869,7 +870,7 @@ export const hrHR = {
   'kitchen.home.status.sent': 'Poslano {date}.',
   'kitchen.home.status.seen': '{maker} je otvorio sažetak {date}.',
   'kitchen.home.status.notSeen': '{maker} ga još nije otvorio — javit ćemo ti kad ga otvori.',
-  'kitchen.home.status.range': 'Procjena: {range}',
+  'kitchen.home.status.rangeLabel': 'Okvirni raspon — kuhinja, izrada i montaža',
   'kitchen.home.status.noRange': 'Raspon dobivaš kad sastaviš kuhinju.',
   'kitchen.home.editNote': 'Ako nešto izmijeniš, {maker} dobiva obavijest o izmjeni.',
   // The maker's decision (IMP-03). Led by "{maker}:" so a studio name never

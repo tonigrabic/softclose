@@ -1537,3 +1537,86 @@ round trip, legacy list, wording, no PDV/VAT/margin/"ponud" in `range.*`) and
 maker voice, null fallback, missing band, legacy assumptions, compact markup;
 panel without goods row when the homeowner supplies, with it when the maker
 does; dock). 756 tests · tsc · eslint green. Browser check is in step 4's gate.
+
+### 2026-10-03 — IMP-04 step 3: one range line on the wrap-up and kitchen home; lines grouped
+Spec item 5. The wrap-up printed the range to the euro under "Sve uključeno —
+s uređajima i radovima", added "raspon ±{pct}%" with a made-up 20 when the band
+was missing, and never showed the lines it stored. The kitchen home printed
+"Procjena: 5.291 – 7.376 €" with no ±, no maker and no exclusions.
+
+- **Wrap-up** (`WrapUpScreen.tsx`). The estimate card is now an exported
+  `WrapUpEstimate`. It renders:
+  - the shared `RangeLine`, labelled "Kuhinja — izrada i montaža", with the
+    maker's name. `makerName` is threaded from `KitchenIntake`
+    (`index.tsx`).
+  - "Kuhinja s uređajima" (was "Sve uključeno…") through `formatRange`, only
+    when the maker supplies the appliances.
+  - `estimate.lines`, grouped material → make → install → goods (→ legacy
+    project allowances). Each group has a subtotal range, and each line shows
+    name · quantity · range. There is no sum row.
+  - `fmtMoney`, `?? 20` and the `wrapup.estimate.basisBom` line are gone: the
+    ± is in the range line now, and only when the brief has one.
+- **`groupEstimateLines`** lives in `range.ts`, server-safe and typed
+  structurally so it doesn't pull in the BOM calculator. The brief and email
+  in step 4 can use it. It drops 0 € lines and empty groups, so a homeowner
+  who supplies everything never sees "0 € – 0 €". Picked-price groups print
+  their exact sum.
+- **Kitchen home.**
+  - `page.tsx` selects `band_pct` and `assumptions:bundle->estimate->assumptions`:
+    one JSON path, never the whole bundle.
+  - The server normalises the assumptions, so only known keys reach the
+    client and pre-IMP-04 briefs get the legacy list.
+  - `range` is `{low, high, bandPct, assumptions} | null`, and `money()` is
+    removed.
+  - `KitchenHome` renders `RangeLine`, labelled with
+    `kitchen.home.status.rangeLabel`. The old no-range block is its
+    `fallback`, which renders nothing on a closed project.
+  - `decisionNextKey(…, range != null)` means the same as before.
+- **New `tests/homeowner-copy.test.ts`.** It collects every locale key that
+  RangeLine, LiveBOMPanel, MobileRangeDock, WrapUpScreen and KitchenHome can
+  render: quoted keys and template prefixes. It asserts:
+  - no hr or en value matches
+    `/PDV|\bVAT\b|marž|margin|nabavn|B2B|Sve uključeno|all-in/i`.
+    `VAT` needs word boundaries because Croatian "-vati" verbs contain "vat".
+  - no `range.*` value says "ponud" or "quote".
+  - none of the five sources reads `estimate.maker`, `makerCost` or `makerOnly`.
+  - the scan finds a known key in each file, so a broken regex cannot pass
+    silently.
+
+Deviations from the plan:
+- *`KitchenHomeProps.makerName` is now `string | null`*, the maker's raw name.
+  - The capitalised "Tvoj izrađivač" fallback for headings is now worded on
+    the client.
+  - The intake also gets the raw name, so every range line in it says
+    "raspon koji tvoj izrađivač potvrđuje" in lower case when there is no
+    maker. The page used to pass the capitalised fallback, which step 2
+    warned about.
+  - Side effect: on a project with no maker, the intake's "{maker} vidi…"
+    line is now hidden. It had said "Tvoj izrađivač vidi…" when there was
+    nobody to see it.
+- *Key changes.*
+  - `kitchen.home.status.range` ("Procjena: {range}") is replaced by the slotless
+    label `kitchen.home.status.rangeLabel`.
+  - New keys: `wrapup.estimate.linesTitle`, plus `bom.lineItem.walls`, the
+    only line key that had no label.
+  - Removed: `wrapup.estimate.basisBom`.
+- *The wrap-up always shows the kitchen label* above the range. Before, it
+  appeared only when there was a figure with appliances. The assumptions
+  mention installation, so the label says what the figure covers.
+- *A fifth "project" group.* It renders only for legacy briefs whose old
+  scope priced allowances. Without it, those stored lines would be hidden.
+- *Kept `wrapup.estimate.makerConfirms`.* It explains that the maker turns the
+  range into a real quote in conversation, which the range line does not say.
+  Open item for copy review: it calls the maker "tvoj dizajner" / "your
+  designer", and it partly repeats the range line's "raspon koji … potvrđuje".
+
+No snapshot change, so no `-u`. Tests added:
+- `range-line` gains `groupEstimateLines` units, plus static renders of
+  `WrapUpEstimate` (range line, group order and subtotals, every line, no
+  goods group or 0 € row when the homeowner supplies, "Kuhinja s uređajima"
+  when the maker does, no invented ± on a legacy brief) and of `KitchenHome`
+  (range line, "tvoj izrađivač" with no maker, the builder fallback, nothing
+  on a closed project).
+- `homeowner-copy` is new.
+
+781 tests · tsc · eslint green. The browser check is in step 4's gate.

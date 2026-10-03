@@ -948,6 +948,7 @@ export function KitchenIntake({
           explorationRefs={[]}
           transcript={transcript}
           projectId={projectId}
+          makerName={makerName}
           hasExistingBrief={hasExistingBrief || sentInSession}
           beforeSubmit={async () => {
             await checkpoint.flush(snapshot)
