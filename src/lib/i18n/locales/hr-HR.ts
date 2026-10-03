@@ -1123,10 +1123,21 @@ export const hrHR = {
   'maker.header.received': 'Sažetak {id} · primljen {when}',
   'maker.estimate.title': 'Procjena troška',
   'maker.estimate.kitchenOnly': 'Kuhinja — bez nabave uređaja',
-  'maker.estimate.basis': 'Izračunato iz kupčeve gradnje — ±{pct}%. Raspon koji ti potvrđuješ, nikad konačna ponuda.',
+  // The ± and "raspon koji ti potvrđuješ" are in the range line above it (IMP-04).
+  'maker.estimate.basis': 'Izračunato iz kupčeve gradnje, po cijenama u trenutku slanja — nikad konačna ponuda.',
   'maker.estimate.withAppliances': 'S nabavom uređaja',
   'maker.estimate.makerCost': 'Tvoja nabavna cijena (B2B) · samo za tebe',
-  'maker.estimate.makerCostNote': 'Sve uključeno po tvojim cijenama — kupac ovo nikad ne vidi.',
+  'maker.estimate.makerCostNote': 'Kuhinja i uređaji po tvojim cijenama, bez marže — kupac ovo nikad ne vidi.',
+  // Maker-only (IMP-04): the works at cost and the workshop margin. The maker
+  // side may say "marža" and "PDV"; no homeowner surface reads these keys.
+  'maker.estimate.makerOnly': 'Samo za tebe · kupac ovo ne vidi',
+  'maker.estimate.net': 'Trošak bez marže · materijal, izrada, montaža',
+  'maker.estimate.margin': 'Marža radionice · {pct}\u00a0% na materijal i izradu',
+  'maker.estimate.marginNote': 'Zadana marža dok ne uneseš svoje cijene. Ovi iznosi uključuju PDV.',
+  'maker.estimate.homeownerRange': 'Raspon za kupca',
+  'maker.estimate.legacyBasis': 'Stari izračun · bez marže',
+  'maker.estimate.legacyBasisNote':
+    'Ovaj sažetak izračunat je prije 3. 10. 2026. po trošku izrade, bez marže radionice, pa je raspon niži od cijene koju bi kupac platio.',
   'maker.estimate.none': 'Raspon nije dostupan — kupac nije sastavio kuhinju.',
   'maker.estimate.noneLive': 'Raspon još nije izračunat — nastaje kad kupac sastavi kuhinju.',
   'maker.action.quote': 'Za ponudu',

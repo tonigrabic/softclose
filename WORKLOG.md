@@ -1620,3 +1620,113 @@ No snapshot change, so no `-u`. Tests added:
 - `homeowner-copy` is new.
 
 781 tests · tsc · eslint green. The browser check is in step 4's gate.
+
+### 2026-10-03 — IMP-04 step 4: range line on the dashboard, brief and email; net cost and margin on the brief
+Spec item 5, last step. The dashboard printed "5.291 – 7.376 €" with no ± and
+no exclusions. The brief headlined a compact "5k € – 7k €", printed its lines
+to the euro and repeated the ± in a basis sentence. The email sent
+"3.035 € – 4.286 € (±17%)" plus a "Sve uključeno" row. None of the three said
+what the range leaves out, and the maker never saw cost or margin.
+
+- **Dashboard** (`DashboardList.tsx`, `dashboard/page.tsx`, `lib/auth/projects.ts`).
+  - The brief query adds `assumptions:bundle->estimate->assumptions`. That is
+    one JSON path; the bundle itself is never read for the list.
+  - The page normalises the keys, so pre-IMP-04 briefs get the legacy list.
+    It passes `{low, high, bandPct, assumptions} | null`. `money()` is gone.
+  - The row renders `RangeLine` in the compact size with the maker voice:
+    rounded figures, ±, "raspon koji ti potvrđuješ", then one truncated
+    line of assumptions. It uses spans only, so it is valid inside the
+    row's link. Below `sm` it stays hidden, as before (the plan left this
+    optional).
+  - `Row` is exported as `DashboardListRow` for the static render test.
+- **Brief** (`MakerDashboardPreview.tsx`).
+  - `RangeLine` in the maker voice replaces the compact `fmtMoney` headline.
+    It is labelled "Kuhinja — bez nabave uređaja" when there is a figure
+    with appliances.
+  - `maker.estimate.basis` loses its `{pct}` and its "raspon koji ti
+    potvrđuješ", because the range line carries both now.
+  - The figure with appliances, the B2B cost box and every build line go
+    through `formatRange`. A picked (exact) line prints `formatEUR`. Both
+    `fmtMoney` and `fmtEur` are removed.
+  - New `MakerOnlyMoney` block, rendered only when the stored bundle carries
+    `estimate.maker`:
+    - "Trošak bez marže · materijal, izrada, montaža" (net)
+    - "Marža radionice · 30 % na materijal i izradu" (margin)
+    - "Raspon za kupca"
+    - the note "Zadana marža dok ne uneseš svoje cijene. Ovi iznosi uključuju PDV."
+
+    The customer copy (`toCustomerBundle`) has no `maker` field, so the
+    funnel demo of this page shows no maker-only block.
+  - A brief with no `priceBasis` (priced before IMP-04, at cost, no margin)
+    gets a "Stari izračun · bez marže" chip and a visible line saying its
+    range sits below what the homeowner would pay.
+- **Email** (`maker-email.ts`).
+  - The range prints through `formatRange` with `range.band` and
+    `range.confirms.maker`. A new "Pretpostavke" row lists the assumptions on
+    one line (legacy list when the brief has none).
+  - The "Sve uključeno" row is now "S uređajima".
+  - On `priceBasis: 'gross-margin-v1'` the footer says the range is the
+    homeowner's price, with PDV and the default margin, and that cost and
+    margin are on the brief.
+  - The copy is fixed to hr-HR, because every label in the email is Croatian.
+    `input.locale` is the homeowner's language, not the maker's.
+- **Locales.**
+  - New keys: `maker.estimate.makerOnly`, `net`, `margin` (`{pct}` in both
+    locales), `marginNote`, `homeownerRange`, `legacyBasis`,
+    `legacyBasisNote`.
+  - `maker.estimate.makerCostNote` no longer says "Sve uključeno" / "All-in".
+    It now says "Kuhinja i uređaji po tvojim cijenama, bez marže".
+
+Deviations from the plan:
+- *Extra keys beyond net / margin / marginNote:* the block title
+  (`makerOnly`), `homeownerRange`, and the chip text plus its explanation
+  (`legacyBasis`, `legacyBasisNote`). The explanation is a visible line rather
+  than a tooltip, so it can be read on touch.
+- *The email footer now states the price basis.* This was not in the plan. It
+  tells the maker what the figure is, without the maker-only numbers.
+- *The no-build subject check is stronger:* `/\d\s€/` instead of `/\d €/`. The
+  old pattern could never match once Intl put a non-breaking space before €.
+- *Build lines on the brief stay in the section groups* (works / goods /
+  project). The plan only moved their formatting, and the wrap-up's
+  material/make/install grouping was not asked for here.
+- *No `docs(spec): IMP-04 status → PR` commit.* This run must not edit
+  IMPROVEMENTS.md.
+- **No browser gate.** This run was not allowed to start a dev server, so the
+  browser pass in the plan was not done: the builder panel and dock at 375 px
+  and desktop, the wrap-up, the kitchen home, the dashboard, the brief, and
+  the `/api/handoff` body. Static renders stand in for it:
+  - `tests/maker-range.test.ts`: the brief and the dashboard row.
+  - `range-line` and `homeowner-copy`: the homeowner surfaces.
+  - `price-basis`: the route answers only through `toCustomerBundle`.
+
+  **Do the browser pass before marking IMP-04 done.**
+
+IMP-04 done-when, against the code:
+- *Every range carries the assumptions, with no VAT or margin line on the
+  homeowner side.* Covered: panel, dock, wrap-up, kitchen home, dashboard
+  (sm and up), brief and email. The margin and PDV wording is only on the
+  maker's brief, in its maker-only block, and in the maker email's footer.
+- *Every Elgrad source is marked gross in the catalog metadata.* Done in
+  step 1.
+- *The maker page shows net cost and margin.* Done in this step.
+- *Fixture snapshots regenerated once, with the reason logged.* Done in
+  step 1. No `-u` since.
+- *Band-invariant still ≤ ±20.* Holds, with the ±10 floor.
+
+Open questions for Toni are unchanged from step 1: labour's VAT basis, margin
+on retail lines, the default margin shipping in client JS, and "Vaša ponuda".
+
+Tests:
+- New `tests/maker-range.test.ts`:
+  - the brief: range line in the maker voice; net, margin and homeowner range
+    from the stored bundle; nothing from the customer copy; the legacy chip
+    and legacy assumptions; the figure with appliances; no build.
+  - the dashboard row: compact line, rounded, ±, maker voice, assumptions;
+    null renders nothing.
+- `maker-email.test.ts`:
+  - rounded figures, with the non-breaking space before €;
+  - the range line row and the assumptions row;
+  - legacy brief: no ±, legacy list, no margin claim;
+  - no build: no figures, no assumptions row.
+
+791 tests (52 files) · tsc · eslint green.

@@ -6,6 +6,7 @@ import { RefreshCw } from 'lucide-react'
 import { AuthShell } from '@/components/AuthShell'
 import { InviteForm } from './InviteForm'
 import { useTranslations, type TranslationKey } from '@/lib/i18n'
+import { RangeLine, type RangeLineValue } from '@/components/range/RangeLine'
 import type { MakerDecision } from '@/lib/project/decision'
 import type { DashboardGroup, ProjectDisplayStatus } from '@/lib/project/status'
 import { cn } from '@/lib/utils'
@@ -19,7 +20,8 @@ export interface DashboardItem {
   /** Pre-formatted on the server — see the note on DashboardList. */
   updatedLabel: string
   briefId: string | null
-  range: string | null
+  /** The current brief's works range; null before a brief or without a build. */
+  range: RangeLineValue | null
   /** The maker formally quoted the current brief — so an edit after it is a v2. */
   quoted: boolean
   /** The maker's decision on the current brief, if any (IMP-03). */
@@ -62,7 +64,8 @@ const DECISION_TONE: Record<MakerDecision, string> = {
 
 const chipClass = 'shrink-0 rounded-full px-2 py-0.5 text-[0.6875rem] font-medium'
 
-function Row({ item }: { item: DashboardItem }) {
+/** One project in the list. Exported for the static render test. */
+export function DashboardListRow({ item }: { item: DashboardItem }) {
   const { t } = useTranslations()
   // Mid-flow there is no brief to open; the live view is the destination.
   const href = item.briefId ? `/maker/${item.briefId}` : `/dashboard/project/${item.projectId}`
@@ -79,7 +82,14 @@ function Row({ item }: { item: DashboardItem }) {
           {item.updatedLabel}
         </p>
       </div>
-      {item.range ? <p className="hidden shrink-0 text-sm tabular-nums text-foreground sm:block">{item.range}</p> : null}
+      {/* The one range line (IMP-04), compact, in the maker's voice. Spans
+          only, so it is valid inside this link. */}
+      <RangeLine
+        range={item.range}
+        voice="maker"
+        size="compact"
+        className="hidden w-56 shrink-0 sm:block lg:w-72"
+      />
       {item.decision ? (
         <span className={cn(chipClass, DECISION_TONE[item.decision])}>
           {t(DECISION_KEY[item.decision]).replace('{amount}', item.quotedLabel ?? '—')}
@@ -175,7 +185,7 @@ export function DashboardList({
                 </h2>
                 <div className="space-y-2">
                   {group.map((item) => (
-                    <Row key={item.projectId} item={item} />
+                    <DashboardListRow key={item.projectId} item={item} />
                   ))}
                 </div>
               </section>
@@ -191,7 +201,7 @@ export function DashboardList({
               </summary>
               <div className="space-y-2">
                 {closed.map((item) => (
-                  <Row key={item.projectId} item={item} />
+                  <DashboardListRow key={item.projectId} item={item} />
                 ))}
               </div>
             </details>

@@ -3,6 +3,7 @@ import { listMakerDashboard } from '@/lib/auth/projects'
 import { DEFAULT_LOCALE, isLocale, tDynamic } from '@/lib/i18n/core'
 import { dashboardGroup, projectDisplayStatus, stepProgress } from '@/lib/project/status'
 import { formatQuoteEur, isDecided } from '@/lib/project/decision'
+import { normalizeAssumptions } from '@/lib/builder/range'
 import { DashboardList, type DashboardItem } from './DashboardList'
 
 export const dynamic = 'force-dynamic'
@@ -21,12 +22,6 @@ function relativeTime(iso: string, locale: string, now: number): string {
   const hours = Math.round(mins / 60)
   if (hours < 24) return rtf.format(-hours, 'hour')
   return rtf.format(-Math.round(hours / 24), 'day')
-}
-
-function money(low: number | null, high: number | null, locale: string): string | null {
-  if (low == null || high == null) return null
-  const f = (n: number) => Math.round(n).toLocaleString(locale)
-  return `${f(low)} – ${f(high)} €`
 }
 
 /**
@@ -63,7 +58,18 @@ export default async function DashboardPage() {
         : null,
       updatedLabel: relativeTime(project.updatedAt, locale, now),
       briefId: project.currentBriefId,
-      range: money(brief?.estimateLow ?? null, brief?.estimateHigh ?? null, locale),
+      // The works range as the brief stored it, printed by the shared
+      // RangeLine (IMP-04): rounded, with the ± and what it leaves out. Null
+      // when the brief went out without a build (IMP-01).
+      range:
+        brief && brief.estimateLow != null && brief.estimateHigh != null
+          ? {
+              low: brief.estimateLow,
+              high: brief.estimateHigh,
+              bandPct: brief.bandPct,
+              assumptions: normalizeAssumptions(brief.assumptions),
+            }
+          : null,
       // A quote is a quote — not a glance. Until IMP-03 this was
       // `makerStatus !== 'new'`, so merely opening a brief counted as quoting it.
       quoted: makerStatus === 'quoted',
