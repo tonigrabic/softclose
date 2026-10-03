@@ -1819,3 +1819,16 @@ Tests:
 
 804 tests (52 files) · tsc · eslint green. Still no browser pass: this run may
 not start a dev server.
+
+**IMP-04 browser check** (local stack, mock AI, after the review round): the
+builder's live panel and mobile dock read "5.500 € – 7.700 € · ±17 % ·
+raspon koji Stolarija Render potvrđuje · montaža uključena · bez rušenja i
+odvoza · …"; after sending, the wrap-up, the kitchen home, the maker list and
+the brief all print "5.600 € – 7.600 € · ±16 %" with the same assumptions;
+the wrap-up groups the lines under Materijal / Izrada / Montaža; no PDV or
+margin text on any homeowner screen; the brief's maker-only box shows cost
+without margin 4.500–6.100 €, workshop margin 30 % 1.090–1.520 € ("zadana
+marža dok ne uneseš svoje cijene"). The stored brief carries
+`priceBasis: gross-margin-v1`; the customer response omits the maker fields.
+
+Gate: 804 tests · tsc · eslint · next build green.
