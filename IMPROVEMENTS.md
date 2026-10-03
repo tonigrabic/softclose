@@ -11,7 +11,7 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 | 1 | IMP-01 | Remove the fabricated stub estimate | critical | S | main | pr: https://github.com/tonigrabic/softclose/pull/11 |
 | 2 | IMP-31 | Room first: vision reconciles all photos, homeowner confirms shape and measures | high | M | main (IMP-11 first is recommended, not required) | pr: https://github.com/tonigrabic/softclose/pull/12 |
 | 3 | IMP-32 | Render constrained by the measured room; light post-render confirm | high | M | IMP-31 | pr: https://github.com/tonigrabic/softclose/pull/13 |
-| 4 | IMP-03 | Maker decision persists and reaches the homeowner | critical | M | IMP-32 (the IMP-01 → IMP-31 → IMP-32 chain) | built: branch imp/03-maker-decision, not pushed |
+| 4 | IMP-03 | Maker decision persists and reaches the homeowner | critical | M | main | pr: https://github.com/tonigrabic/softclose/pull/14 |
 | 5 | IMP-04 | Range is what the homeowner will pay: gross, margin in, exclusions stated; one range line everywhere | critical | M | IMP-01 | todo |
 | 6 | IMP-05 | Strip maker-only controls and B2B cost from the homeowner wrap-up | high | S | main | todo |
 | 7 | IMP-06 | Builder state autosaves | critical | M | main | todo |
