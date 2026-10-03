@@ -94,6 +94,10 @@ export interface DashboardRow {
     estimateLow: number | null
     estimateHigh: number | null
     bandPct: number | null
+    /** When the maker quoted, asked or declined (0007). */
+    decidedAt: string | null
+    /** The maker's quote for the works, in euros; set only when quoted (0007). */
+    quotedEur: number | null
   } | null
 }
 
@@ -126,7 +130,7 @@ export async function listMakerDashboard(makerId: string, limit = 100): Promise<
     briefIds.length
       ? db
           .from(TABLES.briefs)
-          .select('id, created_at, maker_status, estimate_low, estimate_high, band_pct')
+          .select('id, created_at, maker_status, estimate_low, estimate_high, band_pct, decided_at, quoted_eur')
           .in('id', briefIds)
       : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
   ])
@@ -150,6 +154,9 @@ export async function listMakerDashboard(makerId: string, limit = 100): Promise<
             estimateLow: (b.estimate_low as number | null) ?? null,
             estimateHigh: (b.estimate_high as number | null) ?? null,
             bandPct: (b.band_pct as number | null) ?? null,
+            decidedAt: (b.decided_at as string | null) ?? null,
+            // numeric(12,2): PostgREST may hand it back as a string (see dal.ts).
+            quotedEur: b.quoted_eur === null || b.quoted_eur === undefined ? null : Number(b.quoted_eur),
           }
         : null,
     }

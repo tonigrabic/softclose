@@ -1,7 +1,8 @@
 import { requireMaker } from '@/lib/auth/dal'
 import { listMakerDashboard } from '@/lib/auth/projects'
 import { DEFAULT_LOCALE, isLocale, tDynamic } from '@/lib/i18n/core'
-import { projectDisplayStatus, stepProgress } from '@/lib/project/status'
+import { dashboardGroup, projectDisplayStatus, stepProgress } from '@/lib/project/status'
+import { formatQuoteEur, isDecided } from '@/lib/project/decision'
 import { DashboardList, type DashboardItem } from './DashboardList'
 
 export const dynamic = 'force-dynamic'
@@ -49,6 +50,7 @@ export default async function DashboardPage() {
       currentBriefCreatedAt: brief?.createdAt ?? null,
     })
     const progress = display === 'in_progress' ? stepProgress(project.step) : null
+    const makerStatus = brief?.makerStatus ?? null
     return {
       projectId: project.id,
       customerName: customer?.name || project.title || customer?.email || '—',
@@ -62,7 +64,12 @@ export default async function DashboardPage() {
       updatedLabel: relativeTime(project.updatedAt, locale, now),
       briefId: project.currentBriefId,
       range: money(brief?.estimateLow ?? null, brief?.estimateHigh ?? null, locale),
-      quoted: Boolean(brief && brief.makerStatus !== 'new'),
+      // A quote is a quote — not a glance. Until IMP-03 this was
+      // `makerStatus !== 'new'`, so merely opening a brief counted as quoting it.
+      quoted: makerStatus === 'quoted',
+      decision: isDecided(makerStatus) ? makerStatus : null,
+      quotedLabel: brief?.quotedEur != null ? formatQuoteEur(brief.quotedEur, locale) : null,
+      group: dashboardGroup(display, makerStatus),
     }
   })
 

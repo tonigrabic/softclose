@@ -173,3 +173,35 @@ export function parseEurInput(raw: string): number | null {
   if (parts.length === 2 && /^\d{1,2}$/.test(rest[0])) return Number(`${head}.${rest[0]}`)
   return null
 }
+
+/**
+ * A quoted amount as the maker typed it back: whole euros without decimals,
+ * cents only when there are some — `6.200 €`, `6.200,50 €` (hr), `€6,200` (en).
+ *
+ * The same function labels the submit button ("Zabilježi ponudu: 6.200 €") on
+ * the client and the saved chip on the server, so the confirmation the maker
+ * reads before saving is character for character what the chip shows after.
+ */
+export function formatQuoteEur(amount: number, locale: string): string {
+  const cents = !Number.isInteger(amount)
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: cents ? 2 : 0,
+    maximumFractionDigits: 2,
+  }).format(amount)
+}
+
+/**
+ * When a decision was made, as a date. Formatted on the server (see the note
+ * on DashboardList), pinned to Croatian time: the server runs in UTC, and a
+ * decision at 00:30 in Zagreb must not read as the previous day.
+ */
+export function formatDecisionDate(iso: string, locale: string): string {
+  return new Date(iso).toLocaleDateString(locale, {
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+    timeZone: 'Europe/Zagreb',
+  })
+}

@@ -10,6 +10,8 @@
 import { describe, expect, it } from 'vitest'
 import {
   canDecide,
+  formatDecisionDate,
+  formatQuoteEur,
   isDecided,
   isMakerDecision,
   MAKER_DECISIONS,
@@ -224,5 +226,31 @@ describe('parseEurInput', () => {
       ok: true,
       decision: { quotedEur: 6200 },
     })
+  })
+})
+
+describe('formatQuoteEur', () => {
+  // Intl separates the number and the symbol with a no-break space.
+  const fmt = (n: number, locale: string) => formatQuoteEur(n, locale).replace(/\s/g, ' ')
+
+  it('whole euros without decimals, cents only when there are some', () => {
+    expect(fmt(6200, 'hr-HR')).toBe('6.200 €')
+    expect(fmt(6200.5, 'hr-HR')).toBe('6.200,50 €')
+    expect(fmt(1_000_000, 'hr-HR')).toBe('1.000.000 €')
+    expect(fmt(6200, 'en-US')).toBe('€6,200')
+    expect(fmt(6200.5, 'en-US')).toBe('€6,200.50')
+  })
+
+  it('labels the rounded amount validateDecision will save, not the raw input', () => {
+    const check = validateDecision({ from: 'viewed', to: 'quoted', quotedEur: 6200.555 })
+    expect(check.ok && check.decision.quotedEur !== null && fmt(check.decision.quotedEur, 'hr-HR')).toBe('6.200,56 €')
+  })
+})
+
+describe('formatDecisionDate', () => {
+  it('is a date in Croatian time, whatever the server clock says', () => {
+    // 23:30 UTC on 2 October is 01:30 on 3 October in Zagreb (CEST).
+    expect(formatDecisionDate('2026-10-02T23:30:00Z', 'hr-HR').replace(/\s/g, ' ')).toBe('03. 10. 2026.')
+    expect(formatDecisionDate('2026-10-02T23:30:00Z', 'en-US')).toBe('10/3/2026')
   })
 })

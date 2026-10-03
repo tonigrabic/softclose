@@ -3,6 +3,8 @@ import type { HandoffBundle } from '@/lib/types'
 import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import { resolveMedia, storageSigner } from '@/lib/db/media'
 import { requireBriefAccess } from '@/lib/auth/dal'
+import { DEFAULT_LOCALE, isLocale } from '@/lib/i18n/core'
+import { formatDecisionDate, formatQuoteEur } from '@/lib/project/decision'
 import { MakerBriefView } from './MakerBriefView'
 
 export const dynamic = 'force-dynamic'
@@ -23,7 +25,7 @@ export const dynamic = 'force-dynamic'
  */
 export default async function MakerBriefPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const { brief } = await requireBriefAccess(id)
+  const { session, brief } = await requireBriefAccess(id)
 
   const db = supabaseAdmin()
   if (!db) notFound()
@@ -44,5 +46,16 @@ export default async function MakerBriefPage({ params }: { params: Promise<{ id:
   const bundle = signer
     ? await resolveMedia(brief.bundle as HandoffBundle, signer)
     : (brief.bundle as HandoffBundle)
-  return <MakerBriefView bundle={bundle} briefId={brief.id} createdAt={brief.createdAt} />
+
+  // The decision's labels are formatted here, with the session locale, like
+  // the dashboard's — the client formatting them would mismatch on hydration.
+  const locale = isLocale(session.locale) ? session.locale : DEFAULT_LOCALE
+  const decision = {
+    status: brief.makerStatus,
+    note: brief.makerNote,
+    quotedLabel: brief.quotedEur !== null ? formatQuoteEur(brief.quotedEur, locale) : null,
+    decidedLabel: brief.decidedAt ? formatDecisionDate(brief.decidedAt, locale) : null,
+  }
+
+  return <MakerBriefView bundle={bundle} briefId={brief.id} createdAt={brief.createdAt} decision={decision} />
 }
