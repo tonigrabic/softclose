@@ -487,16 +487,19 @@ export function LengthField({
   const { t } = useTranslations()
   const [text, setText] = useState(initialCm ? String(Math.round(initialCm)) : '')
   const [touched, setTouched] = useState(false)
+  const [focused, setFocused] = useState(false)
   const cm = parse(text)
+  // "izmjereno" only for a value that counts: finished, or the field was left.
+  const counts = cm != null && (!focused || unambiguous(text))
   const showError = touched && text.trim() !== '' && cm == null
   const echo = cm != null && text.trim() !== String(cm)
   const notes = [
     hintCm ? t('room.measure.hint').replace('{cm}', String(hintCm)) : null,
-    cm == null && unmeasuredNote ? unmeasuredNote : null,
+    !counts && unmeasuredNote ? unmeasuredNote : null,
   ].filter(Boolean)
   const described = [
     notes.length > 0 ? `${id}-note` : null,
-    cm != null ? `${id}-ok` : null,
+    counts ? `${id}-ok` : null,
     showError ? `${id}-error` : null,
     describedBy,
   ]
@@ -514,7 +517,7 @@ export function LengthField({
             {notes.join(' · ')}
           </p>
         )}
-        {cm != null && (
+        {counts && (
           <p id={`${id}-ok`} className="mt-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
             {echo ? `${t('room.measure.metres').replace('{cm}', String(cm))} · ` : ''}
             {t('room.measure.measured')}
@@ -545,7 +548,9 @@ export function LengthField({
             setText(next)
             onValue(unambiguous(next) ? parse(next) : null)
           }}
+          onFocus={() => setFocused(true)}
           onBlur={() => {
+            setFocused(false)
             setTouched(true)
             onValue(parse(text))
           }}
