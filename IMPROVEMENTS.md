@@ -27,7 +27,7 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 | 17 | IMP-15 | Brief export: print/PDF and JSON | medium | S | IMP-14 | todo |
 | 18 | IMP-16 | Customer notifications that exist, plus a response-time line | high | M | IMP-03 | todo |
 | 19 | IMP-17 | Resume on another device without broken images; honest save state | high | M | main | todo |
-| 20 | IMP-18 | Dashboard: no 404 rows, resend invite, archive, paging, invite collisions | high | M | main | todo |
+| 20 | IMP-18 | Dashboard: no 404 rows, resend invite, archive, paging, multi-project customers | high | M | main | todo |
 | 21 | IMP-19 | Re-submit versioning with a diff | medium | M | IMP-03 | todo |
 | 22 | IMP-20 | Worktop and hardware pricing bugs | high | M | IMP-04 | todo |
 | 23 | IMP-21 | Rate card out of code | medium | M | IMP-04 | todo |
@@ -176,9 +176,9 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 **Done when.** A snapshot with markers never reaches an AI route (test); a stale local copy does not overwrite a newer revision (test); the save line shows "Nije spremljeno — prijavi se" on 401.
 **Stack on.** main.
 
-### 20. IMP-18 — Dashboard: no 404 rows, resend invite, archive, paging, invite collisions
-**Problem.** Rows for "pozvan" and "otvorio, stao" link to `/dashboard/project/[id]`, which calls `notFound()` when there is no snapshot, so the two states the maker is told to chase dead-end on a 404; `resendInvite` exists but is wired to nothing. `archived` is never set and hidden rows are still counted; the list caps at 100 with no paging or search. Inviting an address that is already another maker's customer silently creates a second project and makes `/` land on the empty one.
-**Fix.** Render a project card (customer, status, invite dates, "Pošalji novi link") instead of 404; "Arhiviraj" action and "Prikaži arhivirane" toggle; "učitaj starije" cursor paging; refuse an invite for an address with a live project under another maker (same `unavailable` shape, no leak), or route `/` to a list, per the decision below.
+### 20. IMP-18 — Dashboard: no 404 rows, resend invite, archive, paging, multi-project customers
+**Problem.** Rows for "pozvan" and "otvorio, stao" link to `/dashboard/project/[id]`, which calls `notFound()` when there is no snapshot, so the two states the maker is told to chase dead-end on a 404; `resendInvite` exists but is wired to nothing. `archived` is never set and hidden rows are still counted; the list caps at 100 with no paging or search. Inviting an address that already has a kitchen with another maker creates a second project by design (they sign in and land on the new one), but their older kitchen is then reachable only by direct link.
+**Fix.** Render a project card (customer, status, invite dates, "Pošalji novi link") instead of 404; "Arhiviraj" action and "Prikaži arhivirane" toggle; "učitaj starije" cursor paging; when a customer has more than one project, `/` shows a short list (newest first) instead of a silent redirect; invites are never refused.
 **Files.** src/app/dashboard/project/[id]/page.tsx, LiveProjectView.tsx, DashboardList.tsx, src/app/dashboard/actions.ts, src/lib/auth/projects.ts, locales.
 **Done when.** No row on the dashboard 404s; the resend form issues a new token and revokes the old; archived rows are excluded from counts.
 **Stack on.** main.
@@ -279,11 +279,11 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 - **Media at capture time (photos uploaded as taken).** Right fix for cross-device resume, L effort; IMP-17 ships the short-term guard first.
 - **Splitting the three god files.** Mechanical, low value until the items above settle; IMP-29 touches the editor anyway.
 
-## Open decisions for Toni
+## Decisions (Toni, 2026-10-03) and what is still open
 
-1. **Margin and VAT basis (IMP-04).** Recommended default: homeowner sees gross incl. 25% PDV with a 30–45% workshop margin band on material + make, shown as its own line; maker sees net cost and the gross headline.
-2. **Band floor (LOOP Q6).** Fully confirmed states display ±9%. Recommended: floor at ±10% until a maker's own rate card is in (IMP-21).
-3. **Budget question.** Keep it dropped (recommended) and delete the dead row and keys in IMP-01, or add one optional "Okvirni budžet" chip row on contact.
-4. **Invite collisions (IMP-18).** Recommended: refuse an invite for an address that already has a live project under another maker, with a neutral message.
-5. **inspiration-vision.** A paid 20-second call whose enum guesses nothing downstream reads. Recommended: drop it in IMP-23 and keep the tagged styles and reference images.
-6. **Confidence pills for the homeowner.** Recommended: no H/M/L on homeowner surfaces; show provenance words only ("procjena" / "izmjereno" / "prepušteno izrađivaču").
+1. **Margin and VAT basis (IMP-04): open, recommended default stands.** Homeowner sees gross incl. 25% PDV; a workshop margin band of 30–45% on material + make is shown as its own line; the maker sees net cost and the gross headline. Both numbers live in the rate card. Implement with these defaults unless Toni changes this line.
+2. **Rate card (IMP-21): decided.** A JSON file in the repo with today's constants is enough until a second maker exists; per-maker storage in the database comes then. Band floor (LOOP Q6): ±10% until a maker's own rates are in.
+3. **Budget question: decided, keep it dropped.** Delete the dead budget row, the stub branch and the keys in IMP-01.
+4. **Invites (IMP-18): decided, never refuse.** A customer may have kitchens with several makers; the invite email signs them in and lands on the new project. `/` shows a short list when there is more than one.
+5. **inspiration-vision (IMP-23): decided, drop the call.** Keep the tagged styles and the reference images for the render.
+6. **Confidence pills: decided, none for the homeowner.** Provenance words only ("procjena", "izmjereno", "prepušteno izrađivaču").
