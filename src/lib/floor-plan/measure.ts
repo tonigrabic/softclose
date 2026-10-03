@@ -307,6 +307,17 @@ export function reseedRoomPlan(
   return next
 }
 
+/**
+ * The working plan the render and the confirm step build on: the room as
+ * measured, plus the intent — an island added when that is what they want.
+ * Every other intent starts from the room as it is today.
+ */
+export function workingPlanFromRoom(room: FloorPlan, intent?: LayoutIntent): FloorPlan {
+  return intent === 'add_island' && !room.hasIsland
+    ? validate({ ...room, island: makeIsland(room.room), hasIsland: true })
+    : room
+}
+
 /** Can the room step's footer Continue move on from this screen? */
 export function roomStepReady(input: {
   phase: 'shape' | 'measure'

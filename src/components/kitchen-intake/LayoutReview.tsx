@@ -9,11 +9,11 @@ import { CEILING_MAX_CM, CEILING_MIN_CM, parseCeilingCm, withCeiling } from '@/l
 
 /**
  * Post-render layout review — the home of the floor-plan editor after the
- * funnel⇄builder merge. The layout is DERIVED FROM THE AI RENDER (render
- * configuration over photo scale; see `lib/derive-layout.ts`) and seeded into
- * `floorPlan` by the parent. Here the homeowner adjusts dimensions, walls,
- * openings, the island and appliance placement against their actual space —
- * the safety net for any render mis-read — then the step's footer Continue
+ * funnel⇄builder merge. The layout is the plan the room step committed (the
+ * measured room plus the intent; see `lib/derive-layout.ts`), seeded into
+ * `floorPlan` by the parent — never read back from the render. Here the
+ * homeowner adjusts dimensions, walls, openings, the island and appliance
+ * placement against their actual space, then the step's footer Continue
  * freezes the plan and locks the contract the builder prices from.
  *
  * No photo upload here (that's the anchor-only step 1). When there's no plan

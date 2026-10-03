@@ -178,9 +178,11 @@ export function LayoutConfirm({
 }: {
   contract: LayoutContract
   /**
-   * The render hypothesis, so the tally folds in the AI's unit hints + render-
-   * seen tall towers — the SAME hints the builder seeds with. Without it the
-   * tally could show fewer units than get priced (the old parity hole).
+   * The render hypothesis the builder seeds with, so the tally folds in the
+   * SAME hints (the old parity hole). Since IMP-32 the builder gets a
+   * decor-only read once the room is measured, so this adds nothing there;
+   * only a journey confirmed before the room step still carries render-seen
+   * towers and unit patterns.
    */
   hypothesis?: BuilderHypothesis | null
   /** The live FloorPlan. With `onPlanChange`, the card becomes editable. */

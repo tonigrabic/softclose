@@ -85,6 +85,7 @@ export {
   reseedRoomPlan,
   roomStepReady,
   roomStepDone,
+  workingPlanFromRoom,
 } from './measure'
 export type { RoomCard } from './measure'
 export type { RawVisionRead, RawPhotoView } from './vision-reconcile'

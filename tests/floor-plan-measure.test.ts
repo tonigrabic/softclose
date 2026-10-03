@@ -23,6 +23,7 @@ import {
   withCeiling,
   withMeasuredWall,
   withShape,
+  workingPlanFromRoom,
   WALL_LETTER,
 } from '@/lib/floor-plan'
 import { seedConfirmPlan } from '@/lib/derive-layout'
@@ -230,12 +231,24 @@ describe('footer Continue on the room step', () => {
 })
 
 describe('the confirm step does not rebuild a measured room', () => {
-  test('a measured plan is the seed; an unmeasured journey keeps the old render-derived seed', () => {
+  test('a measured plan is the seed; a journey with no plan starts from the photo read', () => {
     const measured = measureAll(roomL(), { top: 360, left: 240 })
-    expect(seedConfirmPlan(null, measured, vision, null)).toBe(measured)
-    const legacy = seedConfirmPlan(null, null, vision, null)
+    expect(seedConfirmPlan(null, measured, vision)).toBe(measured)
+    const legacy = seedConfirmPlan(null, null, vision)
     expect(counterWalls(legacy)).toEqual(counterWalls(fromVision(vision)))
-    expect(seedConfirmPlan(measured, null, vision, null)).toBe(measured)
+    expect(seedConfirmPlan(measured, null, vision)).toBe(measured)
+  })
+  test('the working plan is the room plus the intent: only add_island changes it', () => {
+    const measured = measureAll(roomL(), { top: 360, left: 240 })
+    for (const intent of [undefined, 'keep', 'move_sink', 'change'] as const) {
+      expect(workingPlanFromRoom(measured, intent)).toBe(measured)
+    }
+    const withIsland = workingPlanFromRoom(measured, 'add_island')
+    expect(withIsland.hasIsland).toBe(true)
+    expect(withIsland.island).toBeDefined()
+    expect(counterWalls(withIsland)).toEqual(counterWalls(measured))
+    expect(isRoomMeasured(withIsland)).toBe(true)
+    expect(workingPlanFromRoom(withIsland, 'add_island')).toBe(withIsland)
   })
 })
 

@@ -191,3 +191,45 @@ export interface BuilderHypothesis {
   finishing?: FinishingHypothesis
   features?: FeaturesHypothesis
 }
+
+/**
+ * The render read, demoted to decor and materials (IMP-32). Once the room is
+ * measured, the plan owns the layout: the render is a concept anchored to one
+ * photo, so nothing it shows may move a wall, a tower or a carcass. Drops
+ * every field that changes the tally or the plan — the layout, per-unit
+ * patterns and counts, the corner read, the tall pantry, the window run and
+ * open shelving — and the fridge's built-in flag, which adds a tall housing
+ * (the homeowner answers that in the builder). Keeps fronts, worktop, wall
+ * cladding, hardware, sink and taps, lighting, finishing, carcass, colour
+ * hints and the appliance types and presence (the dishwasher's built-in flag
+ * too: it never changes a unit).
+ *
+ * Applied once where the hypothesis is used, so a hypothesis stored before
+ * this change is neutralised the same way.
+ */
+export function decorHypothesis(h: BuilderHypothesis | null | undefined): BuilderHypothesis | null {
+  if (!h) return null
+  const out: BuilderHypothesis = { ...h }
+  delete out.layout
+  if (h.cabinetBoxes) {
+    const cabinetBoxes = { ...h.cabinetBoxes }
+    delete cabinetBoxes.unitPatterns
+    delete cabinetBoxes.unitCounts
+    delete cabinetBoxes.cornerSolution
+    out.cabinetBoxes = cabinetBoxes
+  }
+  if (h.features) {
+    const features = { ...h.features }
+    delete features.tallPantry
+    delete features.windowOnRun
+    delete features.openShelving
+    out.features = features
+  }
+  if (h.appliances) {
+    const appliances = { ...h.appliances }
+    delete appliances.fridgeIntegrated
+    if (appliances.fridge) appliances.fridge = { present: appliances.fridge.present }
+    out.appliances = appliances
+  }
+  return out
+}
