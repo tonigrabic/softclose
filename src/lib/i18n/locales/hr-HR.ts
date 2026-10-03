@@ -1138,7 +1138,7 @@ export const hrHR = {
   'maker.spec.loadBearing': 'Nosivi zid',
   // Do the sink and the hob move (IMP-32) — from today's room vs the working plan.
   'maker.spec.trades': 'Voda / plin',
-  'maker.trades.moves': 'se sele',
+  'maker.trades.moves': 'sele se',
   'maker.trades.stays': 'ostaju na mjestu',
   'maker.trades.new': 'nova instalacija — prostor danas bez kuhinje',
   'maker.trades.unknown': 'nepoznato — provjeri na izmjeri',

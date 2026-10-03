@@ -392,3 +392,40 @@ describe('mock mode', () => {
     expect(res.status).toBe(400)
   })
 })
+
+describe('review: the render always carries the room it is drawn in', () => {
+  test('an island running along walls B and D is kept and oriented, never "No island"', () => {
+    const room = measuredRoom()
+    const island = { id: 'isl', centerXCm: 210, centerYCm: 150, lengthCm: 100, widthCm: 220, confidence: 'L' as const, source: 'inferred' as const }
+    const plan: FloorPlan = { ...room, island, hasIsland: true }
+    const c = roomConstraintsFor({ plan, existing: room, intent: 'keep', existingRoom: 'kitchen' })!
+    expect(c.island).toEqual({ lengthCm: 100, widthCm: 220 })
+    const text = buildPrompt({}, { anchor: { index: 1, role: 'anchor' }, previousRender: null, designReference: null, roomRefs: [], style: [], product: [] }, { room: c, anchorShows: null, freeTextNudge: null })
+    expect(text).toContain('220 × 100 cm')
+    expect(text).toContain('parallel to walls B and D')
+    expect(text).not.toContain('No island')
+  })
+
+  test('a counter wall added on the confirm step runs a measured dimension: the room still goes in', () => {
+    const room = measuredRoom()
+    const u = validate({ ...room, room: { ...room.room, sides: { ...room.room.sides, right: { ...room.room.sides.right, hasCounter: true } } } })
+    const c = roomConstraintsFor({ plan: u, existing: room, intent: 'change', existingRoom: 'kitchen' })
+    expect(c).not.toBeNull()
+    expect(c!.counterWalls.map((w) => w.wall)).toEqual(['top', 'right', 'left'])
+    expect(c!.counterWalls.find((w) => w.wall === 'right')!.wallCm).toBe(300)
+  })
+
+  test('"Sudoper ostaje gdje je" overrides move_sink: the sink is held on its wall', () => {
+    const room = measuredRoom()
+    const c = roomConstraintsFor({ plan: workingPlanFromRoom(room, 'move_sink'), existing: room, intent: 'move_sink', existingRoom: 'kitchen', sinkAnswer: 'same' })!
+    expect(c.sinkMovesFrom).toBeNull()
+    expect(c.sinkWall).toBe('top')
+  })
+
+  test('after a camera change the design reference yields to the adjustments', () => {
+    const images: PromptImages = { anchor: { index: 2, role: 'anchor' }, previousRender: null, designReference: { index: 1, role: 'design' }, roomRefs: [], style: [], product: [] }
+    const withNudge = buildPrompt({ nudges: ['darker cabinet finish'] }, images, { room: null, anchorShows: null, freeTextNudge: null })
+    expect(withNudge).toContain('except where the adjustments below ask for a change')
+    expect(buildPrompt({}, images, { room: null, anchorShows: null, freeTextNudge: null })).not.toContain('except where')
+  })
+})

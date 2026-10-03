@@ -182,6 +182,7 @@ export function buildPrompt(
   opts: { room: RenderRoomConstraints | null; anchorShows: PhotoViewTarget | null; freeTextNudge: string | null }
 ): string {
   const { room, anchorShows, freeTextNudge } = opts
+  const hasAdjustments = Boolean(req.nudges?.length || freeTextNudge)
   const stylePhrase = describe(req.style, STYLE_LANGUAGE)
   const door = describe(req.doorMaterial, MATERIAL_LANGUAGE)
   const worktop = describe(req.worktopPreference, MATERIAL_LANGUAGE)
@@ -195,7 +196,7 @@ export function buildPrompt(
   // A design reference and a previous render are never both the base.
   if (images.designReference) {
     parts.push(
-      `Photo ${images.designReference.index} is a render of the SAME redesigned kitchen from another camera position — match its cabinet fronts, worktop, colours, hardware and appliance finishes exactly; do NOT copy its camera, framing or walls.`
+      `Photo ${images.designReference.index} is a render of the SAME redesigned kitchen from another camera position — match its cabinet fronts, worktop, colours, hardware and appliance finishes exactly${hasAdjustments ? ', except where the adjustments below ask for a change' : ''}; do NOT copy its camera, framing or walls.`
     )
   } else if (images.previousRender) {
     parts.push(

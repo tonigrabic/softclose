@@ -203,9 +203,9 @@ describe('describeTradeMoves — the maker\'s line', () => {
   const room = measuredRoom()
   const working = workingPlanFromRoom(room, 'keep')
 
-  test('the sink to D: "se sele — sudoper: zid A → zid D · ploča ostaje na zidu A"', () => {
+  test('the sink to D: "sele se — sudoper: zid A → zid D · ploča ostaje na zidu A"', () => {
     const line = describeTradeMoves(tradeMoves(room, withSinkOnWall(working, 'left'), 'keep'), hr)!
-    expect(line.headline).toBe('se sele')
+    expect(line.headline).toBe('sele se')
     expect(line.detail).toContain('zid A → zid D')
     expect(line.detail).toContain('ploča ostaje na zidu A')
     expect(line.detail).toBe('sudoper: zid A → zid D · ploča ostaje na zidu A')
@@ -213,7 +213,7 @@ describe('describeTradeMoves — the maker\'s line', () => {
 
   test('move_sink without a target names the wall it leaves', () => {
     const line = describeTradeMoves(tradeMoves(room, working, 'move_sink'), hr)!
-    expect(line.headline).toBe('se sele')
+    expect(line.headline).toBe('sele se')
     expect(line.detail).toContain('sudoper se seli sa zida A — novo mjesto nije ucrtano')
   })
 
@@ -278,7 +278,7 @@ describe('the brief\'s "Voda / plin" row', () => {
 
   test('the sink to D: one line, as sure as today\'s photo read', () => {
     expect(makerTradesRow(tradeMoves(room, withSinkOnWall(working, 'left'), 'keep'), hr)).toEqual({
-      value: 'se sele — sudoper: zid A → zid D · ploča ostaje na zidu A',
+      value: 'sele se — sudoper: zid A → zid D · ploča ostaje na zidu A',
       confidence: 'H',
       source: 'ai_vision',
     })
@@ -340,7 +340,7 @@ describe('the brief\'s "Voda / plin" row', () => {
     }
     const bundle = buildHandoffBundle({ brief })
     expect(makerTradesRow(tradeMovesFromProfile(bundle.brief), hr)?.value).toBe(
-      'se sele — sudoper: zid A → zid D · ploča ostaje na zidu A'
+      'sele se — sudoper: zid A → zid D · ploča ostaje na zidu A'
     )
     const svg = bundle.floorPlan!.svg
     for (const [wall, letter] of [['top', 'A'], ['right', 'B'], ['bottom', 'C'], ['left', 'D']]) {

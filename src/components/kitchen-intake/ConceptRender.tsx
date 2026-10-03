@@ -147,6 +147,10 @@ export function ConceptRender({
   const [pendingLabel, setPendingLabel] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const autoStartedRef = useRef(false)
+  // No render without the room it is drawn in: a completed room step AND a
+  // room payload (null when the plan's walls are not known — never send an
+  // unconstrained render). `room` undefined = a caller that predates it.
+  const roomBlocked = !roomMeasured || room === null
   // Room references go out recompressed (~768 px); once per photo.
   const roomRefCache = useRef(new Map<number, { src: string; out: Promise<string> }>())
 
@@ -213,7 +217,7 @@ export function ConceptRender({
    * shows the rest of the kitchen, and spends one of the five like any other.
    */
   async function generate(view: 'main' | 'other_side' = 'main') {
-    if (capped || !roomMeasured) return
+    if (capped || roomBlocked) return
     const base = currentRender
     const otherSide = view === 'other_side'
     if (otherSide && (!base || otherSideIndex === null)) return
@@ -322,7 +326,7 @@ export function ConceptRender({
   // performs lands outside the synchronous effect body (React's strict effects
   // rule rightly flags sync setState inside effects).
   useEffect(() => {
-    if (!autoStart || !roomMeasured) return
+    if (!autoStart || roomBlocked) return
     if (autoStartedRef.current) return
     if (renders.length > 0) return
     if (anchorPhotos.length === 0) return
@@ -339,9 +343,9 @@ export function ConceptRender({
       void generate('main')
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoStart, anchorPhotos.length, renders.length, roomMeasured])
+  }, [autoStart, anchorPhotos.length, renders.length, roomBlocked])
 
-  if (!roomMeasured) {
+  if (roomBlocked) {
     return (
       <div className="space-y-3 rounded-2xl border border-amber-300/50 bg-amber-50/60 px-4 py-4 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
         <div className="flex items-start gap-2">

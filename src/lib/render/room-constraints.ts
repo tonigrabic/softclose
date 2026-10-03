@@ -21,7 +21,17 @@
  */
 import type { LayoutIntent, PhotoViewTarget, WallCorner, WallSide } from '@/lib/types'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
-import { isRoomMeasured, validate, wallLengthCm, WALL_LETTER, type FloorPlan, type LayoutShape } from '@/lib/floor-plan'
+import {
+  counterWalls as counterWallsOf,
+  isRoomMeasured,
+  isValidWallLength,
+  validate,
+  wallAxis,
+  wallLengthCm,
+  WALL_LETTER,
+  type FloorPlan,
+  type LayoutShape,
+} from '@/lib/floor-plan'
 
 /** What the homeowner wants; 'new' = the room is empty today. */
 export type RenderIntent = LayoutIntent | 'new'
@@ -90,8 +100,8 @@ const WALL_MIN_CM = 120
 const WALL_MAX_CM = 1200
 const CEILING_MIN_CM = 200
 const CEILING_MAX_CM = 400
-const ISLAND_LENGTH_CM: readonly [number, number] = [60, 400]
-const ISLAND_WIDTH_CM: readonly [number, number] = [40, 200]
+/** Island sides, either way round (the plan's island has no rotation: length is along A, width along D). */
+const ISLAND_SIDE_CM: readonly [number, number] = [40, 800]
 
 function pick<T extends string>(v: unknown, set: Record<T, true>): T | null {
   return typeof v === 'string' && Object.prototype.hasOwnProperty.call(set, v) ? (v as T) : null
@@ -102,6 +112,11 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 }
 
 /** A finite number, rounded, inside [min, max] — or null. Never a clamp. */
+function cmClamp(v: unknown, min: number, max: number): number | null {
+  if (typeof v !== 'number' || !Number.isFinite(v)) return null
+  return Math.min(max, Math.max(min, Math.round(v)))
+}
+
 function cmIn(v: unknown, min: number, max: number): number | null {
   if (typeof v !== 'number' || !Number.isFinite(v)) return null
   const r = Math.round(v)
@@ -174,8 +189,9 @@ export function sanitizeRoomConstraints(raw: unknown): RenderRoomConstraints | n
   const sinkMovesFrom = intent === 'move_sink' ? pick(raw.sinkMovesFrom, WALL_SET) : null
   const ceilingCm = cmIn(raw.ceilingCm, CEILING_MIN_CM, CEILING_MAX_CM)
   const isl = isRecord(raw.island) ? raw.island : null
-  const islandLength = isl ? cmIn(isl.lengthCm, ...ISLAND_LENGTH_CM) : null
-  const islandWidth = isl ? cmIn(isl.widthCm, ...ISLAND_WIDTH_CM) : null
+  // Clamped, never dropped: an island the plan has must not turn into "No island".
+  const islandLength = isl ? cmClamp(isl.lengthCm, ...ISLAND_SIDE_CM) : null
+  const islandWidth = isl ? cmClamp(isl.widthCm, ...ISLAND_SIDE_CM) : null
 
   return {
     version: 1,
@@ -205,13 +221,30 @@ function firstFeatureWall(plan: FloorPlan | null | undefined, kind: 'sink' | 'ho
  * read the same plan. The result goes through the sanitiser, so the client
  * sends exactly what the server keeps.
  */
+/**
+ * Every counter wall's length is known: typed on the wall itself, or set by a
+ * typed wall on the same axis (a wall added on the confirm step runs the same
+ * room dimension the room step measured).
+ */
+function wallLengthsKnown(plan: FloorPlan, existing: FloorPlan | null | undefined): boolean {
+  const walls = counterWallsOf(plan)
+  if (walls.length === 0) return false
+  const axisMeasured = (p: FloorPlan | null | undefined, axis: 'h' | 'v') =>
+    Boolean(p) && LETTER_ORDER.some((w) => wallAxis(w) === axis && isValidWallLength(p!.room.sides[w].measuredLengthCm))
+  return walls.every(
+    (w) => isValidWallLength(plan.room.sides[w].measuredLengthCm) || axisMeasured(plan, wallAxis(w)) || axisMeasured(existing, wallAxis(w))
+  )
+}
+
 export function roomConstraintsFor(i: {
   plan: FloorPlan | null | undefined
   existing?: FloorPlan | null
   intent?: LayoutIntent
   existingRoom?: 'kitchen' | 'empty'
+  /** The confirm step's "Sudoper ostaje gdje je" overrides a move_sink intent. */
+  sinkAnswer?: string
 }): RenderRoomConstraints | null {
-  if (!i.plan || !isRoomMeasured(i.plan)) return null
+  if (!i.plan || !(isRoomMeasured(i.plan) || wallLengthsKnown(i.plan, i.existing))) return null
   const plan = validate(i.plan)
   const contract = floorPlanToLayout(plan)
   const counterWalls: RenderWall[] = []
@@ -233,7 +266,8 @@ export function roomConstraintsFor(i: {
   // the as-is room, the working plan's sink is today's (move_sink starts from
   // the room unchanged).
   const todaySink = i.existing ? firstFeatureWall(i.existing, 'sink') : planSink
-  const sinkMovesFrom = intent === 'move_sink' && planSink !== null && planSink === todaySink ? planSink : null
+  const sinkMovesFrom =
+    intent === 'move_sink' && i.sinkAnswer !== 'same' && planSink !== null && planSink === todaySink ? planSink : null
   const wallsWith = (kinds: readonly string[]) =>
     [...new Set(plan.openings.filter((o) => kinds.includes(o.kind)).map((o) => o.wall))].sort(byLetter)
 
@@ -255,6 +289,12 @@ export function roomConstraintsFor(i: {
       ? { lengthCm: Math.round(plan.island.lengthCm), widthCm: Math.round(plan.island.widthCm) }
       : null,
   } satisfies RenderRoomConstraints)
+}
+
+/** "long × short cm" — the plan's island has no rotation, so name the long side first. */
+function islandSize(island: { lengthCm: number; widthCm: number }): string {
+  const [long, short] = island.lengthCm >= island.widthCm ? [island.lengthCm, island.widthCm] : [island.widthCm, island.lengthCm]
+  return `${long} × ${short} cm`
 }
 
 // ─── Camera ─────────────────────────────────────────────────────────────────
@@ -441,13 +481,13 @@ export function describeRoomConstraints(
   if (change) {
     lines.push(
       c.island
-        ? `- Today there is an island of ${c.island.lengthCm} × ${c.island.widthCm} cm; it may change too.`
+        ? `- Today there is an island of ${islandSize(c.island)}; it may change too.`
         : '- No island today.'
     )
   } else {
     lines.push(
       c.island
-        ? `- One free-standing island, ${c.island.lengthCm} × ${c.island.widthCm} cm, its long side parallel to wall A, in the open floor between the runs.`
+        ? `- One free-standing island, ${islandSize(c.island)}, its long side parallel to ${c.island.lengthCm >= c.island.widthCm ? 'walls A and C' : 'walls B and D'}, in the open floor between the runs.`
         : '- No island and no peninsula.'
     )
   }

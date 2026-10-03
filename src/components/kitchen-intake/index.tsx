@@ -1138,6 +1138,7 @@ export function KitchenIntake({
                 spaceVision={spaceVision}
                 onSpaceVisionChange={handleSpaceVisionChange}
                 room={roomProps}
+                confirmHypothesis={builderHyp}
                 roomMeasured={roomMeasuredNow}
                 onMeasureRoom={() => {
                   setRoomPhase('measure')
@@ -1276,6 +1277,13 @@ export function KitchenIntake({
 
 interface StepBodyProps {
   stepId: FlowStepId
+  /**
+   * The render read as the builder sees it: decor only once the room step is
+   * done (so the confirm tally is the plan's), the full read for a journey
+   * from before it — the same hints the builder relocks with, so the confirm
+   * tally and the builder never disagree.
+   */
+  confirmHypothesis: BuilderHypothesis | null
   /** The room step (IMP-31): its own props, built by the intake. */
   room: RoomStepProps
   /** Every wall the kitchen stands on has a typed length — the render's gate. */
@@ -1329,6 +1337,7 @@ interface StepBodyProps {
 function StepBody(props: StepBodyProps) {
   const {
     stepId,
+    confirmHypothesis,
     room,
     roomMeasured,
     onMeasureRoom,
@@ -1447,12 +1456,24 @@ function StepBody(props: StepBodyProps) {
             autoStart
             roomMeasured={roomMeasured}
             onMeasureRoom={onMeasureRoom}
-            room={roomConstraintsFor({
-              plan: floorPlan ?? profile.floorPlan,
-              existing: profile.existingFloorPlan,
-              intent: profile.layoutIntent,
-              existingRoom: profile.existingRoom,
-            })}
+            room={
+              // The live plan when its walls are known; otherwise the plan the
+              // room step committed — never a render without the room.
+              roomConstraintsFor({
+                plan: floorPlan ?? profile.floorPlan,
+                existing: profile.existingFloorPlan,
+                intent: profile.layoutIntent,
+                existingRoom: profile.existingRoom,
+                sinkAnswer: profile.trades?.plumbing?.sinkPosition,
+              }) ??
+              roomConstraintsFor({
+                plan: profile.floorPlan,
+                existing: profile.existingFloorPlan,
+                intent: profile.layoutIntent,
+                existingRoom: profile.existingRoom,
+                sinkAnswer: profile.trades?.plumbing?.sinkPosition,
+              })
+            }
             photoViews={spaceVision?.photoViews}
           />
         </StepFrame>
@@ -1508,6 +1529,7 @@ function StepBody(props: StepBodyProps) {
           {reviewContract && (
             <LayoutConfirm
               contract={reviewContract}
+              hypothesis={confirmHypothesis}
               plan={floorPlan}
               onPlanChange={onContractPlanChange}
               edits={unitEdits}
