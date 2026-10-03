@@ -510,6 +510,11 @@ export const hrHR = {
   'wrapup.row.worktop': 'Radna ploča',
   'wrapup.row.backsplash': 'Zidna obloga',
   'wrapup.row.sinkPosition': 'Pozicija sudopera',
+  // The sink row, in words (IMP-32) — from today's room vs the plan, never the stored answer as it is.
+  'wrapup.trades.stays': 'ostaje gdje je',
+  'wrapup.trades.moves': 'seli se na zid {to}',
+  'wrapup.trades.movesOpen': 'seli se — mjesto dogovaraš s izrađivačem',
+  'wrapup.trades.new': 'novi priključak',
   'wrapup.row.cookerType': 'Vrsta ploče za kuhanje',
   'wrapup.row.gas': 'Plin dostupan',
   'wrapup.row.ventPath': 'Željeni odvod nape',
@@ -1131,8 +1136,8 @@ export const hrHR = {
   'maker.spec.scope': 'Opseg',
   'maker.spec.structural': 'Građevinski zahvati',
   'maker.spec.loadBearing': 'Nosivi zid',
-  'maker.spec.plumbing': 'Vodovod',
   // Do the sink and the hob move (IMP-32) — from today's room vs the working plan.
+  'maker.spec.trades': 'Voda / plin',
   'maker.trades.moves': 'se sele',
   'maker.trades.stays': 'ostaju na mjestu',
   'maker.trades.new': 'nova instalacija — prostor danas bez kuhinje',

@@ -495,6 +495,11 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.row.worktop': 'Worktop',
   'wrapup.row.backsplash': 'Wall cladding',
   'wrapup.row.sinkPosition': 'Sink position',
+  // The sink row, in words (IMP-32) — from today's room vs the plan, never the stored answer as it is.
+  'wrapup.trades.stays': 'stays where it is',
+  'wrapup.trades.moves': 'moves to wall {to}',
+  'wrapup.trades.movesOpen': 'moves — you agree the spot with your maker',
+  'wrapup.trades.new': 'new connection',
   'wrapup.row.cookerType': 'Cooker type',
   'wrapup.row.gas': 'Gas available',
   'wrapup.row.ventPath': 'Vent path desired',
@@ -1106,8 +1111,8 @@ export const enUS: Record<TranslationKey, string> = {
   'maker.spec.scope': 'Scope',
   'maker.spec.structural': 'Structural',
   'maker.spec.loadBearing': 'Wall load-bearing',
-  'maker.spec.plumbing': 'Plumbing',
   // Do the sink and the hob move (IMP-32) — from today's room vs the working plan.
+  'maker.spec.trades': 'Water / gas',
   'maker.trades.moves': 'moving',
   'maker.trades.stays': 'staying put',
   'maker.trades.new': 'new installation — no kitchen in the room today',

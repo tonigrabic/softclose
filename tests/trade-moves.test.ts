@@ -3,15 +3,22 @@
  *
  * `tradeMoves` compares the room as it is today (room step) with the working
  * plan the homeowner confirmed, then the sink answer, then the intent. These
- * pin the rule order (geometry first), the confidence each rule carries, and
- * the maker's line built from it.
+ * pin the rule order (geometry first), the confidence each rule carries, the
+ * maker's line built from it, and the two places it is shown: the brief's
+ * "Voda / plin" row (with lettered walls on the schematic) and the
+ * homeowner's wrap-up sink row.
  */
 import { describe, expect, test } from 'vitest'
 import { MOCK_SPACE_VISION } from '@/lib/api/mock-fixtures/space-vision'
 import { tDynamic, type Locale } from '@/lib/i18n/core'
+import { hrHR } from '@/lib/i18n/locales/hr-HR'
+import { buildHandoffBundle } from '@/lib/handoff/bundle'
+import type { LeadProfile } from '@/lib/types'
 import {
   counterWalls,
   describeTradeMoves,
+  homeownerSinkLine,
+  makerTradesRow,
   roomPlanFromVision,
   tradeMoves,
   tradeMovesFromProfile,
@@ -262,5 +269,118 @@ describe('describeTradeMoves — the maker\'s line', () => {
     }
     const en = describeTradeMoves(tradeMoves(room, withSinkOnWall(working, 'left'), 'keep'), (k) => tDynamic(k, 'en-US'))!
     expect(en).toEqual({ headline: 'moving', detail: 'sink: wall A → wall D · hob stays on wall A' })
+  })
+})
+
+describe('the brief\'s "Voda / plin" row', () => {
+  const room = measuredRoom()
+  const working = workingPlanFromRoom(room, 'keep')
+
+  test('the sink to D: one line, as sure as today\'s photo read', () => {
+    expect(makerTradesRow(tradeMoves(room, withSinkOnWall(working, 'left'), 'keep'), hr)).toEqual({
+      value: 'se sele — sudoper: zid A → zid D · ploča ostaje na zidu A',
+      confidence: 'H',
+      source: 'ai_vision',
+    })
+  })
+
+  test('the weakest known part sets the pills; an unknown part does not count', () => {
+    const unsure = { ...room, features: room.features.map((f) => (f.kind === 'sink' ? { ...f, confidence: 'M' as const } : f)) }
+    expect(makerTradesRow(tradeMoves(unsure, withSinkOnWall(working, 'left'), 'keep'), hr)).toMatchObject({
+      confidence: 'M',
+      source: 'ai_vision',
+    })
+    expect(makerTradesRow(tradeMoves(room, workingPlanFromRoom(room, 'add_island'), 'add_island'), hr)).toMatchObject({
+      value: 'ostaju na mjestu — sudoper ostaje na zidu A · ploča ostaje na zidu A',
+      confidence: 'M',
+      source: 'inferred',
+    })
+    // Change, no hob read today: the sink stays at L (inferred); the unknown hob has no say.
+    const noHob = { ...room, features: room.features.filter((f) => f.kind !== 'hob') }
+    expect(makerTradesRow(tradeMoves(noHob, working, 'change'), hr)).toEqual({
+      value: 'nepoznato — provjeri na izmjeri — sudoper ostaje na zidu A · ploča nije prepoznata na fotografijama',
+      confidence: 'L',
+      source: 'inferred',
+    })
+  })
+
+  test('an empty room with nothing drawn: the headline alone', () => {
+    const bare = validate({ ...working, features: [] })
+    expect(makerTradesRow(tradeMoves(undefined, bare, undefined, { existingRoom: 'empty' }), hr)).toEqual({
+      value: 'nova instalacija — prostor danas bez kuhinje',
+      confidence: 'H',
+      source: 'homeowner',
+    })
+  })
+
+  test('both unknown: no row', () => {
+    expect(makerTradesRow(tradeMoves(null, null, undefined), hr)).toBeNull()
+  })
+
+  test('the stored answer never reaches the brief as an English word', () => {
+    expect(hrHR).not.toHaveProperty('maker.spec.plumbing')
+    for (const sinkPosition of ['same', 'moving', 'new'] as const) {
+      for (const locale of ['hr-HR', 'en-US'] as Locale[]) {
+        const row = makerTradesRow(
+          tradeMovesFromProfile({ existingFloorPlan: room, floorPlan: working, trades: { plumbing: { sinkPosition } } }),
+          (k) => tDynamic(k, locale)
+        )!
+        expect(row.value).not.toMatch(/maker\.trades|\{|\}/)
+        if (locale === 'hr-HR') expect(row.value).not.toMatch(/\b(same|moving|new)\b/)
+      }
+    }
+  })
+
+  test('the bundle\'s profile is enough: the row is derived from bundle.brief, and the schematic is lettered', () => {
+    const brief: LeadProfile = {
+      existingFloorPlan: room,
+      floorPlan: withSinkOnWall(working, 'left'),
+      layoutIntent: 'keep',
+      existingRoom: 'kitchen',
+    }
+    const bundle = buildHandoffBundle({ brief })
+    expect(makerTradesRow(tradeMovesFromProfile(bundle.brief), hr)?.value).toBe(
+      'se sele — sudoper: zid A → zid D · ploča ostaje na zidu A'
+    )
+    const svg = bundle.floorPlan!.svg
+    for (const [wall, letter] of [['top', 'A'], ['right', 'B'], ['bottom', 'C'], ['left', 'D']]) {
+      expect(svg).toContain(`data-wall-letter="${wall}"`)
+      expect(svg).toMatch(new RegExp(`data-wall-letter="${wall}">.*?>${letter}</text>`))
+    }
+  })
+})
+
+describe('the wrap-up\'s sink row (homeowner)', () => {
+  const room = measuredRoom()
+  const working = workingPlanFromRoom(room, 'keep')
+
+  test('in words, by status', () => {
+    expect(homeownerSinkLine(tradeMoves(room, working, 'keep').sink, hr)).toBe('ostaje gdje je')
+    expect(homeownerSinkLine(tradeMoves(room, withSinkOnWall(working, 'left'), 'keep').sink, hr)).toBe('seli se na zid D')
+    expect(homeownerSinkLine(tradeMoves(room, working, 'move_sink').sink, hr)).toBe(
+      'seli se — mjesto dogovaraš s izrađivačem'
+    )
+    expect(homeownerSinkLine(tradeMoves(undefined, working, undefined, { existingRoom: 'empty' }).sink, hr)).toBe(
+      'novi priključak'
+    )
+  })
+
+  test('unknown hides the row', () => {
+    expect(homeownerSinkLine(tradeMoves(undefined, working, undefined).sink, hr)).toBeNull()
+  })
+
+  test('follows the locale; no raw key, no empty slot, never the stored answer', () => {
+    const en = (k: string) => tDynamic(k, 'en-US')
+    expect(homeownerSinkLine(tradeMoves(room, withSinkOnWall(working, 'left'), 'keep').sink, en)).toBe('moves to wall D')
+    for (const sinkPosition of ['same', 'moving', 'new'] as const) {
+      for (const locale of ['hr-HR', 'en-US'] as Locale[]) {
+        const line = homeownerSinkLine(
+          tradeMovesFromProfile({ existingFloorPlan: room, floorPlan: working, trades: { plumbing: { sinkPosition } } }).sink,
+          (k) => tDynamic(k, locale)
+        )!
+        expect(line).not.toMatch(/wrapup\.trades|\{|\}/)
+        expect(line).not.toBe(sinkPosition)
+      }
+    }
   })
 })

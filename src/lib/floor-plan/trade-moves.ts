@@ -17,6 +17,9 @@
  * Features are matched by kind, never by id (today's room and the working
  * plan are separate objects), and a shift along the same wall never counts as
  * a move — the pipes stay on that wall.
+ *
+ * The brief and the wrap-up derive this when they render, from the profile the
+ * bundle already carries — there is no stored copy to go stale.
  */
 import type { ConfidenceLevel, LayoutIntent, LeadProfile, WallSide } from '@/lib/types'
 import type { ElementSource, Feature, FloorPlan } from './model'
@@ -164,4 +167,43 @@ export function describeTradeMoves(
     .filter(Boolean)
     .join(' · ')
   return { headline: tr(`maker.trades.${headline}`), detail }
+}
+
+/**
+ * The maker brief's "Voda / plin" row: the headline and the detail on one
+ * line, with the confidence and source of the weakest part that is known —
+ * a move is only as sure as the read it rests on. Null when neither part is
+ * known, so the row hides itself.
+ */
+export function makerTradesRow(
+  tm: TradeMoves,
+  tr: (key: string) => string
+): { value: string; confidence: ConfidenceLevel; source: ElementSource } | null {
+  const line = describeTradeMoves(tm, tr)
+  let weakest: { confidence: ConfidenceLevel; source: ElementSource } | null = null
+  for (const m of [tm.sink, tm.hob]) {
+    if (m.status === 'unknown' || !m.confidence || !m.source) continue
+    if (!weakest || RANK[m.confidence] < RANK[weakest.confidence]) {
+      weakest = { confidence: m.confidence, source: m.source }
+    }
+  }
+  if (!line || !weakest) return null
+  return { value: line.detail ? `${line.headline} — ${line.detail}` : line.headline, ...weakest }
+}
+
+/**
+ * The homeowner's wrap-up line for the sink (`wrapup.trades.*`), in words —
+ * never the stored answer as it is. Null when unknown, so the row hides.
+ */
+export function homeownerSinkLine(m: TradeMove, tr: (key: string) => string): string | null {
+  switch (m.status) {
+    case 'stays':
+      return tr('wrapup.trades.stays')
+    case 'moves':
+      return m.toWall ? tr('wrapup.trades.moves').replace('{to}', WALL_LETTER[m.toWall]) : tr('wrapup.trades.movesOpen')
+    case 'new':
+      return tr('wrapup.trades.new')
+    case 'unknown':
+      return null
+  }
 }

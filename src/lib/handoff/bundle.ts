@@ -9,7 +9,7 @@
  * Pure: no DB, no network, no cookies. That also keeps it directly testable,
  * which the route it came from no longer will be once it reads a session.
  */
-import { hasPlan, planFromProfile, renderFloorPlanSvg, validate } from '@/lib/floor-plan'
+import { WALL_LETTER, hasPlan, planFromProfile, renderFloorPlanSvg, validate } from '@/lib/floor-plan'
 import { computeBom } from '@/lib/builder/bom'
 import { makerPricingEntryCount } from '@/lib/catalog/maker-pricing'
 import type { BuilderState } from '@/lib/builder/inventory'
@@ -52,7 +52,8 @@ export function buildHandoffBundle(input: HandoffBundleInput): HandoffBundle {
       floorPlan = {
         plan: validated,
         // Maker mode: solid lines, provenance shown by the dashboard, not by dashing.
-        svg: renderFloorPlanSvg(validated, { mode: 'maker' }),
+        // Wall letters, so the trades row's "zid A → zid D" points at a wall.
+        svg: renderFloorPlanSvg(validated, { mode: 'maker', wallLetters: WALL_LETTER }),
         disclaimer: PLAN_DISCLAIMER,
       }
     }

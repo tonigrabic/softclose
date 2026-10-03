@@ -8,9 +8,18 @@ import type {
   ConceptVisualRef,
   HandoffBundle,
   LeadProfile,
+  WallSide,
   WrapUpData,
 } from '@/lib/types'
-import { hasPlan, planFromProfile } from '@/lib/floor-plan'
+import {
+  WALL_LETTER,
+  counterWalls,
+  hasPlan,
+  homeownerSinkLine,
+  isValidWallLength,
+  planFromProfile,
+  tradeMovesFromProfile,
+} from '@/lib/floor-plan'
 import { builderPickLabels } from '@/lib/builder/pick-labels'
 import { useTranslations, type TranslationKey } from '@/lib/i18n'
 import { FloorPlanStatic } from './FloorPlanStatic'
@@ -74,6 +83,23 @@ export function WrapUpScreen({
 
   const plan = planFromProfile(profile)
   const showPlan = hasPlan(profile) && plan !== null
+  // Does the sink move (IMP-32)? Today's room vs the confirmed plan, the intent
+  // and the confirm step's answer — in words, hidden when nobody knows.
+  const tradeMoves = tradeMovesFromProfile(profile)
+  const sinkLine = homeownerSinkLine(tradeMoves.sink, td)
+  // The room step's letters on the plan picture, so "seli se na zid D" points
+  // at a wall: the counter walls and wherever the sink and hob are drawn;
+  // filled once measured, as on the room step.
+  const letterWalls: WallSide[] = plan
+    ? [...new Set([...counterWalls(plan), tradeMoves.sink.toWall, tradeMoves.hob.toWall])].filter(
+        (w): w is WallSide => w !== null
+      )
+    : []
+  const tradeRows = {
+    cookerType: profile.trades?.electrical?.cookerType && humanize(profile.trades.electrical.cookerType),
+    gas: profile.trades?.gas?.available && humanize(profile.trades.gas.available),
+    ventPath: profile.trades?.ventilation?.desiredPath && humanize(profile.trades.ventilation.desiredPath),
+  }
   const moodBoard = profile.moodBoardItems ?? []
   const chosenRender = profile.conceptRenders?.find((r) => r.id === profile.conceptRenderChosenId)
   const picks = builderPickLabels(profile.builderState, locale)
@@ -354,7 +380,12 @@ export function WrapUpScreen({
       {/* Floor plan */}
       {showPlan && plan && (
         <SectionWithFix title={t('wrapup.section.space')} onFix={null}>
-          <FloorPlanStatic plan={plan} mode="homeowner" />
+          <FloorPlanStatic
+            plan={plan}
+            mode="homeowner"
+            wallLetters={Object.fromEntries(letterWalls.map((w) => [w, WALL_LETTER[w]]))}
+            wallLettersDone={letterWalls.filter((w) => isValidWallLength(plan.room.sides[w].measuredLengthCm))}
+          />
         </SectionWithFix>
       )}
 
@@ -397,27 +428,13 @@ export function WrapUpScreen({
         </BriefSection>
       )}
 
-      {/* Trades */}
-      {profile.trades && Object.keys(profile.trades).length > 0 && (
+      {/* Trades — shown when any row has something to say. */}
+      {(sinkLine || tradeRows.cookerType || tradeRows.gas || tradeRows.ventPath) && (
         <BriefSection title={t('wrapup.section.trades')} onFix={null}>
-          <SummaryRow
-            label={t('wrapup.row.sinkPosition')}
-            value={profile.trades.plumbing?.sinkPosition && humanize(profile.trades.plumbing.sinkPosition)}
-          />
-          <SummaryRow
-            label={t('wrapup.row.cookerType')}
-            value={profile.trades.electrical?.cookerType && humanize(profile.trades.electrical.cookerType)}
-          />
-          <SummaryRow
-            label={t('wrapup.row.gas')}
-            value={profile.trades.gas?.available && humanize(profile.trades.gas.available)}
-          />
-          <SummaryRow
-            label={t('wrapup.row.ventPath')}
-            value={
-              profile.trades.ventilation?.desiredPath && humanize(profile.trades.ventilation.desiredPath)
-            }
-          />
+          <SummaryRow label={t('wrapup.row.sinkPosition')} value={sinkLine} />
+          <SummaryRow label={t('wrapup.row.cookerType')} value={tradeRows.cookerType} />
+          <SummaryRow label={t('wrapup.row.gas')} value={tradeRows.gas} />
+          <SummaryRow label={t('wrapup.row.ventPath')} value={tradeRows.ventPath} />
         </BriefSection>
       )}
 

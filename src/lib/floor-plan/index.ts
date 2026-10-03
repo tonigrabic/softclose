@@ -91,7 +91,13 @@ export {
   withSinkAsToday,
 } from './measure'
 export type { RoomCard } from './measure'
-export { tradeMoves, tradeMovesFromProfile, describeTradeMoves } from './trade-moves'
+export {
+  tradeMoves,
+  tradeMovesFromProfile,
+  describeTradeMoves,
+  makerTradesRow,
+  homeownerSinkLine,
+} from './trade-moves'
 export type { TradeStatus, TradeMove, TradeMoves, SinkAnswer } from './trade-moves'
 export type { RawVisionRead, RawPhotoView } from './vision-reconcile'
 export type { SvgRenderMode } from './svg'

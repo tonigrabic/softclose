@@ -5,7 +5,13 @@ import { ArrowLeft, Check, AlertTriangle, MessageCircle, X, Quote } from 'lucide
 import type { HandoffBundle, LeadProfile, TranslatedField } from '@/lib/types'
 import type { BomLineItem } from '@/lib/builder/bom'
 import type { FloorPlan } from '@/lib/floor-plan'
-import { formatLength, renderFloorPlanSvg } from '@/lib/floor-plan'
+import {
+  WALL_LETTER,
+  formatLength,
+  makerTradesRow,
+  renderFloorPlanSvg,
+  tradeMovesFromProfile,
+} from '@/lib/floor-plan'
 import { useTranslations, type Locale } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { contactChannels } from '@/lib/contact'
@@ -195,12 +201,14 @@ function listFromTrue(obj: Record<string, unknown> | undefined): string[] | null
 }
 
 /** The stored plan drawn now, in the viewer's language — briefs keep their plan
- *  as data, and an SVG saved before a drawing fix would otherwise keep the bug. */
+ *  as data, and an SVG saved before a drawing fix would otherwise keep the bug.
+ *  Every wall carries its letter, so "zid A → zid D" in the trades row points
+ *  at something (the homeowner learned the same letters on the room step). */
 function useSchematicSvg(floorPlan: HandoffBundle['floorPlan'], locale: Locale): string | null {
   return useMemo(() => {
     if (!floorPlan) return null
     try {
-      return renderFloorPlanSvg(floorPlan.plan, { mode: 'maker', locale })
+      return renderFloorPlanSvg(floorPlan.plan, { mode: 'maker', locale, wallLetters: WALL_LETTER })
     } catch {
       return floorPlan.svg
     }
@@ -214,6 +222,11 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: M
   const summary = bundle.estimate
   const plan = bundle.floorPlan?.plan ?? null
   const schematicSvg = useSchematicSvg(bundle.floorPlan, locale)
+  // Do the water and the gas move (IMP-32)? Derived from the stored profile —
+  // today's room, the confirmed plan, the intent and the sink answer — so old
+  // briefs get later wording fixes too.
+  const tradeMoves = useMemo(() => tradeMovesFromProfile(profile), [profile])
+  const tradesRow = makerTradesRow(tradeMoves, td)
 
   /** An enum value in words — its label from `<family>.<value>`, else humanized. */
   const opt = (family: string, value: string | null | undefined): string | null => {
@@ -506,12 +519,14 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: M
                 source="homeowner"
               />
 
-              <FieldRow
-                label={t('maker.spec.plumbing')}
-                value={opt('option.sinkPosition', profile.trades?.plumbing?.sinkPosition)}
-                confidence="M"
-                source="homeowner"
-              />
+              {tradesRow && (
+                <FieldRow
+                  label={t('maker.spec.trades')}
+                  value={tradesRow.value}
+                  confidence={tradesRow.confidence}
+                  source={planSource(tradesRow.source)}
+                />
+              )}
               <FieldRow
                 label={t('maker.spec.cooker')}
                 value={opt('option.cookerType', profile.trades?.electrical?.cookerType)}
