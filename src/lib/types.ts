@@ -514,10 +514,25 @@ export interface HandoffEstimate {
   bandPct?: number
   /**
    * Maker-only B2B cost basis for the all-in figure (retail stays the
-   * homeowner number). Present only when the maker has supplied B2B prices
-   * (src/lib/catalog/maker-pricing.json); omitted otherwise.
+   * homeowner number), at cost: no workshop margin. Present only when the
+   * maker has supplied B2B prices (src/lib/catalog/maker-pricing.json);
+   * omitted otherwise. Stripped from the customer's response (toCustomerBundle).
    */
   makerCost?: { low: number; high: number }
+  /**
+   * MAKER-ONLY. The works at cost (material + make + install, before the
+   * margin), what the workshop margin adds, and the margin in percent. For the
+   * brief page; stored with the brief, stripped from the customer's response
+   * (toCustomerBundle). Absent on briefs priced before IMP-04.
+   */
+  maker?: import('@/lib/builder/bom').BomMakerOnly
+  /**
+   * How the range was priced. 'gross-margin-v1' (IMP-04): every line incl.
+   * PDV, workshop margin inside material + make. Absent ⇒ a brief priced
+   * before IMP-04, at net cost with no margin: flag it as the old calculation
+   * and keep it out of the ±20% hit rate (its quotes land high by design).
+   */
+  priceBasis?: 'gross-margin-v1'
   /**
    * The build line by line, priced by the same computeBom call as the totals
    * above so the two always agree. Stored at submit because prices and the

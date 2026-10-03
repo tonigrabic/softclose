@@ -167,6 +167,11 @@ const out = {
   source: {
     file: 'data/' + pdfPath.split('/').pop(),
     validFrom,
+    // Price basis of the veleprodajni cjenik: incl. PDV (Toni, 2026-10-03).
+    // computeBom grosses nothing up, so a reissue that changes this must be
+    // re-checked before the estimate uses it (tests/price-basis.test.ts).
+    vatBasis: 'gross',
+    vatBasisSource: 'Toni 2026-10-03: cjenik i MPC uključuju PDV',
     parsedAt: new Date().toISOString(),
   },
   rowCount: rows.length,

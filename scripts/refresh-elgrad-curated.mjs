@@ -53,6 +53,9 @@ for (const d of curated.decors) {
 
 curated.source = {
   ...curated.source,
+  // The price basis follows the parse it came from (incl. PDV, IMP-04).
+  vatBasis: raw.source?.vatBasis ?? curated.source.vatBasis,
+  vatBasisSource: raw.source?.vatBasisSource ?? curated.source.vatBasisSource,
   pdfFile: raw.source?.file ?? curated.source.pdfFile,
   validFrom: raw.source?.validFrom ?? curated.source.validFrom,
   extractedAt: new Date().toISOString().slice(0, 10),

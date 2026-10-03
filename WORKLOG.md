@@ -1368,3 +1368,120 @@ Migration 0007 applied to the local stack only — production pending (run the
 read-only pre-check in its header first).
 
 Gate: 673 tests · tsc · eslint · next build green.
+
+### 2026-10-03 — IMP-04 step 1: the range is a price — gross, workshop margin in, ±10% floor
+Spec item 5 (IMPROVEMENTS.md), Decisions 1 and 2. Until now the works range was
+the shop's cost sheet: Elgrad board prices plus raw labour hours, with no
+margin. It was shown to the homeowner as what the kitchen costs.
+
+- **Price basis.** Every Elgrad source includes PDV (Toni, 2026-10-03: the
+  veleprodajni cjenik and the webshop MPC alike), so nothing is grossed up.
+  `vatBasis: "gross"` plus `vatBasisSource: "Toni 2026-10-03: cjenik i MPC
+  uključuju PDV"` now sit in the `source` block of `elgrad-decors.json`,
+  `elgrad-decors-raw.json`, `elgrad-services.json` and `elgrad-products.json`,
+  and in what writes them: `parse-elgrad-cjenik.mjs` and
+  `build-elgrad-catalog.mjs` write them, and `refresh-elgrad-curated.mjs` carries them over
+  from the raw parse. Typed (`CatalogVatBasis`), and `elgrad-services.json`
+  now has a type instead of its cast.
+- **Rate card.** New `src/lib/catalog/rate-card.ts`: `RateCard`
+  (`workshopMargin {0.25, 0.35, markup_on_cost}`, `bandFloorHalfPct: 10`,
+  `labourVatBasis: 'gross'`, `labour`). `LABOUR_RATES` has moved there
+  unchanged. Also exports `DEFAULT_RATE_CARD`, `appliedMargin` (the midpoint)
+  and `withoutMargin`. `computeBom(…, { rates })` defaults to it. IMP-21 swaps
+  in the maker's row.
+- **Margin.** Every `works` line of kind material or make is multiplied by one
+  factor, 1.30, applied to the rounded net line. Install and goods carry no
+  margin. Using one factor on both ends keeps the margin from widening the
+  band: it is the maker's choice, not uncertainty. Using 25 % on `low` and 35 %
+  on `high` would have pushed l-shape and u-shape past ±21. The lines still add
+  up to the works range unless the band is clamped.
+- **Band floor.** `floorBand` sits next to `capBand` and is applied after it,
+  clamped so the two cannot cross. `sections.works.bandFloored` is set when it
+  fires. Decision 2 cites "LOOP Q6", which does not exist: LOOP.md:49 says "See
+  Q6", but there is no Q6 anywhere. The floor is implemented from the decision
+  text alone.
+- **Maker-only.** `BomEstimate.makerOnly = { net, margin, marginPct }`. `net` is
+  material + make + install at cost. `net + margin` equals the sum of the works
+  lines before any cap or floor. The bundle stores it as `estimate.maker`, next
+  to `priceBasis: 'gross-margin-v1'`. `makerCost` (the B2B basis) is now priced
+  `withoutMargin`. New `toCustomerBundle()` drops `maker` and `makerCost`, and
+  all three `Response.json(bundle)` calls in `/api/handoff` go through it. The
+  database row and the maker email keep the full bundle. This delivers half of
+  IMP-05's done-when early; IMP-05 still has its UI work. Side effect: the
+  wrap-up's "Demo: pogledaj što vidi izrađivač" button now renders without the
+  maker-only block. IMP-05 removes that button anyway.
+
+**Where the 30 % comes from: nowhere sourced, a placeholder for IMP-21.** No
+maker margin or overhead figure exists in context/, LOOP, PLAN, WORKLOG or
+data/. The only number in the repo is the 2026-10-02 audit's illustrative
+`marginPct: {low: 0.30, high: 0.45}` (context/audit-2026-10-02-findings.md:499,
+no source given). I apply its lower bound and keep the band's top (35 %) under
+its 45 %, for three reasons. Hardware, accessories and lighting are already
+retail prices with VAT, so margin on them stacks on a retailer's margin.
+Labour's VAT basis is unconfirmed. And IMP-21 replaces this with the maker's
+own figure.
+
+**Snapshots regenerated once (`vitest -u`, this step only).** Reason: gross
+pricing with 30 % on material + make, plus the ±10 floor. With zero margin the
+untouched totals reproduce the old snapshot exactly (`makerOnly.net` = old
+total on all six), so the margin is the only thing that moved the untouched
+figures.
+
+| fixture | old range € | new range € | ± untouched | ± confirmed |
+|---|---|---|---|---|
+| l-shape | 4,266–5,899 | 5,291–7,376 | 16 → 17 | 13 → 14 |
+| u-shape | 6,929–9,622 | 8,592–12,026 | 17 → 17 | 14 → 14 |
+| galley | 4,519–5,966 | 5,599–7,436 | 14 → 14 | 11 → 11 |
+| island | 3,696–4,678 | 4,564–5,803 | 12 → 12 | 9 → **10** (floor) |
+| peninsula | 5,173–6,665 | 6,384–8,271 | 13 → 13 | 10 → 10 (floor) |
+| single | 2,377–3,134 | 2,938–3,897 | 14 → 14 | 11 → 11 |
+
+Two results differ from the plan's table:
+- **l-shape confirmed is ±14, not 13.** Its full width went from 26 % to 27 %
+  through per-line rounding: the plan's "about +0.3 points" landing on a
+  rounding edge.
+- **The floor also fires on peninsula confirmed.** Its raw width was about 19 %,
+  so the displayed ± was already 10 and does not change. It is still a
+  floored band: `bandFloored = true`, and the lines no longer add up to the
+  headline.
+
+Band-invariant is still ≤ ±20 on every fixture.
+
+**Hit rate.** Briefs with no `priceBasis` were priced at net cost with no
+margin. The ±20% hit-rate query above (IMP-03) should add
+`and bundle->'estimate'->>'priceBasis' = 'gross-margin-v1'`, or flag the older
+briefs by date, so the old calculation does not bias the rate low.
+
+**Open questions for Toni.**
+1. *Labour VAT basis is unknown.* `LABOUR_RATES` come from the maker's cost
+   sheet (commit 4b56e21), and "all gross" covers Elgrad only. Labour is
+   treated as gross, following "nothing is grossed up"; `labourVatBasis`
+   records that assumption. If labour is actually net, the headline
+   understates it by 25 % of the labour lines, roughly 300–750 € on the
+   fixtures (single to u-shape, make lines with their margin). The
+   hard-coded carcass board rates (13 and 16 €/m²), the backsplash, plinth and
+   fallback rates have the same open question.
+2. *Margin on retail lines.* Hardware, accessories and lighting are already
+   retail prices with VAT, so 30 % on top stacks two margins. This follows the
+   decision as written. IMP-21 could set the margin per kind of line.
+3. *The default margin ships in client JS.* `computeBom` runs in the live
+   panel, so the 30 % can be read from the page code. That is fine for a
+   placeholder. IMP-21 should decide whether a maker's real margin may reach
+   customer clients.
+4. *Adjacent "ponuda" label.* `journey.act.offer` "Vaša ponuda" (hr-HR,
+   `JourneyNavRail.tsx:193`) labels the finished journey "ponuda". It is
+   outside IMP-04's files, so it is flagged here, not fixed.
+
+Tests: new `tests/price-basis.test.ts`, covering:
+- the rate card defaults;
+- each material/make line = round(net × 1.30), with install and goods
+  unchanged against a zero-margin run, on all six fixtures;
+- `makerOnly`: net = the works at cost, and net + margin = the lines;
+- the lines adding up to the headline unless capped or floored;
+- `vatBasis: 'gross'` in all four Elgrad files and in each script that writes
+  them;
+- `toCustomerBundle` stripping `maker` and `makerCost`, and the route answering
+  only through it.
+
+`floorBand` units are in band-cap. Band-invariant adds "fully confirmed works
+band within ±10…±20" for every fixture. 719 tests · tsc · eslint green.

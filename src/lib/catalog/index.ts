@@ -63,9 +63,25 @@ export interface CatalogDecor {
   prices: DecorPrices
 }
 
+/**
+ * Whether a source's prices include PDV. Every Elgrad source is 'gross': the
+ * webshop (MPC) and the veleprodajni cjenik both include it (Toni,
+ * 2026-10-03). computeBom grosses nothing up, so a 'net' source would
+ * understate the homeowner's range by 25 %; tests/price-basis.test.ts holds
+ * every Elgrad file to 'gross'.
+ */
+export type VatBasis = 'gross'
+
+/** Price-basis metadata carried in every Elgrad catalog file's `source`. */
+export interface CatalogVatBasis {
+  vatBasis: VatBasis
+  /** Who said so, and when. */
+  vatBasisSource: string
+}
+
 interface DecorsCatalog {
   schema: { version: string; currency: string }
-  source: { supplier: string; pdfFile: string; validFrom: string }
+  source: CatalogVatBasis & { supplier: string; pricelist: string; pdfFile: string; validFrom: string }
   defaults: {
     edgeBandingPerM: number
     doorThicknessMm: number
@@ -79,12 +95,22 @@ interface DecorsCatalog {
 export const decorsCatalog = elgradDecorsJson as DecorsCatalog
 export const decors: CatalogDecor[] = decorsCatalog.decors
 
-export const services = elgradServicesJson as {
+interface ServicesCatalog {
+  schema: { version: string; currency: string }
+  source: CatalogVatBasis & {
+    supplier: string
+    pdfFile: string
+    pdfPage: number
+    validFrom: string
+    extractedAt: string
+  }
   cutting: Record<string, number>
   edgeBanding: Record<string, number>
   cncMachining: Record<string, number>
   pressing: Record<string, number>
 }
+
+export const services = elgradServicesJson as ServicesCatalog
 
 /** Lookup helpers used by the picker UI and the BOM calculator. */
 export function findDecor(code: string, structure?: string): CatalogDecor | null {

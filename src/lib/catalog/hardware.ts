@@ -11,6 +11,7 @@
  */
 import schachermayerJson from './schachermayer-hardware.json'
 import elgradJson from './elgrad-products.json'
+import type { CatalogVatBasis } from './index'
 
 export interface SchachermayerProduct {
   name: string
@@ -57,7 +58,7 @@ const catalog = schachermayerJson as unknown as SchachermayerCatalog
 
 interface ElgradCatalog {
   schema: { version: string }
-  source: { supplier: string; url: string; priceBasis: string; generatedAt: string }
+  source: CatalogVatBasis & { supplier: string; url: string; priceBasis: string; generatedAt: string }
   bands: Record<string, PriceBand>
   products: Array<{
     supplier: 'elgrad'
