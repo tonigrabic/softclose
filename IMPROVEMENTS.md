@@ -12,7 +12,7 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 | 2 | IMP-31 | Room first: vision reconciles all photos, homeowner confirms shape and measures | high | M | main (IMP-11 first is recommended, not required) | todo |
 | 3 | IMP-32 | Render constrained by the measured room; light post-render confirm | high | M | IMP-31 | todo |
 | 4 | IMP-03 | Maker decision persists and reaches the homeowner | critical | M | main | todo |
-| 5 | IMP-04 | Range states VAT, margin, exclusions; one range line everywhere | critical | M | IMP-01 | todo |
+| 5 | IMP-04 | Range is what the homeowner will pay: gross, margin in, exclusions stated; one range line everywhere | critical | M | IMP-01 | todo |
 | 6 | IMP-05 | Strip maker-only controls and B2B cost from the homeowner wrap-up | high | S | main | todo |
 | 7 | IMP-06 | Builder state autosaves | critical | M | main | todo |
 | 8 | IMP-07 | Review before send; edits after submit are possible | high | M | IMP-06 | todo |
@@ -31,7 +31,7 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 | 21 | IMP-18 | Dashboard: no 404 rows, resend invite, archive, paging, multi-project customers | high | M | main | todo |
 | 22 | IMP-19 | Re-submit versioning with a diff | medium | M | IMP-03 | todo |
 | 23 | IMP-20 | Worktop and hardware pricing bugs | high | M | IMP-04 | todo |
-| 24 | IMP-21 | Rate card out of code | medium | M | IMP-04 | todo |
+| 24 | IMP-21 | Rate card per maker in the database | high | M | IMP-04 | todo |
 | 25 | IMP-22 | Intake dead ends and silent fallbacks | medium | M | IMP-32 | todo |
 | 26 | IMP-23 | AI routes: slim bodies, timeouts, invalid tool calls, logging, audit log | medium | M | main | todo |
 | 27 | IMP-24 | Croatian copy pack | medium | S | main | todo |
@@ -72,11 +72,11 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 **Done when.** Clicking Za ponudu with 6,200 € writes status + amount; the kitchen home shows "{maker} je poslao ponudu"; a test covers the action's ownership check and the status transitions.
 **Stack on.** main.
 
-### 5. IMP-04 — Range states VAT, margin, exclusions; one range line everywhere
+### 5. IMP-04 — Range is what the homeowner will pay: gross, margin in, exclusions stated; one range line everywhere
 **Problem.** Boards are priced from Elgrad's wholesale list and labour from the maker's cost sheet (net, no margin or overhead); appliances and hardware are retail incl. 25% PDV. They are summed into one "Ukupno" and the string "PDV" does not exist in src/. The homeowner sees what the kitchen costs the shop to make, labelled "Sve uključeno". Nothing states what is excluded (removal of the old kitchen, electrical/plumbing, delivery, templating); the scope allowances are dead code since the scope step was cut. Kitchen home and the dashboard print the range bare, with no ± or "maker confirms" line. Rounding differs per surface.
-**Fix.** Add `VAT_RATE = 0.25`, `vatBasis` per catalog source and a margin band (open decision below) to `computeBom`; normalise works to gross for the homeowner, show "Rad radionice i marža" as its own line. Add `assumptions: string[]` to `BomEstimate` built from state (montaža uključena, bez rušenja i odvoza, bez elektro/vodo radova, uređaje nabavlja kupac, cijene s PDV-om). One `RangeLine` component (low–high · ±pct · s PDV-om · "raspon koji {maker} potvrđuje") and one `formatRange` rounding helper used by wrap-up, kitchen home, dashboard, panel, dock, email and brief. Render `estimate.lines` grouped on the wrap-up. Hide the "0 € – 0 €" goods row when the homeowner supplies.
+**Fix.** Decision 2026-10-03: the headline is the amount the homeowner will actually pay, so every line is gross (VAT included) and the workshop margin is inside the number. No VAT line and no margin line on any homeowner surface. In `computeBom` record `vatBasis` per source (webshop and curated prices are confirmed gross; verify the board cjenik header and gross-up only if it says "bez PDV-a"), apply the maker's margin from the rate card (IMP-21) to material + make, and keep the net cost and margin as maker-only fields for the brief page. Add `assumptions: string[]` to `BomEstimate` built from state (montaža uključena, bez rušenja i odvoza, bez elektro/vodo radova, uređaje nabavlja kupac). One `RangeLine` component (low–high · ±pct · "raspon koji {maker} potvrđuje") and one `formatRange` rounding helper used by wrap-up, kitchen home, dashboard, panel, dock, email and brief. Render `estimate.lines` grouped on the wrap-up. Hide the "0 € – 0 €" goods row when the homeowner supplies.
 **Files.** src/lib/builder/bom.ts, src/lib/types.ts, LiveBOMPanel.tsx, MobileRangeDock.tsx, WrapUpScreen.tsx, KitchenHome.tsx, DashboardList.tsx, maker-email.ts, MakerDashboardPreview.tsx, locales, tests/band-invariant + snapshots.
-**Done when.** Every range on every surface carries the PDV line and the assumptions list; fixture snapshots regenerated once with the reason logged; band-invariant still ≤ 20.
+**Done when.** Every range on every surface carries the assumptions list and no VAT or margin line; the board cjenik basis is recorded in the catalog metadata; the maker page shows net cost and margin; fixture snapshots regenerated once with the reason logged; band-invariant still ≤ 20.
 **Stack on.** IMP-01.
 
 ### 6. IMP-05 — Strip maker-only controls and B2B cost from the homeowner wrap-up
@@ -186,7 +186,7 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 
 ### 21. IMP-18 — Dashboard: no 404 rows, resend invite, archive, paging, multi-project customers
 **Problem.** Rows for "pozvan" and "otvorio, stao" link to `/dashboard/project/[id]`, which calls `notFound()` when there is no snapshot, so the two states the maker is told to chase dead-end on a 404; `resendInvite` exists but is wired to nothing. `archived` is never set and hidden rows are still counted; the list caps at 100 with no paging or search. Inviting an address that already has a kitchen with another maker creates a second project by design (they sign in and land on the new one), but their older kitchen is then reachable only by direct link.
-**Fix.** Render a project card (customer, status, invite dates, "Pošalji novi link") instead of 404; "Arhiviraj" action and "Prikaži arhivirane" toggle; "učitaj starije" cursor paging; when a customer has more than one project, `/` shows a short list (newest first) instead of a silent redirect; invites are never refused.
+**Fix.** Render a project card (customer, status, invite dates, "Pošalji novi link") instead of 404; "Arhiviraj" action and "Prikaži arhivirane" toggle; "učitaj starije" cursor paging; `/` for a customer becomes a home page: the walkthrough instructions (what this is, what you need, what you get, who sees it) and the list of their kitchens with status, newest first, each opening /kitchen/[id]; invites are never refused.
 **Files.** src/app/dashboard/project/[id]/page.tsx, LiveProjectView.tsx, DashboardList.tsx, src/app/dashboard/actions.ts, src/lib/auth/projects.ts, locales.
 **Done when.** No row on the dashboard 404s; the resend form issues a new token and revokes the old; archived rows are excluded from counts.
 **Stack on.** main.
@@ -205,11 +205,11 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 **Done when.** 38 mm vs 20 mm quartz differ in price; a 10 m compact top is no longer 267–685 €; snapshots regenerated with the reason logged.
 **Stack on.** IMP-04.
 
-### 24. IMP-21 — Rate card out of code
+### 24. IMP-21 — Rate card per maker in the database
 **Problem.** Labour rates, carcass €/m², MDF and alu fronts €/m², sink/tap/appliance class bands, allowances and confidence multipliers are constants in `bom.ts`. A second maker, a regional rate or a price refresh needs a deploy. Makers are created by CLI and have no settings at all.
-**Fix.** `src/lib/catalog/rate-card.json` with `basis`/`asOf`/`vat` per block and today's values as defaults, loaded by `computeBom(state, locale, { rates })`; later a `softclose_maker_settings` row (labour, margin, VAT mode, SLA, phone, studio name) keyed by maker and a read-only view of it on the dashboard.
-**Files.** src/lib/builder/bom.ts, src/lib/catalog/rate-card.json, src/lib/handoff/bundle.ts, src/app/dashboard/*.
-**Done when.** Fixture totals are byte-identical with the default card; changing one rate in JSON moves the fixture without a code change.
+**Fix.** Decision 2026-10-03: stored per maker from the start. Migration: `softclose_maker_settings` (maker_id, labour rates, carcass and fronts €/m², margin band, allowances, sla_hours, phone, studio name) with a default row seeded from today's constants. `computeBom(state, locale, { rates })` takes the owning maker's row; the live view, wrap-up and brief page load it through the project's maker. A settings page on the dashboard to edit it, in trade words, with the fixture estimate shown live so a maker sees what a rate change does.
+**Files.** db/migrations, src/lib/builder/bom.ts, src/lib/catalog/rate-card.ts (types + defaults), src/lib/handoff/bundle.ts, src/app/dashboard/settings/*, src/app/api/*/route.ts where the estimate is computed.
+**Done when.** Fixture totals are byte-identical with the default row; changing a rate on the settings page moves a customer's range without a deploy; another maker's rates never leak into a brief (test).
 **Stack on.** IMP-04.
 
 ### 25. IMP-22 — Intake dead ends and silent fallbacks
@@ -287,11 +287,11 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 - **Media at capture time (photos uploaded as taken).** Right fix for cross-device resume, L effort; IMP-17 ships the short-term guard first.
 - **Splitting the three god files.** Mechanical, low value until the items above settle; IMP-29 touches the editor anyway.
 
-## Decisions (Toni, 2026-10-03) and what is still open
+## Decisions (Toni, 2026-10-03)
 
-1. **Margin and VAT basis (IMP-04): open, recommended default stands.** Homeowner sees gross incl. 25% PDV; a workshop margin band of 30–45% on material + make is shown as its own line; the maker sees net cost and the gross headline. Both numbers live in the rate card. Implement with these defaults unless Toni changes this line.
-2. **Rate card (IMP-21): decided.** A JSON file in the repo with today's constants is enough until a second maker exists; per-maker storage in the database comes then. Band floor (LOOP Q6): ±10% until a maker's own rates are in.
+1. **Price basis (IMP-04): decided.** The homeowner sees what they will pay: VAT included, workshop margin included, no VAT or margin line anywhere on their side. The webshop and curated prices are confirmed gross; the board cjenik header is to be checked and grossed up only if net. The maker sees net cost and margin on the brief page.
+2. **Rate card (IMP-21): decided, per maker in the database from the start**, with a default row seeded from today's constants and a settings page. Band floor (LOOP Q6): ±10% until a maker's own rates are in.
 3. **Budget question: decided, keep it dropped.** Delete the dead budget row, the stub branch and the keys in IMP-01.
-4. **Invites (IMP-18): decided, never refuse.** A customer may have kitchens with several makers; the invite email signs them in and lands on the new project. `/` shows a short list when there is more than one.
+4. **Invites and the customer home (IMP-18): decided.** Never refuse an invite. `/` for a customer is a home page with the instructions and the list of their kitchens, one or many.
 5. **inspiration-vision (IMP-23): decided, drop the call.** Keep the tagged styles and the reference images for the render.
 6. **Confidence pills: decided, none for the homeowner.** Provenance words only ("procjena", "izmjereno", "prepušteno izrađivaču").
