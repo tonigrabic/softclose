@@ -44,6 +44,10 @@ function keysUsedIn(file: string): Set<Key> {
   if (file === HOMEOWNER_COMPONENTS.RangeLine) {
     for (const k of ALL_KEYS) if (k.startsWith('range.')) used.add(k)
   }
+  // The figure with goods is labelled through range.ts's `withGoodsKey`.
+  if (src.includes('withGoodsKey(')) {
+    for (const k of ALL_KEYS) if (k.startsWith('range.withGoods.')) used.add(k)
+  }
   return used
 }
 
@@ -57,7 +61,7 @@ describe('homeowner copy says what they pay, not how it was priced', () => {
       RangeLine: 'range.confirms.homeowner',
       LiveBOMPanel: 'builder.shell.bom.works',
       MobileRangeDock: 'builder.shell.bom.title',
-      WrapUpScreen: 'wrapup.estimate.allInLabel',
+      WrapUpScreen: 'range.withGoods.sinkTaps',
       KitchenHome: 'kitchen.home.status.rangeLabel',
     }
     for (const [name, file] of Object.entries(HOMEOWNER_COMPONENTS)) {
@@ -79,9 +83,22 @@ describe('homeowner copy says what they pay, not how it was priced', () => {
     expect(offending).toEqual([])
   })
 
-  test('the wrap-up labels the figure with appliances as what it is', () => {
-    expect(hrHR['wrapup.estimate.allInLabel']).toBe('Kuhinja s uređajima')
-    expect(enUS['wrapup.estimate.allInLabel']).toBe('Kitchen with appliances')
+  test('the figure with goods is labelled as what it is, appliances only when they are in it', () => {
+    expect(hrHR['range.withGoods.appliances']).toBe('Kuhinja s uređajima')
+    expect(hrHR['range.withGoods.sinkTaps']).toBe('Kuhinja sa sudoperom i slavinom')
+    expect(hrHR['range.withGoods.both']).toBe('Kuhinja s uređajima, sudoperom i slavinom')
+    expect(enUS['range.withGoods.appliances']).toBe('Kitchen with appliances')
+    expect(enUS['range.withGoods.sinkTaps']).toBe('Kitchen with sink and tap')
+    expect(enUS['range.withGoods.both']).toBe('Kitchen with appliances, sink and tap')
+    expect(hrHR['range.withGoods.sinkTaps']).not.toMatch(/uređaj/)
+    expect(enUS['range.withGoods.sinkTaps']).not.toMatch(/appliance/i)
+  })
+
+  test('the wrap-up never titles the goods as making up the range', () => {
+    // linesTitle sits over material / make / install only (range-line.test);
+    // the goods have their own heading, which says they are outside it.
+    expect(hrHR['wrapup.estimate.outsideTitle']).toMatch(/^Izvan raspona/)
+    expect(enUS['wrapup.estimate.outsideTitle']).toMatch(/^Outside the/)
   })
 })
 

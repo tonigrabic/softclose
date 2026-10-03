@@ -19,6 +19,7 @@ import { hydrateFromHypothesis } from '@/lib/builder/state'
 import { computeBom, type BomEstimate, type BomLineItem } from '@/lib/builder/bom'
 import { DEFAULT_RATE_CARD, LABOUR_RATES, appliedMargin, withoutMargin } from '@/lib/catalog/rate-card'
 import { buildHandoffBundle, toCustomerBundle } from '@/lib/handoff/bundle'
+import { groupEstimateLines } from '@/lib/builder/range'
 import type { BuilderState } from '@/lib/builder/inventory'
 
 const ROOT = resolve(__dirname, '..')
@@ -115,7 +116,39 @@ describe('maker-only net cost and margin', () => {
   }
 })
 
-describe('the lines add up to the headline unless the band was clamped', () => {
+/**
+ * Everything printed under the headline adds up to it (IMP-04 review). The
+ * ±10 floor fires on ordinary confirmed builds (island, peninsula), and the
+ * wrap-up and the panel print the material / make / install subtotals right
+ * under the headline, so a floor or cap that moved only the sum left them
+ * ~100 € inside it at both ends, and the maker's net + margin likewise.
+ */
+function expectAddsUpToHeadline(bom: BomEstimate, label: string) {
+  const w = bom.sections.works
+  const headline = { low: w.low, high: w.high }
+  // The works lines (what the wrap-up groups and the bundle stores)…
+  expect(sumWorks(bom), `${label}: lines`).toEqual(headline)
+  // …the material / make / install breakdown (panel)…
+  const b = w.breakdown
+  expect(
+    { low: b.material.low + b.make.low + b.install.low, high: b.material.high + b.make.high + b.install.high },
+    `${label}: breakdown`
+  ).toEqual(headline)
+  // …the wrap-up's in-range groups…
+  const inRange = groupEstimateLines(bom.lineItems).filter((g) => g.inRange)
+  expect(
+    inRange.reduce((a, g) => ({ low: a.low + g.low, high: a.high + g.high }), { low: 0, high: 0 }),
+    `${label}: groups`
+  ).toEqual(headline)
+  // …and the maker's net cost + margin.
+  const m = bom.makerOnly
+  expect({ low: m.net.low + m.margin.low, high: m.net.high + m.margin.high }, `${label}: net + margin`).toEqual(
+    headline
+  )
+  expect(m.margin.low, `${label}: margin stays positive`).toBeGreaterThan(0)
+}
+
+describe('the lines, breakdown, groups and net + margin add up to the headline', () => {
   for (const f of CONTRACT_FIXTURES) {
     for (const [label, build] of [
       ['untouched', (s: BuilderState) => s],
@@ -123,18 +156,59 @@ describe('the lines add up to the headline unless the band was clamped', () => {
     ] as const) {
       test(`${f.id} ${label}`, () => {
         const bom = computeBom(build(fixtureState(f.id)))
+        expectAddsUpToHeadline(bom, `${f.id} ${label}`)
         const w = bom.sections.works
         if (w.bandCapped || w.bandFloored) {
-          // Clamped to the cap (±20) or the floor (±10): the lines are the
-          // honest components, the headline is the clamped band around them.
+          // Clamped to the cap (±20) or the floor (±10), lines and all.
           const half = Math.round(w.bandWidthPct / 2)
           expect(w.bandFloored ? half === 10 : half === 20).toBe(true)
-        } else {
-          expect({ low: w.low, high: w.high }).toEqual(sumWorks(bom))
         }
       })
     }
   }
+
+  test('the floor fires on fully confirmed island and peninsula, and the lines widen with it', () => {
+    for (const id of ['island', 'peninsula']) {
+      const state = confirmEverything(fixtureState(id))
+      const bom = computeBom(state)
+      expect(bom.sections.works.bandFloored, id).toBe(true)
+      expect(Math.round(bom.sections.works.bandWidthPct / 2), id).toBe(10)
+      expectAddsUpToHeadline(bom, id)
+      // Each works line keeps its own midpoint (within rounding) and widens.
+      const unfloored = computeBom(state, undefined, { rates: { ...DEFAULT_RATE_CARD, bandFloorHalfPct: 0 } })
+      expect(unfloored.sections.works.bandFloored).toBe(false)
+      bom.lineItems.forEach((l, i) => {
+        const u = unfloored.lineItems[i]
+        expect(l.key).toBe(u.key)
+        if (l.section !== 'works' || u.high === u.low) return
+        expect(Math.abs((l.low + l.high) / 2 - (u.low + u.high) / 2), l.key).toBeLessThanOrEqual(1)
+        expect(l.high - l.low, l.key).toBeGreaterThan(u.high - u.low)
+      })
+    }
+  })
+
+  test('a maker floor above the lines widens every line with it (±15 on galley)', () => {
+    const rates = { ...DEFAULT_RATE_CARD, bandFloorHalfPct: 15 }
+    const bom = computeBom(fixtureState('galley'), undefined, { rates })
+    expect(bom.sections.works.bandFloored).toBe(true)
+    expect(Math.round(bom.sections.works.bandWidthPct / 2)).toBe(15)
+    expectAddsUpToHeadline(bom, 'galley ±15')
+  })
+
+  test('the ±20 cap narrows the lines with it (u-shape, unknown decors, other cladding)', () => {
+    const s = fixtureState('u-shape')
+    const wide: BuilderState = {
+      ...s,
+      doors: { ...s.doors, decorCode: 'ZZZZ' },
+      worktop: { ...s.worktop, decorCode: 'ZZZZ' },
+      backsplash: { ...s.backsplash, kind: 'other' },
+    }
+    const bom = computeBom(wide)
+    expect(bom.sections.works.bandCapped).toBe(true)
+    expect(Math.round(bom.sections.works.bandWidthPct / 2)).toBe(20)
+    expectAddsUpToHeadline(bom, 'u-shape capped')
+    expect(bom.lineItems.every((l) => l.low >= 0 && l.low <= l.high)).toBe(true)
+  })
 })
 
 describe('every Elgrad source is gross (incl. PDV)', () => {

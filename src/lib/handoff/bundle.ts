@@ -76,8 +76,9 @@ export function buildHandoffBundle(input: HandoffBundleInput): HandoffBundle {
     // owning maker's row here; until then every brief uses the defaults.
     const rates = DEFAULT_RATE_CARD
     const bom = computeBom(brief.builderState as BuilderState, undefined, { scope: brief.scope, rates })
-    // Headline range is kitchen-only (works); appliances + sink/tap (goods)
-    // ride alongside as the all-in figure. Band applies to the works range.
+    // Headline range is kitchen-only (works); the goods the maker supplies
+    // (appliances and/or sink + tap) ride alongside as the figure with them,
+    // labelled by what they hold (withGoodsKey). Band applies to the works range.
     // Every figure is what the homeowner pays: PDV and the margin are inside.
     const hasGoods = bom.sections.goods.high > 0
     estimate = {

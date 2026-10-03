@@ -18,7 +18,7 @@ import { MobileRangeDock } from '@/components/builder/MobileRangeDock'
 import { WrapUpEstimate } from '@/components/kitchen-intake/WrapUpScreen'
 import { KitchenHome, type KitchenHomeProps } from '@/app/kitchen/[projectId]/KitchenHome'
 import { buildHandoffBundle, toCustomerBundle } from '@/lib/handoff/bundle'
-import { formatRange, groupEstimateLines } from '@/lib/builder/range'
+import { formatRange, goodsHeld, groupEstimateLines, withGoodsKey } from '@/lib/builder/range'
 import type { BomLineItem } from '@/lib/builder/bom'
 import type { HandoffEstimate } from '@/lib/types'
 import { CONTRACT_FIXTURES } from '@/lib/builder/fixtures'
@@ -45,6 +45,16 @@ function lShape(makerSupplies = false): BuilderState {
     sinkTaps: { ...s.sinkTaps, supply: 'maker_supplies' },
   }
 }
+
+/** The homeowner buys the appliances (the default) and leaves only the sink and tap with the maker. */
+function lShapeSinkOnly(): BuilderState {
+  const s = lShape()
+  return { ...s, sinkTaps: { ...s.sinkTaps, supply: 'maker_supplies' } }
+}
+
+const WITH_APPLIANCES = hrHR['range.withGoods.appliances']
+const WITH_SINK = hrHR['range.withGoods.sinkTaps']
+const WITH_BOTH = hrHR['range.withGoods.both']
 
 describe('RangeLine', () => {
   test('rounded figures, the ±, who confirms it, then the assumptions', () => {
@@ -120,15 +130,30 @@ describe('live panel and dock', () => {
   test('homeowner buys the appliances: no goods row, no "0 € – 0 €", no total with appliances', () => {
     const out = text(panel(lShape()))
     expect(out).not.toContain(hrHR['builder.shell.bom.goods'])
-    expect(out).not.toContain(hrHR['builder.shell.bom.totalWithGoods'])
+    for (const label of [WITH_APPLIANCES, WITH_SINK, WITH_BOTH]) expect(out).not.toContain(label)
     expect(out).not.toContain(`0${NBSP}€ – 0${NBSP}€`)
   })
 
-  test('maker supplies them: the goods row and the total come back', () => {
+  test('maker supplies them: the goods row and the total come back, labelled by what they hold', () => {
     const out = text(panel(lShape(true)))
     expect(out).toContain(hrHR['builder.shell.bom.goods'])
-    expect(out).toContain(hrHR['builder.shell.bom.totalWithGoods'])
+    expect(out).toContain(WITH_BOTH)
     expect(out).toContain('uređaji se obračunavaju zasebno')
+  })
+
+  // IMP-04 review: the homeowner buys the appliances, the maker only the sink
+  // and tap. The total must not say "with appliances" under "uređaje nabavlja kupac".
+  test('maker supplies only the sink and tap: "with sink and tap", never "with appliances"', () => {
+    const state = lShapeSinkOnly()
+    for (const html of [panel(state), renderToStaticMarkup(createElement(MobileRangeDock, { state }))]) {
+      const out = text(html)
+      expect(out).toContain('uređaje nabavlja kupac')
+      expect(out).not.toContain('uređaji se obračunavaju zasebno')
+      expect(out).not.toContain(WITH_APPLIANCES)
+      expect(out).not.toContain(WITH_BOTH)
+    }
+    // The dock's total sits in its collapsed drawer; the panel prints it.
+    expect(text(panel(state))).toContain(WITH_SINK)
   })
 
   test('the dock shows the same range line, compact', () => {
@@ -163,6 +188,8 @@ describe('groupEstimateLines', () => {
       line({ key: 'demolition', section: 'project', low: 400, high: 1500 }),
     ])
     expect(groups.map((g) => g.id)).toEqual(['material', 'make', 'install', 'goods', 'project'])
+    // Only material, make and install make up the headline range.
+    expect(groups.map((g) => g.inRange)).toEqual([true, true, true, false, false])
     expect(groups[0].lines.map((l) => l.key)).toEqual(['fronts', 'boards'])
     expect(groups[0]).toMatchObject({ low: 300, high: 380, exact: false })
   })
@@ -183,6 +210,21 @@ describe('groupEstimateLines', () => {
       line({ key: 'sinkTaps', section: 'goods', exact: true, low: 320, high: 320 }),
     ])
     expect(goods).toMatchObject({ id: 'goods', low: 1820, high: 1820, exact: true })
+  })
+})
+
+describe('goodsHeld: the figure with goods is labelled by what it adds', () => {
+  const goods = (key: string, high = 300) => ({ key, section: 'goods' as const, high })
+  test('appliances, sink and tap, or both; 0 € lines do not count', () => {
+    expect(goodsHeld([goods('appliances')])).toBe('appliances')
+    expect(goodsHeld([goods('sinkTaps')])).toBe('sinkTaps')
+    expect(goodsHeld([goods('appliances'), goods('sinkTaps')])).toBe('both')
+    expect(goodsHeld([goods('appliances', 0), goods('sinkTaps')])).toBe('sinkTaps')
+    expect(withGoodsKey([goods('sinkTaps')])).toBe('range.withGoods.sinkTaps')
+  })
+  test('a brief stored without lines keeps the label it was sent with', () => {
+    expect(goodsHeld(undefined)).toBe('appliances')
+    expect(goodsHeld(null)).toBe('appliances')
   })
 })
 
@@ -223,19 +265,57 @@ describe('wrap-up', () => {
   })
 
   test('homeowner buys the appliances: no goods group, no figure with appliances, no "0 € – 0 €"', () => {
-    const out = text(wrapUp(estimateFor(lShape())))
+    const html = wrapUp(estimateFor(lShape()))
+    const out = text(html)
     expect(out).not.toContain(hrHR['builder.shell.bom.goods'])
-    expect(out).not.toContain(hrHR['wrapup.estimate.allInLabel'])
+    expect(out).not.toContain(hrHR['wrapup.estimate.outsideTitle'])
+    expect(html).not.toContain('data-estimate-outside')
+    for (const label of [WITH_APPLIANCES, WITH_SINK, WITH_BOTH]) expect(out).not.toContain(label)
     expect(out).not.toContain(`0${NBSP}€ – 0${NBSP}€`)
   })
 
-  test('maker supplies them: "Kuhinja s uređajima" and a goods group, never "Sve uključeno"', () => {
+  test('maker supplies them: the goods sit outside the range, closed by the kitchen with them; never "Sve uključeno"', () => {
     const est = estimateFor(lShape(true))
-    const out = text(wrapUp(est))
-    expect(out).toContain(`${hrHR['wrapup.estimate.allInLabel']}${formatRange(est.withAppliances!)}`)
+    const html = wrapUp(est)
+    const out = text(html)
+    expect(out).toContain(`${WITH_BOTH}${formatRange(est.withAppliances!)}`)
     expect(out).toContain(hrHR['builder.shell.bom.goods'])
     expect(out).toContain('uređaji se obračunavaju zasebno')
     expect(out).not.toMatch(/Sve uključeno|PDV|\bVAT\b|marž|margin/i)
+  })
+
+  // IMP-04 review: "Od čega se raspon sastoji" listed the goods too, so the
+  // homeowner was told appliances both make up the range and are priced apart.
+  test('"what makes up the range" holds material, make and install only; the goods come after, under their own heading', () => {
+    const est = estimateFor(lShape(true))
+    const html = wrapUp(est)
+    const inRange = html.slice(html.indexOf('data-estimate-lines'), html.indexOf('data-estimate-outside'))
+    const outside = html.slice(html.indexOf('data-estimate-outside'))
+    expect([...inRange.matchAll(/data-estimate-group="(\w+)"/g)].map((m) => m[1])).toEqual([
+      'material',
+      'make',
+      'install',
+    ])
+    expect(text(inRange)).toContain(hrHR['wrapup.estimate.linesTitle'])
+    expect(text(inRange)).not.toContain(hrHR['builder.shell.bom.goods'])
+    expect([...outside.matchAll(/data-estimate-group="(\w+)"/g)].map((m) => m[1])).toEqual(['goods'])
+    const outText = text(outside)
+    expect(outText.indexOf(hrHR['wrapup.estimate.outsideTitle'])).toBeGreaterThanOrEqual(0)
+    expect(outText.indexOf(hrHR['builder.shell.bom.goods'])).toBeGreaterThan(
+      outText.indexOf(hrHR['wrapup.estimate.outsideTitle'])
+    )
+    expect(outText.indexOf(WITH_BOTH)).toBeGreaterThan(outText.indexOf(hrHR['builder.shell.bom.goods']))
+  })
+
+  test('maker supplies only the sink and tap: "Kuhinja sa sudoperom i slavinom", never "s uređajima"', () => {
+    const est = estimateFor(lShapeSinkOnly())
+    expect(est.withAppliances).not.toBeNull()
+    expect(est.assumptions).toContain('appliancesByHomeowner')
+    const out = text(wrapUp(est))
+    expect(out).toContain('uređaje nabavlja kupac')
+    expect(out).toContain(`${WITH_SINK}${formatRange(est.withAppliances!)}`)
+    expect(out).not.toContain(WITH_APPLIANCES)
+    expect(out).not.toContain(WITH_BOTH)
   })
 
   test('a brief without a band or lines: no invented ±20, no lines block, the legacy assumptions', () => {

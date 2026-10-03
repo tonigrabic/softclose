@@ -1730,3 +1730,92 @@ Tests:
   - no build: no figures, no assumptions row.
 
 791 tests (52 files) · tsc · eslint green.
+
+### 2026-10-03 — IMP-04 review round: lines add up to the headline; the figure with goods says what it holds
+Three verified review findings on the IMP-04 branch, each fixed with a
+regression test.
+
+- **The floor and the cap now act on every works line** (`bom.ts`,
+  `clampWorksLines`). Before, `floorBand` / `capBand` widened or narrowed only
+  the summed works range, and the lines, `breakdown` and `makerOnly` stayed
+  un-clamped. The floor fires on ordinary confirmed builds (island,
+  peninsula), so the wrap-up's material / make / install subtotals and the
+  panel's breakdown sat ~100 € inside the headline at both ends, and the
+  maker's net + margin did not make "Raspon za kupca". Now:
+  - k = target half ÷ raw half of the works sum. Every works line keeps its
+    own midpoint and scales its half-width by k, on the priced lines and the
+    net lines alike (the margin factor is uniform, so gross − net stays the
+    margin). Goods and project lines pass through.
+  - The headline is the sum of those rounded lines, so lines, breakdown,
+    in-range groups and net + margin all add up to it to the euro. The
+    clamped band can sit a hair off ±10 / ±20 through per-line rounding
+    (island confirmed: 19.94 % full width) and still displays ±10.
+  - Island confirmed: headline 4,668–5,702 € (was 4,667–5,704, prints
+    4.650 € – 5.700 € either way). Groups now 2,936–3,678 + 940–1,081 +
+    792–943 = the headline; net 3,771–4,604 + margin 897–1,098 = the headline.
+    Peninsula confirmed: 6,595–8,059, lines likewise.
+  - The "lines no longer add up" caveats are gone from `bom.ts`, `range.ts`
+    and `MakerDashboardPreview.tsx`.
+  - **No snapshot change, so no `-u`.** The drift snapshot holds untouched
+    totals (none of the six is clamped untouched) and the confirmed ± (still
+    10 on island and peninsula).
+- **The figure with goods is labelled by what the goods hold.** Step 3 said
+  "Kuhinja s uređajima" shows only when the maker supplies the appliances; the
+  code showed it whenever any goods were priced, so a homeowner who buys the
+  appliances and leaves only the sink and tap with the maker read "uređaje
+  nabavlja kupac" right above "Kuhinja s uređajima 5.590 € – 7.820 €".
+  - New `goodsHeld(lines)` / `withGoodsKey(lines)` in `range.ts`, and one
+    label family for every surface: `range.withGoods.appliances` "Kuhinja s
+    uređajima", `.sinkTaps` "Kuhinja sa sudoperom i slavinom", `.both`
+    "Kuhinja s uređajima, sudoperom i slavinom" (en-US: "Kitchen with
+    appliances / sink and tap / appliances, sink and tap").
+  - Used by the wrap-up, the panel, the dock, the maker email and the brief.
+    They replace `wrapup.estimate.allInLabel`, `builder.shell.bom.totalWithGoods`
+    ("Ukupno s uređajima"), `maker.estimate.withAppliances` ("S nabavom
+    uređaja") and the email's hard-coded "S uređajima", which are removed.
+  - The brief's headline label `maker.estimate.kitchenOnly` was "Kuhinja — bez
+    nabave uređaja", wrong in the same case. It now reads "Kuhinja — izrada i
+    montaža", like the email row and the wrap-up.
+  - A brief stored before its lines were (no `lines`) keeps the
+    "s uređajima" label it was sent with.
+  - `withAppliances` keeps its name (it is the `estimate_all_in_*` columns);
+    its type doc now says to label it through `withGoodsKey`.
+- **"Priced separately" only when an appliances row is priced.** The maker
+  supplying with no appliance selected priced none, yet the range said
+  "uređaji se obračunavaju zasebno". New assumption key
+  `appliancesNotIncluded`: "bez uređaja" / "appliances not included", in the
+  canonical order right after `appliancesSeparate`.
+- **The wrap-up no longer says the goods make up the range.** "Od čega se
+  raspon sastoji" now holds material, make and install only, which add up to
+  the headline after the first fix. The goods group (and a legacy project
+  group) sits below under a new heading, `wrapup.estimate.outsideTitle`
+  "Izvan raspona kuhinje" / "Outside the kitchen range", closed by the
+  kitchen-with-goods row. `EstimateGroup` gains `inRange`.
+
+Deviation from the review's suggestions: for the goods label I took the
+"label by what goods holds" option, not "set withAppliances only when an
+appliances line exists". The second would change what the stored
+`withAppliances` and the `estimate_all_in_*` columns mean for briefs already
+sent.
+
+Tests:
+- `price-basis`: lines, breakdown, in-range groups and net + margin equal the
+  headline on every fixture, untouched and confirmed. It also checks:
+  - the floor fires on island and peninsula, and each line widens around its
+    own midpoint;
+  - a ±15 maker floor on galley;
+  - a capped u-shape (unknown decors, "other" cladding).
+
+  These five fail on the previous `bom.ts`.
+- `range-line`: sink-only in the panel, the dock and the wrap-up, the wrap-up's
+  in-range and outside blocks and their order, `goodsHeld` units, and `inRange`
+  on the groups.
+- `maker-email`: sink-only, appliances-only and both labels.
+- `maker-range`: the sink-only brief.
+- `bom-assumptions`: no selection gives `appliancesNotIncluded`; sink-only
+  leaves the appliances with the homeowner.
+- `homeowner-copy`: scans `range.withGoods.*` wherever `withGoodsKey(` is
+  called, and checks the wording of the label family and the outside heading.
+
+804 tests (52 files) · tsc · eslint green. Still no browser pass: this run may
+not start a dev server.

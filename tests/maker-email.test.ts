@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest'
 import { buildMakerEmail } from '@/lib/notify/maker-email'
+import { buildHandoffBundle } from '@/lib/handoff/bundle'
+import { formatRange } from '@/lib/builder/range'
+import { CONTRACT_FIXTURES } from '@/lib/builder/fixtures'
+import { floorPlanToLayout } from '@/lib/contract/layout-contract'
+import { hydrateFromHypothesis } from '@/lib/builder/state'
+import type { BuilderState } from '@/lib/builder/inventory'
 import type { HandoffBundle } from '@/lib/types'
 
 // Intl puts a non-breaking space between the amount and the euro sign.
@@ -28,7 +34,8 @@ describe('maker email', () => {
     expect(m.html).toContain('https://app.example/maker/abc-123')
     expect(m.html).toContain('Ana &lt;Test&gt;')
     expect(m.html).not.toContain('<Test>')
-    expect(m.text).toContain(`S uređajima: 5.100${NBSP}€ – 7.500${NBSP}€`)
+    // No stored lines to tell what the goods hold: the label the brief was sent with.
+    expect(m.text).toContain(`Kuhinja s uređajima: 5.100${NBSP}€ – 7.500${NBSP}€`)
     expect(m.text).not.toContain('Sve uključeno')
   })
 
@@ -54,7 +61,7 @@ describe('maker email', () => {
     expect(m.text).toContain(`Kuhinja (izrada i montaža): 3.050${NBSP}€ – 4.300${NBSP}€ · raspon koji ti potvrđuješ`)
     expect(m.text).not.toContain('±')
     expect(m.text).toContain('Pretpostavke: montaža uključena · bez rušenja i odvoza')
-    expect(m.text).not.toContain('S uređajima')
+    expect(m.text).not.toContain('s uređajima')
     // No price basis: the old calculation had no margin, so the email does not claim one.
     expect(m.html).not.toContain('maržom')
   })
@@ -76,7 +83,33 @@ describe('maker email', () => {
     expect(m.subject).not.toMatch(/\d\s€/)
     expect(m.text).toContain('Kuhinja (izrada i montaža): raspon nije dostupan')
     expect(m.text).not.toContain('Pretpostavke')
-    expect(m.text).not.toContain('S uređajima')
+    expect(m.text).not.toContain('s uređajima')
     expect(m.text).not.toContain('Sve uključeno')
+  })
+
+  // IMP-04 review: the homeowner buys the appliances and the maker only the
+  // sink and tap. The row said "S uređajima" under "uređaje nabavlja kupac".
+  test('the figure with goods is labelled by what the maker supplies', () => {
+    const f = CONTRACT_FIXTURES.find((x) => x.id === 'l-shape')!
+    const s = hydrateFromHypothesis(null, { layoutContract: floorPlanToLayout(f.build()) })
+    const email = (state: BuilderState) => {
+      const built = buildHandoffBundle({ brief: { name: 'Ana', builderState: state } })
+      return { e: built.estimate!, m: buildMakerEmail({ briefId: 'b1', bundle: built, baseUrl: 'https://app.example' }) }
+    }
+
+    const sinkOnly = email({ ...s, sinkTaps: { ...s.sinkTaps, supply: 'maker_supplies' } })
+    expect(sinkOnly.m.text).toContain('uređaje nabavlja kupac')
+    expect(sinkOnly.m.text).toContain(`Kuhinja sa sudoperom i slavinom: ${formatRange(sinkOnly.e.withAppliances!)}`)
+    expect(sinkOnly.m.text).not.toContain('s uređajima')
+
+    const appliancesOnly = email({ ...s, appliances: { ...s.appliances, supply: 'maker_supplies' } })
+    expect(appliancesOnly.m.text).toContain(`Kuhinja s uređajima: ${formatRange(appliancesOnly.e.withAppliances!)}`)
+
+    const both = email({
+      ...s,
+      appliances: { ...s.appliances, supply: 'maker_supplies' },
+      sinkTaps: { ...s.sinkTaps, supply: 'maker_supplies' },
+    })
+    expect(both.m.text).toContain(`Kuhinja s uređajima, sudoperom i slavinom: ${formatRange(both.e.withAppliances!)}`)
   })
 })

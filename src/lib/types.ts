@@ -507,7 +507,12 @@ export interface HandoffEstimate {
   /** Main range: kitchen only, excluding appliance supply. */
   low: number
   high: number
-  /** Range including appliance supply; null when appliance supply isn't in scope. */
+  /**
+   * The kitchen plus the goods the maker supplies (appliances, sink + tap, or
+   * both); null when the maker supplies none. The name is historical: label it
+   * by what the goods hold (`withGoodsKey(lines)`), never "with appliances"
+   * blindly — the homeowner may buy the appliances and leave the sink with the maker.
+   */
   withAppliances: { low: number; high: number } | null
   basis: string
   /** Half-width of the range in percent (e.g. 20 for ±20%), for localized display. */

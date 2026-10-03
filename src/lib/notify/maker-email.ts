@@ -13,7 +13,7 @@
 import { escapeHtml } from './html'
 import { emailSendingEnabled, sendEmail } from './send'
 import { contactChannels } from '@/lib/contact'
-import { assumptionKey, formatRange, normalizeAssumptions } from '@/lib/builder/range'
+import { assumptionKey, formatRange, normalizeAssumptions, withGoodsKey } from '@/lib/builder/range'
 import { t } from '@/lib/i18n/core'
 import type { HandoffBundle } from '@/lib/types'
 
@@ -55,7 +55,11 @@ export function buildMakerEmail(input: MakerNotifyInput): { subject: string; htm
         .map((a) => t(assumptionKey(a), EMAIL_LOCALE))
         .join(' · ')
     : null
-  const withAppliances = e?.withAppliances ? formatRange(e.withAppliances, EMAIL_LOCALE) : null
+  // The kitchen with the goods the maker supplies, labelled by what they are:
+  // "with sink and tap" when the homeowner buys the appliances (IMP-04 review).
+  const withGoods: Array<[string, string]> = e?.withAppliances
+    ? [[t(withGoodsKey(e.lines), EMAIL_LOCALE), formatRange(e.withAppliances, EMAIL_LOCALE)]]
+    : []
   const subject = `Novi sažetak kuhinje — ${name} · ${headline}`
   const rows: Array<[string, string]> = [
     ['Homeowner', `${name} · ${contact}`],
@@ -65,7 +69,7 @@ export function buildMakerEmail(input: MakerNotifyInput): { subject: string; htm
       e ? `${headline} · ${t('range.confirms.maker', EMAIL_LOCALE)}` : 'raspon nije dostupan — kupac nije sastavio kuhinju',
     ],
     ...(assumptions ? ([['Pretpostavke', assumptions]] as Array<[string, string]>) : []),
-    ...(withAppliances ? ([['S uređajima', withAppliances]] as Array<[string, string]>) : []),
+    ...withGoods,
     ['Rok', b.timeline ?? '—'],
   ]
   const html = `<!doctype html><html><body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#111;max-width:560px;margin:0 auto;padding:24px">

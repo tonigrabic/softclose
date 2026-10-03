@@ -66,6 +66,26 @@ describe('assumptions from the build', () => {
     expect(list).toContain('sinkTapsByHomeowner')
   })
 
+  // IMP-04 review: the maker supplying with no appliance selected prices no
+  // appliances row, so "priced separately" pointed at a row that never appears.
+  test('the maker supplies the appliances but none are selected: "bez uređaja", not "priced separately"', () => {
+    const s = lShape({ appliances: 'maker_supplies' })
+    const state = { ...s, appliances: { ...s.appliances, selections: [] } }
+    const bom = computeBom(state, 'hr-HR')
+    expect(bom.lineItems.some((l) => l.key === 'appliances')).toBe(false)
+    expect(bom.assumptions).toContain('appliancesNotIncluded')
+    expect(bom.assumptions).not.toContain('appliancesSeparate')
+    expect(bom.assumptions).not.toContain('appliancesByHomeowner')
+    expect(hrHR[assumptionKey('appliancesNotIncluded')]).toBe('bez uređaja')
+  })
+
+  test('the maker supplies only the sink and tap: the appliances stay with the homeowner', () => {
+    const list = assumptions(lShape({ sinkTaps: 'maker_supplies' }))
+    expect(list).toContain('appliancesByHomeowner')
+    expect(list).not.toContain('appliancesSeparate')
+    expect(list).not.toContain('sinkTapsByHomeowner')
+  })
+
   test('the maker supplies the sink and tap: no sink line in the caveats', () => {
     const list = assumptions(lShape({ appliances: 'maker_supplies', sinkTaps: 'maker_supplies' }))
     expect(list).toEqual(['installIncluded', 'noDemolition', 'noTrades', 'appliancesSeparate', 'siteCheckByMaker'])

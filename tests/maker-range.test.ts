@@ -93,7 +93,21 @@ describe('the brief', () => {
     expect(withGoods.estimate!.withAppliances).not.toBeNull()
     const out = text(brief(withGoods))
     expect(out).toContain(hrHR['maker.estimate.kitchenOnly'])
+    expect(out).toContain(hrHR['range.withGoods.appliances'])
     expect(out).toContain(formatRange(withGoods.estimate!.withAppliances!))
+  })
+
+  // IMP-04 review: only the sink and tap are the maker's; the brief said "S nabavom uređaja".
+  test('only the sink and tap with the maker: the figure says so, not "appliances"', () => {
+    const s = lShape()
+    const sinkOnly = buildHandoffBundle({
+      brief: { name: 'Ana', builderState: { ...s, sinkTaps: { ...s.sinkTaps, supply: 'maker_supplies' } } },
+    })
+    const out = text(brief(sinkOnly))
+    expect(out).toContain(`${hrHR['range.withGoods.sinkTaps']} ${formatRange(sinkOnly.estimate!.withAppliances!)}`)
+    expect(out).toContain(hrHR['range.assumption.appliancesByHomeowner'])
+    expect(out).not.toContain(hrHR['range.withGoods.appliances'])
+    expect(out).not.toMatch(/nabav\w* uređaja/i)
   })
 
   test('no build: no range line, the no-range copy', () => {

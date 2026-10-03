@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react'
 import { computeBom, formatEUR } from '@/lib/builder/bom'
-import { formatRange } from '@/lib/builder/range'
+import { formatRange, withGoodsKey } from '@/lib/builder/range'
 import { useTranslations } from '@/lib/i18n'
 import { tDynamic } from '@/lib/i18n'
 import { RangeLine } from '@/components/range/RangeLine'
@@ -55,9 +55,9 @@ export function LiveBOMPanel({
         />
 
         {/* The headline IS the kitchen (material + make + install — the three
-            things the maker actually quotes), without appliances. The goods
-            ride below and collapse to an exact sum once models are picked;
-            the total with them closes the section. */}
+            things the maker actually quotes), without appliances; the three
+            rows add up to it. The goods ride below and collapse to an exact
+            sum once models are picked; the total with them closes the section. */}
         <dl className="mt-3 space-y-1 border-t border-border/50 pt-3 text-[11.5px]">
           {(['material', 'make', 'install'] as const).map((k) => (
             <div key={k} className="flex items-baseline justify-between gap-2">
@@ -92,7 +92,9 @@ export function LiveBOMPanel({
           )}
           {hasGoods && (
             <div className="flex items-baseline justify-between gap-2 border-t border-border/50 pt-2">
-              <dt className="font-medium text-foreground">{t('builder.shell.bom.totalWithGoods')}</dt>
+              {/* Labelled by what the goods hold: "with sink and tap" when the
+                  homeowner buys the appliances and only those are the maker's. */}
+              <dt className="font-medium text-foreground">{t(withGoodsKey(bom.lineItems))}</dt>
               <dd className="shrink-0 tabular-nums font-semibold text-foreground">
                 {formatRange(bom.total, locale)}
               </dd>

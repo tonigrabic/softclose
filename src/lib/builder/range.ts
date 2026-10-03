@@ -65,6 +65,8 @@ export const BOM_ASSUMPTIONS = [
   'appliancesByHomeowner',
   /** The maker supplies the appliances, priced on their own row, outside the headline. */
   'appliancesSeparate',
+  /** The maker supplies the appliances but none are selected, so no row prices them. */
+  'appliancesNotIncluded',
   /** The homeowner buys the sink and tap. */
   'sinkTapsByHomeowner',
   /** Delivery and the final measure (templating) are priced nowhere: agreed with the maker. */
@@ -126,6 +128,9 @@ export interface GroupableLine {
 
 export interface EstimateGroup<L extends GroupableLine> {
   id: EstimateGroupId
+  /** Part of the headline (works) range: material, make, install. Goods and
+   *  project allowances are priced alongside it, never inside it. */
+  inRange: boolean
   lines: L[]
   /** The sum of this group's lines. */
   low: number
@@ -138,10 +143,11 @@ export interface EstimateGroup<L extends GroupableLine> {
  * The stored lines of an estimate, grouped (`ESTIMATE_GROUPS` order, the
  * lines' own order inside a group). A line priced at 0 € (the homeowner buys
  * it) is dropped, and so is a group left with no lines, so nobody reads
- * "0 € – 0 €". Each group carries its own subtotal and there is deliberately
- * no grand total: once the band is capped or floored the lines no longer add
- * up to the headline, and a second figure that disagrees with it is worse
- * than none. Missing lines (a brief sent before they were stored) → no groups.
+ * "0 € – 0 €". Each group carries its own subtotal. The material, make and
+ * install groups add up to the headline range (computeBom carries a cap or a
+ * floor down to the lines), so there is no separate sum row: the headline is
+ * it. Goods and project groups sit outside that range (`inRange: false`).
+ * Missing lines (a brief sent before they were stored) → no groups.
  */
 export function groupEstimateLines<L extends GroupableLine>(
   lines: readonly L[] | null | undefined
@@ -154,6 +160,7 @@ export function groupEstimateLines<L extends GroupableLine>(
     return [
       {
         id,
+        inRange: id === 'material' || id === 'make' || id === 'install',
         lines: inGroup,
         low: inGroup.reduce((s, l) => s + l.low, 0),
         high: inGroup.reduce((s, l) => s + l.high, 0),
@@ -161,4 +168,39 @@ export function groupEstimateLines<L extends GroupableLine>(
       },
     ]
   })
+}
+
+/**
+ * What the figure "with appliances" actually adds to the kitchen (IMP-04
+ * review): the goods lines the maker supplies. The homeowner may buy the
+ * appliances and leave only the sink and tap with the maker, and that figure
+ * must not then say "with appliances" under "appliances bought by the
+ * homeowner". Every surface labels it `range.withGoods.<held>`.
+ */
+export const GOODS_HELD = ['appliances', 'sinkTaps', 'both'] as const
+export type GoodsHeld = (typeof GOODS_HELD)[number]
+
+/** The fields `goodsHeld` reads; structurally a `BomLineItem`. */
+export interface GoodsLine {
+  key: string
+  section: 'works' | 'goods' | 'project'
+  high: number
+}
+
+/**
+ * Which goods are priced (above 0 €) among the lines. A brief stored before
+ * its lines were (no `lines`) gets 'appliances', the label it was sent with;
+ * so does a set of lines with no priced goods, which carries no figure to label.
+ */
+export function goodsHeld(lines: readonly GoodsLine[] | null | undefined): GoodsHeld {
+  const priced = (key: string) => !!lines?.some((l) => l.section === 'goods' && l.key === key && l.high > 0)
+  const appliances = priced('appliances')
+  const sinkTaps = priced('sinkTaps')
+  if (appliances && sinkTaps) return 'both'
+  return sinkTaps ? 'sinkTaps' : 'appliances'
+}
+
+/** The locale key for the figure with goods: "Kuhinja s uređajima", "… sa sudoperom i slavinom", or both. */
+export function withGoodsKey(lines: readonly GoodsLine[] | null | undefined): TranslationKey {
+  return `range.withGoods.${goodsHeld(lines)}`
 }

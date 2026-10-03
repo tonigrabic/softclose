@@ -131,15 +131,18 @@ export interface BomEstimate {
       low: number
       high: number
       bandWidthPct: number
-      /** True when the raw line spreads exceeded the ±20% promise and the range was narrowed to it. */
+      /**
+       * True when the raw line spreads exceeded the ±20% promise and the range
+       * was narrowed to it. The works lines are narrowed with it (each around
+       * its own midpoint), so they still add up to the range.
+       */
       bandCapped: boolean
       /**
        * True when the lines were tighter than the rate card's band floor (±10%
-       * by default) and the range was widened to it. Like `bandCapped`, the
-       * lines then no longer add up to the headline.
+       * by default) and the range was widened to it, the works lines with it.
        */
       bandFloored: boolean
-      /** Material + make + install (gross) — sums to the works lines, i.e. to the range unless capped or floored. */
+      /** Material + make + install (gross): the works lines summed by kind. Adds up to the range, to the euro. */
       breakdown: Record<'material' | 'make' | 'install', { low: number; high: number }>
     }
     goods: { low: number; high: number; allPicked: boolean }
@@ -166,8 +169,8 @@ export interface BomEstimate {
 export interface BomMakerOnly {
   /** Material + make + install before the margin: the works lines at cost. */
   net: { low: number; high: number }
-  /** What the margin adds (material + make only). `net + margin` = the sum of the
-   * works lines, before any band cap or floor. */
+  /** What the margin adds (material + make only). `net + margin` = the works
+   * range, to the euro (a capped or floored band scales the net lines too). */
   margin: { low: number; high: number }
   /** The applied margin in percent on cost (30 = 30 %). */
   marginPct: number
@@ -1062,7 +1065,8 @@ export function computeBom(
   // are the homeowner's products at shelf price: neither carries it. ONE
   // factor on both ends: the margin is the maker's choice, not uncertainty, so
   // it must not widen the band (see rate-card.ts). Applied to the rounded net
-  // line, so each priced line is exactly round(net line × factor).
+  // line, so each priced line is exactly round(net line × factor) until a cap
+  // or floor scales the works lines below.
   const marginFraction = appliedMargin(rates)
   const marginFactor = 1 + marginFraction
   const takesMargin = (l: BomLineItem) =>
@@ -1076,14 +1080,14 @@ export function computeBom(
   const bandPct = (r: { low: number; high: number }) =>
     r.low + r.high > 0 ? Math.round(((r.high - r.low) / ((r.low + r.high) / 2)) * 100) : 0
 
+  const isWorks = (l: BomLineItem) => l.section === 'works'
+  const sumLines = (lines: BomLineItem[], pred: (l: BomLineItem) => boolean) =>
+    lines.filter(pred).reduce((acc, l) => ({ low: acc.low + l.low, high: acc.high + l.high }), { low: 0, high: 0 })
+
   // Homeowner-facing split: the kitchen (works) stays a range — the ±20%
   // promise applies to it; the goods (appliances, sink + tap) ride alongside
   // and collapse to an exact sum once every model is picked.
-  const sumWhere = (pred: (l: BomLineItem) => boolean) =>
-    visibleLines
-      .filter(pred)
-      .reduce((acc, l) => ({ low: acc.low + l.low, high: acc.high + l.high }), { low: 0, high: 0 })
-  const worksRaw = sumWhere((l) => l.section === 'works')
+  const worksRaw = sumLines(visibleLines, isWorks)
   // The ±20% promise is a product rule (foundations #6, LOOP B1): the kitchen
   // range never DISPLAYS wider than ±20%, whatever the line spreads sum to. A
   // real-path run (2026-09-19, 36-unit U read with every field at L) reached
@@ -1093,22 +1097,31 @@ export function computeBom(
   // …and never NARROWER than the rate card's floor (±10% until a maker's own
   // rates are in, Decision 2). Clamped to the cap so the two cannot cross.
   const floorWidthPct = Math.min(rates.bandFloorHalfPct * 2, MAX_WORKS_BAND_WIDTH_PCT)
-  const { range: works, floored: worksBandFloored } = floorBand(worksCapped, floorWidthPct)
+  const { range: worksTarget, floored: worksBandFloored } = floorBand(worksCapped, floorWidthPct)
 
+  // The cap and the floor act on every works line, not only on the sum (IMP-04
+  // review): the floor fires on ordinary confirmed builds, and the wrap-up and
+  // the panel print the material / make / install subtotals right under the
+  // headline, so they must add up to it. The gross and the net lines scale by
+  // the same factor, so gross − net stays the margin on each line.
+  const clampLines = (lines: BomLineItem[]) =>
+    worksBandCapped || worksBandFloored ? clampWorksLines(lines, worksRaw, worksTarget) : lines
+  const pricedLines = clampLines(visibleLines)
+  const costLines = clampLines(netLines)
+
+  // The headline IS the sum of the works lines, so the breakdown, the grouped
+  // lines and the maker's net + margin all add up to it to the euro.
+  const sumWhere = (pred: (l: BomLineItem) => boolean) => sumLines(pricedLines, pred)
+  const works = sumWhere(isWorks)
   // Maker-only: the same works lines at cost, and what the margin added.
-  const netWorks = netLines
-    .filter((l) => l.section === 'works')
-    .reduce((acc, l) => ({ low: acc.low + l.low, high: acc.high + l.high }), { low: 0, high: 0 })
+  const netWorks = sumLines(costLines, isWorks)
   const goods = sumWhere((l) => l.section === 'goods')
   const project = sumWhere((l) => l.section === 'project')
-  const goodsLines = visibleLines.filter((l) => l.section === 'goods')
-  const kind = (k: 'material' | 'make' | 'install') => {
-    const s = sumWhere((l) => l.worksKind === k)
-    return { low: round(s.low), high: round(s.high) }
-  }
+  const goodsLines = pricedLines.filter((l) => l.section === 'goods')
+  const kind = (k: 'material' | 'make' | 'install') => sumWhere((l) => l.worksKind === k)
 
-  // Total = (capped / floored) works + goods + project, so the all-in figure
-  // agrees with the headline it sits under.
+  // Total = works + goods + project, so the figure with appliances agrees with
+  // the headline it sits under.
   const total = {
     low: works.low + goods.low + project.low,
     high: works.high + goods.high + project.high,
@@ -1116,7 +1129,7 @@ export function computeBom(
   const bandWidthPct = bandPct(total)
 
   return {
-    lineItems: visibleLines,
+    lineItems: pricedLines,
     total: { low: round(total.low), high: round(total.high) },
     bandWidthPct,
     sections: {
@@ -1137,16 +1150,46 @@ export function computeBom(
     },
     makerOnly: {
       net: { low: round(netWorks.low), high: round(netWorks.high) },
-      margin: { low: round(worksRaw.low - netWorks.low), high: round(worksRaw.high - netWorks.high) },
+      margin: { low: round(works.low - netWorks.low), high: round(works.high - netWorks.high) },
       marginPct: Math.round(marginFraction * 1000) / 10,
     },
-    assumptions: bomAssumptions(state, visibleLines, opts.scope),
+    assumptions: bomAssumptions(state, pricedLines, opts.scope),
     currency: 'EUR',
   }
 }
 
 function round(n: number): number {
   return Math.round(n)
+}
+
+/**
+ * Carry a capped or floored works band down to the lines (IMP-04 review).
+ * `raw` is the works sum the lines make; `target` is the same midpoint at the
+ * cap or the floor. Every works line keeps its own midpoint and its half-width
+ * scales by one factor, target half ÷ raw half, so the lines sum to `target`
+ * (to the euro, after each line is rounded) and keep their relative spreads.
+ * Goods and project lines are not part of the band and pass through. `lines`
+ * may be the priced or the net lines: the same factor on both keeps the margin
+ * between them. A works sum with no width at all (every line exact) has no
+ * spread to scale, so each line then takes the target's relative half-width.
+ */
+function clampWorksLines(
+  lines: BomLineItem[],
+  raw: { low: number; high: number },
+  target: { low: number; high: number }
+): BomLineItem[] {
+  const rawHalf = (raw.high - raw.low) / 2
+  const targetHalf = (target.high - target.low) / 2
+  const rawMid = (raw.low + raw.high) / 2
+  if (rawMid <= 0) return lines
+  return lines.map((l) => {
+    if (l.section !== 'works') return l
+    const mid = (l.low + l.high) / 2
+    const half = rawHalf > 0 ? ((l.high - l.low) / 2) * (targetHalf / rawHalf) : mid * (targetHalf / rawMid)
+    // A floor this wide never reaches zero on a real line; the clamp keeps a
+    // degenerate one from printing a negative euro.
+    return { ...l, low: round(Math.max(0, mid - half)), high: round(mid + half) }
+  })
 }
 
 /**
@@ -1165,9 +1208,12 @@ function bomAssumptions(
   if (scope?.demolitionDisposal !== true) out.push('noDemolition')
   if (scope?.electricalWork !== true && scope?.plumbingRelocation !== true) out.push('noTrades')
   // A legacy scope that took the supply out leaves it with the homeowner too.
+  // "Priced separately" only when there is an appliances row to point at: the
+  // maker supplying with nothing selected yet prices none (IMP-04 review).
   if (state.appliances.supply === 'homeowner_supplies' || scope?.appliancesSupply === false) {
     out.push('appliancesByHomeowner')
-  } else out.push('appliancesSeparate')
+  } else if (lines.some((l) => l.key === 'appliances' && l.high > 0)) out.push('appliancesSeparate')
+  else out.push('appliancesNotIncluded')
   if (state.sinkTaps.supply === 'homeowner_supplies' || scope?.sinkTaps === false) out.push('sinkTapsByHomeowner')
   out.push('siteCheckByMaker')
   return out

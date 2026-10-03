@@ -15,7 +15,7 @@ import {
 import { useTranslations, type Locale } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { contactChannels } from '@/lib/contact'
-import { formatEUR, formatRange } from '@/lib/builder/range'
+import { formatEUR, formatRange, withGoodsKey } from '@/lib/builder/range'
 import { RangeLine } from '@/components/range/RangeLine'
 
 type Confidence = 'H' | 'M' | 'L' | null
@@ -200,9 +200,9 @@ function BuildLines({ lines }: { lines: BomLineItem[] }) {
  * the stored brief carries `estimate.maker`; the customer's copy of the bundle
  * never does (toCustomerBundle), so the funnel demo shows nothing here.
  *
- * Each figure is rounded on its own, and a capped or floored band moves the
- * homeowner's range away from cost + margin, so the three need not add up to
- * the euro.
+ * Net + margin = the homeowner's range to the euro (computeBom carries a
+ * capped or floored band down to the net lines too); each figure is rounded
+ * for display on its own, so the printed ends can differ by a rounding step.
  */
 function MakerOnlyMoney({ maker, range }: { maker: BomMakerOnly; range: { low: number; high: number } }) {
   const { t, locale } = useTranslations()
@@ -380,7 +380,7 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false, dec
                 {summary.withAppliances && (
                   <div className="mt-3 border-t border-slate-200 pt-3">
                     <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      {t('maker.estimate.withAppliances')}
+                      {t(withGoodsKey(summary.lines))}
                     </p>
                     <p className="mt-0.5 font-mono text-base font-bold tabular-nums text-slate-700">
                       {formatRange(summary.withAppliances, locale)}
