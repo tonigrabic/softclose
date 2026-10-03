@@ -154,9 +154,9 @@ export function WrapUpScreen({
           briefId: sendId.current,
         }),
       })
-      const data = await readJson<HandoffBundle>(res)
+      const data = await readJson<HandoffBundle & { code?: string }>(res)
       if (!res.ok || data.error) {
-        throw new ApiError(data.error ?? `Bundle build failed (${res.status})`, res.status)
+        throw new ApiError(data.error ?? `Bundle build failed (${res.status})`, res.status, data.code)
       }
       setBundle(data)
       if (data.briefId) onSent?.()

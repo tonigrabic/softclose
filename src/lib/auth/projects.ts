@@ -68,20 +68,29 @@ export async function listProjectsForMaker(makerId: string, limit = 100): Promis
   return (data ?? []).map((row) => toProject(row as Parameters<typeof toProject>[0]))
 }
 
-/** The one kitchen a customer was invited to. Most recent first, in case a
- *  maker ever sends a second invite. */
+/**
+ * The one kitchen a customer was invited to. Most recent first, in case a
+ * maker ever sends a second invite.
+ *
+ * An open project always wins. Failing that, the latest archived one: a
+ * maker's decline archives the project (IMP-03), and the customer must land on
+ * their kitchen with the maker's answer on it — not on "Nema aktivne
+ * kuhinje", which would be the ghosting rule 8 forbids, just quieter.
+ */
 export async function currentProjectForCustomer(customerId: string): Promise<Project | null> {
   const db = supabaseAdmin()
   if (!db) return null
-  const { data } = await db
-    .from(TABLES.projects)
-    .select(COLUMNS)
-    .eq('customer_id', customerId)
-    .neq('status', 'archived')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  return data ? toProject(data as Parameters<typeof toProject>[0]) : null
+  const latest = (archived: boolean) => {
+    const q = db.from(TABLES.projects).select(COLUMNS).eq('customer_id', customerId)
+    return (archived ? q.eq('status', 'archived') : q.neq('status', 'archived'))
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+  }
+  const { data: open } = await latest(false)
+  if (open) return toProject(open as Parameters<typeof toProject>[0])
+  const { data: closed } = await latest(true)
+  return closed ? toProject(closed as Parameters<typeof toProject>[0]) : null
 }
 
 export interface DashboardRow {

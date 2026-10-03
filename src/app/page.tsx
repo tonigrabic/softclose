@@ -10,7 +10,8 @@ export const dynamic = 'force-dynamic'
 /**
  * The root is now a signpost, not a page.
  *
- * Makers go to their inbox; customers go to the kitchen they were invited to.
+ * Makers go to their inbox; customers go to the kitchen they were invited to —
+ * a closed one too, so a declined customer reads the maker's answer there.
  * A customer with no project is a real state — their invite was revoked, or
  * their account outlived the project — so it gets an honest panel rather than
  * a 404 that reads like the product is broken.

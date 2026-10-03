@@ -5,9 +5,11 @@ import { Camera, Check, Hammer, ListChecks, Sparkles } from 'lucide-react'
 import { KitchenIntake } from '@/components/kitchen-intake'
 import { AuthShell } from '@/components/AuthShell'
 import { Button } from '@/components/ui/button'
-import { useTranslations } from '@/lib/i18n'
+import { useTranslations, type TranslationKey } from '@/lib/i18n'
 import type { FlowStepId } from '@/lib/flow'
+import type { MakerDecision } from '@/lib/project/decision'
 import type { ProjectSnapshot } from '@/lib/project/snapshot'
+import { cn } from '@/lib/utils'
 
 export interface KitchenHomeProps {
   projectId: string
@@ -18,6 +20,11 @@ export interface KitchenHomeProps {
   makerViewedAt: string | null
   briefId: string | null
   range: string | null
+  /** The maker's answer on the current brief (IMP-03). Never the quoted
+   *  amount: that is the maker's to send, with its terms. */
+  decision: { status: MakerDecision; date: string | null; note: string | null } | null
+  /** Declined or archived: no edit, no re-send — the handoff refuses one. */
+  closed: boolean
   started: boolean
   /** Concurrency token for checkpoint writes. */
   revision: number
@@ -28,6 +35,28 @@ export interface KitchenHomeProps {
   /** The customer's account — their email is the brief's contact address. */
   customerEmail: string | null
   customerName: string | null
+}
+
+const DECISION_COPY: Record<MakerDecision, { pill: TranslationKey; line: TranslationKey; next: TranslationKey; tone: string }> = {
+  quoted: {
+    pill: 'kitchen.home.decision.pill.quoted',
+    line: 'kitchen.home.decision.quoted',
+    next: 'kitchen.home.decision.quotedNext',
+    tone: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
+  },
+  clarify: {
+    pill: 'kitchen.home.decision.pill.clarify',
+    line: 'kitchen.home.decision.clarify',
+    next: 'kitchen.home.decision.clarifyNext',
+    tone: 'bg-amber-50 text-amber-800 ring-amber-200',
+  },
+  // Calm, not alarming (rule 7): a decline reads as "closed", not as an error.
+  declined: {
+    pill: 'kitchen.home.decision.pill.declined',
+    line: 'kitchen.home.decision.declined',
+    next: 'kitchen.home.decision.declinedNext',
+    tone: 'bg-muted text-muted-foreground ring-border',
+  },
 }
 
 const ACTS = [
@@ -71,6 +100,7 @@ export function KitchenHome(props: KitchenHomeProps) {
   }
 
   const submitted = Boolean(props.submittedAt)
+  const decision = props.decision ? { ...props.decision, copy: DECISION_COPY[props.decision.status] } : null
 
   return (
     <AuthShell signedIn>
@@ -79,7 +109,9 @@ export function KitchenHome(props: KitchenHomeProps) {
           {t('kitchen.home.eyebrow')}
         </p>
         <h1 className="mt-2 text-xl font-semibold leading-snug tracking-tight text-foreground">
-          {t(submitted ? 'kitchen.home.titleSubmitted' : 'kitchen.home.title').replace('{maker}', props.makerName)}
+          {t(
+            props.closed ? 'kitchen.home.titleClosed' : submitted ? 'kitchen.home.titleSubmitted' : 'kitchen.home.title'
+          ).replace('{maker}', props.makerName)}
         </h1>
 
         {submitted ? (
@@ -97,13 +129,41 @@ export function KitchenHome(props: KitchenHomeProps) {
                     .replace('{date}', props.makerViewedAt)
                 : t('kitchen.home.status.notSeen').replace('{maker}', props.makerName)}
             </p>
+            {/* The maker's answer (rule 8): the homeowner learns the outcome
+                here, without chasing anyone. */}
+            {decision ? (
+              <div className="space-y-1.5">
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-foreground">
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-full px-2 py-0.5 text-[0.6875rem] font-semibold ring-1 ring-inset',
+                      decision.copy.tone
+                    )}
+                  >
+                    {t(decision.copy.pill)}
+                  </span>
+                  <span>
+                    {t(decision.copy.line)
+                      .replace('{maker}', props.makerName)
+                      .replace('{date}', decision.date ?? '')}
+                  </span>
+                </p>
+                <p className="text-xs leading-relaxed text-muted-foreground">{t(decision.copy.next)}</p>
+                {decision.note ? (
+                  <blockquote className="whitespace-pre-line border-l-2 border-border pl-3 text-sm leading-relaxed text-foreground">
+                    {decision.note}
+                  </blockquote>
+                ) : null}
+              </div>
+            ) : null}
             {props.range ? (
               <p className="text-sm text-foreground">
                 {t('kitchen.home.status.range').replace('{range}', props.range)}
               </p>
-            ) : (
+            ) : props.closed ? null : (
               // Sent without a build, so without a range — there is no number
               // to show until they build, and they can do that from here.
+              // (Not on a closed project: there is no building any more.)
               <div className="border-t border-border/60 pt-3">
                 <p className="text-sm text-foreground">{t('kitchen.home.status.noRange')}</p>
                 {!props.readOnly && (
@@ -122,7 +182,7 @@ export function KitchenHome(props: KitchenHomeProps) {
               </div>
             )}
           </div>
-        ) : (
+        ) : props.closed ? null : (
           <>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{t('kitchen.home.what')}</p>
 
@@ -148,23 +208,31 @@ export function KitchenHome(props: KitchenHomeProps) {
           </>
         )}
 
-        <Button size="lg" className="mt-6 h-11 w-full rounded-xl text-sm" onClick={() => setEntered(true)}>
-          {submitted
-            ? t('kitchen.home.cta.edit')
-            : props.started
-              ? t('kitchen.home.cta.continue').replace('{step}', props.stepLabel ?? '')
-              : t('kitchen.home.cta.start')}
-        </Button>
+        {/* A closed project keeps its summary and range on screen but offers
+            no way back into the intake: a re-send would be refused, and an
+            edit nobody receives is worse than none. A question (clarify)
+            keeps editing open — changing the kitchen is one way to answer. */}
+        {!props.closed ? (
+          <>
+            <Button size="lg" className="mt-6 h-11 w-full rounded-xl text-sm" onClick={() => setEntered(true)}>
+              {submitted
+                ? t('kitchen.home.cta.edit')
+                : props.started
+                  ? t('kitchen.home.cta.continue').replace('{step}', props.stepLabel ?? '')
+                  : t('kitchen.home.cta.start')}
+            </Button>
 
-        {props.briefId ? (
-          <p className="mt-3 text-center text-[0.6875rem] text-muted-foreground">
-            {t('kitchen.home.editNote').replace('{maker}', props.makerName)}
-          </p>
-        ) : (
-          <p className="mt-3 text-center text-[0.6875rem] text-muted-foreground">
-            {t('kitchen.makerSees').replace('{maker}', props.makerName)}
-          </p>
-        )}
+            {props.briefId ? (
+              <p className="mt-3 text-center text-[0.6875rem] text-muted-foreground">
+                {t('kitchen.home.editNote').replace('{maker}', props.makerName)}
+              </p>
+            ) : (
+              <p className="mt-3 text-center text-[0.6875rem] text-muted-foreground">
+                {t('kitchen.makerSees').replace('{maker}', props.makerName)}
+              </p>
+            )}
+          </>
+        ) : null}
       </div>
     </AuthShell>
   )

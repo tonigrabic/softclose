@@ -835,6 +835,7 @@ export const hrHR = {
   'kitchen.home.yourMaker': 'Tvoj izrađivač',
   'kitchen.home.title': '{maker} te pozvao da opišeš svoju kuhinju',
   'kitchen.home.titleSubmitted': 'Tvoj sažetak je kod {maker}',
+  'kitchen.home.titleClosed': 'Ovaj projekt je zatvoren',
   // Says plainly what this is NOT. The anxiety being reduced is "am I about to
   // commit to something" (product-foundations, principle 7).
   'kitchen.home.what':
@@ -858,6 +859,19 @@ export const hrHR = {
   'kitchen.home.status.range': 'Procjena: {range}',
   'kitchen.home.status.noRange': 'Raspon dobivaš kad sastaviš kuhinju.',
   'kitchen.home.editNote': 'Ako nešto izmijeniš, {maker} dobiva obavijest o izmjeni.',
+  // The maker's decision (IMP-03). Led by "{maker}:" so a studio name never
+  // has to be declined and nothing is masculine-only. The maker's real quote
+  // IS a "ponuda"; the range stays "procjena" everywhere. No full stop after
+  // {date}: a Croatian date already ends in one ("3. 10. 2026.").
+  'kitchen.home.decision.quoted': '{maker}: ponuda je poslana {date}',
+  'kitchen.home.decision.quotedNext': 'Iznos i uvjete dobivaš izravno od izrađivača.',
+  'kitchen.home.decision.clarify': '{maker}: treba pojašnjenje ({date}).',
+  'kitchen.home.decision.clarifyNext': 'Odgovori izmjenom kuhinje ili se javi izravno.',
+  'kitchen.home.decision.declined': '{maker}: ne može preuzeti ovaj projekt.',
+  'kitchen.home.decision.declinedNext': 'Tvoj sažetak i procjena ostaju ovdje.',
+  'kitchen.home.decision.pill.quoted': 'Ponuda poslana',
+  'kitchen.home.decision.pill.clarify': 'Treba pojašnjenje',
+  'kitchen.home.decision.pill.declined': 'Zatvoreno',
   'kitchen.makerSees': '{maker} vidi tvoj napredak dok radiš.',
   'live.back': 'Natrag na popis',
   'live.banner.title': 'U TIJEKU — kupac još radi',
@@ -1050,6 +1064,7 @@ export const hrHR = {
   'api.error.session': 'Sesija je istekla. Prijavi se ponovno da nastaviš.',
   'api.error.tooMany': 'Previše zahtjeva u kratkom vremenu — pričekaj trenutak pa pokušaj ponovno.',
   'api.error.tooLarge': 'Datoteka je prevelika za slanje. Pokušaj s manjom fotografijom.',
+  'api.error.closed': 'Ovaj projekt je zatvoren.',
   'funnel.wishlist.error': 'Nismo uspjeli spremiti listu želja.',
   'funnel.builderEntry.error': 'Nismo uspjeli pročitati tvoj render. Pokušaj ponovno ili započni bez AI prijedloga.',
   'funnel.thanksFallback': 'Hvala{name} — tvoj sažetak je spreman.',

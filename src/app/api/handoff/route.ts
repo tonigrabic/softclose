@@ -53,11 +53,18 @@ export async function POST(req: Request) {
         if (body.projectId) {
           const { data: project } = await db
             .from(TABLES.projects)
-            .select('id, customer_id, maker_id')
+            .select('id, customer_id, maker_id, status')
             .eq('id', body.projectId)
             .maybeSingle()
           if (!project || project.customer_id !== session.accountId) {
             return Response.json({ error: 'not_found' }, { status: 404 })
+          }
+          // A closed project takes no new brief (IMP-03). An intake tab left
+          // open while the maker declined could otherwise re-send: the project
+          // update below would un-archive it, and a maker who already said no
+          // would get a fresh 'new' brief and another email.
+          if (project.status === 'archived') {
+            return Response.json({ error: 'closed', code: 'closed' }, { status: 409 })
           }
           projectId = project.id as string
           makerId = (project.maker_id as string | null) ?? null
