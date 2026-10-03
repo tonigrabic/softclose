@@ -9,7 +9,7 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 | # | ID | Improvement | Sev | Effort | Stack on | Status |
 |---|----|-------------|-----|--------|----------|--------|
 | 1 | IMP-01 | Remove the fabricated stub estimate | critical | S | main | pr: https://github.com/tonigrabic/softclose/pull/11 |
-| 2 | IMP-31 | Room first: vision reconciles all photos, homeowner confirms shape and measures | high | M | main (IMP-11 first is recommended, not required) | todo |
+| 2 | IMP-31 | Room first: vision reconciles all photos, homeowner confirms shape and measures | high | M | main (IMP-11 first is recommended, not required) | pr: https://github.com/tonigrabic/softclose/pull/12 |
 | 3 | IMP-32 | Render constrained by the measured room; light post-render confirm | high | M | IMP-31 | todo |
 | 4 | IMP-03 | Maker decision persists and reaches the homeowner | critical | M | main | todo |
 | 5 | IMP-04 | Range is what the homeowner will pay: gross, margin in, exclusions stated; one range line everywhere | critical | M | IMP-01 | todo |
