@@ -65,6 +65,9 @@ export interface TranslatedField {
   turnIndex?: number
 }
 
+/** What the homeowner wants to do with the layout they have (room step). */
+export type LayoutIntent = 'keep' | 'add_island' | 'move_sink' | 'change'
+
 /** Compass-style positional reference for floor-plan features inferred by vision. */
 export type WallSide = 'top' | 'bottom' | 'left' | 'right'
 export type ConfidenceLevel = 'H' | 'M' | 'L'
@@ -73,6 +76,27 @@ export interface WallRun {
   wall: WallSide
   /** Where this wall run starts and ends along the room edge, as percentages 0–100. */
   spanPct: { start: number; end: number }
+}
+
+/** A corner of the room, named by the two walls that meet there (plan frame). */
+export type WallCorner = 'top_left' | 'top_right' | 'bottom_right' | 'bottom_left'
+/** What one space photo mainly shows: a wall it faces, a corner it is centred on, or neither. */
+export type PhotoViewTarget = WallSide | WallCorner | 'unclear'
+
+/**
+ * Where one space photo sits in the room. All photos are one room from
+ * different positions; each gets a view in the ONE plan frame, so a wall seen
+ * from two angles is one wall and a wall seen in only one photo is not lost.
+ */
+export interface PhotoView {
+  /** 0-based index into the space photos, in upload order. */
+  photoIndex: number
+  shows: PhotoViewTarget
+  /** Walls with base cabinets or a worktop visible in THIS photo; ⊆ the walls of `shows`. */
+  counterWalls: WallSide[]
+  confidence: ConfidenceLevel
+  /** 'homeowner' once they corrected the label on the room step. */
+  source: 'ai_vision' | 'homeowner'
 }
 
 export interface OpeningPosition {
@@ -121,6 +145,10 @@ export interface SpaceVisionResult {
   styleHints?: string[]
   /** Material direction the AI eyeballed (e.g. existing worktop colour). */
   materialHints?: string[]
+  /** One view per space photo, in upload order (absent on reads saved before 2026-10-03). */
+  photoViews?: PhotoView[]
+  /** A room meant for a kitchen with no cabinets in it yet. Not a rejection: lookedLikeKitchen stays true. */
+  emptyRoom?: boolean
   /** False if the photos didn't look like a kitchen — triggers re-upload affordance. */
   lookedLikeKitchen: boolean
   /** What the model thinks it saw — short, used for chip read-back. */
@@ -216,6 +244,16 @@ export interface LeadProfile {
    * when rendering or quoting against the brief.
    */
   floorPlan?: import('@/lib/floor-plan').FloorPlan
+  /**
+   * The room as it is today, as confirmed on the room step: shape and the walls
+   * the homeowner measured. Never edited after that step, so later steps can
+   * compare the kitchen they want with the one they have (where the sink moves).
+   */
+  existingFloorPlan?: import('@/lib/floor-plan').FloorPlan
+  /** Whether the room has a kitchen in it today, from the room step. */
+  existingRoom?: 'kitchen' | 'empty'
+  /** What the homeowner wants to do with today's layout (room step). */
+  layoutIntent?: LayoutIntent
   /** Anchor photos (data URLs) the homeowner uploaded at the opener. */
   spacePhotos?: string[]
 

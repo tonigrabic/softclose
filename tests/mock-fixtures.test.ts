@@ -11,7 +11,8 @@ import { CONTRACT_FIXTURES } from '@/lib/builder/fixtures'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import { HYPOTHESIS_FIXTURES } from '@/lib/builder/hypothesis-fixtures'
 import { mockHypothesis } from '@/lib/api/mock-fixtures/builder-hypothesis'
-import { MOCK_SPACE_VISION } from '@/lib/api/mock-fixtures/space-vision'
+import { MOCK_SPACE_VISION, mockSpaceVision } from '@/lib/api/mock-fixtures/space-vision'
+import { fromVision, normalizeVisionRead, reconcileCounterWalls } from '@/lib/floor-plan'
 import { mockTranslate } from '@/lib/api/mock-fixtures/translate-wishlist'
 import { findDecor } from '@/lib/catalog'
 
@@ -73,6 +74,22 @@ describe('mock space vision', () => {
       )
     }
   })
+})
+
+describe('mock space vision per photo count', () => {
+  for (const n of [1, 2, 3, 4]) {
+    test(`${n} photo(s): one view each, every view's counter walls kept, an L with features on its walls`, () => {
+      const out = normalizeVisionRead(mockSpaceVision(n), n)
+      expect(out.photoViews).toHaveLength(n)
+      expect(out.photoViews!.map((v) => v.photoIndex)).toEqual([...Array(n).keys()])
+      const walls = new Set(reconcileCounterWalls(out))
+      for (const v of out.photoViews!) for (const w of v.counterWalls) expect(walls.has(w), `photo ${v.photoIndex + 1} ${w}`).toBe(true)
+      const plan = fromVision(out)
+      expect(plan.layoutShape).toBe('l_shape')
+      for (const f of plan.features) expect(plan.room.sides[f.wall].hasCounter, f.kind).toBe(true)
+      expect(out.lengthCm).toBe(MOCK_SPACE_VISION.lengthCm)
+    })
+  }
 })
 
 describe('mock wishlist translation', () => {
