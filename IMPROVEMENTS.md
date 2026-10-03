@@ -13,7 +13,7 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 | 3 | IMP-32 | Render constrained by the measured room; light post-render confirm | high | M | IMP-31 | pr: https://github.com/tonigrabic/softclose/pull/13 |
 | 4 | IMP-03 | Maker decision persists and reaches the homeowner | critical | M | main | pr: https://github.com/tonigrabic/softclose/pull/14 |
 | 5 | IMP-04 | Range is what the homeowner will pay: gross, margin in, exclusions stated; one range line everywhere | critical | M | IMP-01 | pr: https://github.com/tonigrabic/softclose/pull/15 |
-| 6 | IMP-05 | Strip maker-only controls and B2B cost from the homeowner wrap-up | high | S | main | todo |
+| 6 | IMP-05 | Strip maker-only controls and B2B cost from the homeowner wrap-up | high | S | main | pr: https://github.com/tonigrabic/softclose/pull/16 |
 | 7 | IMP-06 | Builder state autosaves | critical | M | main | todo |
 | 8 | IMP-07 | Review before send; edits after submit are possible | high | M | IMP-06 | todo |
 | 9 | IMP-08 | Maker email in Croatian; login reports a failed send honestly | medium | S | main | todo |
