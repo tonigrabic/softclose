@@ -61,9 +61,9 @@ export const hrHR = {
 
   // Layout-counts confirmation gate
   'builder.confirm.eyebrow': 'Prije nego krenemo',
-  'builder.confirm.title': 'Provjeri što smo izmjerili',
+  'builder.confirm.title': 'Provjeri što ćemo izraditi',
   'builder.confirm.subtitle':
-    'Ovo ćemo izraditi i izračunati. Uredi dužine, zidove i police ovdje ili na tlocrtu iznad — sve ostaje usklađeno. Kad je točno, zaključaj.',
+    'Ovo ćemo izraditi i izračunati: zidovi s tvojim mjerama i elementi na njima. Gornje ormariće uključi ili isključi po zidu; za veće izmjene otvori „Promijeni raspored”. Kad je točno, zaključaj.',
   'builder.confirm.runsHeading': 'Zidovi i elementi',
   'builder.confirm.cabinetsUnit': 'ormarića',
   'builder.confirm.totalPrefix': 'Ukupno:',

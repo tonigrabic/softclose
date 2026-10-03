@@ -61,9 +61,9 @@ export const enUS: Record<TranslationKey, string> = {
 
   // Layout-counts confirmation gate
   'builder.confirm.eyebrow': 'Before we begin',
-  'builder.confirm.title': 'Check what we counted',
+  'builder.confirm.title': "Check what we'll build",
   'builder.confirm.subtitle':
-    "This is what we'll build and price. Edit lengths, walls and rows here or on the plan above — it all stays in sync. Lock it once it's right.",
+    "This is what we'll build and price: your measured walls and what stands on them. Switch upper cabinets on or off per wall; for bigger changes open “Change the layout”. Lock it once it's right.",
   'builder.confirm.runsHeading': 'Walls & units',
   'builder.confirm.cabinetsUnit': 'cabinets',
   'builder.confirm.totalPrefix': 'Total:',
