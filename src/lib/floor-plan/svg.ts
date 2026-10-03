@@ -61,6 +61,12 @@ interface RenderOpts {
   showWallLabels?: boolean
   /** Language of the labels drawn into the SVG. Default hr-HR, like t(). */
   locale?: Locale
+  /**
+   * Circled letters just outside the named walls (the room step's "Zid A").
+   * Walls in `wallLettersDone` are drawn filled — measured. Default: none.
+   */
+  wallLetters?: Partial<Record<WallSide, string>>
+  wallLettersDone?: readonly WallSide[]
 }
 
 function escapeXml(s: string): string {
@@ -81,6 +87,8 @@ export function renderFloorPlanSvg(plan: FloorPlan, opts: RenderOpts = {}): stri
     showDisclaimer = true,
     showWallLabels = false,
     locale = DEFAULT_LOCALE,
+    wallLetters,
+    wallLettersDone = [],
   } = opts
   const fit = fitRoom(plan.room, { w: W, h: H })
 
@@ -112,6 +120,9 @@ export function renderFloorPlanSvg(plan: FloorPlan, opts: RenderOpts = {}): stri
 
   if (showWallLabels) {
     body += renderWallLabels(plan, fit, locale)
+  }
+  if (wallLetters) {
+    body += renderWallLetters(fit, wallLetters, wallLettersDone)
   }
 
   if (showDimensions) {
@@ -246,6 +257,36 @@ function renderWallLabels(plan: FloorPlan, fit: FitResult, locale: Locale): stri
     `<text x="${x - 8}" y="${y + h / 2 + 4}" text-anchor="end" ${labelStyle}>${escapeXml(label('left').toUpperCase())}</text>` +
     `<text x="${x + w + 8}" y="${y + h / 2 + 4}" text-anchor="start" ${labelStyle}>${escapeXml(label('right').toUpperCase())}</text>`
   )
+}
+
+/** A circled letter at the outer midpoint of each lettered wall. */
+function renderWallLetters(
+  fit: FitResult,
+  letters: Partial<Record<WallSide, string>>,
+  done: readonly WallSide[]
+): string {
+  const { x, y, w, h } = fit.inner
+  const off = 22
+  const at: Record<WallSide, [number, number]> = {
+    top: [x + w / 2, y - off],
+    bottom: [x + w / 2, y + h + off],
+    left: [x - off, y + h / 2],
+    right: [x + w + off, y + h / 2],
+  }
+  let out = ''
+  for (const wall of ['top', 'right', 'bottom', 'left'] as const) {
+    const letter = letters[wall]
+    if (!letter) continue
+    const [cx, cy] = at[wall]
+    const filled = done.includes(wall)
+    out +=
+      `<g data-wall-letter="${wall}">` +
+      `<circle cx="${cx}" cy="${cy}" r="10" fill="${filled ? COLORS.wall : 'white'}" stroke="${COLORS.wall}" stroke-width="1.5" />` +
+      `<text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="11" font-weight="700" ` +
+      `fill="${filled ? 'white' : COLORS.wall}" font-family="system-ui, sans-serif">${escapeXml(letter)}</text>` +
+      `</g>`
+  }
+  return out
 }
 
 function renderOpening(
