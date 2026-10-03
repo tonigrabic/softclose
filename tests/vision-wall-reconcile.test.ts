@@ -217,3 +217,36 @@ describe('single wall', () => {
     expect(reconcileCounterWalls({ lookedLikeKitchen: true, layoutShape: 'single_wall', wallRuns: [run('top'), run('left')] })).toHaveLength(1)
   })
 })
+
+describe('review: a label moves the photo, it never invents runs', () => {
+  test('picking the label a photo already has changes nothing', () => {
+    const out = normalizeVisionRead(
+      { ...TWO_ANGLE_L, photoViews: [{ photo: 1, shows: 'top_left', counterWalls: ['top'], confidence: 'H' }, TWO_ANGLE_L.photoViews![1]] },
+      2
+    )
+    expect(relabelPhotoView(out, 0, 'top_left')).toBe(out)
+  })
+
+  test('a wall photo relabelled to a corner keeps only the runs it can show — no widening', () => {
+    const out = normalizeVisionRead(TWO_ANGLE_L, 2)
+    expect(relabelPhotoView(out, 0, 'top_right').photoViews![0].counterWalls).toEqual(['top'])
+    expect(relabelPhotoView(out, 0, 'bottom_left').photoViews![0].counterWalls).toEqual([])
+  })
+
+  test('wall → wall and corner → corner turn the runs with the frame', () => {
+    const out = normalizeVisionRead(
+      { ...TWO_ANGLE_L, photoViews: [{ photo: 1, shows: 'top_left', counterWalls: ['top', 'left'], confidence: 'M' }, TWO_ANGLE_L.photoViews![1]] },
+      2
+    )
+    expect(relabelPhotoView(out, 0, 'top_right').photoViews![0].counterWalls.sort()).toEqual(['right', 'top'])
+    expect(relabelPhotoView(out, 1, 'bottom').photoViews![1].counterWalls).toEqual(['bottom'])
+  })
+
+  test('views without a run list still join the photos', () => {
+    const plan = fromVision(normalizeVisionRead({ ...TWO_ANGLE_L, wallRuns: undefined, photoViews: [
+      { photo: 1, shows: 'top', counterWalls: ['top'], confidence: 'H' },
+      { photo: 2, shows: 'right', counterWalls: ['right'], confidence: 'H' },
+    ] }, 2))
+    expect((['top', 'bottom', 'left', 'right'] as const).filter((w) => plan.room.sides[w].hasCounter)).toEqual(['top', 'right'])
+  })
+})

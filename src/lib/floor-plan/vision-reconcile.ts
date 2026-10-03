@@ -119,12 +119,39 @@ export function normalizeVisionRead(raw: unknown, photoCount: number): SpaceVisi
   return out
 }
 
+const CLOCKWISE: readonly WallSide[] = ['top', 'right', 'bottom', 'left']
+const CORNER_ORDER: readonly WallCorner[] = ['top_right', 'bottom_right', 'bottom_left', 'top_left']
+
+/** Turn walls by `steps` quarter turns clockwise. */
+function rotate(walls: WallSide[], steps: number): WallSide[] {
+  return walls.map((w) => CLOCKWISE[(CLOCKWISE.indexOf(w) + steps + 4) % 4])
+}
+
+/**
+ * The counter walls a view carries after its label changes from `from` to
+ * `to`. A wall → wall or corner → corner correction says the model had the
+ * frame turned: the runs the photo shows turn with it (photo 2 "Zid A" → "Zid
+ * D" moves its run to D — the testers' lost wall). Anything else — a wall to a
+ * corner, to or from "unclear" — keeps only the runs the new label can show
+ * and never adds one: a label says where the camera points, not where
+ * cabinets are.
+ */
+function carriedCounterWalls(counter: WallSide[], from: PhotoViewTarget, to: PhotoViewTarget): WallSide[] {
+  const visible = wallsOf(to)
+  const wi = (t: PhotoViewTarget) => CLOCKWISE.indexOf(t as WallSide)
+  const ci = (t: PhotoViewTarget) => CORNER_ORDER.indexOf(t as WallCorner)
+  let moved = counter
+  if (wi(from) >= 0 && wi(to) >= 0) moved = rotate(counter, wi(to) - wi(from))
+  else if (ci(from) >= 0 && ci(to) >= 0) moved = rotate(counter, ci(to) - ci(from))
+  return WALLS.filter((w) => moved.includes(w) && visible.includes(w))
+}
+
 /**
  * The homeowner corrects what one photo shows (tap-to-correct on the room
- * step). A view that carried counter keeps carrying it on the walls it now
- * shows; one that carried none stays without. Either way it is now the
- * homeowner's word: H, source 'homeowner' — which `reconcileCounterWalls`
- * reads as "these labels were reviewed".
+ * step). Picking the label it already has changes nothing. Otherwise the view
+ * is now the homeowner's word — H, source 'homeowner', which
+ * `reconcileCounterWalls` reads as "these labels were reviewed" — and its runs
+ * follow the correction (see `carriedCounterWalls`).
  */
 export function relabelPhotoView(
   vision: SpaceVisionResult,
@@ -132,6 +159,8 @@ export function relabelPhotoView(
   shows: PhotoViewTarget
 ): SpaceVisionResult {
   const views = vision.photoViews ?? []
+  const current = views.find((v) => v.photoIndex === photoIndex)
+  if (!current || current.shows === shows) return vision
   return {
     ...vision,
     photoViews: views.map((v) =>
@@ -139,7 +168,7 @@ export function relabelPhotoView(
         ? {
             ...v,
             shows,
-            counterWalls: v.counterWalls.length > 0 ? wallsOf(shows) : [],
+            counterWalls: carriedCounterWalls(v.counterWalls, v.shows, shows),
             confidence: 'H',
             source: 'homeowner',
           }

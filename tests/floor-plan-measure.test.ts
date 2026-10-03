@@ -218,6 +218,11 @@ describe('footer Continue on the room step', () => {
     expect(roomStepReady({ phase: 'shape', plan: roomL(), layoutIntent: 'keep' })).toBe(true)
     expect(roomStepReady({ phase: 'shape', plan: roomL(), existingRoom: 'empty' })).toBe(true)
   })
+  test('a shape with no wall carrying counter cannot move on — there would be nothing to measure', () => {
+    const none = { ...roomL(), room: { ...roomL().room, sides: Object.fromEntries(Object.entries(roomL().room.sides).map(([w, sd]) => [w, { ...sd, hasCounter: false }])) as ReturnType<typeof roomL>['room']['sides'] } }
+    expect(roomStepReady({ phase: 'shape', plan: none, layoutIntent: 'keep' })).toBe(false)
+  })
+
   test('measure screen needs every wall typed — there is no "use the estimate"', () => {
     expect(roomStepReady({ phase: 'measure', plan: roomL(), layoutIntent: 'keep' })).toBe(false)
     expect(roomStepReady({ phase: 'measure', plan: measureAll(roomL(), { top: 360, left: 240 }) })).toBe(true)
@@ -245,5 +250,46 @@ describe('lettered plan picture', () => {
     expect(lettered).not.toContain('data-wall-letter="right"')
     expect(lettered).toMatch(/data-wall-letter="top"><circle[^>]*fill="#1f2937"/)
     expect(lettered).toMatch(/data-wall-letter="left"><circle[^>]*fill="white"/)
+  })
+})
+
+// ─── IMP-31 review round ──────────────────────────────────────────────────
+
+describe('review: honest provenance and stable runs', () => {
+  test('a galley or a single wall measures its runs, not the room depth: no H stamp', () => {
+    const galley = measureAll(validate(fromShapePreset('galley')), { top: 380, bottom: 380 })
+    expect(isRoomMeasured(galley)).toBe(true)
+    expect(galley.room.confidence).not.toBe('H')
+    expect(galley.room.source).not.toBe('homeowner')
+    expect(galley.measurementMethod).toBe('photo_plus_homeowner')
+    const single = withMeasuredWall(validate(fromShapePreset('single_wall')), 'top', 420, { hasPhotos: false })
+    expect(single.room.confidence).toBe('L')
+    expect(single.measurementMethod).toBe('homeowner_only')
+  })
+
+  test('a run length left from a facing pair never caps a wall that is now alone on its axis', () => {
+    let plan = measureAll(validate(fromShapePreset('galley')), { top: 280, bottom: 300 })
+    expect(plan.room.sides.top.counterLengthCm).toBe(280)
+    plan = withShape(plan, 'l_shape')
+    plan = withMeasuredWall(plan, 'left', 250, photos)
+    plan = withMeasuredWall(plan, 'top', 320, photos)
+    expect(counterWalls(plan)).toEqual(['top', 'left'])
+    expect(plan.room.sides.top.counterLengthCm).toBeUndefined()
+    expect(plan.room.lengthCm).toBe(320)
+  })
+
+  test('clearing a wall drops the run length its pair gave it', () => {
+    const plan = measureAll(validate(fromShapePreset('galley')), { top: 300, bottom: 280 })
+    expect(withMeasuredWall(plan, 'bottom', null, photos).room.sides.bottom.counterLengthCm).toBeUndefined()
+  })
+
+  test('a single-wall relabel never drops a run that followed the old default', () => {
+    const l = validate(fromShapePreset('l_shape'))
+    // The editor's "reset" puts a side back on the layout default…
+    const reset = { ...l, room: { ...l.room, sides: { ...l.room.sides, left: { ...l.room.sides.left, hasCounter: undefined } } } }
+    // …then the other run is switched off: one wall left, relabelled single wall.
+    const off = validate({ ...reset, room: { ...reset.room, sides: { ...reset.room.sides, top: { ...reset.room.sides.top, hasCounter: false } } } })
+    expect(off.layoutShape).toBe('single_wall')
+    expect(counterWalls(off)).toEqual(['left'])
   })
 })

@@ -55,7 +55,7 @@ import {
   roomPlanFromVision,
   roomStepReady,
 } from '@/lib/floor-plan'
-import { OMITTED_IMAGE } from '@/lib/project/checkpoint'
+import { OMITTED_IMAGE, snapshotFingerprint } from '@/lib/project/checkpoint'
 import { requestSpaceVision } from '@/lib/api/space-vision-client'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import type {
@@ -149,6 +149,11 @@ export function KitchenIntake({
   // The room step's two screens (shape, then measure) — one rail number, a
   // resume lands on the screen it was left on.
   const [roomPhase, setRoomPhase] = useState<RoomPhase>('shape')
+  // The room as it is today, while the room step edits it — kept apart from
+  // `floorPlan` (the kitchen being built): going back to the room step never
+  // shows or saves the planned layout (an added island, confirm-step edits)
+  // as the existing room.
+  const [roomPlan, setRoomPlan] = useState<FloorPlan | null>(null)
   const [isReadingRoom, setIsReadingRoom] = useState(false)
   const [roomReadFailed, setRoomReadFailed] = useState(false)
   // Bumped ONLY when the contract card edits the plan, so the canvas editor
@@ -243,8 +248,9 @@ export function KitchenIntake({
     // A journey saved on a since-retired step resumes at its successor; one
     // saved past the room without a measured room resumes at the room step —
     // the render is not reachable without typed wall lengths (IMP-31).
-    const savedPlan = d.floorPlan ?? d.profile?.floorPlan ?? null
-    const roomMeasured = isRoomMeasured(savedPlan)
+    // The completed room step, not the live plan: a layout edit on the confirm
+    // step must not take back a measurement.
+    const roomMeasured = Boolean(d.profile?.roomConfirmed)
     const resumed = resumeStepId(d.currentStepId, {
       roomMeasured,
       contractConfirmed: Boolean(d.profile?.contractConfirmedAt),
@@ -263,6 +269,11 @@ export function KitchenIntake({
     setLayoutEditNonce((n) => n + 1)
     setUnitEdits(forwarded && !roomMeasured ? null : (d.unitEdits ?? null))
     setRoomPhase(d.roomPhase ?? 'shape')
+    setRoomPlan(
+      forwarded
+        ? null
+        : (d.roomPlan ?? d.profile?.existingFloorPlan ?? (resumed === 'room' ? (d.floorPlan ?? null) : null))
+    )
     setInspirationStyles(d.inspirationStyles ?? [])
     setInspirationRefs(d.inspirationRefs ?? [])
     setInspirationVision(d.inspirationVision ?? null)
@@ -322,12 +333,13 @@ export function KitchenIntake({
       builderHypothesis,
       builderStartedNoAI,
       roomPhase,
+      roomPlan,
     }),
     [
       state.currentStepId, profile, transcript, isDone, wrapUpData, spacePhotos, spaceVision, floorPlan,
       unitEdits, inspirationStyles, inspirationRefs, inspirationVision, conceptRenders, chosenRenderId,
       productReferences, siteAccess, contactDraft, mustHavesText,
-      niceToHavesText, dealBreakersText, builderHypothesis, builderStartedNoAI, roomPhase,
+      niceToHavesText, dealBreakersText, builderHypothesis, builderStartedNoAI, roomPhase, roomPlan,
     ]
   )
 
@@ -437,23 +449,44 @@ export function KitchenIntake({
 
   /** Real photos on this device — a resumed snapshot carries only markers. */
   const realPhotos = spacePhotos.filter((p) => p && p !== OMITTED_IMAGE)
+  /** A photo read happened, on this device or another — for the measured-by stamp. */
+  const roomHasPhotos = realPhotos.length > 0 || Boolean(spaceVision)
 
-  /** A new or corrected photo read: the room plan follows it, typed lengths kept. */
-  function handleSpaceVisionChange(v: SpaceVisionResult | null) {
+  /**
+   * A new photo read, or a corrected label: the room plan follows it, typed
+   * lengths kept. A correction that leaves the counter walls as they were
+   * keeps the plan — and the card the homeowner picked — untouched. Nothing is
+   * reseeded while they are describing an empty room.
+   */
+  function handleSpaceVisionChange(v: SpaceVisionResult | null, opts: { keepIfSameWalls?: boolean } = {}) {
+    const before = spaceVision
     setSpaceVision(v)
     setRoomReadFailed(false)
-    setFloorPlan((prev) => reseedRoomPlan(prev, v, { hasPhotos: realPhotos.length > 0 }))
+    if (profile.existingRoom === 'empty') return
+    const walls = (x: SpaceVisionResult | null) => {
+      const plan = roomPlanFromVision(x)
+      return plan ? counterWalls(plan).join() : null
+    }
+    if (opts.keepIfSameWalls && walls(before) === walls(v)) return
+    setRoomPlan((prev) => reseedRoomPlan(prev, v, { hasPhotos: roomHasPhotos || Boolean(v) }))
   }
 
-  /** Read the photos as one room — on entering the room step when nobody pressed "Pročitaj". */
+  /** Read the photos as one room — on entering the room step when nobody pressed "Pročitaj", and on retry. */
   async function readRoom() {
     if (realPhotos.length === 0) return
+    // Only real photos can be sent; map the views back to their place among
+    // all photos, so a label never sits under a placeholder.
+    const positions = spacePhotos.flatMap((p, i) => (p && p !== OMITTED_IMAGE ? [i] : []))
     setIsReadingRoom(true)
     setRoomReadFailed(false)
     try {
-      const v = await requestSpaceVision(realPhotos, locale)
-      setSpaceVision(v)
+      const read = await requestSpaceVision(realPhotos, locale)
+      const v: SpaceVisionResult = {
+        ...read,
+        photoViews: read.photoViews?.map((view) => ({ ...view, photoIndex: positions[view.photoIndex] ?? view.photoIndex })),
+      }
       patchProfile({ spaceVisionResult: v })
+      handleSpaceVisionChange(v)
     } catch (err) {
       console.warn('[space-vision]', err)
       setRoomReadFailed(true)
@@ -464,24 +497,35 @@ export function KitchenIntake({
 
   /**
    * Freeze the room as it is today (IMP-31). The plan the homeowner measured
-   * is stored twice: as `existingFloorPlan`, never edited again, so later
-   * steps can tell what moves; and as the working `floorPlan` the render and
-   * the confirm step build on — with an island added if that is what they
-   * want. The corrected photo labels ride along in `spaceVisionResult`.
+   * is kept as `existingFloorPlan`, never edited after this step, so later
+   * steps can tell what moves; the working `floorPlan` the render and the
+   * confirm step build on is that room plus the intent (an island added if
+   * that is what they want). Coming back without changing the room or the
+   * intent keeps the working plan — and every confirm-step edit on it.
+   * `roomConfirmed` is the render's gate. The corrected photo labels ride
+   * along in `spaceVisionResult`.
    */
   function commitRoom() {
-    if (!floorPlan) return
-    const room = validate(floorPlan)
+    if (!roomPlan) return
+    const room = validate(roomPlan)
     const empty = profile.existingRoom === 'empty'
-    const working =
-      profile.layoutIntent === 'add_island' && !empty && !room.hasIsland
+    const intent = empty ? undefined : profile.layoutIntent
+    const fingerprint = snapshotFingerprint(room)
+    const unchanged =
+      floorPlan && profile.roomConfirmed?.fingerprint === fingerprint && profile.roomConfirmed.intent === intent
+    const working = unchanged
+      ? floorPlan
+      : intent === 'add_island' && !room.hasIsland
         ? validate({ ...room, island: makeIsland(room.room), hasIsland: true })
         : room
+    setRoomPlan(room)
     setFloorPlan(working)
+    if (!unchanged) setUnitEdits(null)
     patchProfile({
       floorPlan: working,
       existingFloorPlan: empty ? undefined : room,
       existingRoom: empty ? 'empty' : 'kitchen',
+      roomConfirmed: { at: nowMs(), intent, fingerprint },
       layoutShape: working.layoutShape,
       hasIsland: working.hasIsland,
       spaceLengthCm: Math.round(working.room.lengthCm),
@@ -493,7 +537,7 @@ export function KitchenIntake({
       .join(', ')
     logTurn(
       'user',
-      `Room today: ${empty ? 'empty room' : room.layoutShape}; measured walls ${walls}; wants: ${empty ? `a new ${working.layoutShape} kitchen` : (profile.layoutIntent ?? 'n/a')}`
+      `Room today: ${empty ? 'empty room' : room.layoutShape}; measured walls ${walls}; wants: ${empty ? `a new ${working.layoutShape} kitchen` : (intent ?? 'n/a')}`
     )
     goNext()
   }
@@ -707,6 +751,9 @@ export function KitchenIntake({
     setSpacePhotos([])
     setSpaceVision(null)
     setFloorPlan(null)
+    setRoomPlan(null)
+    setRoomPhase('shape')
+    setRoomReadFailed(false)
     setUnitEdits(null)
     setInspirationStyles([])
     setInspirationRefs([])
@@ -814,15 +861,20 @@ export function KitchenIntake({
     setFloorPlan(seedConfirmPlan(null, measured, spaceVision, builderHypothesis ?? null))
   }, [state.currentStepId, floorPlan, layoutPending, builderHypothesis, spaceVision, profile.floorPlan])
 
-  // The room step seeds its plan from the photo read (shape pre-selected).
-  // Without a read, nothing is pre-selected and the homeowner picks a card.
+  // The room step seeds its plan from the photo read (shape pre-selected); an
+  // empty-room read pre-selects "Prazna prostorija". Without a read, nothing is
+  // pre-selected and the homeowner picks a card.
   useEffect(() => {
     if (state.currentStepId !== 'room') return
-    if (floorPlan || profile.existingRoom === 'empty') return
+    if (roomPlan || profile.existingRoom === 'empty') return
+    if (spaceVision?.emptyRoom && profile.existingRoom === undefined) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      patchProfile({ existingRoom: 'empty' })
+      return
+    }
     const seeded = roomPlanFromVision(spaceVision)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (seeded) setFloorPlan(seeded)
-  }, [state.currentStepId, floorPlan, spaceVision, profile.existingRoom])
+    if (seeded) setRoomPlan(seeded)
+  }, [state.currentStepId, roomPlan, spaceVision, profile.existingRoom])
 
   // Photos that were never read (Continue on the photo step is always open):
   // read them on entering the room step, with a loader — never seed silently.
@@ -914,7 +966,7 @@ export function KitchenIntake({
         savedState={builderSavedState}
         renderImageDataUrl={chosenRender?.imageDataUrl}
         anchorPhotoDataUrl={spacePhotos[0]}
-        rerenderBlocked={!isRoomMeasured(floorPlan ?? profile.floorPlan)}
+        rerenderBlocked={!profile.roomConfirmed}
         layoutSummary={summariseLayoutFromProfile(profile, locale, floorPlan)}
         profile={profile}
         layoutPreconfirmed
@@ -979,17 +1031,20 @@ export function KitchenIntake({
     readFailed: roomReadFailed,
     onRetryRead: () => void readRoom(),
     onRelabel: (photoIndex, shows) => {
-      if (spaceVision) handleSpaceVisionChange(relabelPhotoView(spaceVision, photoIndex, shows))
+      if (spaceVision) handleSpaceVisionChange(relabelPhotoView(spaceVision, photoIndex, shows), { keepIfSameWalls: true })
     },
-    plan: floorPlan,
-    onPlanChange: setFloorPlan,
+    plan: roomPlan,
+    onPlanChange: setRoomPlan,
+    hasPhotos: roomHasPhotos,
+    onChooseShape: () => setRoomPhase('shape'),
     existingRoom: profile.existingRoom,
     onExistingRoomChange: (existingRoom) => patchProfile({ existingRoom }),
     layoutIntent: profile.layoutIntent,
     onLayoutIntentChange: (layoutIntent) => patchProfile({ layoutIntent }),
     onSaveLater: saveRoomForLater,
   }
-  const roomMeasuredNow = isRoomMeasured(floorPlan ?? profile.floorPlan)
+  // The render's gate: the room step was completed (every counter wall typed).
+  const roomMeasuredNow = Boolean(profile.roomConfirmed)
 
   return (
     <AppShell
@@ -1143,7 +1198,7 @@ export function KitchenIntake({
                 hasSpacePhotos={spacePhotos.length > 0}
                 roomReady={roomStepReady({
                   phase: roomPhase,
-                  plan: floorPlan,
+                  plan: roomPlan,
                   existingRoom: profile.existingRoom,
                   layoutIntent: profile.layoutIntent,
                 })}

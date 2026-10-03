@@ -669,9 +669,12 @@ export function fromVision(
   // conventional walls only when vision gave no runs. Storing explicit values
   // (rather than the old layout-shape default) is what lets `deriveShape` read
   // the layout back without circularity.
-  const visionCounterWalls = vision?.wallRuns?.length
-    ? new Set<WallSide>(reconcileCounterWalls(vision))
-    : null
+  // Photo views count as runs too: a read with views but no run list still
+  // joins its photos (IMP-31).
+  const hasRunEvidence = Boolean(
+    vision?.wallRuns?.length || vision?.photoViews?.some((v) => v.counterWalls.length > 0)
+  )
+  const visionCounterWalls = hasRunEvidence ? new Set<WallSide>(reconcileCounterWalls(vision!)) : null
   const counterWalls: WallSide[] = []
   for (const w of ALL_WALLS) {
     if (sides[w].kind === 'open') continue
@@ -902,7 +905,18 @@ export function validate(plan: FloorPlan): FloorPlan {
   const next: FloorPlan = { ...plan, room, openings, features, island, hasIsland: Boolean(island) }
   // Shape always follows the walls — recompute it here so no edit can leave a
   // stale label (the "still says L-oblik" bug).
-  return { ...next, layoutShape: deriveShape(next) }
+  const layoutShape = deriveShape(next)
+  if (layoutShape === next.layoutShape) return next
+  // A new label must never change which walls carry counter. Sides that were
+  // following the old label's default are pinned to it first — otherwise an L
+  // relabelled 'single_wall' would drop a run that relied on the L default.
+  const sides = { ...next.room.sides }
+  for (const w of ALL_WALLS) {
+    if (sides[w].kind !== 'open' && sides[w].hasCounter === undefined) {
+      sides[w] = { ...sides[w], hasCounter: defaultHasCounter(w, next.layoutShape) }
+    }
+  }
+  return { ...next, room: { ...next.room, sides }, layoutShape }
 }
 
 function isClosedSide(plan: FloorPlan, wall: WallSide): boolean {

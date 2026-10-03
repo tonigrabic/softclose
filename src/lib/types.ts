@@ -254,6 +254,13 @@ export interface LeadProfile {
   existingRoom?: 'kitchen' | 'empty'
   /** What the homeowner wants to do with today's layout (room step). */
   layoutIntent?: LayoutIntent
+  /**
+   * Set when the room step was completed — every counter wall measured. The
+   * render's gate and the resume rule read this, not the live plan: a later
+   * layout edit on the confirm step must not take back a measurement. The
+   * fingerprint and intent say which room the working plan was built from.
+   */
+  roomConfirmed?: { at: number; intent?: LayoutIntent; fingerprint: string }
   /** Anchor photos (data URLs) the homeowner uploaded at the opener. */
   spacePhotos?: string[]
 

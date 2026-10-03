@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { AlertCircle, Check, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -18,6 +18,7 @@ import {
   parseCeilingCm,
   parseWallLengthCm,
   renderFloorPlanSvg,
+  roomPlanFromVision,
   wallEstimateCm,
   withCeiling,
   withMeasuredWall,
@@ -64,6 +65,10 @@ export interface RoomStepProps {
   onRelabel: (photoIndex: number, shows: PhotoViewTarget) => void
   plan: FloorPlan | null
   onPlanChange: (plan: FloorPlan | null) => void
+  /** A photo read happened (here or on another device) — measured by "photos + homeowner". */
+  hasPhotos: boolean
+  /** Back to the shape screen (from a measure screen with nothing to measure). */
+  onChooseShape: () => void
   existingRoom?: 'kitchen' | 'empty'
   onExistingRoomChange: (room: 'kitchen' | 'empty') => void
   layoutIntent?: LayoutIntent
@@ -112,7 +117,9 @@ function ShapeScreen({
   const { t, locale } = useTranslations()
   const empty = existingRoom === 'empty'
   const selected: RoomCard | null = empty ? 'empty' : cardForPlan(plan)
-  const views = vision?.lookedLikeKitchen && !vision.emptyRoom ? (vision.photoViews ?? []) : []
+  const views = vision?.lookedLikeKitchen && !vision.emptyRoom && !empty ? (vision.photoViews ?? []) : []
+  // "Procjena s fotografija" only while the picked card is the one the photos read.
+  const visionCard: RoomCard | null = vision?.emptyRoom ? 'empty' : cardForPlan(roomPlanFromVision(vision))
   const viewOptions: ChipOption<PhotoViewTarget>[] = VIEW_TARGETS.map((v) => ({ value: v, label: letterLabel(t, v) }))
 
   if (isReading) {
@@ -150,7 +157,7 @@ function ShapeScreen({
   return (
     <div className="space-y-6">
       {readFailed && (
-        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-300/50 bg-amber-50/60 px-4 py-3 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+        <div role="alert" className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-300/50 bg-amber-50/60 px-4 py-3 text-sm text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
           <AlertCircle className="size-4 shrink-0 stroke-[1.75]" aria-hidden />
           <span className="flex-1">{t('room.readFailed')}</span>
           <button
@@ -221,7 +228,7 @@ function ShapeScreen({
           preview={(card) => (card === 'empty' ? null : card === selected && plan ? plan : null)}
           locale={locale}
         />
-        {vision && !readFailed && selected && selected !== 'empty' && (
+        {selected && selected === visionCard && (
           <p className="text-[11px] text-muted-foreground">{t('room.shape.estimated')}</p>
         )}
       </section>
@@ -327,14 +334,33 @@ function CardGrid<C extends RoomCard>({
   )
 }
 
-function MeasureScreen({ photos, vision, plan, onPlanChange, onSaveLater }: RoomStepProps) {
+function MeasureScreen({ vision, plan, onPlanChange, onSaveLater, hasPhotos, onChooseShape, existingRoom }: RoomStepProps) {
   const { t } = useTranslations()
   const [saveState, setSaveState] = useState<'idle' | 'saving' | SaveLaterResult>('idle')
-  if (!plan) return null
-  const walls = counterWalls(plan)
+  // The screen replaces the one the footer Continue was on: put focus on its
+  // heading so a keyboard or screen-reader user is not left on <body>.
+  const headingRef = useRef<HTMLParagraphElement>(null)
+  useEffect(() => headingRef.current?.focus(), [])
+  const walls = plan ? counterWalls(plan) : []
+  if (!plan || walls.length === 0) {
+    // Nothing to measure (no wall carries counter): back to the shape, never an empty form.
+    return (
+      <div className="space-y-3 rounded-2xl border border-border bg-card/60 px-4 py-4">
+        <p ref={headingRef} tabIndex={-1} className="text-sm text-foreground focus:outline-none">
+          {t('room.measure.noWalls')}
+        </p>
+        <button
+          type="button"
+          onClick={onChooseShape}
+          className="rounded-full border border-border px-3.5 py-1.5 text-sm font-medium text-foreground hover:border-primary/50"
+        >
+          {t('room.measure.chooseShape')}
+        </button>
+      </div>
+    )
+  }
   const missing = missingWalls(plan)
   const measured = walls.filter((w) => !missing.includes(w))
-  const hasPhotos = photos.some((p) => p && p !== OMITTED_IMAGE)
   const letters = Object.fromEntries(walls.map((w) => [w, WALL_LETTER[w]])) as Partial<Record<WallSide, string>>
   const missingText = missing.map((w) => t('room.measure.wall').replace('{a}', WALL_LETTER[w])).join(', ')
   const ceilingHint = vision?.ceilingHeightCm ? Math.round(vision.ceilingHeightCm) : null
@@ -347,8 +373,12 @@ function MeasureScreen({ photos, vision, plan, onPlanChange, onSaveLater }: Room
   return (
     <div className="space-y-6">
       <div>
-        <p className="text-sm font-semibold text-foreground">{t('room.measure.title')}</p>
-        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{t('room.measure.intro')}</p>
+        <p ref={headingRef} tabIndex={-1} className="text-sm font-semibold text-foreground focus:outline-none">
+          {t('room.measure.title')}
+        </p>
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+          {t(existingRoom === 'empty' ? 'room.measure.introEmpty' : 'room.measure.intro')}
+        </p>
         <p className="mt-1 text-xs text-muted-foreground">{t('room.measure.tip')}</p>
       </div>
 
@@ -427,10 +457,12 @@ function MeasureScreen({ photos, vision, plan, onPlanChange, onSaveLater }: Room
 
 /**
  * One length, typed. Empty at first; the photo estimate is a muted line under
- * it, never its value. A value that parses is handed up as it is typed (so
- * Continue enables without a blur); one that does not is reported on blur.
+ * it, never its value. A value is handed up while typing only once it is
+ * unambiguous — three digits, a unit, or a decimal ("3,8") — so "3" on the way
+ * to "380" never resizes the room to 300 cm and back; anything else clears the
+ * measurement until blur, which commits whatever parses ("3" alone is 3 m).
  */
-function LengthField({
+export function LengthField({
   id,
   label,
   initialCm,
@@ -462,6 +494,14 @@ function LengthField({
     hintCm ? t('room.measure.hint').replace('{cm}', String(hintCm)) : null,
     cm == null && unmeasuredNote ? unmeasuredNote : null,
   ].filter(Boolean)
+  const described = [
+    notes.length > 0 ? `${id}-note` : null,
+    cm != null ? `${id}-ok` : null,
+    showError ? `${id}-error` : null,
+    describedBy,
+  ]
+    .filter(Boolean)
+    .join(' ')
 
   return (
     <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-1.5 rounded-2xl border border-border bg-card/60 px-4 py-3">
@@ -469,14 +509,22 @@ function LengthField({
         <label htmlFor={id} className="text-sm font-medium text-foreground">
           {label}
         </label>
-        {notes.length > 0 && <p className="mt-0.5 text-[11px] text-muted-foreground/80">{notes.join(' · ')}</p>}
+        {notes.length > 0 && (
+          <p id={`${id}-note`} className="mt-0.5 text-[11px] text-muted-foreground/80">
+            {notes.join(' · ')}
+          </p>
+        )}
         {cm != null && (
-          <p className="mt-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
+          <p id={`${id}-ok`} className="mt-0.5 text-[11px] font-medium text-emerald-700 dark:text-emerald-400">
             {echo ? `${t('room.measure.metres').replace('{cm}', String(cm))} · ` : ''}
             {t('room.measure.measured')}
           </p>
         )}
-        {showError && <p className="mt-0.5 text-[11px] text-destructive">{rangeError}</p>}
+        {showError && (
+          <p id={`${id}-error`} className="mt-0.5 text-[11px] text-destructive">
+            {rangeError}
+          </p>
+        )}
       </div>
       <div
         className={cn(
@@ -491,16 +539,26 @@ function LengthField({
           autoComplete="off"
           value={text}
           aria-invalid={showError}
-          aria-describedby={describedBy}
+          aria-describedby={described || undefined}
           onChange={(e) => {
-            setText(e.target.value)
-            onValue(parse(e.target.value))
+            const next = e.target.value
+            setText(next)
+            onValue(unambiguous(next) ? parse(next) : null)
           }}
-          onBlur={() => setTouched(true)}
+          onBlur={() => {
+            setTouched(true)
+            onValue(parse(text))
+          }}
           className="w-24 bg-transparent px-2.5 py-2 text-right text-[15px] tabular-nums text-foreground placeholder:text-muted-foreground/40 focus:outline-none"
         />
         <span className="shrink-0 pr-2.5 text-[11px] text-muted-foreground/60">cm</span>
       </div>
     </div>
   )
+}
+
+/** A length the homeowner has finished typing: 3+ digits, a unit, or a decimal part. */
+function unambiguous(raw: string): boolean {
+  const text = raw.trim()
+  return /\d{3}/.test(text) || /[a-z'"]/i.test(text) || /\d[.,]\d/.test(text)
 }

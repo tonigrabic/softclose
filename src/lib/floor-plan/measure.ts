@@ -101,7 +101,8 @@ function scale(pos: number, from: number, to: number): number {
  * it; when two facing counter walls differ, the shorter one keeps its length
  * as its counter run. Elements the photo read placed on that axis move with
  * the new size (positions scale); anything the homeowner placed stays put.
- * Once every counter wall is typed the room is the homeowner's: H, measured.
+ * Once every counter wall is typed the plan is measured by the homeowner; the
+ * room's H stamp needs a typed wall on both axes (see below).
  */
 export function withMeasuredWall(
   plan: FloorPlan,
@@ -109,9 +110,11 @@ export function withMeasuredWall(
   cm: number | null,
   opts: { hasPhotos: boolean }
 ): FloorPlan {
+  const typed = isValidWallLength(cm) ? cm : undefined
   const sides: RoomSides = {
     ...plan.room.sides,
-    [wall]: { ...plan.room.sides[wall], measuredLengthCm: isValidWallLength(cm) ? cm : undefined },
+    // A cleared wall also drops the run length a facing pair gave it.
+    [wall]: { ...plan.room.sides[wall], measuredLengthCm: typed, ...(typed ? {} : { counterLengthCm: undefined }) },
   }
   let next: FloorPlan = { ...plan, room: { ...plan.room, sides } }
 
@@ -125,9 +128,17 @@ export function withMeasuredWall(
     const from = axis === 'h' ? next.room.lengthCm : next.room.widthCm
     const moved = (w: WallSide, source: string) => wallAxis(w) === axis && source !== 'homeowner'
     const island = next.island
+    // Every measured counter wall on the axis gets its run recomputed: the
+    // shorter of a facing pair keeps its own length, anything else runs the
+    // whole wall — so a run length left from an earlier pair never caps a wall.
+    const s = { ...next.room.sides }
+    for (const w of onAxis) {
+      const own = s[w].measuredLengthCm!
+      s[w] = { ...s[w], counterLengthCm: onAxis.length === 2 && own < to ? own : undefined }
+    }
     next = {
       ...next,
-      room: { ...next.room, ...(axis === 'h' ? { lengthCm: to } : { widthCm: to }) },
+      room: { ...next.room, sides: s, ...(axis === 'h' ? { lengthCm: to } : { widthCm: to }) },
       openings: next.openings.map((o) => (moved(o.wall, o.source) ? { ...o, startCm: scale(o.startCm, from, to) } : o)),
       features: next.features.map((f) => (moved(f.wall, f.source) ? { ...f, centerCm: scale(f.centerCm, from, to) } : f)),
       island:
@@ -137,20 +148,17 @@ export function withMeasuredWall(
             : { ...island, centerYCm: scale(island.centerYCm, from, to) }
           : island,
     }
-    if (onAxis.length === 2) {
-      const s = { ...next.room.sides }
-      for (const w of onAxis) {
-        const own = s[w].measuredLengthCm!
-        s[w] = { ...s[w], counterLengthCm: own < to ? own : undefined }
-      }
-      next = { ...next, room: { ...next.room, sides: s } }
-    }
   }
 
   if (isRoomMeasured(next)) {
+    // The room's confidence speaks for BOTH dimensions, so it becomes the
+    // homeowner's only when a wall on each axis was typed. A galley or a single
+    // wall measures its runs but not the depth of the room: the typed walls
+    // carry their own provenance (measuredLengthCm), the room stays an estimate.
+    const axes = new Set(counterWalls(next).map(wallAxis))
     next = {
       ...next,
-      room: { ...next.room, confidence: 'H', source: 'homeowner' },
+      ...(axes.size === 2 ? { room: { ...next.room, confidence: 'H' as const, source: 'homeowner' as const } } : {}),
       measurementMethod: opts.hasPhotos ? 'photo_plus_homeowner' : 'homeowner_only',
     }
   }
@@ -276,6 +284,7 @@ export function roomStepReady(input: {
   layoutIntent?: LayoutIntent
 }): boolean {
   if (input.phase === 'measure') return isRoomMeasured(input.plan)
-  if (!input.plan) return false
+  // A shape with no wall carrying counter has nothing to measure — no way on.
+  if (!input.plan || counterWalls(input.plan).length === 0) return false
   return input.existingRoom === 'empty' || Boolean(input.layoutIntent)
 }
