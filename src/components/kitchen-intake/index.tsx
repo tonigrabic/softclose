@@ -54,6 +54,7 @@ import {
   reseedRoomPlan,
   roomPlanFromVision,
   roomStepReady,
+  roomStepDone,
 } from '@/lib/floor-plan'
 import { OMITTED_IMAGE, snapshotFingerprint } from '@/lib/project/checkpoint'
 import { requestSpaceVision } from '@/lib/api/space-vision-client'
@@ -250,7 +251,7 @@ export function KitchenIntake({
     // the render is not reachable without typed wall lengths (IMP-31).
     // The completed room step, not the live plan: a layout edit on the confirm
     // step must not take back a measurement.
-    const roomMeasured = Boolean(d.profile?.roomConfirmed)
+    const roomMeasured = roomStepDone(d.profile)
     const resumed = resumeStepId(d.currentStepId, {
       roomMeasured,
       contractConfirmed: Boolean(d.profile?.contractConfirmedAt),
@@ -532,13 +533,17 @@ export function KitchenIntake({
       spaceWidthCm: Math.round(working.room.widthCm),
       ...(spaceVision ? { spaceVisionResult: spaceVision } : {}),
     })
-    const walls = counterWalls(room)
-      .map((w) => `${WALL_LETTER[w]}=${room.room.sides[w].measuredLengthCm} cm`)
-      .join(', ')
-    logTurn(
-      'user',
-      `Room today: ${empty ? 'empty room' : room.layoutShape}; measured walls ${walls}; wants: ${empty ? `a new ${working.layoutShape} kitchen` : (intent ?? 'n/a')}`
-    )
+    // One transcript turn per room the homeowner actually confirmed — passing
+    // back through the step unchanged says nothing new to the maker.
+    if (!unchanged) {
+      const walls = counterWalls(room)
+        .map((w) => `${WALL_LETTER[w]}=${room.room.sides[w].measuredLengthCm} cm`)
+        .join(', ')
+      logTurn(
+        'user',
+        `Room today: ${empty ? 'empty room' : room.layoutShape}; measured walls ${walls}; wants: ${empty ? `a new ${working.layoutShape} kitchen` : (intent ?? 'n/a')}`
+      )
+    }
     goNext()
   }
 
@@ -966,7 +971,7 @@ export function KitchenIntake({
         savedState={builderSavedState}
         renderImageDataUrl={chosenRender?.imageDataUrl}
         anchorPhotoDataUrl={spacePhotos[0]}
-        rerenderBlocked={!profile.roomConfirmed}
+        rerenderBlocked={!roomStepDone(profile)}
         layoutSummary={summariseLayoutFromProfile(profile, locale, floorPlan)}
         profile={profile}
         layoutPreconfirmed
@@ -1044,7 +1049,7 @@ export function KitchenIntake({
     onSaveLater: saveRoomForLater,
   }
   // The render's gate: the room step was completed (every counter wall typed).
-  const roomMeasuredNow = Boolean(profile.roomConfirmed)
+  const roomMeasuredNow = roomStepDone(profile)
 
   return (
     <AppShell

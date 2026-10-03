@@ -293,3 +293,54 @@ describe('review: honest provenance and stable runs', () => {
     expect(counterWalls(off)).toEqual(['left'])
   })
 })
+
+describe('review round 2: typed lengths are reversible', () => {
+  const windowOf = (p: ReturnType<typeof roomL>) => p.openings.find((o) => o.kind === 'window')!
+  const fridge = (p: ReturnType<typeof roomL>) => p.features.find((f) => f.kind === 'fridge')!
+  const hob = (p: ReturnType<typeof roomL>) => p.features.find((f) => f.kind === 'hob')!
+
+  test('a typo and its correction land every element where a direct entry would', () => {
+    const base = roomL()
+    // Wall A: the window and the hob (near the far corner) — a 150 typo used to clamp them.
+    const direct = withMeasuredWall(base, 'top', 340, photos)
+    const viaTypo = withMeasuredWall(withMeasuredWall(base, 'top', 150, photos), 'top', 340, photos)
+    expect(windowOf(viaTypo).startCm).toBeCloseTo(windowOf(direct).startCm, 6)
+    expect(hob(viaTypo).centerCm).toBeCloseTo(hob(direct).centerCm, 6)
+    // Wall D: the fridge.
+    const d = withMeasuredWall(base, 'left', 290, photos)
+    const dTypo = withMeasuredWall(withMeasuredWall(base, 'left', 125, photos), 'left', 290, photos)
+    expect(fridge(dTypo).centerCm).toBeCloseTo(fridge(d).centerCm, 6)
+  })
+
+  test('editing one wall of a facing pair (cleared on the way) ends where a direct entry would', () => {
+    const galley = measureAll(roomPlanFromVision({ ...vision, layoutShape: 'galley', wallRuns: [
+      { wall: 'top', spanPct: { start: 0, end: 100 } }, { wall: 'bottom', spanPct: { start: 0, end: 100 } },
+    ], photoViews: [] })!, { top: 380, bottom: 300 })
+    const direct = withMeasuredWall(galley, 'top', 390, photos)
+    const viaClear = withMeasuredWall(withMeasuredWall(galley, 'top', null, photos), 'top', 390, photos)
+    for (const f of direct.features) {
+      expect(viaClear.features.find((g) => g.kind === f.kind)!.centerCm).toBeCloseTo(f.centerCm, 6)
+    }
+  })
+
+  test('taking a measurement back restores the estimate the stamp replaced', () => {
+    const full = measureAll(roomL(), { top: 420, left: 300 })
+    expect(full.room).toMatchObject({ confidence: 'H', source: 'homeowner' })
+    const back = withMeasuredWall(full, 'left', null, photos)
+    expect(back.room).toMatchObject({ confidence: 'M', source: 'ai_vision' })
+    expect(withShape(back, 'single_wall').room.source).not.toBe('homeowner')
+  })
+
+  test('changing the card re-derives runs from the typed lengths (galley → L → galley)', () => {
+    let plan = measureAll(validate(fromShapePreset('galley')), { top: 280, bottom: 300 })
+    plan = withShape(plan, 'l_shape')
+    plan = withShape(plan, 'galley')
+    expect(plan.room.sides.top.counterLengthCm).toBe(280)
+    expect(plan.room.lengthCm).toBe(300)
+  })
+
+  test('an island the homeowner put on the plan survives a new photo read', () => {
+    const withIsland = withShape(measureAll(roomL(), { top: 360, left: 240 }), 'island')
+    expect(reseedRoomPlan(withIsland, vision, photos)!.hasIsland).toBe(true)
+  })
+})

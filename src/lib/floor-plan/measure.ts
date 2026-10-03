@@ -8,7 +8,7 @@
  * folded into the room's dimensions; opposite walls share one dimension, so
  * the longer of a pair sets it and the shorter keeps its own counter length.
  */
-import type { LayoutIntent, SpaceVisionResult, WallSide } from '@/lib/types'
+import type { LayoutIntent, LeadProfile, SpaceVisionResult, WallSide } from '@/lib/types'
 import {
   DIM_HARD_MAX,
   DIM_HARD_MIN,
@@ -150,19 +150,39 @@ export function withMeasuredWall(
     }
   }
 
-  if (isRoomMeasured(next)) {
-    // The room's confidence speaks for BOTH dimensions, so it becomes the
-    // homeowner's only when a wall on each axis was typed. A galley or a single
-    // wall measures its runs but not the depth of the room: the typed walls
-    // carry their own provenance (measuredLengthCm), the room stays an estimate.
-    const axes = new Set(counterWalls(next).map(wallAxis))
+  // The room's confidence speaks for BOTH dimensions, so it becomes the
+  // homeowner's only when a wall on each axis was typed. A galley or a single
+  // wall measures its runs but not the depth of the room: the typed walls carry
+  // their own provenance (measuredLengthCm), the room stays an estimate. Taking
+  // a measurement back restores the estimate it replaced.
+  const axes = new Set(counterWalls(next).map(wallAxis))
+  const ownedByHomeowner = isRoomMeasured(next) && axes.size === 2
+  const room = next.room
+  if (ownedByHomeowner && room.source !== 'homeowner') {
     next = {
       ...next,
-      ...(axes.size === 2 ? { room: { ...next.room, confidence: 'H' as const, source: 'homeowner' as const } } : {}),
-      measurementMethod: opts.hasPhotos ? 'photo_plus_homeowner' : 'homeowner_only',
+      room: { ...room, confidence: 'H', source: 'homeowner', estimate: { confidence: room.confidence, source: room.source } },
     }
+  } else if (!ownedByHomeowner && room.source === 'homeowner' && room.estimate) {
+    const { estimate, ...rest } = room
+    next = { ...next, room: { ...rest, confidence: estimate.confidence, source: estimate.source } }
   }
-  return validate(next)
+  if (isRoomMeasured(next)) {
+    next = { ...next, measurementMethod: opts.hasPhotos ? 'photo_plus_homeowner' : 'homeowner_only' }
+  }
+  return withShapeLabel(next)
+}
+
+/**
+ * Re-derive the shape label (and pin defaults it would change) without
+ * clamping elements. Typed lengths scale positions by ratio, which is
+ * reversible only while nothing is clamped in between — a typo and its
+ * correction, or editing one of a facing pair, must land every element where a
+ * direct entry would. Elements are clamped once, when the room step commits.
+ */
+function withShapeLabel(plan: FloorPlan): FloorPlan {
+  const v = validate(plan)
+  return { ...plan, room: { ...plan.room, sides: v.room.sides }, layoutShape: v.layoutShape }
 }
 
 export const CEILING_MIN_CM = 200
@@ -244,7 +264,16 @@ export function withShape(plan: FloorPlan | null | undefined, card: Exclude<Room
     sides[w] = { ...sides[w], ...(on ? { kind: 'closed' as const } : {}), hasCounter: on }
   }
   const island = card === 'island' ? (plan.island ?? makeIsland(plan.room)) : undefined
-  return validate({ ...plan, layoutShape: card, room: { ...plan.room, sides }, island, hasIsland: Boolean(island) })
+  let next = validate({ ...plan, layoutShape: card, room: { ...plan.room, sides }, island, hasIsland: Boolean(island) })
+  // The walls changed, so the room and its runs are re-derived from every
+  // typed length: a run length left over from the previous shape never caps,
+  // and a new facing pair gets its own.
+  const hasPhotos = next.measurementMethod === 'photo_plus_homeowner' || next.measurementMethod === 'photo_only'
+  for (const w of LETTER_ORDER) {
+    const cm = next.room.sides[w].measuredLengthCm
+    if (isValidWallLength(cm)) next = withMeasuredWall(next, w, cm, { hasPhotos })
+  }
+  return next
 }
 
 /** The room as the photos read it, or null when there is nothing to read (or no kitchen in it yet). */
@@ -267,7 +296,9 @@ export function reseedRoomPlan(
   if (!prev) return null
   const base = roomPlanFromVision(vision)
   if (!base) return prev
-  let next = base
+  // An island the homeowner put on the plan has nothing to do with which
+  // walls the photos show: it stays.
+  let next = prev.island && !base.island ? { ...base, island: prev.island, hasIsland: true } : base
   for (const w of LETTER_ORDER) {
     const cm = prev.room.sides[w].measuredLengthCm
     if (isValidWallLength(cm)) next = withMeasuredWall(next, w, cm, opts)
@@ -287,4 +318,14 @@ export function roomStepReady(input: {
   // A shape with no wall carrying counter has nothing to measure — no way on.
   if (!input.plan || counterWalls(input.plan).length === 0) return false
   return input.existingRoom === 'empty' || Boolean(input.layoutIntent)
+}
+
+/**
+ * The room step is done: committed with every counter wall measured. The
+ * render's gate and the resume rule read this, never the live plan. A plan
+ * committed by an earlier build (before the stamp existed) counts through its
+ * measured as-is room.
+ */
+export function roomStepDone(profile: Pick<LeadProfile, 'roomConfirmed' | 'existingFloorPlan'> | null | undefined): boolean {
+  return Boolean(profile?.roomConfirmed) || isRoomMeasured(profile?.existingFloorPlan)
 }

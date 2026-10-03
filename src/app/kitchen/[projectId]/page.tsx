@@ -6,6 +6,7 @@ import { DEFAULT_LOCALE, isLocale, tDynamic } from '@/lib/i18n/core'
 import { migrateSnapshot } from '@/lib/project/snapshot'
 import { stepProgress } from '@/lib/project/status'
 import { resumeStepId } from '@/lib/flow'
+import { roomStepDone } from '@/lib/floor-plan'
 import { KitchenHome } from './KitchenHome'
 
 export const dynamic = 'force-dynamic'
@@ -69,7 +70,7 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
   // the continue button must say so.
   const resumeStep = project.step
     ? resumeStepId(project.step, {
-        roomMeasured: Boolean(snapshot?.profile?.roomConfirmed),
+        roomMeasured: roomStepDone(snapshot?.profile),
         contractConfirmed: Boolean(snapshot?.profile?.contractConfirmedAt),
       })
     : null

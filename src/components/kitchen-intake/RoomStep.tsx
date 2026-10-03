@@ -233,6 +233,13 @@ function ShapeScreen({
         )}
       </section>
 
+      {plan && !empty && selected == null && (
+        // A read with no wall carrying counter: say why Continue waits.
+        <p className="text-xs text-muted-foreground" role="status">
+          {t('room.measure.noWalls')}
+        </p>
+      )}
+
       {empty ? (
         <section className="space-y-2.5">
           <p className="text-sm font-semibold text-foreground">{t('room.empty.title')}</p>

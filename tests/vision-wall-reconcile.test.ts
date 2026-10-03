@@ -12,6 +12,9 @@ import {
   relabelPhotoView,
   shapeFromCounterWalls,
   wallsOf,
+  withShape,
+  roomPlanFromVision,
+  counterWalls,
 } from '@/lib/floor-plan'
 import { TWO_ANGLE_L, TWO_ANGLE_L_SAME_WALL, TWO_ANGLE_L_UNDER_REPORTED } from './fixtures/vision-two-angle-l'
 
@@ -132,17 +135,20 @@ describe('photo views join the photos into one room', () => {
     expect(plan.layoutShape).toBe('l_shape')
   })
 
-  test('both photos read as one wall → a single wall, until the homeowner corrects photo 2', () => {
+  test('both photos read as one wall → a single wall; the label fixes the photo, the card fixes the shape', () => {
     const out = normalizeVisionRead(TWO_ANGLE_L_SAME_WALL, 2)
     const before = fromVision(out)
     expect(counterWallsOf(before)).toEqual(['top'])
     expect(before.layoutShape).toBe('single_wall')
 
+    // A label says where the camera points, not where cabinets are.
     const corrected = relabelPhotoView(out, 1, 'left')
-    expect(corrected.photoViews![1]).toMatchObject({ shows: 'left', counterWalls: ['left'], source: 'homeowner', confidence: 'H' })
-    const after = fromVision(corrected)
-    expect(counterWallsOf(after)).toEqual(['top', 'left'])
-    expect(after.layoutShape).toBe('l_shape')
+    expect(corrected.photoViews![1]).toMatchObject({ shows: 'left', counterWalls: [], source: 'homeowner', confidence: 'H' })
+    expect(counterWallsOf(fromVision(corrected))).toEqual(['top'])
+
+    // The L card puts the second run where the room has it.
+    const l = withShape(roomPlanFromVision(corrected), 'l_shape')
+    expect(counterWalls(l)).toEqual(['top', 'left'])
   })
 
   test('a corrected view that carried no counter adds none', () => {
@@ -233,13 +239,33 @@ describe('review: a label moves the photo, it never invents runs', () => {
     expect(relabelPhotoView(out, 0, 'bottom_left').photoViews![0].counterWalls).toEqual([])
   })
 
-  test('wall → wall and corner → corner turn the runs with the frame', () => {
-    const out = normalizeVisionRead(
-      { ...TWO_ANGLE_L, photoViews: [{ photo: 1, shows: 'top_left', counterWalls: ['top', 'left'], confidence: 'M' }, TWO_ANGLE_L.photoViews![1]] },
+  test("a relabel never moves a run: a galley photo corrected to its end wall keeps the galley", () => {
+    const galley = normalizeVisionRead(
+      {
+        lookedLikeKitchen: true,
+        layoutShape: 'galley',
+        wallRuns: [run('top'), run('bottom')],
+        photoViews: [
+          { photo: 1, shows: 'top', counterWalls: ['top'], confidence: 'H' },
+          { photo: 2, shows: 'bottom', counterWalls: ['bottom'], confidence: 'H' },
+        ],
+      },
       2
     )
-    expect(relabelPhotoView(out, 0, 'top_right').photoViews![0].counterWalls.sort()).toEqual(['right', 'top'])
-    expect(relabelPhotoView(out, 1, 'bottom').photoViews![1].counterWalls).toEqual(['bottom'])
+    const corrected = relabelPhotoView(galley, 0, 'right')
+    expect(corrected.photoViews![0].counterWalls).toEqual([])
+    expect(reconcileCounterWalls(corrected).sort()).toEqual(['bottom', 'top'])
+    const single = relabelPhotoView(normalizeVisionRead({ ...galley, photoViews: [galley.photoViews![0]] } as never, 1), 0, 'right')
+    expect(reconcileCounterWalls(single).sort()).toEqual(['bottom', 'top'])
+  })
+
+  test('a homeowner-reviewed label with no run left never invents a shape default', () => {
+    const out = normalizeVisionRead(
+      { lookedLikeKitchen: true, layoutShape: 'l_shape', photoViews: [{ photo: 1, shows: 'top', counterWalls: ['top'], confidence: 'H' }] },
+      1
+    )
+    const plan = fromVision(relabelPhotoView(out, 0, 'unclear'))
+    expect(counterWallsOf(plan)).toEqual([])
   })
 
   test('views without a run list still join the photos', () => {

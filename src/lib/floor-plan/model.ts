@@ -125,6 +125,8 @@ export interface RoomSpec {
   sides: RoomSides
   confidence: ConfidenceLevel
   source: ElementSource
+  /** Provenance before the homeowner measured it (room step) — restored if a measurement is taken back. */
+  estimate?: Provenance
 }
 
 export interface Opening {
@@ -671,8 +673,11 @@ export function fromVision(
   // the layout back without circularity.
   // Photo views count as runs too: a read with views but no run list still
   // joins its photos (IMP-31).
+  // A label the homeowner reviewed is evidence even with no runs left on it:
+  // better no counter wall (they pick the card) than a shape default invented.
   const hasRunEvidence = Boolean(
-    vision?.wallRuns?.length || vision?.photoViews?.some((v) => v.counterWalls.length > 0)
+    vision?.wallRuns?.length ||
+      vision?.photoViews?.some((v) => v.counterWalls.length > 0 || v.source === 'homeowner')
   )
   const visionCounterWalls = hasRunEvidence ? new Set<WallSide>(reconcileCounterWalls(vision!)) : null
   const counterWalls: WallSide[] = []
