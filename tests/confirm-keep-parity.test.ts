@@ -22,7 +22,9 @@ import {
   counterWalls,
   isRoomMeasured,
   roomPlanFromVision,
+  tradeMoves,
   validate,
+  withIsland,
   withMeasuredWall,
   workingPlanFromRoom,
   type FloorPlan,
@@ -131,6 +133,16 @@ describe('IMP-32: "keep this layout" — the render never moves the tally', () =
       })
     })
   }
+
+  test('the island toggle on, then off, gives back the room-commit tally', () => {
+    const on = withIsland(working, true)
+    expect(assembleUnits({ contract: floorPlanToLayout(validate(on)) }).units.length).toBeGreaterThan(before.units.length)
+    expect(confirmTally(withIsland(on, false), null)).toEqual(before.units)
+  })
+
+  test('keep: the sink stays', () => {
+    expect(tradeMoves(room, working, 'keep').sink.status).toBe('stays')
+  })
 
   test('control: without the projection the same reads DO move the tally', () => {
     // Proves the parity above is held by decorHypothesis, not by fixtures that

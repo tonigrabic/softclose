@@ -14,7 +14,9 @@ import { CEILING_MAX_CM, CEILING_MIN_CM, parseCeilingCm, withCeiling } from '@/l
  * `floorPlan` by the parent — never read back from the render. Here the
  * homeowner adjusts dimensions, walls, openings, the island and appliance
  * placement against their actual space, then the step's footer Continue
- * freezes the plan and locks the contract the builder prices from.
+ * freezes the plan and locks the contract the builder prices from. Since
+ * IMP-32 it sits under "Promijeni raspored" on the confirm step, folded away
+ * on the measured path and open for the 'change' intent or a legacy plan.
  *
  * No photo upload here (that's the anchor-only step 1). When there's no plan
  * yet (render still loading, or photos+render both skipped) we fall back to the

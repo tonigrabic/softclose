@@ -1,9 +1,9 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import { Check, ChevronLeft, ChevronRight, CornerUpRight, Plus, Ruler, Trash2, X } from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, CornerUpRight, Plus, Ruler, Trash2 } from 'lucide-react'
 import { useTranslations, type Locale } from '@/lib/i18n'
-import { formatLength, validate, wallLengthCm } from '@/lib/floor-plan'
+import { formatLength, validate } from '@/lib/floor-plan'
 import type { FeatureKind, FloorPlan } from '@/lib/floor-plan'
 import type { WallSide } from '@/lib/types'
 import type { LayoutContract, RunId } from '@/lib/contract/layout-contract'
@@ -27,14 +27,17 @@ import { runLabel } from './runLabel'
 /**
  * The contract — what we'll build and price — and the place the homeowner
  * confirms it. When given a `plan` + `onPlanChange` (+ `onEditsChange`) it is
- * fully EDITABLE: per wall they change the length, toggle the upper / tall
- * rows, drop the wall entirely, and — per UNIT — tap any chip in the sequence
- * to change its type, remove it, or add one (the fix for "I can't edit the
- * number of drawers"). Appliance-bound chips (sink / dishwasher / oven /
- * fridge) re-derive from the measured appliance: they can be nudged along the
- * wall or removed WITH their appliance, so no orphan units exist. Every edit
- * writes the FloorPlan / UnitEdits and re-derives the tally through the ONE
- * assembler the builder seeds from — parity by construction.
+ * EDITABLE: per wall they toggle the upper cabinets, and — per UNIT — tap any
+ * chip in the sequence to change its type, remove it, or add one (the fix for
+ * "I can't edit the number of drawers"). Appliance-bound chips (sink /
+ * dishwasher / oven / fridge) re-derive from the measured appliance: they can
+ * be nudged along the wall or removed WITH their appliance, so no orphan units
+ * exist. Every edit writes the FloorPlan / UnitEdits and re-derives the tally
+ * through the ONE assembler the builder seeds from — parity by construction.
+ *
+ * Wall lengths are text: the room step measured them, and a second input here
+ * would bypass its rules (IMP-32). Walls and tall runs are changed in the plan
+ * editor under "Promijeni raspored"; an existing tall run still counts here.
  *
  * Without the editing props it's a read-only tally (the builder's confirm gate).
  */
@@ -92,9 +95,9 @@ const PATTERN_LABEL: Record<Locale, Record<CabinetPattern, string>> = {
 }
 
 /** Inline editing-control labels (kept local, like the label maps above). */
-const UI: Record<Locale, { upper: string; tall: string; remove: string; cm: string }> = {
-  'hr-HR': { upper: 'Gornji ormarići', tall: 'Visoki/pećnica', remove: 'Ukloni zid', cm: 'cm' },
-  'en-US': { upper: 'Upper cabinets', tall: 'Tall / oven', remove: 'Remove wall', cm: 'cm' },
+const UI: Record<Locale, { upper: string }> = {
+  'hr-HR': { upper: 'Gornji ormarići' },
+  'en-US': { upper: 'Upper cabinets' },
 }
 
 /** Module-scope so the render-purity lint can see edits stamp time only on click. */
@@ -113,13 +116,6 @@ function withSidePatch(plan: FloorPlan, wall: WallSide, patch: SidePatch): Floor
       sides: { ...plan.room.sides, [wall]: { ...plan.room.sides[wall], ...patch } },
     },
   })
-}
-
-/** Set a wall's length (= the room dimension along that wall) and re-validate. */
-function withWallLength(plan: FloorPlan, wall: WallSide, cm: number): FloorPlan {
-  const horizontal = wall === 'top' || wall === 'bottom'
-  const room = horizontal ? { ...plan.room, lengthCm: cm } : { ...plan.room, widthCm: cm }
-  return validate({ ...plan, room })
 }
 
 function findFeature(plan: FloorPlan, wall: WallSide, kind: FeatureKind) {
@@ -178,11 +174,12 @@ export function LayoutConfirm({
 }: {
   contract: LayoutContract
   /**
-   * The render hypothesis the builder seeds with, so the tally folds in the
-   * SAME hints (the old parity hole). Since IMP-32 the builder gets a
-   * decor-only read once the room is measured, so this adds nothing there;
-   * only a journey confirmed before the room step still carries render-seen
-   * towers and unit patterns.
+   * The render hypothesis the builder seeds with, so the builder's read-only
+   * gate folds in the SAME hints (the old parity hole). Since IMP-32 the
+   * builder gets a decor-only read once the room is measured, so this adds
+   * nothing there; only a journey confirmed before the room step still
+   * carries render-seen towers and unit patterns. The confirm step passes
+   * none: its tally comes from the plan alone.
    */
   hypothesis?: BuilderHypothesis | null
   /** The live FloorPlan. With `onPlanChange`, the card becomes editable. */
@@ -320,9 +317,6 @@ export function LayoutConfirm({
               return Boolean(s && s.fillableCapacityMm / (s.fillableCount + 1) >= 300)
             }
 
-            const wallLen =
-              editable && plan && isWall ? Math.round(wallLengthCm(wall, plan.room)) : r.lengthCm
-
             const renderRow = (row: RowKind, label: string, items: RowItem[]) => (
               <UnitRow
                 label={label}
@@ -398,31 +392,9 @@ export function LayoutConfirm({
               <li key={r.id} className="space-y-2 rounded-2xl border border-border bg-background p-3.5">
                 <div className="flex items-baseline justify-between gap-4">
                   <p className="truncate text-[14px] font-semibold text-foreground">{runLabel(r, tDynamic)}</p>
-                  {editable && isWall ? (
-                    <span className="inline-flex items-center gap-1">
-                      <input
-                        key={`${r.id}-len-${wallLen}`}
-                        type="number"
-                        inputMode="numeric"
-                        min={120}
-                        max={1200}
-                        defaultValue={wallLen}
-                        onBlur={(e) => {
-                          const n = parseInt(e.target.value, 10)
-                          if (Number.isFinite(n) && n > 0) onPlanChange!(withWallLength(plan!, wall, n))
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                        }}
-                        className="w-16 rounded-lg border border-border bg-background px-2 py-1 text-right text-[13px] font-semibold tabular-nums text-foreground focus:border-primary/60 focus:outline-none focus:ring-1 focus:ring-primary/20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                      />
-                      <span className="text-[12px] text-muted-foreground">{ui.cm}</span>
-                    </span>
-                  ) : (
-                    <span className="shrink-0 text-[13px] font-semibold tabular-nums text-foreground">
-                      {formatLength(r.lengthCm, contract.units)}
-                    </span>
-                  )}
+                  <span className="shrink-0 text-[13px] font-semibold tabular-nums text-foreground">
+                    {formatLength(r.lengthCm, contract.units)}
+                  </span>
                 </div>
 
                 {appliances.length > 0 && (
@@ -473,19 +445,6 @@ export function LayoutConfirm({
                       on={Boolean(run?.hasWall)}
                       onClick={() => onPlanChange!(withSidePatch(plan!, wall, { hasWall: !run?.hasWall }))}
                     />
-                    <ToggleChip
-                      label={ui.tall}
-                      on={Boolean(run?.hasTall)}
-                      onClick={() => onPlanChange!(withSidePatch(plan!, wall, { hasTall: !run?.hasTall }))}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => onPlanChange!(withSidePatch(plan!, wall, { hasCounter: false }))}
-                      className="ml-auto inline-flex items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11.5px] font-medium text-muted-foreground transition-colors hover:border-destructive/40 hover:text-destructive"
-                    >
-                      <X className="size-3 stroke-[2.5]" aria-hidden />
-                      {ui.remove}
-                    </button>
                   </div>
                 )}
               </li>
