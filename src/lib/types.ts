@@ -156,7 +156,15 @@ export interface SpaceVisionResult {
 }
 
 /** One iteration of the AI img2img concept render. Capped at 5 per session. */
-export type ConceptRenderInputRole = 'anchor' | 'style' | 'product' | 'previous_render'
+export type ConceptRenderInputRole =
+  | 'anchor'
+  | 'style'
+  | 'product'
+  | 'previous_render'
+  /** Another space photo of the same room, from another position (IMP-32). */
+  | 'room_reference'
+  /** A render of the same redesign from another camera; its finishes are matched. */
+  | 'design_reference'
 
 export interface ConceptRenderInput {
   role: ConceptRenderInputRole
@@ -164,6 +172,10 @@ export interface ConceptRenderInput {
   imageDataUrl: string
   /** Required for role='product' (e.g. "stove"). Optional for the others. */
   label?: string
+  /** role='room_reference': 0-based index into the space photos. */
+  photoIndex?: number
+  /** Which wall or corner the photo shows (anchor, room_reference). */
+  shows?: PhotoViewTarget
 }
 
 export interface ConceptRender {
@@ -185,6 +197,10 @@ export interface ConceptRender {
    */
   inputs: ConceptRenderInput[]
   generatedAt: string
+  /** 'other_side' = rendered from another photo to show the rest of the room. Absent = main (older saves too). */
+  view?: 'main' | 'other_side'
+  /** For an 'other_side' render: the main render it matches. */
+  basedOnRenderId?: string
 }
 
 export interface LeadProfile {
