@@ -1358,3 +1358,13 @@ storing nothing when that brief cannot be read), the checkpoint race against
 a one-row in-memory table, the copy contract between the maker's hints and
 the homeowner's pill, and static renders of the panel's live region and
 clarify chip.
+
+Browser-verified on the local stack: maker opens the brief → Za ponudu → types
+"6.200" → "Zabilježi poslanu ponudu: 6.200 €" → the row holds
+`maker_status=quoted, quoted_eur=6200.00, decided_at` set; the list shows the
+row under "Čeka kupca" with "ponuda 6.200 €"; the homeowner's kitchen home
+shows "Ponuda poslana — Stolarija Render: ponuda je poslana 03. 10. 2026.".
+Migration 0007 applied to the local stack only — production pending (run the
+read-only pre-check in its header first).
+
+Gate: 673 tests · tsc · eslint · next build green.
