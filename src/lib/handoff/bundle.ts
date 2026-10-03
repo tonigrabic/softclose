@@ -95,18 +95,9 @@ export function buildHandoffBundle(input: HandoffBundleInput): HandoffBundle {
       // keeps them; the customer's response does not (toCustomerBundle).
       maker: bom.makerOnly,
     }
-    // Maker-only cost basis: same build priced at the maker's B2B account
-    // prices, at cost (no margin: it is what the shop pays). Only attached
-    // once the maker has supplied prices; the homeowner figures above stay
-    // retail regardless (decision 2026-06-21).
-    if (makerPricingEntryCount() > 0) {
-      const makerBom = computeBom(brief.builderState as BuilderState, undefined, {
-        scope: brief.scope,
-        pricing: 'maker',
-        rates: withoutMargin(rates),
-      })
-      estimate.makerCost = { low: makerBom.total.low, high: makerBom.total.high }
-    }
+    // No B2B cost basis here (IMP-05): this runs at submit, and whatever it
+    // puts in the bundle is stored with the brief and sent back to the
+    // homeowner's client. The maker's brief page computes it (makerCostFor).
   }
 
   return {
@@ -122,10 +113,31 @@ export function buildHandoffBundle(input: HandoffBundleInput): HandoffBundle {
 }
 
 /**
+ * MAKER-ONLY. The build at the maker's B2B account prices, at cost (no
+ * workshop margin: it is what the shop pays), kitchen and goods together. The
+ * homeowner figures stay retail regardless (decision 2026-06-21).
+ *
+ * Computed where the maker reads it (src/app/maker/[id]/page.tsx), never at
+ * submit: never stored with the brief, never in a homeowner response.
+ * undefined while maker-pricing.json is empty, or when there is no build.
+ */
+export function makerCostFor(brief: LeadProfile): { low: number; high: number } | undefined {
+  if (!brief.builderState || makerPricingEntryCount() === 0) return undefined
+  // IMP-21 loads the owning maker's rate card here, as at submit.
+  const bom = computeBom(brief.builderState as BuilderState, undefined, {
+    scope: brief.scope,
+    pricing: 'maker',
+    rates: withoutMargin(DEFAULT_RATE_CARD),
+  })
+  return { low: bom.total.low, high: bom.total.high }
+}
+
+/**
  * The bundle as the homeowner's client may receive it: without the maker-only
- * money (net cost, workshop margin, B2B cost basis). The database keeps the
- * full bundle, so the maker's brief page still reads them. Every response
- * /api/handoff sends goes through this.
+ * money (net cost and workshop margin). The database keeps the full bundle, so
+ * the maker's brief page still reads them. Every response /api/handoff sends
+ * goes through this. It also drops `makerCost`, which no bundle built here
+ * carries any more (makerCostFor): a guard, should one ever be attached.
  */
 export function toCustomerBundle(bundle: HandoffBundle): HandoffBundle {
   if (!bundle.estimate) return bundle

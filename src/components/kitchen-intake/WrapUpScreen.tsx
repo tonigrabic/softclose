@@ -561,18 +561,6 @@ export function WrapUpScreen({
           </div>
         )}
 
-        {bundle?.makerPath && (
-          <a
-            href={bundle.makerPath}
-            target="_blank"
-            rel="noreferrer"
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-accent/40"
-          >
-            <ExternalLink className="size-4 stroke-[1.75]" aria-hidden />
-            {t('wrapup.actions.openMaker')}
-          </a>
-        )}
-
         {/* Demo-only link to the maker dashboard preview. Production removes this. */}
         <button
           type="button"

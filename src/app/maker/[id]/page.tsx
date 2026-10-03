@@ -3,6 +3,7 @@ import type { HandoffBundle } from '@/lib/types'
 import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import { resolveMedia, storageSigner } from '@/lib/db/media'
 import { requireBriefAccess } from '@/lib/auth/dal'
+import { makerCostFor } from '@/lib/handoff/bundle'
 import { DEFAULT_LOCALE, isLocale } from '@/lib/i18n/core'
 import { formatDecisionDate, formatQuoteEur } from '@/lib/project/decision'
 import { MakerBriefView } from './MakerBriefView'
@@ -47,6 +48,15 @@ export default async function MakerBriefPage({ params }: { params: Promise<{ id:
     ? await resolveMedia(brief.bundle as HandoffBundle, signer)
     : (brief.bundle as HandoffBundle)
 
+  // The B2B cost basis is computed here and nowhere else (IMP-05): never at
+  // submit, so it is never stored with the brief or sent to the homeowner.
+  // It is the shop's cost at today's prices, while the homeowner's figures
+  // stay as they were frozen at submit. IMP-21 loads the per-maker rate card
+  // here. undefined until maker-pricing.json has entries.
+  const makerCost = bundle.estimate ? makerCostFor(bundle.brief) : undefined
+  const view: HandoffBundle =
+    bundle.estimate && makerCost ? { ...bundle, estimate: { ...bundle.estimate, makerCost } } : bundle
+
   // The decision's labels are formatted here, with the session locale, like
   // the dashboard's — the client formatting them would mismatch on hydration.
   const locale = isLocale(session.locale) ? session.locale : DEFAULT_LOCALE
@@ -57,5 +67,5 @@ export default async function MakerBriefPage({ params }: { params: Promise<{ id:
     decidedLabel: brief.decidedAt ? formatDecisionDate(brief.decidedAt, locale) : null,
   }
 
-  return <MakerBriefView bundle={bundle} briefId={brief.id} createdAt={brief.createdAt} decision={decision} />
+  return <MakerBriefView bundle={view} briefId={brief.id} createdAt={brief.createdAt} decision={decision} />
 }

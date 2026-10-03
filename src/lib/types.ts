@@ -518,10 +518,11 @@ export interface HandoffEstimate {
   /** Half-width of the range in percent (e.g. 20 for ±20%), for localized display. */
   bandPct?: number
   /**
-   * Maker-only B2B cost basis for the all-in figure (retail stays the
-   * homeowner number), at cost: no workshop margin. Present only when the
-   * maker has supplied B2B prices (src/lib/catalog/maker-pricing.json);
-   * omitted otherwise. Stripped from the customer's response (toCustomerBundle).
+   * MAKER-ONLY B2B cost basis for the all-in figure (retail stays the
+   * homeowner number), at cost: no workshop margin. Computed by `makerCostFor`
+   * on the maker's brief page at view time, once the maker has supplied B2B
+   * prices (src/lib/catalog/maker-pricing.json). Never stored with the brief,
+   * never sent to the homeowner (IMP-05); toCustomerBundle drops it as a guard.
    */
   makerCost?: { low: number; high: number }
   /**
@@ -574,10 +575,10 @@ export interface HandoffBundle {
   transcript: ClientMessage[]
   generatedAt: string
   /**
-   * Set when the brief was persisted (Supabase configured): the row id and the
-   * maker-facing path (`/maker/<id>`). Absent in DB-less dev — the wrap-up then
-   * says so and offers the JSON download instead of pretending it was sent.
+   * Set when the brief was persisted (Supabase configured): the row id. Absent
+   * in DB-less dev — the wrap-up then says so and offers the JSON download
+   * instead of pretending it was sent. No maker path: the homeowner gets this
+   * bundle, and the maker's page is not theirs to open (IMP-05).
    */
   briefId?: string
-  makerPath?: string
 }
