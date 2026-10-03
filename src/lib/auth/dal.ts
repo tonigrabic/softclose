@@ -170,6 +170,12 @@ export interface BriefRow {
   makerViewedAt: string | null
   projectId: string | null
   makerId: string | null
+  /** The note that came with the maker's decision (0007). */
+  makerNote: string | null
+  /** When maker_status last moved to quoted/clarify/declined (0007). */
+  decidedAt: string | null
+  /** The maker's first formal quote for the works, in euros (0007). */
+  quotedEur: number | null
 }
 
 /**
@@ -189,7 +195,7 @@ export async function requireBriefAccess(briefId: string): Promise<{ session: Se
 
   const { data } = await db
     .from(TABLES.briefs)
-    .select('id, created_at, bundle, maker_status, maker_viewed_at, project_id, maker_id')
+    .select('id, created_at, bundle, maker_status, maker_viewed_at, project_id, maker_id, maker_note, decided_at, quoted_eur')
     .eq('id', briefId)
     .maybeSingle()
   if (!data) notFound()
@@ -205,6 +211,11 @@ export async function requireBriefAccess(briefId: string): Promise<{ session: Se
       makerViewedAt: (data.maker_viewed_at as string | null) ?? null,
       projectId: (data.project_id as string | null) ?? null,
       makerId: (data.maker_id as string | null) ?? null,
+      makerNote: (data.maker_note as string | null) ?? null,
+      decidedAt: (data.decided_at as string | null) ?? null,
+      // numeric(12,2) comes back from PostgREST as a string or a number
+      // depending on its configuration; normalise it here, once.
+      quotedEur: data.quoted_eur === null || data.quoted_eur === undefined ? null : Number(data.quoted_eur),
     },
   }
 }

@@ -9,7 +9,13 @@
  */
 import { describe, expect, it } from 'vitest'
 import { FLOW } from '@/lib/flow'
-import { needsAttention, projectDisplayStatus, stepProgress } from '@/lib/project/status'
+import {
+  dashboardGroup,
+  needsAttention,
+  projectDisplayStatus,
+  stepProgress,
+  type ProjectDisplayStatus,
+} from '@/lib/project/status'
 
 const T0 = '2026-09-20T10:00:00.000Z'
 const T1 = '2026-09-21T10:00:00.000Z'
@@ -99,6 +105,62 @@ describe('needsAttention', () => {
     expect(needsAttention('opened')).toBe(false)
     expect(needsAttention('in_progress')).toBe(false)
     expect(needsAttention('archived')).toBe(false)
+  })
+})
+
+describe('dashboardGroup', () => {
+  // IMP-03: the maker's own decision moves a project between groups. The
+  // display status still comes from timestamps; the decision comes from the
+  // current brief's maker_status.
+  const DISPLAYS: ProjectDisplayStatus[] = [
+    'invited',
+    'opened',
+    'in_progress',
+    'submitted',
+    'changed_since_submit',
+    'archived',
+  ]
+
+  it('archived is closed whatever the brief says', () => {
+    for (const ms of [null, 'new', 'viewed', 'quoted', 'clarify', 'declined']) {
+      expect(dashboardGroup('archived', ms)).toBe('closed')
+    }
+  })
+
+  it('declined is closed even if archiving the project after it failed', () => {
+    for (const display of DISPLAYS) {
+      expect(dashboardGroup(display, 'declined')).toBe('closed')
+    }
+  })
+
+  it('a brief waiting on the maker needs attention', () => {
+    expect(dashboardGroup('submitted', 'new')).toBe('attention')
+    expect(dashboardGroup('submitted', 'viewed')).toBe('attention')
+    // A brief whose status could not be read is not silently filed away.
+    expect(dashboardGroup('submitted', null)).toBe('attention')
+  })
+
+  it('quoted or asked a question: the ball is with the customer', () => {
+    expect(dashboardGroup('submitted', 'quoted')).toBe('decided')
+    expect(dashboardGroup('submitted', 'clarify')).toBe('decided')
+  })
+
+  it('an edit after the brief always needs attention — after a quote above all', () => {
+    for (const ms of [null, 'new', 'viewed', 'quoted', 'clarify']) {
+      expect(dashboardGroup('changed_since_submit', ms)).toBe('attention')
+    }
+  })
+
+  it('no brief yet: opened and mid-flow are active, never-opened is waiting', () => {
+    expect(dashboardGroup('opened', null)).toBe('active')
+    expect(dashboardGroup('in_progress', null)).toBe('active')
+    expect(dashboardGroup('invited', null)).toBe('waiting')
+  })
+
+  it('leaves needsAttention alone: a decided brief is no longer in the top group', () => {
+    // needsAttention is display-only; dashboardGroup is what reads the decision.
+    expect(needsAttention('submitted')).toBe(true)
+    expect(dashboardGroup('submitted', 'quoted')).not.toBe('attention')
   })
 })
 

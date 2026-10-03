@@ -58,6 +58,32 @@ export function needsAttention(status: ProjectDisplayStatus): boolean {
   return status === 'submitted' || status === 'changed_since_submit'
 }
 
+export type DashboardGroup = 'attention' | 'decided' | 'active' | 'waiting' | 'closed'
+
+/**
+ * Which group of the maker's list a project sits in, once the maker's own
+ * decision on the current brief is taken into account (IMP-03).
+ *
+ *   closed    → archived, or the maker declined. Declined counts even if the
+ *               archive write after it failed: the brief is the source of
+ *               truth, archiving only tidies the list.
+ *   attention → a brief waiting on the maker, or ANY edit after the brief —
+ *               an edit after a quote or a question is the expensive one to
+ *               miss, so it outranks the decision.
+ *   decided   → quoted or asked a question; the ball is with the customer.
+ *   active    → opened or mid-flow.
+ *   waiting   → invited, never opened.
+ */
+export function dashboardGroup(display: ProjectDisplayStatus, makerStatus: string | null): DashboardGroup {
+  if (display === 'archived' || makerStatus === 'declined') return 'closed'
+  if (display === 'changed_since_submit') return 'attention'
+  if (display === 'submitted') {
+    return makerStatus === 'quoted' || makerStatus === 'clarify' ? 'decided' : 'attention'
+  }
+  if (display === 'invited') return 'waiting'
+  return 'active'
+}
+
 export interface StepProgress {
   current: number
   total: number
