@@ -105,14 +105,3 @@ export function buildHandoffBundle(input: HandoffBundleInput): HandoffBundle {
     generatedAt: new Date().toISOString(),
   }
 }
-
-/**
- * Briefs sent before the stub was removed (2026-10-03) carry its fabricated
- * range in the stored bundle, flagged `placeholder: true`. Read them as what
- * they always were: no range. Migration 0006 clears the columns; this covers
- * the bundle on any database the migration has not reached yet.
- */
-export function withoutLegacyStub(bundle: HandoffBundle): HandoffBundle {
-  const e = bundle.estimate as (HandoffEstimate & { placeholder?: boolean }) | null
-  return e?.placeholder === true ? { ...bundle, estimate: null } : bundle
-}

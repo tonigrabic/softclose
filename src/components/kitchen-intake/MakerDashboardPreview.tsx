@@ -337,7 +337,11 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: M
                 )}
               </>
             ) : (
-              <p className="text-sm text-slate-500">{t('maker.estimate.none')}</p>
+              // hideActions is the live view of a journey still in progress:
+              // nothing has been sent, so "sent without a build" would be false.
+              <p className="text-sm text-slate-500">
+                {t(hideActions ? 'maker.estimate.noneLive' : 'maker.estimate.none')}
+              </p>
             )}
             {!hideActions && (
               <>

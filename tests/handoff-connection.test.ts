@@ -18,8 +18,7 @@
 import { describe, expect, test } from 'vitest'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { buildHandoffBundle, withoutLegacyStub } from '@/lib/handoff/bundle'
-import type { HandoffBundle } from '@/lib/types'
+import { buildHandoffBundle } from '@/lib/handoff/bundle'
 import { CONTRACT_FIXTURES } from '@/lib/builder/fixtures'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import { hydrateFromHypothesis } from '@/lib/builder/state'
@@ -80,17 +79,6 @@ describe('maker handoff — estimate comes from the real build', () => {
     // saved snapshot — none of it is a price.
     const legacy = { scope: { cabinets: true, installation: true }, budgetRange: '15k_30k' }
     expect(buildHandoffBundle({ brief: legacy as never }).estimate).toBeNull()
-  })
-
-  test('a brief stored with the old stub reads back as no range', () => {
-    const stored = {
-      ...buildHandoffBundle({ brief: {} }),
-      estimate: { low: 9600, high: 14400, withAppliances: null, basis: '', placeholder: true, bandPct: 20 },
-    } as unknown as HandoffBundle
-    expect(withoutLegacyStub(stored).estimate).toBeNull()
-
-    const real = buildHandoffBundle({ brief: { builderState: builderStateFromFixture('l-shape') } })
-    expect(withoutLegacyStub(real)).toBe(real)
   })
 })
 

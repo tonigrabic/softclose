@@ -36,6 +36,9 @@ interface WrapUpScreenProps {
   /** Back to the builder, for a homeowner who skipped it and so has no range.
    *  Absent where nobody may edit (the maker looking in). */
   onOpenBuilder?: () => void
+  /** Called once this screen has saved a brief, so the intake knows one went
+   *  out in this visit and the next send is an explicit act, not a mount. */
+  onSent?: () => void
 }
 
 function humanize(v: string): string {
@@ -56,6 +59,7 @@ export function WrapUpScreen({
   hasExistingBrief = false,
   beforeSubmit,
   onOpenBuilder,
+  onSent,
 }: WrapUpScreenProps) {
   const { t, tDynamic: td, locale } = useTranslations()
   const contact = contactChannels(profile)
@@ -129,6 +133,7 @@ export function WrapUpScreen({
         throw new ApiError(data.error ?? `Bundle build failed (${res.status})`, res.status)
       }
       setBundle(data)
+      if (data.briefId) onSent?.()
     } catch (err) {
       console.warn('[handoff]', err)
       setBundleError(apiErrorKey(err, 'wrapup.error.bundle'))
@@ -268,6 +273,9 @@ export function WrapUpScreen({
               {t('wrapup.estimate.makerConfirms')}
             </p>
           </>
+        ) : hasExistingBrief && !bundle ? (
+          // Built, not sent yet: the maker's copy is older than this build.
+          <p className="text-sm text-muted-foreground">{t('wrapup.estimate.afterResend')}</p>
         ) : (
           <p className="text-sm text-muted-foreground">{t('wrapup.estimate.unavailable')}</p>
         )}

@@ -119,6 +119,10 @@ export function KitchenIntake({
   const [transcript, setTranscript] = useState<ClientMessage[]>([])
   const [isDone, setIsDone] = useState(false)
   const [wrapUpData, setWrapUpData] = useState<WrapUpData | null>(null)
+  // A brief went out during this visit. hasExistingBrief comes from the page
+  // load, so without this a return to the builder after sending would make the
+  // next wrap-up send again on mount — a second brief and a second email.
+  const [sentInSession, setSentInSession] = useState(false)
   const [isFinalising, setIsFinalising] = useState(false)
   const [finaliseError, setFinaliseError] = useState<string | null>(null)
 
@@ -737,8 +741,9 @@ export function KitchenIntake({
           explorationRefs={[]}
           transcript={transcript}
           projectId={projectId}
-          hasExistingBrief={hasExistingBrief}
+          hasExistingBrief={hasExistingBrief || sentInSession}
           beforeSubmit={() => checkpoint.flush(snapshot)}
+          onSent={() => setSentInSession(true)}
           onOpenBuilder={
             readOnly
               ? undefined

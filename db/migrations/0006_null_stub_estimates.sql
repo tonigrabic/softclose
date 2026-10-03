@@ -9,6 +9,8 @@
 --
 -- The stub is recognisable in the stored bundle by `estimate.placeholder`,
 -- which only it ever set to true. Idempotent: a second run matches nothing.
+-- Production held no stub briefs on 2026-10-03 (7 briefs, all from a real
+-- build — read-only count), so there it is a no-op; it cleans dev stacks.
 --
 -- Apply (local stack):
 --   docker exec -i supabase_db_softclose psql -U postgres -d postgres -v ON_ERROR_STOP=1 \
@@ -26,8 +28,9 @@ set estimate_low = null,
     bundle = jsonb_set(bundle, '{estimate}', 'null'::jsonb)
 where bundle->'estimate'->>'placeholder' = 'true';
 
--- The maker's list reads the range denormalised onto the project. Clear it for
--- every project whose current brief has no range left. The touch trigger is
+-- The project carries a denormalised copy of its current brief's range
+-- (est_*). Nothing reads it today; clear it anyway so the copy never disagrees
+-- with the brief. The touch trigger is
 -- held off for this one statement: a data fix is not the customer editing, and
 -- a bumped updated_at would flag every one of these projects as "changed after
 -- you got the brief" on the maker's list.
