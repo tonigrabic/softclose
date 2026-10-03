@@ -1122,16 +1122,19 @@ photo) never had to be confirmed. Decision 2026-10-03: the homeowner measures.
   caps an over-read) and owns the dim bands. Reads without views behave as
   before. New `single_wall` shape; `emptyRoom` for a room with no kitchen yet.
 - **New step "Tvoj prostor danas"** (rail: "Oblik i mjere") right after the
-  photos. Screen 1: photo labels with tap-to-correct (a correction turns the
-  photo's runs with the frame, never invents one), six cards pre-selected from
-  the read, the intent chips. Screen 2: lettered plan (A top, B right, C bottom,
+  photos. Screen 1: photo labels with tap-to-correct (a label says where the
+  camera points, never where cabinets are — a correction never adds or moves a
+  run; the shape card changes walls), six cards pre-selected from the read,
+  the intent chips. Screen 2: lettered plan (A top, B right, C bottom,
   D left — fixed, so labels never reshuffle), one empty field per counter wall,
   the photo estimate as a grey hint only, Continue off until every wall is
   typed, optional ceiling ("nije izmjereno"), "Spremi i nastavi kasnije" that
   says saved only when the checkpoint holds it (`flush` now returns a boolean).
 - **Provenance.** Typed walls carry `measuredLengthCm`; the room is H/homeowner
   only when a wall on each axis was typed (a galley or single wall does not
-  pass a preset depth off as measured). `ceilingSource` for the ceiling.
+  pass a preset depth off as measured), and goes back to its estimate if a
+  measurement is taken back. Typed lengths scale positions reversibly and
+  clamp once on commit. `ceilingSource` for the ceiling.
 - **The room stays the room.** `existingFloorPlan` (never edited after the
   step) vs the working `floorPlan` (+ island for "Dodaj otok"); the room step
   edits its own `roomPlan`. `roomConfirmed` (stamped on commit) is the render's
@@ -1155,8 +1158,9 @@ come back.
 
 Adversarial review: 5 lenses, 26 confirmed findings (gate on the live plan,
 the room step editing the working plan, one-axis H stamp, per-keystroke
-rescaling, label relabels inventing runs, empty-room pre-selection, …), all
-fixed in a review commit and re-verified.
+rescaling, label relabels inventing runs, empty-room pre-selection, …). A
+re-verification pass found 22 fixed and 2 partial (relabels moving runs,
+lossy rescaling); both fixed in a second round with regression tests.
 
 Browser-verified on the local stack (mock AI, invited customer): 2 photos →
 "Zid A" / "Zid D" and an L with lettered walls; relabel photo 2 → "Zid B"
@@ -1168,4 +1172,4 @@ the L; "Dodaj otok" → Back → the room shows no island, "Zadrži raspored"
 re-commits without one; a snapshot rewritten to the old order at the render
 step (local copy cleared) resumes at "korak 2/8" on the room step.
 
-Gate: 427 tests · tsc · eslint · next build green.
+Gate: 433 tests · tsc · eslint · next build green.
