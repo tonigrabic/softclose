@@ -3,6 +3,7 @@ import type { HandoffBundle } from '@/lib/types'
 import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import { resolveMedia, storageSigner } from '@/lib/db/media'
 import { requireBriefAccess } from '@/lib/auth/dal'
+import { withoutLegacyStub } from '@/lib/handoff/bundle'
 import { MakerBriefView } from './MakerBriefView'
 
 export const dynamic = 'force-dynamic'
@@ -41,8 +42,7 @@ export default async function MakerBriefPage({ params }: { params: Promise<{ id:
   // Images live in private Storage as storage:// refs; hand the dashboard
   // short-lived signed URLs (1 h) instead.
   const signer = storageSigner()
-  const bundle = signer
-    ? await resolveMedia(brief.bundle as HandoffBundle, signer)
-    : (brief.bundle as HandoffBundle)
+  const stored = withoutLegacyStub(brief.bundle as HandoffBundle)
+  const bundle = signer ? await resolveMedia(stored, signer) : stored
   return <MakerBriefView bundle={bundle} briefId={brief.id} createdAt={brief.createdAt} />
 }

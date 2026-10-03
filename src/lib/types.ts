@@ -163,8 +163,6 @@ export interface LeadProfile {
   // ---- Project meta
   projectType?: string
   timeline?: string
-  budgetRange?: string
-  budgetShared?: boolean
   /** Under-budget priorities: where to invest, where to flex. */
   priorities?: {
     investCategories?: string[]
@@ -431,9 +429,6 @@ export interface WrapUpData {
    * rather than creating a second one. Absent on snapshots from before.
    */
   briefId?: string
-  /** Naive scope-band-based stub estimate range. PLACEHOLDER, not a quote. */
-  estimateLow?: number
-  estimateHigh?: number
 }
 
 export interface ClientMessage {
@@ -442,16 +437,18 @@ export interface ClientMessage {
   images?: string[]
 }
 
-/** Stub estimate produced at wrap-up. Marked placeholder so the maker dashboard can render it differently. */
-export interface StubEstimate {
+/**
+ * The range a brief carries, priced from the homeowner's build. A brief whose
+ * homeowner skipped the builder carries none (`estimate: null`): there is no
+ * fallback number.
+ */
+export interface HandoffEstimate {
   /** Main range: kitchen only, excluding appliance supply. */
   low: number
   high: number
   /** Range including appliance supply; null when appliance supply isn't in scope. */
   withAppliances: { low: number; high: number } | null
   basis: string
-  /** True for the budget-band stub; false when derived from the real builder BOM. */
-  placeholder: boolean
   /** Half-width of the range in percent (e.g. 20 for ±20%), for localized display. */
   bandPct?: number
   /**
@@ -463,8 +460,7 @@ export interface StubEstimate {
   /**
    * The build line by line, priced by the same computeBom call as the totals
    * above so the two always agree. Stored at submit because prices and the
-   * catalog move between deploys. Absent on the budget-band stub and on briefs
-   * sent before it was stored.
+   * catalog move between deploys. Absent on briefs sent before it was stored.
    */
   lines?: import('@/lib/builder/bom').BomLineItem[]
 }
@@ -487,7 +483,7 @@ export interface HandoffBundle {
   explorationRefs: ConceptVisualRef[]
   /** The homeowner's chosen img2img concept render. */
   chosenRender: (ConceptRender & { conceptOnly: true }) | null
-  estimate: StubEstimate | null
+  estimate: HandoffEstimate | null
   transcript: ClientMessage[]
   generatedAt: string
   /**

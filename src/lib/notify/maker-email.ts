@@ -42,13 +42,15 @@ export function buildMakerEmail(input: MakerNotifyInput): { subject: string; htm
   const contact = contactChannels(b).join(' · ') || '—'
   const shape = b.floorPlan?.layoutShape ?? b.layoutShape ?? '—'
   const dims = b.floorPlan?.room ? `${Math.round(b.floorPlan.room.lengthCm)} × ${Math.round(b.floorPlan.room.widthCm)} cm` : '—'
-  const range = e ? `${eur(e.low)} – ${eur(e.high)}${e.bandPct ? ` (±${e.bandPct}%)` : ''}` : 'nije dostupno'
+  // No build, no range: the homeowner skipped the builder. Say so in the
+  // subject too — the maker triages from the inbox.
+  const range = e ? `${eur(e.low)} – ${eur(e.high)}${e.bandPct ? ` (±${e.bandPct}%)` : ''}` : 'raspon nije dostupan'
   const allIn = e?.withAppliances ? `${eur(e.withAppliances.low)} – ${eur(e.withAppliances.high)}` : null
   const subject = `Novi sažetak kuhinje — ${name} · ${range}`
   const rows: Array<[string, string]> = [
     ['Homeowner', `${name} · ${contact}`],
     ['Raspored', `${shape} · ${dims}`],
-    ['Kuhinja (izrada i montaža)', range],
+    ['Kuhinja (izrada i montaža)', e ? range : 'raspon nije dostupan — kupac nije sastavio kuhinju'],
     ...(allIn ? ([['Sve uključeno', allIn]] as Array<[string, string]>) : []),
     ['Rok', b.timeline ?? '—'],
   ]

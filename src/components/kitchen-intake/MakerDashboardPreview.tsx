@@ -292,11 +292,6 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: M
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
                 {t('maker.estimate.title')}
               </h2>
-              {summary?.placeholder && (
-                <span className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase text-amber-900">
-                  {t('maker.estimate.placeholder')}
-                </span>
-              )}
             </div>
             {summary ? (
               <>
@@ -308,14 +303,12 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: M
                 <p className="font-mono text-2xl font-bold text-slate-900">
                   {fmtMoney(summary.low)} <span className="text-slate-400">–</span> {fmtMoney(summary.high)}
                 </p>
-                {/* The stored `basis` is homeowner-facing (or, for the stub, notes to
-                    ourselves) and in English; say it to the maker, in their language. */}
+                {/* The stored `basis` is homeowner-facing and in English; say it
+                    to the maker, in their language. */}
                 <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">
-                  {summary.placeholder
-                    ? t('maker.estimate.basisStub')
-                    : summary.bandPct != null
-                      ? t('maker.estimate.basis').replace('{pct}', String(summary.bandPct))
-                      : summary.basis}
+                  {summary.bandPct != null
+                    ? t('maker.estimate.basis').replace('{pct}', String(summary.bandPct))
+                    : summary.basis}
                 </p>
                 {summary.withAppliances && (
                   <div className="mt-3 border-t border-slate-200 pt-3">
@@ -446,15 +439,6 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: M
                 label={t('maker.spec.timeline')}
                 value={opt('option.timeline', profile.timeline)}
                 confidence="H"
-                source="homeowner"
-              />
-              <FieldRow
-                label={t('maker.spec.budget')}
-                value={
-                  opt('option.budget', profile.budgetRange) ??
-                  (profile.budgetShared === false ? t('maker.spec.budgetWithheld') : null)
-                }
-                confidence={profile.budgetShared === false ? 'L' : 'H'}
                 source="homeowner"
               />
 

@@ -95,6 +95,9 @@ export interface KitchenIntakeProps {
   customerEmail?: string | null
   /** The name the maker invited them under — prefilled, still editable. */
   customerName?: string | null
+  /** Open the journey at this step instead of where it was left, e.g. the
+   *  builder for a customer whose brief went out without a range. */
+  startAt?: FlowStepId
 }
 
 export function KitchenIntake({
@@ -106,6 +109,7 @@ export function KitchenIntake({
   initialSnapshot = null,
   customerEmail = null,
   customerName = null,
+  startAt,
 }: KitchenIntakeProps = {}) {
   const { locale } = useTranslations()
   const [state, setState] = useState<IntakeFlowState>({
@@ -197,6 +201,10 @@ export function KitchenIntake({
         else if (initialSnapshot) applySnapshot(initialSnapshot)
       } else if (worthResuming) {
         setResumeOffer(rec)
+      }
+      if (startAt) {
+        setState({ currentStepId: startAt })
+        setIsDone(false)
       }
       persistenceReady.current = true
     })
@@ -731,6 +739,14 @@ export function KitchenIntake({
           projectId={projectId}
           hasExistingBrief={hasExistingBrief}
           beforeSubmit={() => checkpoint.flush(snapshot)}
+          onOpenBuilder={
+            readOnly
+              ? undefined
+              : () => {
+                  setIsDone(false)
+                  goTo('builder')
+                }
+          }
         />
       </AppShell>
     )

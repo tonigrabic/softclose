@@ -5,7 +5,7 @@ import type { HandoffBundle } from '@/lib/types'
 const bundle = {
   brief: { name: 'Ana <Test>', contactValue: 'ana@example.com', layoutShape: 'l_shape', timeline: '3_6_months' },
   moodBoard: [], floorPlan: null, explorationRefs: [], chosenRender: null, transcript: [], generatedAt: 'x',
-  estimate: { low: 3035, high: 4286, withAppliances: { low: 5099, high: 7492 }, basis: '', placeholder: false, bandPct: 17 },
+  estimate: { low: 3035, high: 4286, withAppliances: { low: 5099, high: 7492 }, basis: '', bandPct: 17 },
 } as unknown as HandoffBundle
 
 describe('maker email', () => {
@@ -26,5 +26,14 @@ describe('maker email', () => {
     } as unknown as HandoffBundle
     const m = buildMakerEmail({ briefId: 'abc-123', bundle: signedIn, baseUrl: 'https://app.example' })
     expect(m.text).toContain('Homeowner: Ana · ana@example.com · +385 91 123 4567')
+  })
+
+  test('a brief sent without a build says there is no range — subject and body', () => {
+    const noBuild = { ...bundle, estimate: null } as unknown as HandoffBundle
+    const m = buildMakerEmail({ briefId: 'abc-123', bundle: noBuild, baseUrl: 'https://app.example' })
+    expect(m.subject).toContain('raspon nije dostupan')
+    expect(m.subject).not.toMatch(/\d €/)
+    expect(m.text).toContain('Kuhinja (izrada i montaža): raspon nije dostupan')
+    expect(m.text).not.toContain('Sve uključeno')
   })
 })
