@@ -87,6 +87,8 @@ export function buildHandoffBundle(input: HandoffBundleInput): HandoffBundle {
       basis: `Estimated from your build — ±${Math.round(bom.sections.works.bandWidthPct / 2)}%. An estimate your maker confirms, never a final quote.`,
       bandPct: Math.round(bom.sections.works.bandWidthPct / 2),
       lines: bom.lineItems,
+      // What the range assumes and leaves out; printed next to it everywhere.
+      assumptions: bom.assumptions,
       priceBasis: 'gross-margin-v1',
       // Maker-only: net cost and margin for the brief page. The stored brief
       // keeps them; the customer's response does not (toCustomerBundle).

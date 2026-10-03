@@ -534,6 +534,12 @@ export interface HandoffEstimate {
    */
   priceBasis?: 'gross-margin-v1'
   /**
+   * What the range assumes and leaves out, as keys (`range.assumption.<key>`),
+   * copied from the same computeBom call. Absent on briefs sent before IMP-04:
+   * read it through `normalizeAssumptions`, which gives those the legacy list.
+   */
+  assumptions?: import('@/lib/builder/range').BomAssumption[]
+  /**
    * The build line by line, priced by the same computeBom call as the totals
    * above so the two always agree. Stored at submit because prices and the
    * catalog move between deploys. Absent on briefs sent before it was stored.

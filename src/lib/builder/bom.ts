@@ -30,6 +30,7 @@ import { normalizeBuilderState } from './normalize'
 import { decorLabel } from './swatches'
 import type { LeadProfile } from '@/lib/types'
 import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/core'
+import { formatEUR, type BomAssumption } from './range'
 
 /**
  * Which scope toggle (from the scope step) controls each BOM line. A line is
@@ -152,6 +153,13 @@ export interface BomEstimate {
    * brief page and strips it from the customer's response (toCustomerBundle).
    */
   makerOnly: BomMakerOnly
+  /**
+   * What the range assumes and leaves out (installation in; no demolition, no
+   * electrical or plumbing work; who buys the appliances; delivery and the
+   * final measure agreed with the maker). Keys, rendered through
+   * `range.assumption.<key>` next to the range on every surface.
+   */
+  assumptions: BomAssumption[]
   currency: 'EUR'
 }
 
@@ -1132,6 +1140,7 @@ export function computeBom(
       margin: { low: round(worksRaw.low - netWorks.low), high: round(worksRaw.high - netWorks.high) },
       marginPct: Math.round(marginFraction * 1000) / 10,
     },
+    assumptions: bomAssumptions(state, visibleLines, opts.scope),
     currency: 'EUR',
   }
 }
@@ -1140,14 +1149,32 @@ function round(n: number): number {
   return Math.round(n)
 }
 
-/** Format an EUR amount as "12.450 €" (Croatian convention: dot thousands). */
-export function formatEUR(amount: number, locale: 'hr-HR' | 'en-US' = 'hr-HR'): string {
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-  }).format(amount)
+/**
+ * What the range assumes, from the same inputs that priced it (IMP-04). Keys,
+ * in the fixed order of BOM_ASSUMPTIONS; every surface prints them next to the
+ * range through `range.assumption.<key>`.
+ */
+function bomAssumptions(
+  state: BuilderState,
+  lines: BomLineItem[],
+  scope: LeadProfile['scope'] | undefined
+): BomAssumption[] {
+  const out: BomAssumption[] = []
+  if (lines.some((l) => l.key === 'install')) out.push('installIncluded')
+  else if (scope?.installation === false) out.push('installExcluded')
+  if (scope?.demolitionDisposal !== true) out.push('noDemolition')
+  if (scope?.electricalWork !== true && scope?.plumbingRelocation !== true) out.push('noTrades')
+  // A legacy scope that took the supply out leaves it with the homeowner too.
+  if (state.appliances.supply === 'homeowner_supplies' || scope?.appliancesSupply === false) {
+    out.push('appliancesByHomeowner')
+  } else out.push('appliancesSeparate')
+  if (state.sinkTaps.supply === 'homeowner_supplies' || scope?.sinkTaps === false) out.push('sinkTapsByHomeowner')
+  out.push('siteCheckByMaker')
+  return out
 }
+
+/** Moved to ./range (server-safe, no catalog); re-exported for existing callers. */
+export { formatEUR }
 
 // Re-export the catalog count for the hypothesis route's logging if needed.
 export const CATALOG_DECOR_COUNT = catalogDecors.length

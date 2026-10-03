@@ -9,8 +9,6 @@ export const hrHR = {
   'builder.shell.subtitle':
     'Prošli smo kroz tvoje fotografije i inspiraciju. Sad zajedno gradimo svaki dio kuhinje — možeš mijenjati sve što ne odgovara.',
   'builder.shell.bom.title': 'Procjena uživo',
-  'builder.shell.bom.disclaimer':
-    'Procjena u rasponu, na temelju materijala i okova s hrvatskog tržišta. Tvoj će izrađivač potvrditi konačnu cijenu.',
   'builder.shell.bom.works': 'Kuhinja (izrada i montaža)',
   'builder.shell.bom.material': 'Materijal',
   'builder.shell.bom.make': 'Izrada',
@@ -20,6 +18,21 @@ export const hrHR = {
   'builder.shell.bom.project': 'Građevinski radovi (procjena)',
   'builder.shell.bom.goodsExact': 'točno — tvoj odabir',
   'builder.shell.bom.goodsEstimate': 'procjena — odaberi modele za točnu cijenu',
+  // ---- Range line (IMP-04) — one line for every range, on every surface ---
+  // Never call the range a quote ("ponuda"): the maker sends that.
+  'range.confirms.homeowner': 'raspon koji {maker} potvrđuje',
+  'range.confirms.maker': 'raspon koji ti potvrđuješ',
+  'range.yourMaker': 'tvoj izrađivač',
+  'range.band': '±{pct}\u00a0%',
+  'range.assumptions.label': 'Što raspon uključuje, a što ne',
+  'range.assumption.installIncluded': 'montaža uključena',
+  'range.assumption.installExcluded': 'bez montaže',
+  'range.assumption.noDemolition': 'bez rušenja i odvoza',
+  'range.assumption.noTrades': 'bez elektro i vodoinstalaterskih radova',
+  'range.assumption.appliancesByHomeowner': 'uređaje nabavlja kupac',
+  'range.assumption.appliancesSeparate': 'uređaji se obračunavaju zasebno',
+  'range.assumption.sinkTapsByHomeowner': 'sudoper i slavinu nabavlja kupac',
+  'range.assumption.siteCheckByMaker': 'dostava i završna izmjera po dogovoru s izrađivačem',
   'builder.shell.continue': 'Nastavi',
   'builder.shell.back': 'Natrag',
   'builder.shell.skip': 'Preskoči',

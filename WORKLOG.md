@@ -1485,3 +1485,55 @@ Tests: new `tests/price-basis.test.ts`, covering:
 
 `floorBand` units are in band-cap. Band-invariant adds "fully confirmed works
 band within ±10…±20" for every fixture. 719 tests · tsc · eslint green.
+
+### 2026-10-03 — IMP-04 step 2: one range line and stated assumptions; live panel and dock
+Spec item 5. The panel printed the range to the euro with a bare ±, the dock
+the same in small, and neither said what the figure leaves out.
+
+- **`src/lib/builder/range.ts`** (server-safe: no React, no catalog, so the
+  email and the server pages can use it). `formatRange` rounds each end on its
+  own: 10 € below 2,500 €, 50 € up to 9,999 €, 100 € from 10,000 €. Half a step
+  is at most 1 % of any amount from 500 €, so the printed ends never move the
+  implied ± by more than a point (tested on a sweep and on all six fixtures,
+  untouched and confirmed). Equal ends print once. Exact sums (picked goods)
+  keep `formatEUR`, which moved here and is re-exported from `bom.ts`.
+- **Assumptions.** `BomEstimate.assumptions` holds keys, not prose, because the
+  handoff computes in hr-HR and three audiences read it. The order is fixed:
+  `installIncluded` | `installExcluded` (legacy scope), `noDemolition`,
+  `noTrades`, `appliancesByHomeowner` | `appliancesSeparate`,
+  `sinkTapsByHomeowner`, `siteCheckByMaker` (always: delivery and templating
+  are priced nowhere). A legacy scope with `appliancesSupply: false` or
+  `sinkTaps: false` counts as "the homeowner buys", since no row prices them.
+  The bundle copies the list to `estimate.assumptions`, and `toCustomerBundle`
+  keeps it. `normalizeAssumptions` gives briefs from before IMP-04
+  `LEGACY_ASSUMPTIONS` (install in, no demolition, no trades, site check) and
+  drops unknown keys.
+- **`src/components/range/RangeLine.tsx`.** The line reads `low – high · ±pct ·
+  "raspon koji {maker} potvrđuje"`, then the assumptions. In `lg` they are a
+  dotted list; in `compact` they are one truncated muted line, built from spans
+  only because the dock puts it inside its button. `range: null` renders
+  `fallback` (default nothing). A missing `bandPct` drops the ± rather than
+  guessing. It never reads maker-only fields.
+- **Panel and dock.** The headline is now `RangeLine`; every sub-range goes
+  through `formatRange`. The goods row and "Ukupno s uređajima" are hidden
+  when `goods.high === 0`, so a homeowner who supplies everything no longer
+  sees "0 € – 0 €". `makerName` is threaded from `KitchenIntake` through
+  `BuilderShell`. `builder.shell.bom.disclaimer` was removed: its second
+  sentence repeated "your maker confirms".
+
+Deviations from the plan:
+- The no-name fallback is a new `range.yourMaker` key ("tvoj izrađivač" /
+  "your maker") instead of `kitchen.home.yourMaker`. The latter is capitalised
+  and would read "raspon koji Tvoj izrađivač potvrđuje".
+- Added `range.assumptions.label` as the list's aria-label.
+- `range.band` in hr-HR uses a non-breaking space ("±14 %"), so the % never
+  wraps away from the number.
+
+No snapshot change: the band-invariant snapshot holds only totals and line
+keys. Tests: new `format-range` (steps, both locales, order, equal ends, ±
+within a point), `bom-assumptions` (each supply/scope combination, order, bundle
+round trip, legacy list, wording, no PDV/VAT/margin/"ponud" in `range.*`) and
+`range-line` (static render: figures, ±, maker named or "tvoj izrađivač",
+maker voice, null fallback, missing band, legacy assumptions, compact markup;
+panel without goods row when the homeowner supplies, with it when the maker
+does; dock). 756 tests · tsc · eslint green. Browser check is in step 4's gate.

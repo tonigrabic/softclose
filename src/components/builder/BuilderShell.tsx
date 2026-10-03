@@ -70,6 +70,11 @@ export interface BuilderShellProps {
    */
   profile?: LeadProfile
   /**
+   * The maker's display name, for the range line ("a range {maker} confirms").
+   * Omitted by the dev harness and the anonymous funnel: "your maker" then.
+   */
+  makerName?: string | null
+  /**
    * True when the contract was already confirmed at the end of Part 1 (the
    * capture "confirm everything" step). The builder then skips its own confirm
    * gate. The dev harness omits this, so it still shows the gate.
@@ -100,6 +105,7 @@ export function BuilderShell({
   rerenderBlocked = false,
   layoutSummary,
   profile,
+  makerName,
   layoutPreconfirmed,
   savedState,
   onComplete,
@@ -145,6 +151,7 @@ export function BuilderShell({
       rerenderBlocked={rerenderBlocked}
       layoutSummary={layoutSummary}
       profile={profile}
+      makerName={makerName}
       onComplete={onComplete}
       onEditLayout={onEditLayout}
     />
@@ -193,6 +200,7 @@ function Shell({
   rerenderBlocked,
   layoutSummary,
   profile,
+  makerName,
   onComplete,
   onEditLayout,
 }: {
@@ -208,6 +216,7 @@ function Shell({
   rerenderBlocked: boolean
   layoutSummary?: string
   profile?: LeadProfile
+  makerName?: string | null
   onComplete?: (state: BuilderState) => void
   onEditLayout?: (state: BuilderState) => void
 }) {
@@ -257,7 +266,7 @@ function Shell({
   // Right rail: live price range first (always visible), then render anchor.
   const rightRail = (
     <div className="flex flex-col gap-5">
-      <LiveBOMPanel state={state} />
+      <LiveBOMPanel state={state} makerName={makerName} />
       {previewSrc && <RenderAnchorCard src={previewSrc} summary={layoutSummary} locale={locale} />}
 
       <RenderCarousel
@@ -288,7 +297,7 @@ function Shell({
           builderGroupId: currentId,
           locale,
         })}
-        mobileDock={<MobileRangeDock state={state} />}
+        mobileDock={<MobileRangeDock state={state} makerName={makerName} />}
       >
           <AnimatePresence mode="wait">
             <motion.section
