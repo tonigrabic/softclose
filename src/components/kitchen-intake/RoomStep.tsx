@@ -304,9 +304,10 @@ function CardGrid<C extends RoomCard>({
             )}
           >
             {svg ? (
-              <div className="aspect-[3/2] bg-background" dangerouslySetInnerHTML={{ __html: svg }} />
+              // The picture illustrates the card; its labels are not the button's name.
+              <div aria-hidden className="aspect-[3/2] bg-background" dangerouslySetInnerHTML={{ __html: svg }} />
             ) : (
-              <div className="flex aspect-[3/2] items-center justify-center bg-background">
+              <div aria-hidden className="flex aspect-[3/2] items-center justify-center bg-background">
                 <div className="h-3/5 w-3/5 rounded-sm border-2 border-dashed border-muted-foreground/40" />
               </div>
             )}
@@ -488,7 +489,6 @@ function LengthField({
           type="text"
           inputMode="decimal"
           autoComplete="off"
-          placeholder="cm"
           value={text}
           aria-invalid={showError}
           aria-describedby={describedBy}
