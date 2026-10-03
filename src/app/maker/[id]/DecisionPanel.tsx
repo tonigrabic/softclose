@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useState, useTransition } from 'react'
+import { useEffect, useId, useRef, useState, useTransition } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Check, MessageCircle, X } from 'lucide-react'
@@ -92,6 +92,26 @@ const BUTTONS: Array<{
   },
 ]
 
+/**
+ * Said next to the submit button, so the maker reads what the customer will
+ * see before saving it. A quote is recorded once it has gone out — the
+ * customer's kitchen then says "Ponuda poslana" — and a question is saved,
+ * not sent: nothing is emailed yet (IMP-16), the customer reads it when they
+ * open their kitchen.
+ */
+export const FORM_HINT_KEY: Record<MakerDecision, TranslationKey> = {
+  quoted: 'maker.decision.hint.quoted',
+  clarify: 'maker.decision.hint.clarify',
+  declined: 'maker.decision.hint.declined',
+}
+
+/** Announced (role="status") and shown once the decision is saved. */
+export const SAVED_KEY: Record<MakerDecision, TranslationKey> = {
+  quoted: 'maker.decision.saved.quoted',
+  clarify: 'maker.decision.saved.clarify',
+  declined: 'maker.decision.saved.declined',
+}
+
 const SUBMIT_TONE: Record<MakerDecision, string> = {
   quoted: 'bg-emerald-600 hover:bg-emerald-700',
   clarify: 'bg-amber-600 hover:bg-amber-700',
@@ -128,7 +148,12 @@ export function DecisionChip({ decision }: { decision: DecisionView }) {
  * submit button is enabled exactly when the save would be accepted.
  *
  * Quote and decline are final for the brief, so once either is recorded the
- * panel shrinks to the chip. A question keeps it open.
+ * panel shrinks to the chip. A question keeps it open, with its chip on top.
+ *
+ * Saving unmounts the form that held focus, so a successful save announces
+ * itself in a polite live region (rendered from the first paint, in both
+ * branches, so screen readers pick the change up) and moves focus to the
+ * saved chip.
  */
 export function DecisionPanel({ briefId, decision }: { briefId: string; decision: DecisionView }) {
   const { t, locale } = useTranslations()
@@ -138,16 +163,21 @@ export function DecisionPanel({ briefId, decision }: { briefId: string; decision
   const [amountRaw, setAmountRaw] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState<DecideError | null>(null)
+  const [saved, setSaved] = useState<MakerDecision | null>(null)
   const [pending, startTransition] = useTransition()
+  const chipRef = useRef<HTMLDivElement>(null)
+  const focusChip = useRef(false)
 
-  if (!isOpenStatus(decision.status)) {
-    return (
-      <div>
-        <DecisionChip decision={decision} />
-        <p className="mt-2 text-[11px] leading-relaxed text-slate-500">{t('maker.decision.final')}</p>
-      </div>
-    )
-  }
+  // After a save, focus the chip once it shows the saved decision. The page
+  // re-renders from revalidatePath, so the new status can arrive just before
+  // or just after the action's result — hence an effect, not a direct focus().
+  useEffect(() => {
+    if (!focusChip.current || saved === null || decision.status !== saved) return
+    focusChip.current = false
+    chipRef.current?.focus()
+  }, [saved, decision.status, decision.decidedLabel])
+
+  const isOpen = isOpenStatus(decision.status)
 
   const parsed = mode === 'quoted' ? parseEurInput(amountRaw) : null
   const check = mode
@@ -170,6 +200,7 @@ export function DecisionPanel({ briefId, decision }: { briefId: string; decision
   function open(next: MakerDecision) {
     setMode(next)
     setError(null)
+    setSaved(null)
   }
 
   function cancel() {
@@ -196,10 +227,12 @@ export function DecisionPanel({ briefId, decision }: { briefId: string; decision
       if (!result) return
       if (result.ok) {
         // revalidatePath in the action re-renders this page with the saved
-        // decision; the chip takes over from the form.
+        // decision; the chip takes over from the form, and takes the focus.
         setMode(null)
         setAmountRaw('')
         setNote('')
+        focusChip.current = true
+        setSaved(result.status)
         return
       }
       setError(result.error)
@@ -210,120 +243,147 @@ export function DecisionPanel({ briefId, decision }: { briefId: string; decision
 
   return (
     <div>
-      <div className="flex gap-2">
-        {BUTTONS.map(({ key, label, Icon, iconClass, idle, active }) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => open(key)}
-            disabled={pending}
-            aria-expanded={mode === key}
-            aria-controls={mode === key ? `${id}-form` : undefined}
-            className={cn(
-              'flex-1 rounded-md px-3 py-2 text-xs font-bold uppercase tracking-wide text-white transition-all disabled:opacity-40',
-              mode === key ? active : idle,
-              mode !== null && mode !== key && 'opacity-50 hover:opacity-100'
-            )}
-          >
-            <Icon className={cn('mr-1 inline size-3', iconClass)} aria-hidden />
-            {t(label)}
-          </button>
-        ))}
-      </div>
-
-      {mode && (
-        <form
-          id={`${id}-form`}
-          onSubmit={(e) => {
-            e.preventDefault()
-            submit()
-          }}
-          className="mt-3 space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3"
+      {isDecided(decision.status) ? (
+        <div
+          ref={chipRef}
+          tabIndex={-1}
+          className="w-fit rounded-full outline-none focus-visible:ring-2 focus-visible:ring-slate-300"
         >
-          {mode === 'quoted' && (
-            <div>
-              <label htmlFor={`${id}-amount`} className="block text-[11px] font-semibold text-slate-700">
-                {t('maker.decision.amount.label')}
-              </label>
-              <input
-                id={`${id}-amount`}
-                type="text"
-                inputMode="decimal"
-                autoComplete="off"
-                placeholder="6.200"
-                value={amountRaw}
-                onChange={(e) => setAmountRaw(e.target.value)}
-                aria-invalid={amountError || undefined}
-                aria-describedby={`${id}-amount-hint`}
-                className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900 outline-none focus-visible:border-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-200"
-              />
-              <p id={`${id}-amount-hint`} className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                {t('maker.decision.amount.hint')}
-              </p>
-              {amountError && (
-                <p role="alert" className="mt-1 text-[11px] text-rose-700">
-                  {t('maker.decision.error.amount')}
+          <DecisionChip decision={decision} />
+        </div>
+      ) : null}
+      {/* Always in the DOM, so the text that appears in it is announced. */}
+      <p role="status" className={cn('text-[11px] leading-relaxed text-emerald-700', saved && 'mt-1.5')}>
+        {saved ? t(SAVED_KEY[saved]) : null}
+      </p>
+
+      {isOpen ? (
+        <div className={cn(isDecided(decision.status) && 'mt-3')}>
+          <div className="flex gap-2">
+            {BUTTONS.map(({ key, label, Icon, iconClass, idle, active }) => (
+              <button
+                key={key}
+                type="button"
+                onClick={() => open(key)}
+                disabled={pending}
+                aria-expanded={mode === key}
+                aria-controls={mode === key ? `${id}-form` : undefined}
+                className={cn(
+                  'flex-1 rounded-md px-3 py-2 text-xs font-bold uppercase tracking-wide text-white transition-all disabled:opacity-40',
+                  mode === key ? active : idle,
+                  mode !== null && mode !== key && 'opacity-50 hover:opacity-100'
+                )}
+              >
+                <Icon className={cn('mr-1 inline size-3', iconClass)} aria-hidden />
+                {t(label)}
+              </button>
+            ))}
+          </div>
+
+          {mode && (
+            <form
+              id={`${id}-form`}
+              onSubmit={(e) => {
+                e.preventDefault()
+                submit()
+              }}
+              className="mt-3 space-y-3 rounded-md border border-slate-200 bg-slate-50 p-3"
+            >
+              {mode === 'quoted' && (
+                <div>
+                  <label htmlFor={`${id}-amount`} className="block text-[11px] font-semibold text-slate-700">
+                    {t('maker.decision.amount.label')}
+                  </label>
+                  <input
+                    id={`${id}-amount`}
+                    type="text"
+                    inputMode="decimal"
+                    autoComplete="off"
+                    placeholder="6.200"
+                    value={amountRaw}
+                    onChange={(e) => setAmountRaw(e.target.value)}
+                    aria-invalid={amountError || undefined}
+                    aria-describedby={`${id}-amount-hint`}
+                    className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 font-mono text-sm text-slate-900 outline-none focus-visible:border-emerald-500 focus-visible:ring-2 focus-visible:ring-emerald-200"
+                  />
+                  <p id={`${id}-amount-hint`} className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                    {t('maker.decision.amount.hint')}
+                  </p>
+                  {amountError && (
+                    <p role="alert" className="mt-1 text-[11px] text-rose-700">
+                      {t('maker.decision.error.amount')}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label htmlFor={`${id}-note`} className="block text-[11px] font-semibold text-slate-700">
+                  {t(mode === 'clarify' ? 'maker.decision.note.clarify' : 'maker.decision.note.optional')}
+                </label>
+                <textarea
+                  id={`${id}-note`}
+                  rows={mode === 'clarify' ? 3 : 2}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  required={mode === 'clarify'}
+                  aria-invalid={tooLong || undefined}
+                  className="mt-1 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus-visible:border-slate-500 focus-visible:ring-2 focus-visible:ring-slate-200"
+                />
+                <p className={cn('mt-0.5 text-right font-mono text-[10px]', tooLong ? 'text-rose-700' : 'text-slate-400')}>
+                  {t('maker.decision.note.count').replace('{n}', String(length)).replace('{max}', String(NOTE_MAX))}
                 </p>
-              )}
-            </div>
+              </div>
+
+              <p id={`${id}-hint`} className="text-[11px] leading-relaxed text-slate-600">
+                {t(FORM_HINT_KEY[mode])}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={!check?.ok || pending}
+                  aria-describedby={`${id}-hint`}
+                  className={cn(
+                    'rounded-md px-3 py-2 text-xs font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+                    SUBMIT_TONE[mode]
+                  )}
+                >
+                  {pending ? t('maker.decision.saving') : submitLabel}
+                </button>
+                <button
+                  type="button"
+                  onClick={cancel}
+                  disabled={pending}
+                  className="rounded-md px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900 disabled:opacity-40"
+                >
+                  {t('maker.decision.cancel')}
+                </button>
+              </div>
+            </form>
           )}
 
-          <div>
-            <label htmlFor={`${id}-note`} className="block text-[11px] font-semibold text-slate-700">
-              {t(mode === 'clarify' ? 'maker.decision.note.clarify' : 'maker.decision.note.optional')}
-            </label>
-            <textarea
-              id={`${id}-note`}
-              rows={mode === 'clarify' ? 3 : 2}
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              required={mode === 'clarify'}
-              aria-invalid={tooLong || undefined}
-              className="mt-1 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus-visible:border-slate-500 focus-visible:ring-2 focus-visible:ring-slate-200"
-            />
-            <p className={cn('mt-0.5 text-right font-mono text-[10px]', tooLong ? 'text-rose-700' : 'text-slate-400')}>
-              {t('maker.decision.note.count').replace('{n}', String(length)).replace('{max}', String(NOTE_MAX))}
+          {error && (
+            <p role="alert" className="mt-2 text-[11px] leading-relaxed text-rose-700">
+              {t(ERROR_KEY[error])}
+              {error === 'superseded' && (
+                <>
+                  {' '}
+                  <Link href="/dashboard" className="font-semibold underline underline-offset-2">
+                    {t('maker.decision.error.supersededLink')}
+                  </Link>
+                </>
+              )}
             </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="submit"
-              disabled={!check?.ok || pending}
-              className={cn(
-                'rounded-md px-3 py-2 text-xs font-bold text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40',
-                SUBMIT_TONE[mode]
-              )}
-            >
-              {pending ? t('maker.decision.saving') : submitLabel}
-            </button>
-            <button
-              type="button"
-              onClick={cancel}
-              disabled={pending}
-              className="rounded-md px-3 py-2 text-xs font-medium text-slate-600 transition-colors hover:bg-slate-200 hover:text-slate-900 disabled:opacity-40"
-            >
-              {t('maker.decision.cancel')}
-            </button>
-          </div>
-        </form>
-      )}
-
-      {error && (
-        <p role="alert" className="mt-2 text-[11px] leading-relaxed text-rose-700">
-          {t(ERROR_KEY[error])}
-          {error === 'superseded' && (
-            <>
-              {' '}
-              <Link href="/dashboard" className="font-semibold underline underline-offset-2">
-                {t('maker.decision.error.supersededLink')}
-              </Link>
-            </>
           )}
-        </p>
-      )}
 
-      <p className="mt-2 text-[11px] leading-relaxed text-slate-500">{t('maker.decision.visible')}</p>
+          {mode === null && (
+            <p className="mt-2 text-[11px] leading-relaxed text-slate-500">{t('maker.decision.visible')}</p>
+          )}
+        </div>
+      ) : (
+        <p className="mt-2 text-[11px] leading-relaxed text-slate-500">{t('maker.decision.final')}</p>
+      )}
     </div>
   )
 }

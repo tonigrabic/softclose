@@ -868,7 +868,8 @@ export const hrHR = {
   'kitchen.home.decision.clarify': '{maker}: treba pojašnjenje ({date}).',
   'kitchen.home.decision.clarifyNext': 'Odgovori izmjenom kuhinje ili se javi izravno.',
   'kitchen.home.decision.declined': '{maker}: ne može preuzeti ovaj projekt.',
-  'kitchen.home.decision.declinedNext': 'Tvoj sažetak i procjena ostaju ovdje.',
+  // Shown only when the range is on screen below it (decisionNextKey).
+  'kitchen.home.decision.declinedNext': 'Tvoja procjena ostaje ovdje.',
   'kitchen.home.decision.pill.quoted': 'Ponuda poslana',
   'kitchen.home.decision.pill.clarify': 'Treba pojašnjenje',
   'kitchen.home.decision.pill.declined': 'Zatvoreno',
@@ -1126,11 +1127,21 @@ export const hrHR = {
   'maker.decision.note.optional': 'Napomena za kupca (neobavezno)',
   'maker.decision.note.clarify': 'Što kupac treba pojasniti?',
   'maker.decision.note.count': '{n}/{max}',
-  'maker.decision.submit.quote': 'Zabilježi ponudu: {amount}',
-  'maker.decision.submit.clarify': 'Pošalji pitanje',
+  'maker.decision.submit.quote': 'Zabilježi poslanu ponudu: {amount}',
+  // Saved, not sent: nothing is emailed until IMP-16.
+  'maker.decision.submit.clarify': 'Spremi pitanje',
   'maker.decision.submit.decline': 'Odbij i zatvori projekt',
   'maker.decision.cancel': 'Odustani',
   'maker.decision.saving': 'Spremam…',
+  // Next to the submit button: what the customer will see. The quote hint
+  // quotes the homeowner's pill (kitchen.home.decision.pill.quoted) verbatim.
+  'maker.decision.hint.quoted':
+    'Zabilježi tek kad je ponuda poslana kupcu. U svojoj kuhinji vidjet će „Ponuda poslana” — bez iznosa.',
+  'maker.decision.hint.clarify': 'Kupac pitanje vidi kad otvori svoju kuhinju — e-poštom ga ne šaljemo.',
+  'maker.decision.hint.declined': 'Kad kupac otvori svoju kuhinju, vidjet će da je projekt zatvoren.',
+  'maker.decision.saved.quoted': 'Ponuda je zabilježena — kupac vidi „Ponuda poslana”.',
+  'maker.decision.saved.clarify': 'Pitanje je spremljeno — kupac ga vidi u svojoj kuhinji.',
+  'maker.decision.saved.declined': 'Odbijanje je zabilježeno — projekt je zatvoren.',
   'maker.decision.visible': 'Kupac će odluku vidjeti kad otvori svoju kuhinju.',
   'maker.decision.final': 'Ponuda i odbijanje su konačni za ovaj sažetak.',
   'maker.decision.error.amount': 'Upiši iznos veći od 0 i najviše 1.000.000 €, npr. 6.200 ili 6.200,50.',

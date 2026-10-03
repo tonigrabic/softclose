@@ -77,6 +77,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     )
   }
 
+  // No `status` in this write. The status read above may already be stale —
+  // a decline archives the project, a send marks it submitted, and neither
+  // bumps `revision` — so writing it back would undo them: an autosave in
+  // flight across the maker's decline would re-open the project (IMP-03).
   const { data: updated, error } = await db
     .from(TABLES.projects)
     .update({
@@ -84,7 +88,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       snapshot_version: SNAPSHOT_VERSION,
       revision: (project.revision as number) + 1,
       step: body.step ?? null,
-      status: project.status === 'invited' ? 'in_progress' : project.status,
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
@@ -114,6 +117,19 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       },
       { status: 409 }
     )
+  }
+
+  // The one status move a checkpoint makes — the first save starts the
+  // journey — as its own write, conditional on the status it moves from, so
+  // it can never overwrite anything else. Best-effort: if it fails, the next
+  // checkpoint still reads 'invited' and tries again.
+  if (project.status === 'invited') {
+    const { error: statusError } = await db
+      .from(TABLES.projects)
+      .update({ status: 'in_progress' })
+      .eq('id', id)
+      .eq('status', 'invited')
+    if (statusError) console.error('[checkpoint] invited → in_progress failed', statusError.message)
   }
 
   return Response.json({ ok: true, revision: updated.revision, savedAt: updated.updated_at })

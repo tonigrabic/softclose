@@ -37,26 +37,35 @@ export interface KitchenHomeProps {
   customerName: string | null
 }
 
-const DECISION_COPY: Record<MakerDecision, { pill: TranslationKey; line: TranslationKey; next: TranslationKey; tone: string }> = {
+const DECISION_COPY: Record<MakerDecision, { pill: TranslationKey; line: TranslationKey; tone: string }> = {
   quoted: {
     pill: 'kitchen.home.decision.pill.quoted',
     line: 'kitchen.home.decision.quoted',
-    next: 'kitchen.home.decision.quotedNext',
     tone: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
   },
   clarify: {
     pill: 'kitchen.home.decision.pill.clarify',
     line: 'kitchen.home.decision.clarify',
-    next: 'kitchen.home.decision.clarifyNext',
     tone: 'bg-amber-50 text-amber-800 ring-amber-200',
   },
   // Calm, not alarming (rule 7): a decline reads as "closed", not as an error.
   declined: {
     pill: 'kitchen.home.decision.pill.declined',
     line: 'kitchen.home.decision.declined',
-    next: 'kitchen.home.decision.declinedNext',
     tone: 'bg-muted text-muted-foreground ring-border',
   },
+}
+
+/**
+ * The line under the maker's answer: what happens next. It may only promise
+ * what this screen shows. A closed project has no way into its summary any
+ * more, so a decline mentions the estimate only when there is one on screen
+ * below — and says nothing when the brief went out without a range.
+ */
+export function decisionNextKey(status: MakerDecision, hasRange: boolean): TranslationKey | null {
+  if (status === 'quoted') return 'kitchen.home.decision.quotedNext'
+  if (status === 'clarify') return 'kitchen.home.decision.clarifyNext'
+  return hasRange ? 'kitchen.home.decision.declinedNext' : null
 }
 
 const ACTS = [
@@ -100,7 +109,13 @@ export function KitchenHome(props: KitchenHomeProps) {
   }
 
   const submitted = Boolean(props.submittedAt)
-  const decision = props.decision ? { ...props.decision, copy: DECISION_COPY[props.decision.status] } : null
+  const decision = props.decision
+    ? {
+        ...props.decision,
+        copy: DECISION_COPY[props.decision.status],
+        next: decisionNextKey(props.decision.status, Boolean(props.range)),
+      }
+    : null
 
   return (
     <AuthShell signedIn>
@@ -148,7 +163,9 @@ export function KitchenHome(props: KitchenHomeProps) {
                       .replace('{date}', decision.date ?? '')}
                   </span>
                 </p>
-                <p className="text-xs leading-relaxed text-muted-foreground">{t(decision.copy.next)}</p>
+                {decision.next ? (
+                  <p className="text-xs leading-relaxed text-muted-foreground">{t(decision.next)}</p>
+                ) : null}
                 {decision.note ? (
                   <blockquote className="whitespace-pre-line border-l-2 border-border pl-3 text-sm leading-relaxed text-foreground">
                     {decision.note}
@@ -208,8 +225,9 @@ export function KitchenHome(props: KitchenHomeProps) {
           </>
         )}
 
-        {/* A closed project keeps its summary and range on screen but offers
-            no way back into the intake: a re-send would be refused, and an
+        {/* A closed project keeps its status card — sent, seen, the maker's
+            answer and the range when there is one — but offers no way back
+            into the intake or its summary: a re-send would be refused, and an
             edit nobody receives is worse than none. A question (clarify)
             keeps editing open — changing the kitchen is one way to answer. */}
         {!props.closed ? (

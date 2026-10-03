@@ -1255,7 +1255,7 @@ Rule 8 and Definition of Done #3. Three steps, one commit each.
   another tab decided first), archives the project after a decline (second,
   guarded by `current_brief_id`), and revalidates brief, list and kitchen.
 - **Maker surfaces.** Decision panel on the brief page (the submit button
-  repeats the parsed amount: "Zabilježi ponudu: 6.200 €"); chips on the brief
+  repeats the parsed amount: "Zabilježi poslanu ponudu: 6.200 €"); chips on the brief
   and the list; `quoted = makerStatus === 'quoted'`; the list groups
   attention → "Čeka kupca" → active → waiting, then a collapsed "Zatvoreno".
   The WrapUp demo keeps "Demo radnja".
@@ -1325,3 +1325,36 @@ action's ownership checks and transitions against the real DAL, a static
 guard that every non-public server action calls a DAL guard, and the handoff
 refusing a closed project. 654 tests · tsc · eslint green (`next build` not
 run: a dev server owned the build output).
+
+**Review round.**
+- *The re-send block reads the brief.* `/api/handoff` checked only
+  `project.status === 'archived'`, but the archive after a decline is a
+  second, best-effort write, and the checkpoint route wrote back the
+  `status` it had read, filtered only on `revision` (which neither a decline
+  nor a send bumps). So an autosave in flight across Odbij could re-open the
+  project, and the next send reached the maker who had said no. Now
+  `isProjectClosed(projectStatus, currentBriefStatus)` (lib/project/decision)
+  closes on a declined current brief whatever the project row says; the
+  handoff and the kitchen home both use it, and a failed read of that brief
+  stores nothing. The checkpoint no longer sends `status`; its only move,
+  invited → in_progress, is a separate write conditional on `status =
+  'invited'`.
+- *The maker is told what the customer sees.* The quote form says to record
+  the quote once it has gone out, and that the customer's kitchen then shows
+  "Ponuda poslana" without the amount; the submit reads "Zabilježi poslanu
+  ponudu: {amount}". A question is saved, not sent (no email until IMP-16):
+  "Spremi pitanje", with "the customer sees it when they open their kitchen"
+  next to the button.
+- *Closed home copy.* It said "Tvoj sažetak i procjena ostaju ovdje", but a
+  closed home has no way into its summary. The line is now "Tvoja procjena
+  ostaje ovdje." and only when a range is on screen; nothing without one.
+- *Saving is announced.* A polite `role="status"` region (in the DOM from
+  the first paint, in both branches) says what was saved; focus moves to the
+  saved chip; an open brief after a question shows its clarify chip inside
+  the panel.
+
+Tests: the handoff refusing a declined brief on a non-archived project (and
+storing nothing when that brief cannot be read), the checkpoint race against
+a one-row in-memory table, the copy contract between the maker's hints and
+the homeowner's pill, and static renders of the panel's live region and
+clarify chip.

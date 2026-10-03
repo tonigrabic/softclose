@@ -5,7 +5,7 @@ import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import { DEFAULT_LOCALE, isLocale, tDynamic } from '@/lib/i18n/core'
 import { migrateSnapshot } from '@/lib/project/snapshot'
 import { stepProgress } from '@/lib/project/status'
-import { formatDecisionDate, isDecided } from '@/lib/project/decision'
+import { formatDecisionDate, isDecided, isProjectClosed } from '@/lib/project/decision'
 import { resumeStepId } from '@/lib/flow'
 import { roomStepDone } from '@/lib/floor-plan'
 import { KitchenHome } from './KitchenHome'
@@ -90,10 +90,11 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
           note: brief.makerNote,
         }
       : null
-  // Closed: the maker declined, or the project was archived. Either way the
-  // handoff refuses a re-send (409), so the home must not offer an edit that
-  // could never reach anyone.
-  const closed = project.status === 'archived' || decision?.status === 'declined'
+  // Closed: the maker declined, or the project was archived. The handoff
+  // refuses a re-send (409) on exactly the same test — isProjectClosed, which
+  // reads the declined brief even when the archive write after it failed — so
+  // the home must not offer an edit that could never reach anyone.
+  const closed = isProjectClosed(project.status, brief?.makerStatus)
 
   // Where the journey will actually resume — a journey saved past the room
   // step without a measured room goes back to it (IMP-31), and the label on

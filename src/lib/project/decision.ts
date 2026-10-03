@@ -55,6 +55,23 @@ export function canDecide(from: string | null | undefined, to: unknown): boolean
 }
 
 /**
+ * A project that takes no new brief and offers no edit: archived, or its
+ * current brief was declined.
+ *
+ * The declined brief decides on its own, whatever the project row says. The
+ * archive write after a decline is best-effort (decideBrief only logs a
+ * failure), so a project can be declined and still read 'submitted'. The
+ * handoff's 409 and the kitchen home's "closed" both read this one function,
+ * so the refusal and the screen cannot disagree.
+ */
+export function isProjectClosed(
+  projectStatus: string | null | undefined,
+  currentBriefStatus: string | null | undefined
+): boolean {
+  return projectStatus === 'archived' || currentBriefStatus === 'declined'
+}
+
+/**
  * Length as Postgres' `char_length` counts it (code points), so a note the
  * client accepts is never refused by the database check — an emoji is one
  * character here and there, not two UTF-16 units.
@@ -178,7 +195,7 @@ export function parseEurInput(raw: string): number | null {
  * A quoted amount as the maker typed it back: whole euros without decimals,
  * cents only when there are some — `6.200 €`, `6.200,50 €` (hr), `€6,200` (en).
  *
- * The same function labels the submit button ("Zabilježi ponudu: 6.200 €") on
+ * The same function labels the submit button ("Zabilježi poslanu ponudu: 6.200 €") on
  * the client and the saved chip on the server, so the confirmation the maker
  * reads before saving is character for character what the chip shows after.
  */
