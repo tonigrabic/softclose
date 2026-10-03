@@ -9,7 +9,8 @@ import { fromVision } from '@/lib/floor-plan'
 import type { FloorPlan } from '@/lib/floor-plan'
 import { FloorPlanEditor, ShapePicker } from './floor-plan-editor'
 import type { SpaceVisionResult } from '@/lib/types'
-import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
+import { apiErrorKey } from '@/lib/api/client'
+import { requestSpaceVision } from '@/lib/api/space-vision-client'
 import { fileToCompressedDataUrl } from '@/lib/image'
 
 const MAX_PHOTOS = 4
@@ -127,16 +128,7 @@ export function SpaceCapture({
     setIsAnalyzing(true)
     setAnalyzeError(null)
     try {
-      const res = await fetch('/api/space-vision', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ photos, locale }),
-      })
-      const data = await readJson(res)
-      if (!res.ok || data.error) {
-        throw new ApiError(data.error ?? `Vision call failed (${res.status})`, res.status, data.code as string | undefined)
-      }
-      onVisionResult(data.result as SpaceVisionResult)
+      onVisionResult(await requestSpaceVision(photos, locale))
     } catch (err) {
       console.warn('[space-vision]', err)
       setAnalyzeError(t(apiErrorKey(err, 'space.error.analyzeFailed')))

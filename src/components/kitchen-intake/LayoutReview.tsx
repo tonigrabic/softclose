@@ -80,7 +80,11 @@ export function LayoutReview({
         <div className="min-w-0">
           <p className="text-sm font-medium text-foreground">{t('space.ceiling.title')}</p>
           <p className="text-[11px] text-muted-foreground">
-            {floorPlan.ceilingHeightCm ? t('space.ceiling.aiEstimate') : t('space.ceiling.prompt')}
+            {floorPlan.ceilingSource === 'homeowner'
+              ? t('room.measure.measured')
+              : floorPlan.ceilingHeightCm
+                ? t('space.ceiling.aiEstimate')
+                : t('space.ceiling.prompt')}
           </p>
         </div>
         <div className="flex items-center overflow-hidden rounded-lg border border-border bg-background focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/20">
@@ -93,10 +97,11 @@ export function LayoutReview({
             value={floorPlan.ceilingHeightCm ?? ''}
             onChange={(e) => {
               const n = parseInt(e.target.value, 10)
+              const valid = Number.isFinite(n) && n > 0
               onFloorPlanChange({
                 ...floorPlan,
-                ceilingHeightCm:
-                  Number.isFinite(n) && n > 0 ? Math.max(220, Math.min(360, n)) : undefined,
+                ceilingHeightCm: valid ? Math.max(220, Math.min(360, n)) : undefined,
+                ceilingSource: valid ? 'homeowner' : undefined,
               })
             }}
             className="w-20 bg-transparent px-2.5 py-1.5 text-right text-[13px] tabular-nums text-foreground placeholder:text-muted-foreground/40 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"

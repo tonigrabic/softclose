@@ -14,8 +14,15 @@ const t = (key: string) => tDynamic(key, DEFAULT_LOCALE)
 describe('journeyPillLabel', () => {
   test('funnel step: act · step label · pos/total within the act', () => {
     const label = journeyPillLabel({ funnelStepId: 'space_photos', profile: {} })
-    // Act 1 = space_photos + inspiration + concept_render + confirm_look.
-    expect(label).toBe(`${t('journey.act.space')} · ${t('flow.space_photos.label')} · 1/4`)
+    // Act 1 = space_photos + room + inspiration + concept_render + confirm_look.
+    expect(label).toBe(`${t('journey.act.space')} · ${t('flow.space_photos.label')} · 1/5`)
+  })
+
+  test('the room step is step 2 of the space act, and does not repeat the act label', () => {
+    expect(journeyPillLabel({ funnelStepId: 'room', profile: {} })).toBe(
+      `${t('journey.act.space')} · ${t('flow.room.label')} · 2/5`
+    )
+    expect(t('flow.room.label')).not.toBe(t('journey.act.space'))
   })
 
   test('act heading and step label are no longer identical (the "Vaš prostor · Vaš prostor" fix)', () => {

@@ -2,6 +2,7 @@ import type { LeadProfile } from '@/lib/types'
 import type { FlowStepId } from '@/lib/flow'
 import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n'
 import { contactChannels } from '@/lib/contact'
+import { WALL_LETTER, counterWalls, isRoomMeasured } from '@/lib/floor-plan'
 
 /**
  * Short captured-value summary shown under a completed funnel step in the
@@ -18,9 +19,18 @@ export function readbackFor(
     case 'space_photos': {
       const n = p.spacePhotos?.length ?? 0
       if (n === 0) return null
-      const photos = td('readback.photos').replace('{n}', String(n))
-      const layout = p.layoutShape ?? p.spaceVisionResult?.layoutShape
-      return layout && layout !== 'unsure' ? `${photos} · ${td(`layout.shape.${layout}`)}` : photos
+      // Photos only: the shape is the room step's, confirmed there.
+      return td('readback.photos').replace('{n}', String(n))
+    }
+    case 'room': {
+      // The room as confirmed: shape, each measured wall by its letter.
+      const fp = p.existingFloorPlan ?? p.floorPlan
+      if (!fp || !isRoomMeasured(fp)) return null
+      const shape = fp.layoutShape !== 'unsure' ? td(`layout.shape.${fp.layoutShape}`) : null
+      const walls = counterWalls(fp)
+        .map((w) => `${WALL_LETTER[w]} ${Math.round(fp.room.sides[w].measuredLengthCm!)}`)
+        .join(' · ')
+      return [shape, `${walls} cm`, td('readback.measured')].filter(Boolean).join(' · ')
     }
     case 'inspiration': {
       const styles = p.stylePreferences ?? []

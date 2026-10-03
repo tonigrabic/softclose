@@ -32,6 +32,8 @@ interface RerenderPanelProps {
   currentRenderDataUrl?: string
   /** Push a new render up to the parent so it can replace the preview. */
   onRendered: (imageDataUrl: string, trigger: string) => void
+  /** No render without a measured room (IMP-31): the button stays off and says why. */
+  blocked?: boolean
 }
 
 interface VisualSignature {
@@ -72,6 +74,7 @@ export function RerenderPanel({
   anchorPhotoDataUrl,
   currentRenderDataUrl,
   onRendered,
+  blocked = false,
 }: RerenderPanelProps) {
   const { t, tDynamic } = useTranslations()
   // Baseline = the signature at the moment of the *last* render the user
@@ -98,6 +101,7 @@ export function RerenderPanel({
   const hasSubstantialChange = changes.length > 0
 
   async function handleRerender() {
+    if (blocked) return
     if (!anchorPhotoDataUrl) {
       setError(t('builder.rerender.noAnchorError'))
       return
@@ -184,10 +188,10 @@ export function RerenderPanel({
       <button
         type="button"
         onClick={handleRerender}
-        disabled={isRendering || !anchorPhotoDataUrl}
+        disabled={isRendering || !anchorPhotoDataUrl || blocked}
         className={cn(
           'inline-flex items-center gap-1.5 rounded-full bg-foreground px-4 py-1.5 text-[12px] font-semibold text-background transition-all',
-          (isRendering || !anchorPhotoDataUrl) && 'opacity-60'
+          (isRendering || !anchorPhotoDataUrl || blocked) && 'opacity-60'
         )}
       >
         {isRendering ? (
@@ -202,10 +206,14 @@ export function RerenderPanel({
           </>
         )}
       </button>
-      {!anchorPhotoDataUrl && (
-        <p className="text-[10.5px] text-amber-700/80 dark:text-amber-200/70">
-          {t('builder.rerender.noAnchor')}
-        </p>
+      {blocked ? (
+        <p className="text-[10.5px] text-amber-700/80 dark:text-amber-200/70">{t('room.gate.rerender')}</p>
+      ) : (
+        !anchorPhotoDataUrl && (
+          <p className="text-[10.5px] text-amber-700/80 dark:text-amber-200/70">
+            {t('builder.rerender.noAnchor')}
+          </p>
+        )
       )}
       {error && (
         <p className="text-[10.5px] font-medium text-destructive">{error}</p>

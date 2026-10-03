@@ -54,6 +54,8 @@ export interface ProjectSnapshot {
   dealBreakersText: string
   builderHypothesis: BuilderHypothesis | null
   builderStartedNoAI: boolean
+  /** Which screen of the room step (shape, then measure). Optional: older snapshots default to 'shape'. */
+  roomPhase?: 'shape' | 'measure'
 }
 
 type SnapshotRecord = Record<string, unknown>
