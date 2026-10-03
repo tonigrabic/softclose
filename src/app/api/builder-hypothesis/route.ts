@@ -2,8 +2,13 @@
  * /api/builder-hypothesis
  *
  * Single structured-output vision call. Input: the chosen render image (data
- * URL) + minimal Phase-1 profile context. Output: BuilderHypothesis covering
- * all 10 component groups with per-field confidence + reason.
+ * URL) + a few short homeowner preference ids (`DecorProfileHints`). Output:
+ * BuilderHypothesis with per-field confidence + reason.
+ *
+ * Decor only since IMP-32: finishes, materials, appliance types. The layout is
+ * fixed and measured by the homeowner at the room step, so this call gets no
+ * plan, no layout contract and no anchor photo, and its schema has no layout
+ * fields. The client also projects any stored read through `decorHypothesis`.
  *
  * The Builder UI calls this once on entry, then the user walks through the
  * groups confirming or swapping each pre-filled value.
@@ -18,7 +23,7 @@ import { apiAccount } from '@/lib/auth/dal'
 import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
 import { mockHypothesis } from '@/lib/api/mock-fixtures/builder-hypothesis'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
-import type { LayoutContract } from '@/lib/contract/layout-contract'
+import { sanitizeDecorProfileHints } from '@/lib/api/decor-profile-hints'
 import { providerFailure, unauthorized, AI_UNAVAILABLE } from '@/lib/api/errors'
 
 const MAX_BYTES_PER_PHOTO = 6 * 1024 * 1024
@@ -26,22 +31,13 @@ const MAX_CALLS_PER_SESSION_WINDOW = 4
 const SESSION_WINDOW_MS = 30 * 60 * 1000
 
 /**
- * Vision model for the layout/hypothesis read. This is the one call where
- * geometry accuracy pays off most (it drives cabinet seeding + the price band),
- * so it runs on the full model rather than the mini used elsewhere. Swap here.
+ * Vision model for the render read. It ran on the full model because the read
+ * used to drive cabinet seeding; since IMP-32 it reads decor only, and the
+ * model choice is left to IMP-23. Swap here.
  */
 const LAYOUT_MODEL = 'gpt-5.4'
 
 const confidenceEnum = z.enum(['H', 'M', 'L'])
-const layoutShapeEnum = z.enum([
-  'galley',
-  'l_shape',
-  'u_shape',
-  'island',
-  'peninsula',
-  'open',
-  'unsure',
-])
 
 const hint = <T extends z.ZodTypeAny>(value: T) =>
   z.object({
@@ -49,40 +45,6 @@ const hint = <T extends z.ZodTypeAny>(value: T) =>
     confidence: confidenceEnum,
     reason: z.string().max(120).optional(),
   })
-
-const layoutSchema = z.object({
-  shape: hint(layoutShapeEnum).optional(),
-  hasIsland: hint(z.boolean()).optional(),
-  ceilingHeightCm: hint(z.number().min(200).max(400)).optional(),
-  runs: z
-    .array(
-      z.object({
-        id: z.string(),
-        label: z.string(),
-        lengthCm: hint(z.number().min(80).max(1200)),
-        hasBase: hint(z.boolean()).optional(),
-        hasWall: hint(z.boolean()).optional(),
-        hasTall: hint(z.boolean()).optional(),
-      })
-    )
-    .max(4)
-    .optional(),
-})
-
-const cabinetPatternEnum = z.enum([
-  'doors_shelf',
-  'drawer_bank',
-  'pullouts_inside_doors',
-  'drawer_door_combo',
-  'sink_unit',
-  'trash_pullout',
-  'corner_magic',
-  'corner_lazy',
-  'oven_housing',
-  'pullout_larder',
-  'wine_pullout',
-  'open_shelves',
-])
 
 const cabinetBoxesSchema = z.object({
   carcassMaterial: hint(z.enum(['white_melamine_standard', 'colored_melamine'])).optional(),
@@ -95,17 +57,6 @@ const cabinetBoxesSchema = z.object({
       wall: hint(z.number().int().min(0).max(20)).optional(),
       tall: hint(z.number().int().min(0).max(6)).optional(),
     })
-    .optional(),
-  unitPatterns: z
-    .array(
-      z.object({
-        runId: z.string(),
-        positionPctAlongRun: z.number().min(0).max(100),
-        pattern: cabinetPatternEnum,
-        confidence: confidenceEnum,
-      })
-    )
-    .max(20)
     .optional(),
 })
 
@@ -175,18 +126,6 @@ const appliancesSchema = z.object({
 })
 
 const featuresSchema = z.object({
-  tallPantry: z
-    .object({
-      present: hint(z.boolean()),
-      runId: z.string().optional(),
-    })
-    .optional(),
-  windowOnRun: z
-    .object({
-      runId: z.string(),
-      widthCm: hint(z.number().min(20).max(400)).optional(),
-    })
-    .optional(),
   openShelving: hint(z.boolean()).optional(),
   corniceVisible: hint(z.boolean()).optional(),
   floorColorHint: z.string().max(120).optional(),
@@ -215,7 +154,6 @@ const finishingSchema = z.object({
 const hypothesisSchema = z.object({
   usable: z.boolean(),
   summary: z.string().max(200).optional(),
-  layout: layoutSchema.optional(),
   cabinetBoxes: cabinetBoxesSchema.optional(),
   doors: doorsSchema.optional(),
   worktop: worktopSchema.optional(),
@@ -227,58 +165,6 @@ const hypothesisSchema = z.object({
   finishing: finishingSchema.optional(),
   features: featuresSchema.optional(),
 })
-
-/**
- * Render the photo-measured layout (Part 1 geometry) as prompt text — a SCALE
- * reference only. The model reads the actual design from the render + anchor
- * photo (see SYSTEM) and borrows these cm figures + run ids so things line up.
- * Returns '' when no contract is supplied.
- */
-function describeLayoutContract(lc: LayoutContract | undefined): string {
-  if (!lc || lc.runs.length === 0) return ''
-  const runLines = lc.runs
-    .map((r) => `  - run "${r.id}" (${r.label}): ${r.lengthCm} cm of base cabinets`)
-    .join('\n')
-  const applianceLines = lc.appliances.length
-    ? lc.appliances
-        .map(
-          (a) =>
-            `  - ${a.kind} on run "${a.runId}", ~${Math.round(a.positionPctAlongRun)}% along, ${a.widthCm} cm wide`
-        )
-        .join('\n')
-    : '  (none placed)'
-  const cornerLines = lc.corners.length
-    ? lc.corners.map((c) => `  - runs "${c.runA}" and "${c.runB}" meet at a corner`).join('\n')
-    : '  (none)'
-  return (
-    `APPROXIMATE LAYOUT of the EXISTING space (a rough read of the homeowner's photos — use ONLY as a SCALE/size reference, not as the design):\n` +
-    `- existing shape: ${lc.shape}; existing island: ${lc.hasIsland ? 'yes' : 'no'}\n` +
-    `- existing runs (cm lengths give you scale; reuse these ids where they still apply):\n${runLines}\n` +
-    `- existing appliances:\n${applianceLines}\n` +
-    `- corners:\n${cornerLines}\n` +
-    `IMPORTANT: the RENDER is the INTENDED NEW design. Read the actual layout — shape, whether there's an island, which walls carry cabinets — FROM THE RENDER, and only borrow the cm scale from the figures above. If the render clearly adds an island or changes the shape, follow the render.`
-  )
-}
-
-/**
- * Defensive guard: the layout contract is client-supplied and interpolated into
- * the prompt, so accept it only when it's structurally a LayoutContract. Returns
- * a trimmed-to-known-fields copy, or undefined if malformed/injected.
- */
-function sanitizeContract(raw: unknown): LayoutContract | undefined {
-  if (!raw || typeof raw !== 'object') return undefined
-  const c = raw as Record<string, unknown>
-  if (!Array.isArray(c.runs) || typeof c.shape !== 'string') return undefined
-  const runsOk = c.runs.every(
-    (r) =>
-      r &&
-      typeof r === 'object' &&
-      typeof (r as Record<string, unknown>).id === 'string' &&
-      typeof (r as Record<string, unknown>).lengthCm === 'number'
-  )
-  if (!runsOk) return undefined
-  return raw as LayoutContract
-}
 
 function approxBytesOfDataUrl(dataUrl: string): number {
   const base64 = dataUrl.split(',')[1] ?? ''
@@ -292,35 +178,26 @@ function dataUrlToImagePart(dataUrl: string) {
 
 /**
  * Assemble the user message for the hypothesis call. Pure (no I/O) so it can be
- * unit-tested. The render comes FIRST (it's the design we price); the anchor
- * photo, when present, comes SECOND as the true-scale / shell reality check the
- * model cross-references (see SYSTEM). Returns the AI-SDK `messages` array.
+ * unit-tested. One image: the render. No anchor photo (it is the old kitchen,
+ * and it only ever served the layout read) and no layout text: the layout is
+ * fixed and measured, and the SYSTEM prompt says so. Returns the AI-SDK
+ * `messages` array.
  */
-export function buildHypothesisMessages(args: {
-  renderImage: string
-  anchorPhoto?: string
-  profileSummary: string
-  layoutFacts: string
-}) {
-  const { renderImage, anchorPhoto, profileSummary, layoutFacts } = args
-  const anchorNote = anchorPhoto
-    ? '\n\nTwo images follow: first the RENDER (the design we are pricing), then the ANCHOR PHOTO of the actual space (use only for true scale + window/door positions, not for the old design).'
-    : '\n\nThe rendered concept image follows.'
+export function buildHypothesisMessages(args: { renderImage: string; profileSummary: string }) {
+  const { renderImage, profileSummary } = args
   const content: Array<
     { type: 'text'; text: string } | ReturnType<typeof dataUrlToImagePart>
   > = [
     {
       type: 'text',
       text:
-        (layoutFacts ? layoutFacts + '\n\n' : '') +
-        'Phase-1 profile (homeowner-stated; treat as soft hints, render takes precedence visually):\n' +
+        "Homeowner's stated preferences (soft hints only; where the render clearly shows a finish, the render wins):\n" +
         profileSummary +
-        anchorNote +
+        '\n\nThe rendered concept image follows. Read finishes, materials and appliance types from it.' +
         ' Call inferBuilderHypothesis with structured fields covering every group you can read.',
     },
     dataUrlToImagePart(renderImage),
   ]
-  if (anchorPhoto) content.push(dataUrlToImagePart(anchorPhoto))
   return [{ role: 'user' as const, content }]
 }
 
@@ -333,10 +210,9 @@ const SYSTEM = `You are a kitchen-trade vision assistant analysing an AI-rendere
 
 Your job: produce a structured BuilderHypothesis covering every component group so a homeowner can walk through the builder with each value pre-filled.
 
-You may receive TWO images:
-1. The RENDER (always first) — the INTENDED NEW design. This is the kitchen we are pricing. Read the design FROM HERE: shape, runs, island, cabinet configuration, fronts, worktop, appliances.
-2. The ANCHOR PHOTO (optional, second) — the homeowner's ACTUAL existing space. Use it ONLY to sanity-check true scale, room proportions, and the position of fixed openings (windows, doors). Do NOT copy its old cabinets or finishes into the hypothesis — the render is the design, the photo is the reality check.
-When the two disagree on design (the render adds an island, changes the shape, re-runs the cabinets), FOLLOW THE RENDER. When they disagree on scale or where a window/door sits, trust the ANCHOR PHOTO.
+You receive ONE image: the RENDER, a concept of the intended new kitchen. Read finishes, materials and appliance types from it: fronts, worktop, backsplash, handles, sink and taps, lighting, plinth, carcass colour, which appliances are there and whether they are integrated.
+
+The layout is fixed and measured. The homeowner measured the room and set which walls carry cabinets, their lengths, the island, uppers, tall units and where the sink and hob sit, before this render was made. Do not report the layout: no shape, no runs, no island, no cabinet positions, no tall units, no windows. The render is a concept and may not match the measured room; that is expected and not your concern.
 
 Rules:
 - Return only what you can see or reasonably infer. Skip a field rather than fabricate.
@@ -344,17 +220,14 @@ Rules:
 - For each field include a short \`reason\` (≤ 12 words) referencing the visual evidence ("matte black slab fronts visible", "concrete-textured worktop").
 - doors.material: 'lacquered_mdf' when the fronts look painted/lacquered — one solid colour, often with an inset panel or a routed relief; 'iveral' for melamine decors (wood grain, stone print, plain flat slabs); 'alu_glass' only when most fronts are aluminium-framed glass. doors.profile only for lacquered_mdf: 'flat', 'inset' (frame around a recessed panel, shaker) or 'relief' (routed decorative profile).
 - For decorCode suggestions: pick the closest match from the catalog below. Match family + tone + finish. If nothing close, leave decorCode empty and provide a colorDescription on the doors field.
-- For layout (shape, island, runs): READ THE LAYOUT FROM THE RENDER — this is the kitchen we are pricing. Set layout.shape and layout.hasIsland from what the render actually shows. An APPROXIMATE existing-space layout may also be provided as text in the user message: use its cm figures ONLY as a SCALE reference, cross-checked against the anchor photo, and reuse its run ids ("top", "left", "island") where they still apply so things line up. If the render adds an island or changes the shape vs. the existing space, FOLLOW THE RENDER. Per run, infer hasBase/hasWall (upper cabinets present?) and hasTall (a full-height tower present?). With no reference at all, fall back to: L-shape → two runs, galley → two facing, straight → one.
+- Layout is fixed and measured: report only finishes, materials and appliance types. Never guess cabinet counts, positions or the corner solution; skip those fields.
 - Hardware is mostly invisible in renders — set drawerSystemTier confidence 'L' unless handles are clearly visible.
 - Appliances: identify integrated vs. freestanding by visible seams. Hob type from cooktop appearance.
   - For fridge / dishwasher: return \`{ present, integrated }\` only if you can actually see them (or a clear integrated front). Skip rather than fabricate. The homeowner may not have either appliance — do not assume presence.
   - microwave / wineFridge / coffeeStation: skip unless visible.
-- features: surface room-level facts that don't fit a single group.
-  - tallPantry: only if a tall pantry-style cabinet is clearly visible (full-height, not appliance housing). Tie to a runId if you can place it.
-  - windowOnRun: pin to the runId carrying the window. widthCm if guessable.
+- features: surface finish-level facts that don't fit a single group.
   - corniceVisible: only if a top trim/cornice is rendered.
   - floorColorHint / wallColorHint: short descriptors for the maker ("light oak floor", "off-white walls").
-- cabinetBoxes.unitPatterns: pre-segment cabinet patterns along visible runs when possible. Use the trade-language enum (drawer_bank, sink_unit, oven_housing, corner_magic, pullout_larder, etc). Each entry pins one pattern at a positionPctAlongRun (0–100). Skip slots you can't read.
 - Lighting: led = true 'H' only if built-in LED light is visible (a glow under wall units, in shelves or the plinth). Pendants and ceiling lights don't count.
 - backsplash.kind: 'matching_slab' when the wall behind the worktop is in the worktop's decor; 'other' for panels, slats or paint.
 - Set usable: false if the render is unintelligible (pure noise, completely empty room, wrong room type).
@@ -369,17 +242,12 @@ export async function POST(req: Request) {
   const session = await apiAccount()
   if (!session) return unauthorized()
 
-  // Mock-AI mode: the decor hypothesis fixture built against the request's
-  // contract (run ids must echo or seeding silently ignores the hints).
+  // Mock-AI mode: the decor hypothesis fixture. The request carries no layout
+  // any more, and the client projects the read through `decorHypothesis` once
+  // the room is measured, so the fixture's layout fields never reach the tally.
   if (mockAiEnabled()) {
     await mockDelay(800)
-    let contract: LayoutContract | undefined
-    try {
-      contract = ((await req.json()) as { layoutContract?: LayoutContract }).layoutContract
-    } catch {
-      // contract is optional for the mock
-    }
-    return Response.json({ hypothesis: mockHypothesis(contract) })
+    return Response.json({ hypothesis: mockHypothesis(null) })
   }
   const limit = rateLimitKey(session.accountId, 'builder-hypothesis', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
   if (!limit.ok) {
@@ -391,9 +259,7 @@ export async function POST(req: Request) {
 
   let body: {
     renderImage?: string
-    anchorPhoto?: string
-    profile?: Record<string, unknown>
-    layoutContract?: LayoutContract
+    hints?: unknown
   }
   try {
     body = await req.json()
@@ -412,27 +278,17 @@ export async function POST(req: Request) {
     )
   }
 
-  // The anchor photo is optional (homeowner may have skipped photos). Accept it
-  // only when it's a valid, in-budget image data URL; otherwise silently drop it
-  // and read the design from the render alone.
-  let anchorPhoto: string | undefined
-  if (typeof body.anchorPhoto === 'string' && body.anchorPhoto.startsWith('data:image/')) {
-    if (approxBytesOfDataUrl(body.anchorPhoto) <= MAX_BYTES_PER_PHOTO) {
-      anchorPhoto = body.anchorPhoto
-    }
-  }
-
-  const profileSummary = JSON.stringify(body.profile ?? {}, null, 2).slice(0, 2000)
-  const layoutFacts = describeLayoutContract(sanitizeContract(body.layoutContract))
+  // Client-supplied and interpolated into the prompt: whitelisted, short ids only.
+  const profileSummary = JSON.stringify(sanitizeDecorProfileHints(body.hints), null, 2)
 
   try {
     const result = await generateText({
       model: openai(LAYOUT_MODEL),
       system: SYSTEM,
-      messages: buildHypothesisMessages({ renderImage, anchorPhoto, profileSummary, layoutFacts }),
+      messages: buildHypothesisMessages({ renderImage, profileSummary }),
       tools: {
         inferBuilderHypothesis: tool({
-          description: 'Return a BuilderHypothesis covering all 10 component groups.',
+          description: 'Return a BuilderHypothesis covering the finish, material and appliance groups.',
           inputSchema: hypothesisSchema,
         }),
       },

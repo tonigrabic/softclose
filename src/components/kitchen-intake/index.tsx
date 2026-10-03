@@ -67,6 +67,7 @@ import type {
 } from '@/lib/types'
 import type { InspirationVisionResult } from '@/app/api/inspiration-vision/route'
 import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
+import { decorProfileHints } from '@/lib/api/decor-profile-hints'
 import { contactChannels } from '@/lib/contact'
 import { mintBriefId } from '@/lib/handoff/brief-id'
 
@@ -783,8 +784,9 @@ export function KitchenIntake({
 
   /**
    * Fire the builder-hypothesis vision call; the builder mounts when it lands.
-   * Hands the measured layout to the vision call so it reuses our run ids /
-   * lengths instead of inventing its own (context/layout-contract.md).
+   * Decor only (IMP-32): the render plus a few preference ids. No plan, no
+   * anchor photo and no profile: the layout is measured, and the profile
+   * carries every render and photo as data URLs (413 risk).
    */
   async function loadHypothesis() {
     const render = chosenRender
@@ -792,17 +794,10 @@ export function KitchenIntake({
     setIsLoadingHypothesis(true)
     setHypothesisError(null)
     try {
-      const plan = planFromProfile(profile)
-      const layoutContract = plan ? floorPlanToLayout(validate(plan)) : undefined
       const res = await fetch('/api/builder-hypothesis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          renderImage: render.imageDataUrl,
-          anchorPhoto: spacePhotos[0],
-          profile,
-          layoutContract,
-        }),
+        body: JSON.stringify({ renderImage: render.imageDataUrl, hints: decorProfileHints(profile) }),
       })
       const data = await readJson(res)
       if (!res.ok || data.error) {

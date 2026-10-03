@@ -1,8 +1,9 @@
 /**
- * Mock builder-hypothesis: the `decor` fixture built against the REQUEST's
- * layout contract, so run ids echo correctly (a hypothesis whose runIds don't
- * match the contract is silently ignored by seeding — the mock must behave
- * like the real route, which is instructed to reuse contract run ids).
+ * Mock builder-hypothesis: the `decor` fixture. The route calls it with no
+ * contract since IMP-32 (the request carries no layout), so it builds against
+ * the L-shape preset. Its layout fields only matter for legacy, unmeasured
+ * journeys; a measured room projects the read through `decorHypothesis`. Tests
+ * still pass a contract to check run-id echo against every contract fixture.
  */
 import { floorPlanToLayout, type LayoutContract } from '@/lib/contract/layout-contract'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
