@@ -64,11 +64,25 @@ interface WrapUpScreenProps {
   /** True when the viewer is the maker looking in at their customer's kitchen.
    *  Sending is the customer's act (/api/handoff answers the maker 404), so a
    *  read-only wrap-up never sends — not on mount, not on a button — and says
-   *  where the brief got to instead. The header and the back link are worded
-   *  for the maker (no homeowner thank-you, no "fix anything"); nothing on
-   *  this screen is maker-only. */
+   *  where the brief got to instead. The header, the sections that say "tvoj"
+   *  (READ_ONLY_COPY) and the back link are worded for the maker (no
+   *  homeowner thank-you, no "fix anything"); nothing on this screen is
+   *  maker-only. */
   readOnly?: boolean
 }
+
+/**
+ * The homeowner's words that change for the maker looking in: "your render",
+ * "your space", the sink "you agree with your maker". The rest of the summary
+ * is the customer's answers and reads the same to both.
+ */
+export const READ_ONLY_COPY = {
+  'wrapup.section.render': 'wrapup.readOnly.section.render',
+  'wrapup.render.note': 'wrapup.readOnly.render.note',
+  'wrapup.section.space': 'wrapup.readOnly.section.space',
+  'wrapup.trades.movesOpen': 'wrapup.readOnly.trades.movesOpen',
+} as const satisfies Partial<Record<TranslationKey, TranslationKey>>
+type ReadOnlyKey = (typeof READ_ONLY_COPY)[keyof typeof READ_ONLY_COPY]
 
 function humanize(v: string): string {
   return v.replace(/_/g, ' ')
@@ -93,6 +107,9 @@ export function WrapUpScreen({
   readOnly = false,
 }: WrapUpScreenProps) {
   const { t, tDynamic: td, locale } = useTranslations()
+  /** The key the viewer reads: the maker's wording when they are looking in. */
+  const forViewer = <K extends string>(key: K): K | ReadOnlyKey =>
+    readOnly && key in READ_ONLY_COPY ? READ_ONLY_COPY[key as keyof typeof READ_ONLY_COPY] : key
   const contact = contactChannels(profile)
   const [bundle, setBundle] = useState<HandoffBundle | null>(null)
   const [bundleError, setBundleError] = useState<TranslationKey | null>(null)
@@ -108,7 +125,7 @@ export function WrapUpScreen({
   // Does the sink move (IMP-32)? Today's room vs the confirmed plan, the intent
   // and the confirm step's answer — in words, hidden when nobody knows.
   const tradeMoves = tradeMovesFromProfile(profile)
-  const sinkLine = homeownerSinkLine(tradeMoves.sink, td)
+  const sinkLine = homeownerSinkLine(tradeMoves.sink, (key) => td(forViewer(key)))
   // The room step's letters on the plan picture, so "seli se na zid D" points
   // at a wall: the counter walls and wherever the sink and hob are drawn;
   // filled once measured, as on the room step.
@@ -367,7 +384,7 @@ export function WrapUpScreen({
       {/* Chosen concept render */}
       {chosenRender && (
         <SectionWithFix
-          title={t('wrapup.section.render')}
+          title={t(forViewer('wrapup.section.render'))}
           badge={t('wrapup.section.renderBadge')}
           onFix={null}
         >
@@ -375,13 +392,13 @@ export function WrapUpScreen({
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={chosenRender.imageDataUrl}
-              alt={t('wrapup.section.render')}
+              alt={t(forViewer('wrapup.section.render'))}
               className="h-auto w-full"
             />
             <div className="border-t border-border/70 px-3 py-2 text-[11px] text-muted-foreground">
               <p className="flex items-center gap-1.5">
                 <Sparkles className="size-3 stroke-[1.75]" aria-hidden />
-                {t('wrapup.render.note')}
+                {t(forViewer('wrapup.render.note'))}
               </p>
               {chosenRender.nudges.length > 0 && (
                 <p className="mt-1">
@@ -395,10 +412,12 @@ export function WrapUpScreen({
 
       {/* Floor plan */}
       {showPlan && plan && (
-        <SectionWithFix title={t('wrapup.section.space')} onFix={null}>
+        <SectionWithFix title={t(forViewer('wrapup.section.space'))} onFix={null}>
+          {/* The customer's picture (`mode`), captioned for whoever reads it. */}
           <FloorPlanStatic
             plan={plan}
             mode="homeowner"
+            voice={readOnly ? 'maker' : 'homeowner'}
             wallLetters={Object.fromEntries(letterWalls.map((w) => [w, WALL_LETTER[w]]))}
             wallLettersDone={letterWalls.filter((w) => isValidWallLength(plan.room.sides[w].measuredLengthCm))}
           />
