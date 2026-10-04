@@ -10,10 +10,11 @@
  * Two fixes, both pinned here:
  *
  *  - A working sign-in link to the account's own address proves the address,
- *    as an invite does: a login token activates a pending account, and the
- *    kitchen they land on stops reading "invited" on the maker's list. And
- *    sign-in asks the DAL's own question before it sets a cookie, so it never
- *    hands out one every page then refuses.
+ *    as an invite does: a login token activates a pending account. (The
+ *    kitchen they land on stops reading "invited" when the kitchen page loads
+ *    — tests/kitchen-opened.test.ts.) And sign-in asks the DAL's own question
+ *    before it sets a cookie, so it never hands out one every page then
+ *    refuses.
  *  - The loop itself is impossible: the proxy no longer bounces anyone off
  *    /login on the cookie's signature alone. The login page asks the DAL, so a
  *    refused cookie (pending, disabled, signed out everywhere) gets the form.
@@ -41,9 +42,7 @@ const h = vi.hoisted(() => ({
     /** What the activation UPDATE does — false plays a write that did not land. */
     activationLands: true,
     activated: [] as string[],
-    opened: [] as string[],
     touched: [] as string[],
-    projects: new Map<string, { id: string; openedAt: string | null }>(),
     claim: { verdict: 'invalid' } as ConsumedToken,
     jar: new Map<string, string>(),
     path: '/',
@@ -99,15 +98,7 @@ vi.mock('@/lib/auth/magic-link', () => ({
   issueToken: async () => ({ raw: 'RAWTOKEN123', hash: 'h', expiresAt: new Date(Date.now() + 900_000) }),
 }))
 vi.mock('@/lib/auth/projects', () => ({
-  currentProjectForCustomer: async (customerId: string) => {
-    const id = customerId === CUSTOMER.id ? KITCHEN : null
-    return id ? { id, openedAt: h.state.projects.get(id)?.openedAt ?? null } : null
-  },
-  markProjectOpened: async (projectId: string) => {
-    h.state.opened.push(projectId)
-    const p = h.state.projects.get(projectId)
-    if (p && !p.openedAt) p.openedAt = new Date().toISOString()
-  },
+  currentProjectForCustomer: async (customerId: string) => (customerId === CUSTOMER.id ? { id: KITCHEN } : null),
 }))
 vi.mock('@/lib/rate-limit', () => ({ rateLimit: () => ({ ok: true }) }))
 vi.mock('@/lib/notify/send', () => ({
@@ -160,12 +151,7 @@ beforeEach(() => {
   ])
   h.state.activationLands = true
   h.state.activated = []
-  h.state.opened = []
   h.state.touched = []
-  h.state.projects = new Map([
-    [KITCHEN, { id: KITCHEN, openedAt: null }],
-    [INVITED_KITCHEN, { id: INVITED_KITCHEN, openedAt: null }],
-  ])
   h.state.claim = { verdict: 'invalid' }
   h.state.jar = new Map()
   h.state.path = '/'
@@ -267,12 +253,6 @@ describe("a pending customer signing in through /login's link", () => {
     expect(nav).toEqual({ landed: `/kitchen/${KITCHEN}`, page: 'kitchen', hops: ['/', `/kitchen/${KITCHEN}`] })
   })
 
-  test('the kitchen they land on is opened, as the invite would have opened it', async () => {
-    await signIn(loginClaim(CUSTOMER.id))
-    expect(h.state.opened).toEqual([KITCHEN])
-    expect(h.state.projects.get(KITCHEN)!.openedAt).not.toBeNull()
-  })
-
   test('a ?next= carried on the link is honoured', async () => {
     expect(await signIn(loginClaim(CUSTOMER.id, `/kitchen/${KITCHEN}`))).toEqual({
       redirect: `/kitchen/${KITCHEN}`,
@@ -282,25 +262,22 @@ describe("a pending customer signing in through /login's link", () => {
 })
 
 describe('what did not change', () => {
-  test('an invite still activates and opens its own kitchen, not the latest one', async () => {
+  test('an invite still activates and lands on its own kitchen, not the latest one', async () => {
     expect(await signIn(inviteClaim(CUSTOMER.id, INVITED_KITCHEN))).toEqual({
       redirect: `/kitchen/${INVITED_KITCHEN}`,
     })
     expect(account(CUSTOMER.id).status).toBe('active')
-    expect(h.state.opened).toEqual([INVITED_KITCHEN])
     expect((await browse(`/kitchen/${INVITED_KITCHEN}`)).page).toBe('kitchen')
   })
 
-  test('an active customer signing in again activates nothing and opens nothing', async () => {
+  test('an active customer signing in again activates nothing', async () => {
     account(CUSTOMER.id).status = 'active'
     expect(await signIn(loginClaim(CUSTOMER.id))).toEqual({ redirect: '/' })
     expect(h.state.activated).toEqual([])
-    expect(h.state.opened).toEqual([])
   })
 
   test('a maker signing in goes to the dashboard', async () => {
     expect(await signIn(loginClaim(MAKER.id))).toEqual({ redirect: '/dashboard' })
-    expect(h.state.opened).toEqual([])
     expect((await browse('/dashboard')).page).toBe('dashboard')
   })
 

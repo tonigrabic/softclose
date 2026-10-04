@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 import { requireProjectAccess } from '@/lib/auth/dal'
 import { findAccountById } from '@/lib/auth/accounts'
+import { markProjectOpened } from '@/lib/auth/projects'
 import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import { DEFAULT_LOCALE, isLocale, tDynamic } from '@/lib/i18n/core'
 import { migrateSnapshot } from '@/lib/project/snapshot'
@@ -19,11 +20,19 @@ export const dynamic = 'force-dynamic'
  * requireProjectAccess lets in the project's customer and its maker, and
  * answers notFound() for anyone else — including a signed-in customer poking
  * at another project's id.
+ *
+ * The customer's first load here is what "opened" means on the maker's list.
+ * Stamped here rather than at sign-in because this page is the only way into
+ * the journey, and sign-in is not the only way here: a customer a maker
+ * invites a second time may come through /login, or arrive still signed in
+ * and never sign in at all. The maker looking in never stamps it.
  */
 export default async function KitchenPage({ params }: { params: Promise<{ projectId: string }> }) {
   const { projectId } = await params
   const { session, project } = await requireProjectAccess(projectId)
   const locale = isLocale(session.locale) ? session.locale : DEFAULT_LOCALE
+
+  if (session.role === 'customer' && !project.openedAt) await markProjectOpened(project.id)
 
   const maker = project.makerId ? await findAccountById(project.makerId) : null
   // The maker's own name, or null: the client words the fallback ("Tvoj

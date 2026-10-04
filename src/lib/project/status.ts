@@ -64,7 +64,10 @@ export function projectDisplayStatus(p: StatusInput): ProjectDisplayStatus {
     return changedSinceBrief(p.contentChangedAt, p.currentBriefCreatedAt) ? 'changed_since_submit' : 'submitted'
   }
 
-  if (!p.openedAt) return 'invited'
+  // A saved step is proof on its own: only the customer's checkpoint writes
+  // it. A kitchen worked on before every first open was stamped (a second
+  // invite, signed into at /login) must not read "never opened".
+  if (!p.openedAt && !p.step) return 'invited'
   // Opened but still sitting on the first step is "showed up and stalled",
   // which reads very differently from "working through it".
   if (!p.step || p.step === FLOW[0].id) return 'opened'
