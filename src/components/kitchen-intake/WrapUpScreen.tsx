@@ -50,9 +50,12 @@ interface WrapUpScreenProps {
   /** True when this project already has a brief with the maker. Submitting is
    *  then an explicit act, not something that happens by arriving here. */
   hasExistingBrief?: boolean
-  /** Runs before the brief is sent — the intake flushes its pending save, so the
-   *  brief is the project's last write and never arrives flagged as edited. */
-  beforeSubmit?: () => Promise<void>
+  /** Runs before the brief is sent — the intake flushes its pending save and
+   *  hands back the image-free snapshot the brief is built from, which the
+   *  submit stores as the project's copy (lib/project/submit-snapshot), so the
+   *  brief never arrives flagged as edited — over a copy the claim says is
+   *  this tab's, never another device's. */
+  beforeSubmit?: () => Promise<{ snapshot?: unknown; snapshotClaim?: unknown } | void>
   /** Back to the builder, for a homeowner who skipped it and so has no range.
    *  Absent where nobody may edit (the maker looking in). */
   onOpenBuilder?: () => void
@@ -177,7 +180,7 @@ export function WrapUpScreen({
     setBundleError(null)
     try {
       // A failed save must never stop the brief.
-      await beforeSubmit?.().catch(() => {})
+      const extras = (await beforeSubmit?.().catch(() => undefined)) || undefined
       const res = await fetch('/api/handoff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -189,6 +192,8 @@ export function WrapUpScreen({
           locale,
           projectId,
           briefId: sendId.current,
+          snapshot: extras?.snapshot,
+          snapshotClaim: extras?.snapshotClaim,
         }),
       })
       const data = await readJson<HandoffBundle & { code?: string }>(res)

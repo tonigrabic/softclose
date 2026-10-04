@@ -10,6 +10,7 @@ import { findRal } from '@/lib/catalog/ral'
 import type { BuilderState } from '@/lib/builder/inventory'
 import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
 import { compressImageDataUrl } from '@/lib/image'
+import { MAX_RERENDERS_PER_SESSION, rerendersRemaining } from '@/lib/builder/rerender-cap'
 
 /**
  * Re-render panel.
@@ -20,9 +21,10 @@ import { compressImageDataUrl } from '@/lib/image'
  * don't trigger because the AI image won't reflect them anyway.
  *
  * Cap: hard-stop at MAX_RERENDERS_PER_SESSION so we don't spam the renderer.
+ * Counted from the build's own `rerenders[]` (lib/builder/rerender-cap), not
+ * from panel state: the build persists, so a reload or a remount must not
+ * hand out a fresh five.
  */
-
-const MAX_RERENDERS_PER_SESSION = 5
 
 interface RerenderPanelProps {
   state: BuilderState
@@ -81,7 +83,9 @@ export function RerenderPanel({
   // accepted. Diff measures "since the render you're looking at," not "since
   // you opened the builder." Stored as state so re-renders settle correctly.
   const [baseline, setBaseline] = useState<VisualSignature>(() => visualSignature(state))
-  const [renderCount, setRenderCount] = useState(0)
+  // Derived from the persisted build, so it survives a reload, a remount and a
+  // second device (whose restored re-renders are image-free but still count).
+  const remaining = rerendersRemaining(state)
   const [isRendering, setIsRendering] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -106,7 +110,7 @@ export function RerenderPanel({
       setError(t('builder.rerender.noAnchorError'))
       return
     }
-    if (renderCount >= MAX_RERENDERS_PER_SESSION) {
+    if (remaining <= 0) {
       setError(t('builder.rerender.limit').replace('{n}', String(MAX_RERENDERS_PER_SESSION)))
       return
     }
@@ -151,7 +155,6 @@ export function RerenderPanel({
       if (!res.ok || data.error) throw new ApiError(String(data.error ?? `Render failed (${res.status})`), res.status)
       onRendered(await compressImageDataUrl(String(data.imageDataUrl), { maxDim: 1024, quality: 0.85 }), changes.join(', '))
       setBaseline(current)
-      setRenderCount((c) => c + 1)
     } catch (err) {
       console.warn('[re-render]', err)
       // A 429 from render-concept is the per-session render cap.
@@ -162,7 +165,7 @@ export function RerenderPanel({
   }
 
   // Render cap reached — show a static badge, no button.
-  if (renderCount >= MAX_RERENDERS_PER_SESSION) {
+  if (remaining <= 0) {
     return (
       <div className="rounded-2xl border border-border bg-card/50 px-4 py-3 text-[12px] text-muted-foreground">
         <div className="flex items-center gap-2">
@@ -202,7 +205,7 @@ export function RerenderPanel({
         ) : (
           <>
             <RefreshCw className="size-3 stroke-[2]" aria-hidden />
-            {t('builder.rerender.button').replace('{n}', String(MAX_RERENDERS_PER_SESSION - renderCount))}
+            {t('builder.rerender.button').replace('{n}', String(remaining))}
           </>
         )}
       </button>

@@ -5,6 +5,7 @@ import { Anchor, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslations } from '@/lib/i18n'
 import type { BuilderState } from '@/lib/builder/inventory'
+import { visibleRerenders } from '@/lib/builder/autosave'
 
 export interface RenderCarouselProps {
   state: BuilderState
@@ -46,7 +47,13 @@ export function RenderCarousel({
   const [previewingId, setPreviewingId] = useState<string | null | undefined>(undefined)
 
   const originalSrc = originalImageDataUrl ?? anchorPhotoDataUrl
-  if (!originalSrc && !(state.rerenders && state.rerenders.length > 0)) return null
+  // Only re-renders with their pixels: one restored from the image-free server
+  // copy (another device, the maker looking in) has a marker, not a picture.
+  // An active one of those reads as the Original, which is what the big
+  // preview falls back to.
+  const rerenders = visibleRerenders(state)
+  const activeId = rerenders.some((r) => r.id === state.activeRenderId) ? state.activeRenderId : null
+  if (!originalSrc && rerenders.length === 0) return null
 
   const thumbs: Thumb[] = []
   if (originalSrc) {
@@ -57,7 +64,7 @@ export function RenderCarousel({
       isOriginal: true,
     })
   }
-  ;(state.rerenders ?? []).forEach((r, i) => {
+  rerenders.forEach((r, i) => {
     thumbs.push({
       id: r.id,
       imageDataUrl: r.imageDataUrl,
@@ -67,14 +74,14 @@ export function RenderCarousel({
     })
   })
 
-  const previewing = previewingId === undefined ? state.activeRenderId : previewingId
-  const isPreviewingActive = previewing === state.activeRenderId
+  const previewing = previewingId === undefined ? activeId : previewingId
+  const isPreviewingActive = previewing === activeId
 
   return (
     <div className="space-y-2">
       <div className="flex gap-2 overflow-x-auto pb-1">
         {thumbs.map((thumb) => {
-          const isActive = thumb.id === state.activeRenderId
+          const isActive = thumb.id === activeId
           const isPreview = thumb.id === previewing
           return (
             <button

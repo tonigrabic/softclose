@@ -1878,3 +1878,76 @@ margin, margin, customer range) and "Natrag na prikaz kupca" returns to the
 same builder group.
 
 Gate: 821 tests (54 files) · tsc · eslint · next build green.
+
+### 2026-10-04 — IMP-06: the build autosaves; a reload keeps picks, re-renders and the group
+Spec item 7 (IMPROVEMENTS.md). `BuilderShell` kept the whole build in a local
+reducer and handed it out only on the last Continue or "Uredi raspored", so a
+reload, a closed tab or a second device anywhere in the eight groups lost every
+pick and every paid re-render.
+
+- **Autosave.** `BuilderShell onStateChange`, debounced 500 ms
+  (`useDebouncedCallback` over the pure `createDebouncer`, lib/debounce.ts),
+  patches `profile.builderState` and `builderGroupId` into the snapshot that
+  the IndexedDB copy and the server checkpoint already carry. A save gate
+  (`builderSaveKey`, lib/builder/autosave.ts) passes only real changes:
+  opening a saved build, re-tapping a pick or re-confirming a group writes
+  nothing.
+- **Re-renders** keep their pixels in the local copy. The server copy holds
+  `omitted://image` markers, so a second device or the maker's read-only view
+  gets the picks and the group with the re-renders hidden (images across
+  devices: IMP-17). The cap is `5 − rerenders.length` from the saved build
+  (lib/builder/rerender-cap.ts), so a reload no longer offers five more.
+- **The last moment before leaving.** A pending save is flushed when the tab
+  is hidden or left. Because an IndexedDB write started while leaving never
+  lands, a small synchronous localStorage record (lib/builder/unload-save.ts)
+  holds the build until IndexedDB does. On load it is merged over the
+  IndexedDB copy if newer.
+- **No invented activity.** A visit that changes nothing writes no checkpoint,
+  so resuming never moves `updated_at` past the brief. `/api/handoff` stores
+  the brief's image-free snapshot in the same project update that stamps the
+  brief's time. It does that only over a server copy the submitting tab can
+  claim as its own (`SubmitClaim`), never over another device's newer work.
+  The snapshot step can never cost the brief its project update or its maker
+  email.
+- **Checkpoint client** (lib/project/checkpoint-client.ts): one retry timer;
+  a 429 honours `Retry-After`; a write whose answer was lost and that landed
+  is recognised as its own instead of halting as a conflict.
+  `CHECKPOINT_RATE_LIMIT` moved from 240/hour to 180 per 5 minutes: per-pick
+  saves made the old limit reachable in normal use, and one tab sends at most
+  ~120 per 5 minutes after the 2.5 s idle debounce.
+- Three review rounds (data loss, side effects, restore, checkpoint,
+  simplicity, then the submit path), each finding verified and fixed with a
+  regression test.
+
+Not done or left as it was:
+- The Done-when's "hook test" tests the debounce engine the hook wraps
+  (tests/debounced-callback.test.ts, fake timers), plus the hook's wiring via
+  the pure helpers. Vitest has no React environment yet to run the hook
+  itself; IMP-28 adds one.
+- A device that comes back with an older local copy still wins over a newer
+  server copy from another device. This predates IMP-06 and is IMP-17's.
+- "Izmijeni kuhinju" after a finished build reopens the builder at its last
+  group.
+- Flagged separately: at 1280×900 the sticky live-estimate panel covers the
+  "Renderiraj ponovno" button in the right rail, so a real click misses it.
+  This has been there since the Phase 2 builder.
+
+**Browser check** (local stack, mock AI, desktop viewport). Customer
+imp31-kupac, project "Lana Soba":
+- Room → builder. Picked "U boji", Halifax hrast fronts, Kristalni mramor
+  worktop and Staklo backsplash at group 4. The server copy held group
+  `backsplash` with those picks.
+- Reload → the kitchen home offers "Nastavi · korak 5/8" → the builder opens
+  at Zidna obloga 4/9 with every pick and "Staklo" selected. The revision
+  stayed 34: resuming wrote nothing.
+- Picked "Pločice" and reloaded 80 ms later → a localStorage record was
+  written (7.4 KB) and "Pločice" came back.
+- With a real local photo: a re-render (R1 — dekor vrata, POST
+  /api/render-concept 200), then a reload → back at Fronte 2/9 with R1 and
+  its pixels, and the button reads "(još 4)".
+- On the final commit: restored again, then finished the build, logistics and
+  contact and sent. The project's `updated_at` equals the brief's
+  `created_at` (changed flag false), and the server copy is at the contact
+  step. A reload after sending leaves the revision at 63 and the flag false.
+
+Gate: 913 tests (61 files) · tsc · eslint · next build green.

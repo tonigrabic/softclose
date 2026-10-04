@@ -553,7 +553,8 @@ export type BuilderAction =
   | { type: 'confirm_layout' }
   | { type: 'replace'; state: BuilderState }
 
-function reducer(state: BuilderState, action: BuilderAction): BuilderState {
+/** Exported for tests (autosave round trips); components go through `useBuilderState`. */
+export function builderReducer(state: BuilderState, action: BuilderAction): BuilderState {
   const now = new Date().toISOString()
   if (action.type === 'replace') return { ...action.state, lastUpdatedAt: now }
   if (action.type === 'push_rerender') {
@@ -594,5 +595,5 @@ function generateId(prefix: string): string {
 }
 
 export function useBuilderState(initial: BuilderState) {
-  return useReducer(reducer, initial)
+  return useReducer(builderReducer, initial)
 }
