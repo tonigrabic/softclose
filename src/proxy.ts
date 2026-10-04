@@ -38,10 +38,13 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL(loginUrl(pathname + search), req.nextUrl))
   }
 
-  // Signed in and standing on the sign-in page — send them somewhere useful.
-  if (pathname === '/login') {
-    return NextResponse.redirect(new URL(claims.role === 'maker' ? '/dashboard' : '/', req.nextUrl))
-  }
+  // No "signed in, so off /login" here. A valid signature is not a session the
+  // DAL honours — a pending, disabled or signed-out-everywhere account still
+  // carries one — and every guarded page sends such a visitor to /login. A
+  // bounce from /login on the signature alone sent them straight back, until
+  // the browser gave up (ERR_TOO_MANY_REDIRECTS). The login page asks the DAL
+  // and sends a real session on (src/app/login/page.tsx); that is the only
+  // redirect away from /login there may be.
 
   // Let the DAL build an accurate ?next= without every page repeating itself.
   const headers = new Headers(req.headers)
