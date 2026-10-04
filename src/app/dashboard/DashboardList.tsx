@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation'
 import { RefreshCw } from 'lucide-react'
 import { AuthShell } from '@/components/AuthShell'
 import { InviteForm } from './InviteForm'
-import { useTranslations } from '@/lib/i18n'
-import { needsAttention, type ProjectDisplayStatus } from '@/lib/project/status'
+import { useTranslations, type TranslationKey } from '@/lib/i18n'
+import type { MakerDecision } from '@/lib/project/decision'
+import type { DashboardGroup, ProjectDisplayStatus } from '@/lib/project/status'
 import { cn } from '@/lib/utils'
 
 export interface DashboardItem {
@@ -19,8 +20,14 @@ export interface DashboardItem {
   updatedLabel: string
   briefId: string | null
   range: string | null
-  /** A brief the maker already advanced past "new" — so an edit after it matters. */
+  /** The maker formally quoted the current brief — so an edit after it is a v2. */
   quoted: boolean
+  /** The maker's decision on the current brief, if any (IMP-03). */
+  decision: MakerDecision | null
+  /** Pre-formatted on the server; set only when quoted: "6.200 €". */
+  quotedLabel: string | null
+  /** Where the row sits in the list — see dashboardGroup(). */
+  group: DashboardGroup
 }
 
 const STATUS_KEY: Record<ProjectDisplayStatus, string> = {
@@ -41,6 +48,20 @@ const STATUS_TONE: Record<ProjectDisplayStatus, string> = {
   archived: 'bg-muted text-muted-foreground',
 }
 
+const DECISION_KEY: Record<MakerDecision, TranslationKey> = {
+  quoted: 'dashboard.decision.quoted',
+  clarify: 'dashboard.decision.clarify',
+  declined: 'dashboard.decision.declined',
+}
+
+const DECISION_TONE: Record<MakerDecision, string> = {
+  quoted: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
+  clarify: 'bg-amber-500/15 text-amber-700 dark:text-amber-400',
+  declined: 'bg-rose-500/10 text-rose-700 dark:text-rose-400',
+}
+
+const chipClass = 'shrink-0 rounded-full px-2 py-0.5 text-[0.6875rem] font-medium'
+
 function Row({ item }: { item: DashboardItem }) {
   const { t } = useTranslations()
   // Mid-flow there is no brief to open; the live view is the destination.
@@ -59,15 +80,18 @@ function Row({ item }: { item: DashboardItem }) {
         </p>
       </div>
       {item.range ? <p className="hidden shrink-0 text-sm tabular-nums text-foreground sm:block">{item.range}</p> : null}
-      <span
-        className={cn(
-          'shrink-0 rounded-full px-2 py-0.5 text-[0.6875rem] font-medium',
-          STATUS_TONE[item.display]
-        )}
-      >
-        {t(STATUS_KEY[item.display] as Parameters<typeof t>[0])}
-        {item.display === 'changed_since_submit' && item.quoted ? ' · v2' : ''}
-      </span>
+      {item.decision ? (
+        <span className={cn(chipClass, DECISION_TONE[item.decision])}>
+          {t(DECISION_KEY[item.decision]).replace('{amount}', item.quotedLabel ?? '—')}
+        </span>
+      ) : null}
+      {/* "arhivirano" next to "odbijeno" says the same thing twice. */}
+      {item.display === 'archived' && item.decision === 'declined' ? null : (
+        <span className={cn(chipClass, STATUS_TONE[item.display])}>
+          {t(STATUS_KEY[item.display] as Parameters<typeof t>[0])}
+          {item.display === 'changed_since_submit' && item.quoted ? ' · v2' : ''}
+        </span>
+      )}
     </a>
   )
 }
@@ -104,15 +128,16 @@ export function DashboardList({
     return () => clearInterval(tick)
   }, [router])
 
-  const attention = items.filter((i) => needsAttention(i.display))
-  const active = items.filter((i) => i.display === 'in_progress' || i.display === 'opened')
-  const waiting = items.filter((i) => i.display === 'invited')
-
-  const groups: Array<[string, DashboardItem[]]> = [
-    ['dashboard.group.attention', attention],
-    ['dashboard.group.active', active],
-    ['dashboard.group.waiting', waiting],
+  const inGroup = (g: DashboardGroup) => items.filter((i) => i.group === g)
+  const groups: Array<[TranslationKey, DashboardItem[]]> = [
+    ['dashboard.group.attention', inGroup('attention')],
+    ['dashboard.group.decided', inGroup('decided')],
+    ['dashboard.group.active', inGroup('active')],
+    ['dashboard.group.waiting', inGroup('waiting')],
   ]
+  // Declined and archived projects: kept, out of the way. The archive toggle
+  // and counts are IMP-18.
+  const closed = inGroup('closed')
 
   return (
     <AuthShell wide signedIn>
@@ -146,7 +171,7 @@ export function DashboardList({
             group.length ? (
               <section key={key}>
                 <h2 className="mb-2 text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
-                  {t(key as Parameters<typeof t>[0])}
+                  {t(key)}
                 </h2>
                 <div className="space-y-2">
                   {group.map((item) => (
@@ -156,6 +181,21 @@ export function DashboardList({
               </section>
             ) : null
           )}
+          {closed.length ? (
+            <details className="group">
+              <summary className="mb-2 cursor-pointer list-none text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+                <span className="mr-1 inline-block transition-transform group-open:rotate-90" aria-hidden>
+                  ›
+                </span>
+                {t('dashboard.group.closed')}
+              </summary>
+              <div className="space-y-2">
+                {closed.map((item) => (
+                  <Row key={item.projectId} item={item} />
+                ))}
+              </div>
+            </details>
+          ) : null}
         </div>
       )}
 

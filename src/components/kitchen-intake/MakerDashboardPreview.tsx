@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { ArrowLeft, Check, AlertTriangle, MessageCircle, X, Quote } from 'lucide-react'
 import type { HandoffBundle, LeadProfile, TranslatedField } from '@/lib/types'
 import type { BomLineItem } from '@/lib/builder/bom'
@@ -31,6 +31,15 @@ interface MakerDashboardPreviewProps {
    * submitted brief and nowhere else.
    */
   hideActions?: boolean
+  /**
+   * The real decision panel, rendered in place of the three demo buttons.
+   *
+   * Passed by /maker/[id] only (IMP-03). Without it — the in-funnel WrapUp
+   * demo — the buttons keep their local, no-effect behaviour and the "Demo
+   * radnja" line. A slot rather than an import so this component never pulls a
+   * server action into the homeowner's bundle.
+   */
+  decisionSlot?: ReactNode
 }
 
 // EUR everywhere (AGENTS.md): the maker sees the same currency as the
@@ -215,7 +224,7 @@ function useSchematicSvg(floorPlan: HandoffBundle['floorPlan'], locale: Locale):
   }, [floorPlan, locale])
 }
 
-export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: MakerDashboardPreviewProps) {
+export function MakerDashboardPreview({ bundle, onBack, hideActions = false, decisionSlot }: MakerDashboardPreviewProps) {
   const { t, tDynamic: td, locale } = useTranslations()
   const [actionTaken, setActionTaken] = useState<'quote' | 'clarify' | 'decline' | null>(null)
   const profile: LeadProfile = bundle.brief
@@ -356,7 +365,8 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false }: M
                 {t(hideActions ? 'maker.estimate.noneLive' : 'maker.estimate.none')}
               </p>
             )}
-            {!hideActions && (
+            {!hideActions && decisionSlot ? <div className="mt-4">{decisionSlot}</div> : null}
+            {!hideActions && !decisionSlot && (
               <>
             <div className="mt-4 flex gap-2">
               <button

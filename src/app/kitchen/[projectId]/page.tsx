@@ -5,6 +5,7 @@ import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import { DEFAULT_LOCALE, isLocale, tDynamic } from '@/lib/i18n/core'
 import { migrateSnapshot } from '@/lib/project/snapshot'
 import { stepProgress } from '@/lib/project/status'
+import { formatDecisionDate, isDecided, isProjectClosed } from '@/lib/project/decision'
 import { resumeStepId } from '@/lib/flow'
 import { roomStepDone } from '@/lib/floor-plan'
 import { KitchenHome } from './KitchenHome'
@@ -47,12 +48,23 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
     : null
   const snapshot = migrated && migrated.ok ? migrated.snapshot : null
 
-  // The brief, when there is one — it drives the status panel.
-  let brief: { createdAt: string; makerViewedAt: string | null; low: number | null; high: number | null } | null = null
+  // The brief, when there is one — it drives the status panel, and since
+  // IMP-03 it carries the maker's decision. `quoted_eur` is deliberately not
+  // read: it is the maker's number for the works only, kept to measure the
+  // range against, and the real quote with its terms comes from the maker.
+  let brief: {
+    createdAt: string
+    makerViewedAt: string | null
+    low: number | null
+    high: number | null
+    makerStatus: string
+    decidedAt: string | null
+    makerNote: string | null
+  } | null = null
   if (project.currentBriefId) {
     const { data } = await db
       .from(TABLES.briefs)
-      .select('created_at, maker_viewed_at, estimate_low, estimate_high')
+      .select('created_at, maker_viewed_at, estimate_low, estimate_high, maker_status, decided_at, maker_note')
       .eq('id', project.currentBriefId)
       .maybeSingle()
     if (data) {
@@ -61,9 +73,28 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
         makerViewedAt: (data.maker_viewed_at as string | null) ?? null,
         low: (data.estimate_low as number | null) ?? null,
         high: (data.estimate_high as number | null) ?? null,
+        makerStatus: data.maker_status as string,
+        decidedAt: (data.decided_at as string | null) ?? null,
+        makerNote: (data.maker_note as string | null) ?? null,
       }
     }
   }
+
+  // The maker's answer on the current brief (rule 8: the homeowner learns the
+  // outcome). Dated in Croatian time like the maker's own chip.
+  const decision =
+    brief && isDecided(brief.makerStatus)
+      ? {
+          status: brief.makerStatus,
+          date: brief.decidedAt ? formatDecisionDate(brief.decidedAt, locale) : null,
+          note: brief.makerNote,
+        }
+      : null
+  // Closed: the maker declined, or the project was archived. The handoff
+  // refuses a re-send (409) on exactly the same test — isProjectClosed, which
+  // reads the declined brief even when the archive write after it failed — so
+  // the home must not offer an edit that could never reach anyone.
+  const closed = isProjectClosed(project.status, brief?.makerStatus)
 
   // Where the journey will actually resume — a journey saved past the room
   // step without a measured room goes back to it (IMP-31), and the label on
@@ -93,6 +124,8 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
       makerViewedAt={date(brief?.makerViewedAt ?? null)}
       briefId={project.currentBriefId}
       range={money(brief?.low ?? null, brief?.high ?? null, locale)}
+      decision={decision}
+      closed={closed}
       revision={project.revision}
       readOnly={session.role !== 'customer'}
       snapshot={snapshot}

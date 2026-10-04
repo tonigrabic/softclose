@@ -1232,3 +1232,139 @@ zid (troši 1 od 5)" renders from photo 2 and disappears; confirm: tally 18
 before and after the hypothesis, island on 20 / off 18, sink → wall D;
 builder opens with 18 cabinets; wrap-up "seli se na zid D"; maker brief
 "Voda / plin: se sele — sudoper: zid A → zid D · ploča ostaje na zidu A".
+
+### 2026-10-03 — IMP-03: the maker's decision is recorded and reaches the homeowner
+Spec item 4. Za ponudu / Pojasni / Odbij on `/maker/<id>` only flipped local
+state ("Demo radnja (bez učinka)"): `maker_status` never got past `viewed`,
+the dashboard's "quoted" flag was `!== 'new'` (a glance counted as a quote),
+the homeowner never heard back, and nothing kept the amount the maker quoted.
+Rule 8 and Definition of Done #3. Three steps, one commit each.
+
+- **Data and rules (0007).** `decided_at`, `quoted_eur numeric(12,2)` on
+  briefs (`maker_note` existed since 0001), with checks: note ≤ 1000 chars,
+  0 < quoted_eur ≤ 1,000,000, `quoted ⇔ quoted_eur is not null`,
+  `decided ⇔ decided_at is not null`. `lib/project/decision.ts` holds the
+  transition table: a decision is allowed only from new / viewed / clarify;
+  quoted and declined are final for the brief (a clarify keeps it open, a new
+  question replaces the note). One `validateDecision` runs in the panel and
+  in the action.
+- **`decideBrief` server action** behind `requireBriefAccess` (signed out →
+  login; customer, another maker, ownerless or malformed id → notFound, no
+  write). It refuses a brief that is no longer the project's current one
+  (`superseded`), updates conditionally on an open status (`stale` when
+  another tab decided first), archives the project after a decline (second,
+  guarded by `current_brief_id`), and revalidates brief, list and kitchen.
+- **Maker surfaces.** Decision panel on the brief page (the submit button
+  repeats the parsed amount: "Zabilježi poslanu ponudu: 6.200 €"); chips on the brief
+  and the list; `quoted = makerStatus === 'quoted'`; the list groups
+  attention → "Čeka kupca" → active → waiting, then a collapsed "Zatvoreno".
+  The WrapUp demo keeps "Demo radnja".
+- **Homeowner.** The kitchen home shows a pill and a line under the seen
+  line — `{maker}: ponuda je poslana {date}` / `{maker}: treba pojašnjenje
+  ({date}).` / `{maker}: ne može preuzeti ovaj projekt.` — a next-step line
+  and the maker's note. The spec's "{maker} je poslao ponudu" was masculine
+  and would decline a studio name; the `{maker}:` lead avoids both. The
+  quoted amount is never shown to the homeowner: it is the works only, kept
+  for measurement, and the real quote with its terms comes from the maker.
+  Declined (or archived): title "Ovaj projekt je zatvoren", no edit CTA, no
+  edit note, the range stays. Clarify keeps the edit CTA — editing is one way
+  to answer.
+- **Closed path.** `currentProjectForCustomer` falls back to the latest
+  archived project when there is no open one, so a declined customer lands on
+  their kitchen with the answer, not on "Nema aktivne kuhinje".
+  `/api/handoff` answers `409 {error:'closed', code:'closed'}` for an archived
+  project before anything is stored: an intake tab left open across the
+  decline would otherwise un-archive the project and send the maker who said
+  no a fresh brief and email. The wrap-up shows `api.error.closed`.
+
+**±20% hit-rate definition (DoD #6).**
+- *Range:* the brief's works range `estimate_low`–`estimate_high` — kitchen
+  only (material + make + install). Never `estimate_all_in_*`.
+- *Quote:* `quoted_eur`, the maker's first formal quote for the works, incl.
+  PDV, without appliances, as typed at Za ponudu. Written once: quoted is
+  final per brief.
+- *Hit:* `estimate_low <= quoted_eur <= estimate_high`.
+- *Counted:* only the first quoted brief per project (by `decided_at`);
+  briefs with no range (sent without a build, IMP-01) are excluded. Until
+  IMP-04 lands the range carries no workshop margin, so quotes decided before
+  it land high against the range and the hit rate from that period is biased
+  low — flag those by date. Target: ≥ 8 of a maker's first 10 quoted briefs.
+- *Query:*
+  ```sql
+  select count(*) filter (where quoted_eur between estimate_low and estimate_high) as hits,
+         count(*) as quoted
+  from (select distinct on (coalesce(project_id, id)) *
+        from public.softclose_briefs
+        where maker_status = 'quoted' and estimate_low is not null and maker_id = :maker
+        order by coalesce(project_id, id), decided_at) first_quotes;
+  ```
+- *Corrections:* a mistyped amount is fixed by hand
+  (`update public.softclose_briefs set quoted_eur = … where id = … and
+  maker_status = 'quoted'`) and listed here with the date and the old value.
+  None so far.
+
+**Production order.** Apply 0007 before deploying this branch: the brief
+guard now selects `decided_at` / `quoted_eur`, so without the columns every
+`/maker/<id>` answers 404. Read-only pre-check first (in the migration
+header; expect only new / viewed). Applied to the local stack only.
+
+Not browser-verified: this run was told not to start dev servers. Checked
+instead: the migration applied twice locally (idempotent) and its checks
+rejected bad rows in a rolled-back transaction; the action's exact update ran
+once against local PostgREST (match, then a second update matched nothing);
+throwaway server renders of the decision panel, the list groups and the
+kitchen home in all three decisions plus the closed states. The 2d / 3d
+click-paths in the plan are still to walk.
+
+Out of scope, unchanged: customer emails on a decision (IMP-16), re-submit
+versioning (IMP-19), archive toggle / resend invite (IMP-18), the masculine
+`kitchen.home.status.seen`.
+
+Tests: the decision table and amount/note/parse cases, `dashboardGroup`, the
+action's ownership checks and transitions against the real DAL, a static
+guard that every non-public server action calls a DAL guard, and the handoff
+refusing a closed project. 654 tests · tsc · eslint green (`next build` not
+run: a dev server owned the build output).
+
+**Review round.**
+- *The re-send block reads the brief.* `/api/handoff` checked only
+  `project.status === 'archived'`, but the archive after a decline is a
+  second, best-effort write, and the checkpoint route wrote back the
+  `status` it had read, filtered only on `revision` (which neither a decline
+  nor a send bumps). So an autosave in flight across Odbij could re-open the
+  project, and the next send reached the maker who had said no. Now
+  `isProjectClosed(projectStatus, currentBriefStatus)` (lib/project/decision)
+  closes on a declined current brief whatever the project row says; the
+  handoff and the kitchen home both use it, and a failed read of that brief
+  stores nothing. The checkpoint no longer sends `status`; its only move,
+  invited → in_progress, is a separate write conditional on `status =
+  'invited'`.
+- *The maker is told what the customer sees.* The quote form says to record
+  the quote once it has gone out, and that the customer's kitchen then shows
+  "Ponuda poslana" without the amount; the submit reads "Zabilježi poslanu
+  ponudu: {amount}". A question is saved, not sent (no email until IMP-16):
+  "Spremi pitanje", with "the customer sees it when they open their kitchen"
+  next to the button.
+- *Closed home copy.* It said "Tvoj sažetak i procjena ostaju ovdje", but a
+  closed home has no way into its summary. The line is now "Tvoja procjena
+  ostaje ovdje." and only when a range is on screen; nothing without one.
+- *Saving is announced.* A polite `role="status"` region (in the DOM from
+  the first paint, in both branches) says what was saved; focus moves to the
+  saved chip; an open brief after a question shows its clarify chip inside
+  the panel.
+
+Tests: the handoff refusing a declined brief on a non-archived project (and
+storing nothing when that brief cannot be read), the checkpoint race against
+a one-row in-memory table, the copy contract between the maker's hints and
+the homeowner's pill, and static renders of the panel's live region and
+clarify chip.
+
+Browser-verified on the local stack: maker opens the brief → Za ponudu → types
+"6.200" → "Zabilježi poslanu ponudu: 6.200 €" → the row holds
+`maker_status=quoted, quoted_eur=6200.00, decided_at` set; the list shows the
+row under "Čeka kupca" with "ponuda 6.200 €"; the homeowner's kitchen home
+shows "Ponuda poslana — Stolarija Render: ponuda je poslana 03. 10. 2026.".
+Migration 0007 applied to the local stack only — production pending (run the
+read-only pre-check in its header first).
+
+Gate: 673 tests · tsc · eslint · next build green.

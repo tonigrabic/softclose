@@ -75,6 +75,8 @@ describe('apiErrorKey', () => {
     expect(apiErrorKey(new ApiError('Too many vision calls', 429), 'space.error.analyzeFailed')).toBe('api.error.tooMany')
     expect(apiErrorKey(new ApiError('x', 401, 'auth_required'), 'space.error.analyzeFailed')).toBe('api.error.session')
     expect(apiErrorKey(new ApiError('x', 413), 'space.error.analyzeFailed')).toBe('api.error.tooLarge')
+    // A closed project (IMP-03) says so, not "could not put your brief together".
+    expect(apiErrorKey(new ApiError('closed', 409, 'closed'), 'wrapup.error.bundle')).toBe('api.error.closed')
   })
 
   test("falls back to the caller's own line for everything else", () => {

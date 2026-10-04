@@ -11,7 +11,7 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 | 1 | IMP-01 | Remove the fabricated stub estimate | critical | S | main | pr: https://github.com/tonigrabic/softclose/pull/11 |
 | 2 | IMP-31 | Room first: vision reconciles all photos, homeowner confirms shape and measures | high | M | main (IMP-11 first is recommended, not required) | pr: https://github.com/tonigrabic/softclose/pull/12 |
 | 3 | IMP-32 | Render constrained by the measured room; light post-render confirm | high | M | IMP-31 | pr: https://github.com/tonigrabic/softclose/pull/13 |
-| 4 | IMP-03 | Maker decision persists and reaches the homeowner | critical | M | main | todo |
+| 4 | IMP-03 | Maker decision persists and reaches the homeowner | critical | M | main | pr: https://github.com/tonigrabic/softclose/pull/14 |
 | 5 | IMP-04 | Range is what the homeowner will pay: gross, margin in, exclusions stated; one range line everywhere | critical | M | IMP-01 | todo |
 | 6 | IMP-05 | Strip maker-only controls and B2B cost from the homeowner wrap-up | high | S | main | todo |
 | 7 | IMP-06 | Builder state autosaves | critical | M | main | todo |
@@ -67,10 +67,11 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 
 ### 4. IMP-03 — Maker decision persists and reaches the homeowner
 **Problem.** On the real brief page the three buttons Za ponudu / Pojasni / Odbij only flip local state and print "Demo radnja (bez učinka)". `maker_status` never moves past `viewed`, the homeowner never learns the outcome, the dashboard's "quoted" flag is derived from `!== 'new'` so a glance counts as a quote, and nothing records the price the maker actually quoted, so the ±20% hit rate can never be measured. This is rule 8 and Definition of Done #3.
-**Fix.** Migration 0006: `maker_note`, `decided_at`, `quoted_eur` on briefs. Server action `decideBrief(briefId, status, note?, quotedEur?)` behind `requireBriefAccess`, wired to the three buttons; `declined` archives the project. Show the decision as a chip on the brief, the dashboard row and the homeowner's kitchen home. `quoted = makerStatus === 'quoted'`. Record ±20% definition in WORKLOG: total works range vs the maker's first formal quote.
-**Files.** db/migrations/0006_*.sql, src/app/maker/[id]/actions.ts, MakerDashboardPreview.tsx, src/app/dashboard/page.tsx, src/lib/project/status.ts, KitchenHome.tsx, locales.
+**Fix.** Migration 0007 (0006 went to IMP-01's `0006_null_stub_estimates.sql`): `maker_note`, `decided_at`, `quoted_eur` on briefs. Server action `decideBrief(briefId, status, note?, quotedEur?)` behind `requireBriefAccess`, wired to the three buttons; `declined` archives the project. Show the decision as a chip on the brief, the dashboard row and the homeowner's kitchen home. `quoted = makerStatus === 'quoted'`. Record ±20% definition in WORKLOG: total works range vs the maker's first formal quote.
+**Files.** db/migrations/0007_maker_decision.sql, src/app/maker/[id]/actions.ts, MakerDashboardPreview.tsx, src/app/dashboard/page.tsx, src/lib/project/status.ts, KitchenHome.tsx, locales.
 **Done when.** Clicking Za ponudu with 6,200 € writes status + amount; the kitchen home shows "{maker} je poslao ponudu"; a test covers the action's ownership check and the status transitions.
-**Stack on.** main.
+_As built, the kitchen-home string is the gender-neutral `{maker}: ponuda je poslana {date}` ("je poslao" is masculine-only and a studio name would need declining). See WORKLOG 2026-10-03 for the ±20% hit-rate definition._
+**Stack on.** IMP-32, on the IMP-01 → IMP-31 → IMP-32 chain.
 
 ### 5. IMP-04 — Range is what the homeowner will pay: gross, margin in, exclusions stated; one range line everywhere
 **Problem.** Boards are priced from Elgrad's wholesale list and labour from the maker's cost sheet (net, no margin or overhead); appliances and hardware are retail incl. 25% PDV. They are summed into one "Ukupno" and the string "PDV" does not exist in src/. The homeowner sees what the kitchen costs the shop to make, labelled "Sve uključeno". Nothing states what is excluded (removal of the old kitchen, electrical/plumbing, delivery, templating); the scope allowances are dead code since the scope step was cut. Kitchen home and the dashboard print the range bare, with no ± or "maker confirms" line. Rounding differs per surface.

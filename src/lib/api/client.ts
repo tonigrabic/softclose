@@ -56,5 +56,7 @@ export function apiErrorKey(
   if (err.status === 401 || err.code === 'auth_required') return 'api.error.session'
   if (err.status === 429) return 'api.error.tooMany'
   if (err.status === 413) return 'api.error.tooLarge'
+  // The maker declined or the project was archived (IMP-03): nothing sends.
+  if (err.code === 'closed') return 'api.error.closed'
   return fallback
 }

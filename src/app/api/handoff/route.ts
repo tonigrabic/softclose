@@ -5,6 +5,7 @@ import { offloadMedia, storageUploader } from '@/lib/db/media'
 import { notifyMakerOfBrief } from '@/lib/notify/maker-email'
 import { buildHandoffBundle } from '@/lib/handoff/bundle'
 import { decideBriefId, isBriefId } from '@/lib/handoff/brief-id'
+import { isProjectClosed } from '@/lib/project/decision'
 import type { ClientMessage, LeadProfile, MoodBoardItem } from '@/lib/types'
 
 interface HandoffRequest {
@@ -53,11 +54,36 @@ export async function POST(req: Request) {
         if (body.projectId) {
           const { data: project } = await db
             .from(TABLES.projects)
-            .select('id, customer_id, maker_id')
+            .select('id, customer_id, maker_id, status, current_brief_id')
             .eq('id', body.projectId)
             .maybeSingle()
           if (!project || project.customer_id !== session.accountId) {
             return Response.json({ error: 'not_found' }, { status: 404 })
+          }
+          // A closed project takes no new brief (IMP-03). An intake tab left
+          // open while the maker declined could otherwise re-send: the project
+          // update below would un-archive it, and a maker who already said no
+          // would get a fresh 'new' brief and another email.
+          //
+          // The declined brief is checked, not just the project's status: the
+          // archive after a decline is a second, best-effort write, and a
+          // failed one leaves the project reading 'submitted'. The brief is
+          // the source of truth (isProjectClosed).
+          let currentBriefStatus: string | null = null
+          if (project.current_brief_id) {
+            const { data: current, error: currentErr } = await db
+              .from(TABLES.briefs)
+              .select('maker_status')
+              .eq('id', project.current_brief_id)
+              .maybeSingle()
+            // Unknown is not "open": a failed read stores nothing (the outer
+            // catch answers with an unsaved bundle) rather than risk handing a
+            // maker who said no another brief.
+            if (currentErr) throw currentErr
+            currentBriefStatus = (current?.maker_status as string | null) ?? null
+          }
+          if (isProjectClosed(project.status as string, currentBriefStatus)) {
+            return Response.json({ error: 'closed', code: 'closed' }, { status: 409 })
           }
           projectId = project.id as string
           makerId = (project.maker_id as string | null) ?? null

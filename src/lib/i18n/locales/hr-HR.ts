@@ -801,6 +801,11 @@ export const hrHR = {
   'dashboard.group.attention': 'Treba pažnju',
   'dashboard.group.active': 'U tijeku',
   'dashboard.group.waiting': 'Pozvano, još nije otvoreno',
+  'dashboard.group.decided': 'Čeka kupca',
+  'dashboard.group.closed': 'Zatvoreno',
+  'dashboard.decision.quoted': 'ponuda {amount}',
+  'dashboard.decision.clarify': 'pojašnjenje',
+  'dashboard.decision.declined': 'odbijeno',
   'dashboard.status.invited': 'pozvan',
   'dashboard.status.opened': 'otvorio, stao',
   'dashboard.status.inProgress': 'radi',
@@ -830,6 +835,7 @@ export const hrHR = {
   'kitchen.home.yourMaker': 'Tvoj izrađivač',
   'kitchen.home.title': '{maker} te pozvao da opišeš svoju kuhinju',
   'kitchen.home.titleSubmitted': 'Tvoj sažetak je kod {maker}',
+  'kitchen.home.titleClosed': 'Ovaj projekt je zatvoren',
   // Says plainly what this is NOT. The anxiety being reduced is "am I about to
   // commit to something" (product-foundations, principle 7).
   'kitchen.home.what':
@@ -853,6 +859,20 @@ export const hrHR = {
   'kitchen.home.status.range': 'Procjena: {range}',
   'kitchen.home.status.noRange': 'Raspon dobivaš kad sastaviš kuhinju.',
   'kitchen.home.editNote': 'Ako nešto izmijeniš, {maker} dobiva obavijest o izmjeni.',
+  // The maker's decision (IMP-03). Led by "{maker}:" so a studio name never
+  // has to be declined and nothing is masculine-only. The maker's real quote
+  // IS a "ponuda"; the range stays "procjena" everywhere. No full stop after
+  // {date}: a Croatian date already ends in one ("3. 10. 2026.").
+  'kitchen.home.decision.quoted': '{maker}: ponuda je poslana {date}',
+  'kitchen.home.decision.quotedNext': 'Iznos i uvjete dobivaš izravno od izrađivača.',
+  'kitchen.home.decision.clarify': '{maker}: treba pojašnjenje ({date}).',
+  'kitchen.home.decision.clarifyNext': 'Odgovori izmjenom kuhinje ili se javi izravno.',
+  'kitchen.home.decision.declined': '{maker}: ne može preuzeti ovaj projekt.',
+  // Shown only when the range is on screen below it (decisionNextKey).
+  'kitchen.home.decision.declinedNext': 'Tvoja procjena ostaje ovdje.',
+  'kitchen.home.decision.pill.quoted': 'Ponuda poslana',
+  'kitchen.home.decision.pill.clarify': 'Treba pojašnjenje',
+  'kitchen.home.decision.pill.declined': 'Zatvoreno',
   'kitchen.makerSees': '{maker} vidi tvoj napredak dok radiš.',
   'live.back': 'Natrag na popis',
   'live.banner.title': 'U TIJEKU — kupac još radi',
@@ -1045,6 +1065,7 @@ export const hrHR = {
   'api.error.session': 'Sesija je istekla. Prijavi se ponovno da nastaviš.',
   'api.error.tooMany': 'Previše zahtjeva u kratkom vremenu — pričekaj trenutak pa pokušaj ponovno.',
   'api.error.tooLarge': 'Datoteka je prevelika za slanje. Pokušaj s manjom fotografijom.',
+  'api.error.closed': 'Ovaj projekt je zatvoren.',
   'funnel.wishlist.error': 'Nismo uspjeli spremiti listu želja.',
   'funnel.builderEntry.error': 'Nismo uspjeli pročitati tvoj render. Pokušaj ponovno ili započni bez AI prijedloga.',
   'funnel.thanksFallback': 'Hvala{name} — tvoj sažetak je spreman.',
@@ -1098,6 +1119,39 @@ export const hrHR = {
   'maker.action.clarify': 'Pojasni',
   'maker.action.decline': 'Odbij',
   'maker.action.demo': 'Demo radnja: {action} (bez učinka).',
+  'maker.decision.chip.quoted': 'Ponuda {amount} · {date}',
+  'maker.decision.chip.clarify': 'Traženo pojašnjenje · {date}',
+  'maker.decision.chip.declined': 'Odbijeno · {date}',
+  'maker.decision.amount.label': 'Iznos ponude (€)',
+  'maker.decision.amount.hint': 'Izrada i montaža s PDV-om, bez uređaja — usporedivo s procjenom.',
+  'maker.decision.note.optional': 'Napomena za kupca (neobavezno)',
+  'maker.decision.note.clarify': 'Što kupac treba pojasniti?',
+  'maker.decision.note.count': '{n}/{max}',
+  'maker.decision.submit.quote': 'Zabilježi poslanu ponudu: {amount}',
+  // Saved, not sent: nothing is emailed until IMP-16.
+  'maker.decision.submit.clarify': 'Spremi pitanje',
+  'maker.decision.submit.decline': 'Odbij i zatvori projekt',
+  'maker.decision.cancel': 'Odustani',
+  'maker.decision.saving': 'Spremam…',
+  // Next to the submit button: what the customer will see. The quote hint
+  // quotes the homeowner's pill (kitchen.home.decision.pill.quoted) verbatim.
+  'maker.decision.hint.quoted':
+    'Zabilježi tek kad je ponuda poslana kupcu. U svojoj kuhinji vidjet će „Ponuda poslana” — bez iznosa.',
+  'maker.decision.hint.clarify': 'Kupac pitanje vidi kad otvori svoju kuhinju — e-poštom ga ne šaljemo.',
+  'maker.decision.hint.declined': 'Kad kupac otvori svoju kuhinju, vidjet će da je projekt zatvoren.',
+  'maker.decision.saved.quoted': 'Ponuda je zabilježena — kupac vidi „Ponuda poslana”.',
+  'maker.decision.saved.clarify': 'Pitanje je spremljeno — kupac ga vidi u svojoj kuhinji.',
+  'maker.decision.saved.declined': 'Odbijanje je zabilježeno — projekt je zatvoren.',
+  'maker.decision.visible': 'Kupac će odluku vidjeti kad otvori svoju kuhinju.',
+  'maker.decision.final': 'Ponuda i odbijanje su konačni za ovaj sažetak.',
+  'maker.decision.error.amount': 'Upiši iznos veći od 0 i najviše 1.000.000 €, npr. 6.200 ili 6.200,50.',
+  'maker.decision.error.noteRequired': 'Napiši što kupac treba pojasniti.',
+  'maker.decision.error.noteTooLong': 'Napomena može imati najviše 1000 znakova.',
+  'maker.decision.error.transition': 'Odluka o ovom sažetku već je zabilježena.',
+  'maker.decision.error.superseded': 'Kupac je u međuvremenu poslao noviji sažetak — odluku donesi na njemu.',
+  'maker.decision.error.supersededLink': 'Otvori popis kupaca',
+  'maker.decision.error.stale': 'Odluka je upravo zabilježena negdje drugdje (možda u drugoj kartici) — prikazujemo spremljeno stanje.',
+  'maker.decision.error.unavailable': 'Spremanje trenutno ne uspijeva. Pokušaj ponovno za minutu.',
   'maker.build.title': 'Kupčeva gradnja',
   'maker.build.subtitle': 'Stavku po stavku, po cijenama u trenutku slanja — iz ovoga je izračunat raspon iznad.',
   'maker.build.group.works': 'Kuhinja',

@@ -68,20 +68,29 @@ export async function listProjectsForMaker(makerId: string, limit = 100): Promis
   return (data ?? []).map((row) => toProject(row as Parameters<typeof toProject>[0]))
 }
 
-/** The one kitchen a customer was invited to. Most recent first, in case a
- *  maker ever sends a second invite. */
+/**
+ * The one kitchen a customer was invited to. Most recent first, in case a
+ * maker ever sends a second invite.
+ *
+ * An open project always wins. Failing that, the latest archived one: a
+ * maker's decline archives the project (IMP-03), and the customer must land on
+ * their kitchen with the maker's answer on it — not on "Nema aktivne
+ * kuhinje", which would be the ghosting rule 8 forbids, just quieter.
+ */
 export async function currentProjectForCustomer(customerId: string): Promise<Project | null> {
   const db = supabaseAdmin()
   if (!db) return null
-  const { data } = await db
-    .from(TABLES.projects)
-    .select(COLUMNS)
-    .eq('customer_id', customerId)
-    .neq('status', 'archived')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  return data ? toProject(data as Parameters<typeof toProject>[0]) : null
+  const latest = (archived: boolean) => {
+    const q = db.from(TABLES.projects).select(COLUMNS).eq('customer_id', customerId)
+    return (archived ? q.eq('status', 'archived') : q.neq('status', 'archived'))
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+  }
+  const { data: open } = await latest(false)
+  if (open) return toProject(open as Parameters<typeof toProject>[0])
+  const { data: closed } = await latest(true)
+  return closed ? toProject(closed as Parameters<typeof toProject>[0]) : null
 }
 
 export interface DashboardRow {
@@ -94,6 +103,10 @@ export interface DashboardRow {
     estimateLow: number | null
     estimateHigh: number | null
     bandPct: number | null
+    /** When the maker quoted, asked or declined (0007). */
+    decidedAt: string | null
+    /** The maker's quote for the works, in euros; set only when quoted (0007). */
+    quotedEur: number | null
   } | null
 }
 
@@ -126,7 +139,7 @@ export async function listMakerDashboard(makerId: string, limit = 100): Promise<
     briefIds.length
       ? db
           .from(TABLES.briefs)
-          .select('id, created_at, maker_status, estimate_low, estimate_high, band_pct')
+          .select('id, created_at, maker_status, estimate_low, estimate_high, band_pct, decided_at, quoted_eur')
           .in('id', briefIds)
       : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
   ])
@@ -150,6 +163,9 @@ export async function listMakerDashboard(makerId: string, limit = 100): Promise<
             estimateLow: (b.estimate_low as number | null) ?? null,
             estimateHigh: (b.estimate_high as number | null) ?? null,
             bandPct: (b.band_pct as number | null) ?? null,
+            decidedAt: (b.decided_at as string | null) ?? null,
+            // numeric(12,2): PostgREST may hand it back as a string (see dal.ts).
+            quotedEur: b.quoted_eur === null || b.quoted_eur === undefined ? null : Number(b.quoted_eur),
           }
         : null,
     }
