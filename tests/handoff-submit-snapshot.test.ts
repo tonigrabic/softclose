@@ -27,12 +27,15 @@ const h = vi.hoisted(() => {
     /** Runs once, just before the route's first revision-conditional write. */
     beforeConditionalWrite: null as null | (() => void),
     projectUpdates: [] as Row[],
+    /** Makes the snapshot step's read of the project copy throw. */
+    throwOnCopyRead: false,
   }
 
   function builder(table: string) {
     let op: 'select' | 'insert' | 'update' = 'select'
     let payload: Row | null = null
     let returning = false
+    let columns = ''
     const filters: Array<[string, unknown]> = []
 
     const applyUpdate = () => {
@@ -66,8 +69,9 @@ const h = vi.hoisted(() => {
     }
 
     const b = {
-      select() {
+      select(cols = '') {
         if (op !== 'select') returning = true
+        else columns = cols
         return b
       },
       insert(p: Row) {
@@ -85,6 +89,9 @@ const h = vi.hoisted(() => {
         return b
       },
       maybeSingle() {
+        if (state.throwOnCopyRead && columns === 'revision, snapshot, snapshot_version') {
+          return Promise.reject(new Error('copy read blew up'))
+        }
         return Promise.resolve(settle())
       },
       single() {
@@ -169,6 +176,7 @@ beforeEach(() => {
   h.state.brief = null
   h.state.beforeConditionalWrite = null
   h.state.projectUpdates = []
+  h.state.throwOnCopyRead = false
 })
 
 describe('the submit stores the brief’s snapshot as the project’s copy', () => {
@@ -259,6 +267,17 @@ describe('the submit stores the brief’s snapshot as the project’s copy', () 
     expect(h.state.projectUpdates[0]).not.toHaveProperty('snapshot')
     expect(project().revision).toBe(7)
     expect(project().current_brief_id).toBe(out.briefId)
+    expect(project().updated_at).toBe(h.state.brief!.created_at)
+  })
+
+  test('the snapshot step throwing never costs the brief its project update', async () => {
+    h.state.throwOnCopyRead = true
+    const out = await send(stripImages(journey(9)))
+    expect(out.briefId).toBeTruthy()
+    expect(h.state.projectUpdates).toHaveLength(1)
+    expect(h.state.projectUpdates[0]).not.toHaveProperty('snapshot')
+    expect(project().current_brief_id).toBe(out.briefId)
+    expect(project().status).toBe('submitted')
     expect(project().updated_at).toBe(h.state.brief!.created_at)
   })
 })

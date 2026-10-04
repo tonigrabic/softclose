@@ -55,30 +55,38 @@ async function updateSubmittedProject(
   db: Db,
   projectId: string,
   fields: Record<string, unknown>,
-  snapshot: ReturnType<typeof submitSnapshotFrom>,
-  claim: SubmitClaim | null
+  rawSnapshot: unknown,
+  rawClaim: unknown
 ): Promise<void> {
-  for (let attempt = 0; snapshot && claim && attempt < 3; attempt++) {
-    const { data: row, error: readErr } = await db
-      .from(TABLES.projects)
-      .select('revision, snapshot, snapshot_version')
-      .eq('id', projectId)
-      .maybeSingle()
-    if (readErr) break
-    const write = submitSnapshotWrite(row, snapshot, claim)
-    if (!write) break
-    const { data: updated, error: writeErr } = await db
-      .from(TABLES.projects)
-      .update({ ...fields, ...write })
-      .eq('id', projectId)
-      .eq('revision', row!.revision)
-      .select('revision')
-      .maybeSingle()
-    if (writeErr) {
-      console.error('[handoff] snapshot write failed', writeErr.message)
-      break
+  // The snapshot is a nicety; the project update and the maker's email after
+  // it are the brief going out. Nothing here may throw past the plain update.
+  try {
+    const snapshot = submitSnapshotFrom(rawSnapshot)
+    const claim: SubmitClaim | null = submitClaimFrom(rawClaim)
+    for (let attempt = 0; snapshot && claim && attempt < 3; attempt++) {
+      const { data: row, error: readErr } = await db
+        .from(TABLES.projects)
+        .select('revision, snapshot, snapshot_version')
+        .eq('id', projectId)
+        .maybeSingle()
+      if (readErr) break
+      const write = submitSnapshotWrite(row, snapshot, claim)
+      if (!write) break
+      const { data: updated, error: writeErr } = await db
+        .from(TABLES.projects)
+        .update({ ...fields, ...write })
+        .eq('id', projectId)
+        .eq('revision', row!.revision)
+        .select('revision')
+        .maybeSingle()
+      if (writeErr) {
+        console.error('[handoff] snapshot write failed', writeErr.message)
+        break
+      }
+      if (updated) return
     }
-    if (updated) return
+  } catch (err) {
+    console.error('[handoff] snapshot write skipped', err instanceof Error ? err.message : err)
   }
   await db.from(TABLES.projects).update(fields).eq('id', projectId)
 }
@@ -257,8 +265,8 @@ export async function POST(req: Request) {
           },
           // Only a project's own customer reaches here with a projectId; the
           // legacy insert above stores the profile and has no journey copy.
-          body.projectId ? submitSnapshotFrom(body.snapshot) : null,
-          submitClaimFrom(body.snapshotClaim)
+          body.projectId ? body.snapshot : null,
+          body.snapshotClaim
         )
 
         bundle.briefId = briefId
