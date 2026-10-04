@@ -1951,3 +1951,84 @@ imp31-kupac, project "Lana Soba":
   step. A reload after sending leaves the revision at 63 and the flag false.
 
 Gate: 913 tests (61 files) · tsc · eslint · next build green.
+
+### 2026-10-04 — IMP-07: review, then send; edits after a send are possible
+Spec item 8 (IMPROVEMENTS.md). The wrap-up said "Pregledaj što šaljemo —
+ispravi sve što ne valja", but it posted to `/api/handoff` on mount. The brief
+was stored and the maker emailed before the homeowner read a line, and no
+section could be fixed. "Izmijeni kuhinju" landed on the done screen, whose
+only control re-sent an identical brief. A revisit showed "Procjena još nije
+dostupna".
+
+- **Review first.** Nothing reaches the maker before "Pošalji izrađivaču" (or
+  "Pošalji izmjene" once a brief exists). The IMP-06 flush, claim and briefId
+  idempotency stay on that click. A closed project offers no send. A failed
+  send says "Sažetak nije poslan. Pokušaj ponovno." and the button retries
+  with the same brief id.
+- **No identical brief.** The snapshot keeps `sentReview`, the print of the
+  brief the maker has. It is trusted only while it matches the project's
+  current brief, and briefs sent before IMP-07 are recognised. An unchanged
+  kitchen, or a change undone, offers nothing to send.
+- **Fix anything.** Each section has "Nešto ispraviti?", which jumps to its
+  step: Stil → inspiration, Materijali → the builder's doors group, and so on.
+  "Natrag na korake" goes back from the review, and done rail steps are
+  navigable on desktop and on the mobile pill. Steps a change must pass
+  through (room → confirm → builder) are owed (`owedSteps`), so the review
+  waits for them. "Izmijeni kuhinju" opens at the contact step, whose button
+  is now "Pregledaj sažetak".
+- **Revisit.** The review shows the saved range ("Poslano izrađivaču"), "Što
+  slijedi" and the JSON download from the project's current brief (GET
+  `/api/projects/[id]/brief`, own customer only, customer-safe). A kitchen
+  changed but not sent says so on the kitchen home ("Imaš izmjene koje još
+  nisu poslane…") and offers "Pregledaj i pošalji izmjene".
+- **The maker's flag follows the kitchen.** Migration
+  `0008_content_changed_at.sql` adds `projects.brief_print` and
+  `content_changed_at`. The checkpoint route sets `content_changed_at` only
+  when the saved kitchen's print differs from the brief, and clears it when
+  it matches again. The handoff clears it. "izmijenjeno" / "· v2" read
+  `content_changed_at > brief.created_at` through the shared
+  `changedSinceBrief`, so walking back through unchanged steps never raises
+  it. The backfill keeps every existing flag as it was. Applied to the local
+  stack. **Production needs 0006, 0007 and 0008 applied before this code is
+  deployed.**
+- **Maker looking in.** The read-only review has no send or fix controls. The
+  kitchen home now reads "Kuhinja kupca — Ovako ovu stranicu vidi kupac — ti
+  je ovdje samo gledaš", with a "Pogledaj kupčevu kuhinju" button.
+- Two review rounds (send flow, navigation, then flag/DB, send state,
+  navigation). Each verified finding was fixed with a regression test.
+  `tests/wrapup-readonly.test.ts` was ported from the parallel session's
+  `fix/wrapup-readonly-header` branch.
+
+Not done or left as it was:
+- An edit left on a step by closing the tab (not Back or the rail) is not
+  owed.
+- Reloading in the middle of a build started from the review brings back the
+  all-done rail.
+- `brief_print` carries no version, so changing `briefPrint` later would
+  flag every sent project once.
+- No focus management after a jump from the review.
+
+**Browser check** (local stack, mock AI). Customer imp31-kupac, project "Lana
+Soba", sent before IMP-07:
+- The kitchen home says changes go out only once reviewed and sent.
+  "Izmijeni kuhinju" → contact → "Pregledaj sažetak" → the review shows
+  "Poslano izrađivaču 5.850–7.850 €" and "nema ništa novo za slanje", with
+  eight fix buttons and zero handoff calls. The walk back saved the step
+  (revision 63→65) with `content_changed_at` null, so the flag stayed down.
+- "Natrag na korake" → contact; the review again → unchanged.
+- "Materijali" fix → builder Fronte with "Natrag na pregled". A new decor →
+  the review shows 5.750–7.800 € and "Pošalji izmjene", still zero calls.
+  The flag went up (unsent change).
+- Send → exactly one `/api/handoff`, and "Što slijedi" takes the button's
+  place. Second brief stored, `content_changed_at` null, `brief_print` set.
+- Reload → the kitchen home shows 5.750–7.800 €. The review shows the saved
+  range and no send. The download route returns 200 with no maker fields.
+- Maker overlap-test: the dashboard reads "poslano" and older projects keep
+  "izmijenjeno". `/kitchen/<id>` is framed as the customer's page; the
+  read-only review has only "Natrag na kuhinju kupca" and makes no handoff or
+  checkpoint calls.
+- On the final commit: a change, then leaving without sending → the kitchen
+  home shows the unsent line and "Pregledaj i pošalji izmjene" → review →
+  zero calls before the button, one after. Third brief stored, flag cleared.
+
+Gate: 1129 tests (70 files) · tsc · eslint · next build green.
