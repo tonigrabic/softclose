@@ -10,6 +10,7 @@ import { useTranslations, type TranslationKey } from '@/lib/i18n'
 import type { FlowStepId } from '@/lib/flow'
 import type { MakerDecision } from '@/lib/project/decision'
 import type { ProjectSnapshot } from '@/lib/project/snapshot'
+import type { HandoffEstimate } from '@/lib/types'
 import { editEntryStep } from '@/lib/review-nav'
 import { cn } from '@/lib/utils'
 
@@ -25,6 +26,10 @@ export interface KitchenHomeProps {
   /** The works range the current brief stored, with its ± and assumptions.
    *  Null when the brief went out without a build (no range to show). */
   range: RangeLineValue | null
+  /** The current brief's estimate as the customer may see it (savedEstimate:
+   *  no maker-only money), lines included, so a revisit of the review shows
+   *  the range the maker has (IMP-07). Null without a brief or a range. */
+  savedEstimate: HandoffEstimate | null
   /** The maker's answer on the current brief (IMP-03). Never the quoted
    *  amount: that is the maker's to send, with its terms. */
   decision: { status: MakerDecision; date: string | null; note: string | null } | null
@@ -109,6 +114,7 @@ export function KitchenHome(props: KitchenHomeProps) {
         initialRevision={props.revision}
         readOnly={props.readOnly}
         currentBriefId={props.briefId}
+        savedEstimate={props.savedEstimate}
         closed={props.closed}
         initialSnapshot={props.snapshot}
         customerEmail={props.customerEmail}

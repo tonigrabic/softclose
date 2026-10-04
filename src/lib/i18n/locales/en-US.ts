@@ -478,6 +478,7 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.estimate.title': 'Rough estimate range',
   'wrapup.estimate.kitchenLabel': 'Kitchen — made & installed',
   'wrapup.estimate.bomBadge': 'From your build',
+  'wrapup.estimate.sentBadge': 'Sent to your maker',
   'wrapup.estimate.noBuild': 'You get a range once you build your kitchen.',
   'wrapup.estimate.openBuilder': 'Build your kitchen',
   'wrapup.estimate.linesTitle': 'What makes up the range',

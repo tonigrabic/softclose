@@ -57,6 +57,12 @@ interface WrapUpScreenProps {
    * changes). Absent: nothing has gone out yet.
    */
   onFileBriefId?: string | null
+  /**
+   * The brief on file as the page loaded it: its id and its stored estimate
+   * (the customer's copy). When the review IS that brief, a revisit shows its
+   * range, what happens next and the download — without sending again.
+   */
+  initialResult?: { briefId: string; estimate: HandoffEstimate | null } | null
   /** The maker closed the project (IMP-03): the handoff refuses a send, so none is offered. */
   closed?: boolean
   /** Runs before the brief is sent — the intake flushes its pending save and
@@ -111,6 +117,7 @@ export function WrapUpScreen({
   transcript,
   projectId,
   onFileBriefId = null,
+  initialResult = null,
   closed = false,
   beforeSubmit,
   onOpenBuilder,
@@ -237,12 +244,24 @@ export function WrapUpScreen({
     }
   }
 
+  /**
+   * The brief as JSON: this send's response, or — on a revisit — the brief on
+   * file, read from the server on the click (the customer's own copy, signed
+   * media links; nothing is fetched until they ask for it).
+   */
   async function downloadHandoff() {
-    if (!bundle) return
+    if (isExporting) return
     setIsExporting(true)
     setExportError(null)
     try {
-      const blob = new Blob([JSON.stringify(bundle, null, 2)], {
+      let brief = bundle
+      if (!brief) {
+        const res = await fetch(`/api/projects/${projectId}/brief`, { cache: 'no-store' })
+        const body = await readJson<HandoffBundle>(res)
+        if (!res.ok || body.error) throw new ApiError(body.error ?? `Brief read failed (${res.status})`, res.status)
+        brief = body
+      }
+      const blob = new Blob([JSON.stringify(brief, null, 2)], {
         type: 'application/json',
       })
       const url = URL.createObjectURL(blob)
@@ -264,14 +283,21 @@ export function WrapUpScreen({
   // The range is priced from the build alone, before anything is sent — the
   // same function the handoff prices with, without the maker-only money. No
   // build, no range — say how to get one rather than showing a number made of
-  // nothing. After a send, the figures the brief stored.
+  // nothing. After a send, the figures the brief stored; on a revisit of the
+  // brief on file, the figures it stored (initialResult).
   const preview = useMemo(() => customerEstimate(estimateFromBuild(profile)), [profile])
-  const estimate = bundle?.estimate ?? preview
+  // A revisit of the brief on file: the figures it stored, the ones the maker
+  // has — only while the review on screen is that brief.
+  const saved = !bundle && state === 'sent' && initialResult?.briefId === data.briefId ? initialResult : null
+  const estimate = bundle?.estimate ?? saved?.estimate ?? preview
   const noBuild = !profile.builderState
   // The maker has this review (sent from here, or the brief on file).
   const done = bundle !== null || state === 'sent'
   // The brief "Što slijedi" refers to: this send's, or the one on file.
   const briefRef = bundle ? bundle.briefId : data.briefId
+  // The download is the brief the maker has: this send's response, or the
+  // brief on file, read on the click (the project's current brief).
+  const canDownload = !readOnly && (bundle !== null || (state === 'sent' && Boolean(projectId)))
 
   return (
     <motion.div
@@ -338,7 +364,7 @@ export function WrapUpScreen({
           </p>
           {!readOnly && !noBuild && estimate && (
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
-              {t('wrapup.estimate.bomBadge')}
+              {t(bundle?.briefId || state === 'sent' ? 'wrapup.estimate.sentBadge' : 'wrapup.estimate.bomBadge')}
             </span>
           )}
         </div>
@@ -390,6 +416,7 @@ export function WrapUpScreen({
           )}
         </section>
       )}
+
       {/* Chosen concept render */}
       {chosenRender && (
         <SectionWithFix
@@ -645,7 +672,7 @@ export function WrapUpScreen({
       <div className="flex flex-col gap-2">
         {/* The download is the brief the maker received, so it exists only
             once there is one; the maker looking in gets none. */}
-        {!readOnly && bundle && (
+        {canDownload && (
           <button
             type="button"
             onClick={downloadHandoff}

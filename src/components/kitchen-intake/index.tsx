@@ -70,6 +70,7 @@ import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import type {
   ClientMessage,
   ConceptRender,
+  HandoffEstimate,
   LeadProfile,
   SpaceVisionResult,
   WrapUpData,
@@ -120,6 +121,9 @@ export interface KitchenIntakeProps {
   /** The project's current brief, from the page load. The review compares
    *  itself with it: the brief the maker already has is not sent again. */
   currentBriefId?: string | null
+  /** The current brief's estimate, customer copy (lib/handoff/saved-estimate):
+   *  a revisit of the review shows the range the maker has. */
+  savedEstimate?: HandoffEstimate | null
   /** The maker closed the project (IMP-03): the review offers no send. */
   closed?: boolean
   /**
@@ -145,6 +149,7 @@ export function KitchenIntake({
   initialRevision = 0,
   readOnly = false,
   currentBriefId = null,
+  savedEstimate = null,
   closed = false,
   initialSnapshot = null,
   customerEmail = null,
@@ -1180,6 +1185,9 @@ export function KitchenIntake({
           readOnly={readOnly}
           closed={closed}
           onFileBriefId={sentBriefId ?? currentBriefId}
+          // The brief on file as the page loaded it, so a revisit shows its
+          // range, what happens next and the download without sending again.
+          initialResult={currentBriefId ? { briefId: currentBriefId, estimate: savedEstimate } : null}
           // The maker looking in never sends, so there is nothing to flush
           // before a send and no send to remember.
           beforeSubmit={

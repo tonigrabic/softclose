@@ -30,7 +30,7 @@ import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import { hrHR } from '@/lib/i18n/locales/hr-HR'
 import { enUS } from '@/lib/i18n/locales/en-US'
 import type { ProjectSnapshot } from '@/lib/project/snapshot'
-import type { LeadProfile } from '@/lib/types'
+import type { HandoffEstimate, LeadProfile } from '@/lib/types'
 
 const ROOT = join(__dirname, '..')
 const source = (file: string) => readFileSync(join(ROOT, file), 'utf8')
@@ -333,6 +333,7 @@ describe('the kitchen home: finished, not sent', () => {
           makerViewedAt: null,
           briefId: null,
           range: null,
+          savedEstimate: null,
           decision: null,
           closed: false,
           started: true,
@@ -515,5 +516,94 @@ describe('the edits reach their step, at the source', () => {
     expect(hrHR['wrapup.row.channels']).toBe('E-pošta / telefon')
     expect(enUS['wrapup.actions.backToSteps']).toBe('Back to the steps')
     expect(enUS['nav.backToReview']).toBe('Back to the review')
+  })
+})
+
+describe('a revisit shows the saved range (IMP-07 step 3)', () => {
+  /** The brief on file, as the kitchen page hands it over (savedEstimate). */
+  const SAVED: HandoffEstimate = {
+    low: 8_100,
+    high: 9_900,
+    withAppliances: null,
+    basis: '',
+    bandPct: 11,
+    lines: [],
+    assumptions: ['installIncluded', 'noTrades'],
+  }
+  const NBSP = ' '
+  const SAVED_FIGURES = `8.100${NBSP}€ – 9.900${NBSP}€`
+
+  test('the review is the brief on file: its stored figures, "sent", what happens next, the download — no send', () => {
+    const html = review({ onFileBriefId: BRIEF_ID, initialResult: { briefId: BRIEF_ID, estimate: SAVED } })
+    const out = text(html)
+    expect(out).toContain(SAVED_FIGURES)
+    expect(out).toContain(`±11${NBSP}%`)
+    expect(out).not.toContain(formatRange(estimateFromBuild(BUILT)!))
+    expect(html).toContain(hrHR['wrapup.estimate.sentBadge'])
+    expect(html).not.toContain(hrHR['wrapup.estimate.bomBadge'])
+    expect(html).toContain(hrHR['wrapup.next.title'])
+    expect(html).toContain(hrHR['wrapup.next.ref'].replace('{id}', BRIEF_ID.slice(0, 8)))
+    expect(html).toContain(hrHR['wrapup.actions.download'])
+    expectNoSend(html)
+    expect(out).not.toContain('Procjena još nije dostupna')
+  })
+
+  test('a newer review than the brief on file: the build’s figures and "Pošalji izmjene", no download', () => {
+    const html = review({ onFileBriefId: OTHER_ID, initialResult: { briefId: OTHER_ID, estimate: SAVED } })
+    const out = text(html)
+    expect(out).not.toContain(SAVED_FIGURES)
+    expect(out).toContain(formatRange(estimateFromBuild(BUILT)!))
+    expect(html).toContain(CHANGES)
+    expect(html).toContain(hrHR['wrapup.estimate.bomBadge'])
+    expect(html).not.toContain(hrHR['wrapup.actions.download'])
+  })
+
+  test('sent from this tab earlier (the page loaded with an older brief): sent, the build’s figures, the download', () => {
+    const html = review({ onFileBriefId: BRIEF_ID, initialResult: { briefId: OTHER_ID, estimate: SAVED } })
+    expect(text(html)).not.toContain(SAVED_FIGURES)
+    expect(html).toContain(hrHR['wrapup.estimate.sentBadge'])
+    expect(html).toContain(hrHR['wrapup.actions.download'])
+    expectNoSend(html)
+  })
+
+  test('the brief went out without a range: no figures, the way to the builder, still sent', () => {
+    const html = review({
+      profile: { name: 'Ana' },
+      onOpenBuilder: () => {},
+      onFileBriefId: BRIEF_ID,
+      initialResult: { briefId: BRIEF_ID, estimate: null },
+    })
+    expect(html).not.toContain('€')
+    expect(html).toContain(hrHR['wrapup.estimate.noBuild'])
+    expect(html).toContain(hrHR['wrapup.next.title'])
+    expectNoSend(html)
+  })
+
+  test('the maker looking in: still only the status line, no download', () => {
+    const html = review({ readOnly: true, onFileBriefId: BRIEF_ID, initialResult: { briefId: BRIEF_ID, estimate: SAVED } })
+    expect(text(html)).not.toContain(SAVED_FIGURES)
+    expect(html).toContain(hrHR['wrapup.readOnly.sent'])
+    expect(html).not.toContain(hrHR['wrapup.actions.download'])
+  })
+
+  test('the saved figures come from one JSON path of the brief, never the whole bundle', () => {
+    const page = source('src/app/kitchen/[projectId]/page.tsx')
+    expect(page).toContain('estimate:bundle->estimate')
+    expect(page).not.toMatch(/['"`,\s]bundle\s*[,'"`]/)
+    // And reach the client only through savedEstimate (no maker-only money).
+    expect(page).toMatch(/estimate: savedEstimate\(data\.estimate,/)
+  })
+
+  test('the download reads the brief on file only on the click, from the customer’s route', () => {
+    const wrapUp = source('src/components/kitchen-intake/WrapUpScreen.tsx')
+    const download = wrapUp.match(/async function downloadHandoff\(\) \{[\s\S]*?\n {2}\}\n/)![0]
+    expect(download).toContain('fetch(`/api/projects/${projectId}/brief`')
+    expect(wrapUp.match(/\/api\/projects\/\$\{projectId\}\/brief/g)).toHaveLength(1)
+    expect(wrapUp).toMatch(/onClick=\{downloadHandoff\}/)
+  })
+
+  test('the copy', () => {
+    expect(hrHR['wrapup.estimate.sentBadge']).toBe('Poslano izrađivaču')
+    expect(enUS['wrapup.estimate.sentBadge']).toBe('Sent to your maker')
   })
 })

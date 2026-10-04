@@ -495,6 +495,8 @@ export const hrHR = {
   'wrapup.estimate.title': 'Okvirni raspon cijene',
   'wrapup.estimate.kitchenLabel': 'Kuhinja — izrada i montaža',
   'wrapup.estimate.bomBadge': 'Iz tvoje gradnje',
+  // The range on a review the maker already has (IMP-07).
+  'wrapup.estimate.sentBadge': 'Poslano izrađivaču',
   'wrapup.estimate.noBuild': 'Raspon dobivaš kad sastaviš kuhinju.',
   'wrapup.estimate.openBuilder': 'Sastavi kuhinju',
   'wrapup.estimate.linesTitle': 'Od čega se raspon sastoji',

@@ -339,6 +339,7 @@ describe('kitchen home', () => {
           makerViewedAt: null,
           briefId: 'b1',
           range: { low: 5291, high: 7376, bandPct: 14, assumptions: ['installIncluded', 'noTrades'] },
+          savedEstimate: null,
           decision: null,
           closed: false,
           started: true,
