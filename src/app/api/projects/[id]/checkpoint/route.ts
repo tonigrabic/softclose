@@ -1,7 +1,7 @@
 import { apiAccount } from '@/lib/auth/dal'
 import { unauthorized } from '@/lib/api/errors'
 import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
-import { MAX_CHECKPOINT_BYTES, snapshotFingerprint } from '@/lib/project/checkpoint'
+import { CHECKPOINT_RATE_LIMIT, MAX_CHECKPOINT_BYTES, snapshotFingerprint } from '@/lib/project/checkpoint'
 import { SNAPSHOT_VERSION } from '@/lib/project/snapshot'
 import { rateLimitKey } from '@/lib/rate-limit'
 
@@ -26,9 +26,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   if (!session) return unauthorized()
 
   const { id } = await ctx.params
-  const limit = rateLimitKey(session.accountId, 'checkpoint', 240, 60 * 60 * 1000)
+  const limit = rateLimitKey(session.accountId, 'checkpoint', CHECKPOINT_RATE_LIMIT.max, CHECKPOINT_RATE_LIMIT.windowMs)
   if (!limit.ok) {
-    return Response.json({ ok: false, reason: 'rate_limited' }, { status: 429 })
+    // When the window resets, so the client waits exactly that long instead
+    // of spending a request on a 429 every few seconds until it does.
+    return Response.json(
+      { ok: false, reason: 'rate_limited', retryAfterMs: limit.retryAfterMs },
+      { status: 429, headers: { 'Retry-After': String(Math.max(1, Math.ceil(limit.retryAfterMs / 1000))) } }
+    )
   }
 
   const db = supabaseAdmin()

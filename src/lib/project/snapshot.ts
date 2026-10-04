@@ -14,6 +14,7 @@
  * matching entry to `MIGRATIONS` below.
  */
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
+import type { BuilderScreenId } from '@/lib/builder/inventory'
 import type { UnitEdits } from '@/lib/builder/unit-assembly'
 import type { FloorPlan } from '@/lib/floor-plan'
 import type { FlowStepId } from '@/lib/flow'
@@ -62,6 +63,15 @@ export interface ProjectSnapshot {
    * never shows or saves the planned layout as the existing room.
    */
   roomPlan?: FloorPlan | null
+  /**
+   * The builder group the homeowner was on (IMP-06), so a reload reopens the
+   * builder there. A screen cursor, not brief content — which is why it lives
+   * here and not on `profile.builderState`, which rides into the handoff.
+   * Optional: older snapshots, and journeys that never reached the builder,
+   * open at the first group. Kept `undefined` rather than null when unset, so
+   * an older snapshot fingerprints the same.
+   */
+  builderGroupId?: BuilderScreenId
 }
 
 type SnapshotRecord = Record<string, unknown>
