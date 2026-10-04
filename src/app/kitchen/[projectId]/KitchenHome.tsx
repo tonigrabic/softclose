@@ -107,7 +107,8 @@ export function KitchenHome(props: KitchenHomeProps) {
         makerName={props.makerName}
         initialRevision={props.revision}
         readOnly={props.readOnly}
-        hasExistingBrief={Boolean(props.briefId)}
+        currentBriefId={props.briefId}
+        closed={props.closed}
         initialSnapshot={props.snapshot}
         customerEmail={props.customerEmail}
         customerName={props.customerName}
@@ -117,6 +118,9 @@ export function KitchenHome(props: KitchenHomeProps) {
   }
 
   const submitted = Boolean(props.submittedAt)
+  // Finished, never sent (IMP-07): the review waits for the homeowner's own
+  // "Pošalji izrađivaču". Entering restores the review as it was left.
+  const awaitingSend = !submitted && !props.closed && Boolean(props.snapshot?.isDone && props.snapshot?.wrapUpData)
   const decision = props.decision
     ? {
         ...props.decision,
@@ -133,7 +137,13 @@ export function KitchenHome(props: KitchenHomeProps) {
         </p>
         <h1 className="mt-2 text-xl font-semibold leading-snug tracking-tight text-foreground">
           {t(
-            props.closed ? 'kitchen.home.titleClosed' : submitted ? 'kitchen.home.titleSubmitted' : 'kitchen.home.title'
+            props.closed
+              ? 'kitchen.home.titleClosed'
+              : submitted
+                ? 'kitchen.home.titleSubmitted'
+                : awaitingSend
+                  ? 'kitchen.home.titleReady'
+                  : 'kitchen.home.title'
           ).replace('{maker}', makerLabel)}
         </h1>
 
@@ -214,7 +224,14 @@ export function KitchenHome(props: KitchenHomeProps) {
               }
             />
           </div>
-        ) : props.closed ? null : (
+        ) : props.closed ? null : awaitingSend ? (
+          <div className="mt-5 rounded-2xl border border-border bg-card p-5 shadow-sm" data-awaiting-send>
+            <p className="flex items-start gap-2 text-sm text-foreground">
+              <ListChecks className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+              {t('kitchen.home.status.ready')}
+            </p>
+          </div>
+        ) : (
           <>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{t('kitchen.home.what')}</p>
 
@@ -250,14 +267,16 @@ export function KitchenHome(props: KitchenHomeProps) {
             <Button size="lg" className="mt-6 h-11 w-full rounded-xl text-sm" onClick={() => setEntered(true)}>
               {submitted
                 ? t('kitchen.home.cta.edit')
-                : props.started
+                : awaitingSend
+                  ? t('kitchen.home.cta.review')
+                  : props.started
                   ? t('kitchen.home.cta.continue').replace('{step}', props.stepLabel ?? '')
                   : t('kitchen.home.cta.start')}
             </Button>
 
             {props.briefId ? (
               <p className="mt-3 text-center text-[0.6875rem] text-muted-foreground">
-                {t('kitchen.home.editNote').replace('{maker}', makerLabel)}
+                {t('kitchen.home.editNote')}
               </p>
             ) : (
               <p className="mt-3 text-center text-[0.6875rem] text-muted-foreground">

@@ -1,8 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Download, Sparkles, AlertCircle, Hammer } from 'lucide-react'
+import { ArrowLeft, Download, Eye, ListChecks, Send, Sparkles, AlertCircle, Hammer } from 'lucide-react'
 import type {
   ClientMessage,
   ConceptVisualRef,
@@ -36,6 +36,8 @@ import { useTranslations, type TranslationKey } from '@/lib/i18n'
 import { FloorPlanStatic } from './FloorPlanStatic'
 import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
 import { mintBriefId } from '@/lib/handoff/brief-id'
+import { customerEstimate, estimateFromBuild } from '@/lib/handoff/estimate'
+import { reviewState, sendOffer } from '@/lib/handoff/review'
 import { contactChannels } from '@/lib/contact'
 import { cn } from '@/lib/utils'
 
@@ -47,9 +49,15 @@ interface WrapUpScreenProps {
   /** Ties the brief to its project, and so to a maker. Without it the brief is
    *  ownerless and nobody — not even the maker who asked for it — can open it. */
   projectId?: string
-  /** True when this project already has a brief with the maker. Submitting is
-   *  then an explicit act, not something that happens by arriving here. */
-  hasExistingBrief?: boolean
+  /**
+   * The project's current brief: the one the page loaded with, or one sent
+   * from this screen in this visit. With it the review knows whether it IS
+   * the brief the maker has (nothing to send) or a newer one (send the
+   * changes). Absent: nothing has gone out yet.
+   */
+  onFileBriefId?: string | null
+  /** The maker closed the project (IMP-03): the handoff refuses a send, so none is offered. */
+  closed?: boolean
   /** Runs before the brief is sent — the intake flushes its pending save and
    *  hands back the image-free snapshot the brief is built from, which the
    *  submit stores as the project's copy (lib/project/submit-snapshot), so the
@@ -59,13 +67,17 @@ interface WrapUpScreenProps {
   /** Back to the builder, for a homeowner who skipped it and so has no range.
    *  Absent where nobody may edit (the maker looking in). */
   onOpenBuilder?: () => void
-  /** Called once this screen has saved a brief, so the intake knows one went
-   *  out in this visit and the next send is an explicit act, not a mount. */
-  onSent?: () => void
+  /** Called with the brief's id once a send from this screen has saved it, so
+   *  the intake knows which brief the maker has now. */
+  onSent?: (briefId: string) => void
   /** The maker's display name, for "a range {maker} confirms". Absent → "your maker". */
   makerName?: string | null
   /** True when the viewer is the maker looking in at their customer's kitchen.
-   *  Only changes the back link's words: nothing on this screen is maker-only. */
+   *  Sending is the customer's act (/api/handoff answers the maker 404), so a
+   *  read-only wrap-up never sends — there is no send control at all — and
+   *  says where the brief got to instead. The header and the back link are
+   *  worded for the maker (no homeowner thank-you, no "fix anything"); nothing
+   *  on this screen is maker-only. */
   readOnly?: boolean
 }
 
@@ -78,13 +90,22 @@ function listSummary(items: { trade: string }[] | undefined): string | null {
   return items.map((i) => i.trade).join(' · ')
 }
 
+/**
+ * The wrap-up is a review (IMP-07, Pattern C: "Here's what I'll send to your
+ * maker. Anything I got wrong?"). Arriving here sends nothing: there is no
+ * effect in this component at all. The brief leaves only when the homeowner
+ * presses "Pošalji izrađivaču" (or, once the maker has an earlier version,
+ * "Pošalji izmjene"); the range shown before that is priced from the build by
+ * the same function the handoff uses (lib/handoff/estimate).
+ */
 export function WrapUpScreen({
   data,
   profile,
   explorationRefs,
   transcript,
   projectId,
-  hasExistingBrief = false,
+  onFileBriefId = null,
+  closed = false,
   beforeSubmit,
   onOpenBuilder,
   onSent,
@@ -93,13 +114,21 @@ export function WrapUpScreen({
 }: WrapUpScreenProps) {
   const { t, tDynamic: td, locale } = useTranslations()
   const contact = contactChannels(profile)
+  // The send's response. Null until the homeowner sends from this screen.
   const [bundle, setBundle] = useState<HandoffBundle | null>(null)
   const [bundleError, setBundleError] = useState<TranslationKey | null>(null)
-  // Only "loading" when we are about to submit on mount; on a revisit there
-  // is nothing in flight until the customer asks for it.
-  const [isLoadingBundle, setIsLoadingBundle] = useState(!hasExistingBrief)
+  const [isSending, setIsSending] = useState(false)
   const [isExporting, setIsExporting] = useState(false)
   const [exportError, setExportError] = useState<TranslationKey | null>(null)
+
+  // What this review is and what it may send (lib/handoff/review): the first
+  // send, the changes, or nothing — the maker looking in, the brief the maker
+  // already has, a send already made here, a project the maker closed.
+  const state = reviewState({ readOnly, onFileBriefId, reviewBriefId: data.briefId })
+  const isClosed = closed || bundleError === 'api.error.closed'
+  const offer = sendOffer(state, { sentNow: bundle !== null, closed: isClosed })
+  // Heads its sentence ("{maker} dobiva sažetak…"), so the fallback is capitalised.
+  const makerLabel = makerName?.trim() || t('kitchen.home.yourMaker')
 
   const plan = planFromProfile(profile)
   const showPlan = hasPlan(profile) && plan !== null
@@ -139,24 +168,30 @@ export function WrapUpScreen({
   }
   const styles = profile.stylePreferences?.map(styleLabel).join(', ') || null
 
-  // Wrap-up renders after the flow completes, so the bundle inputs are frozen —
-  // loadBundle captures them once (deps []) and is reused for the manual retry.
-  // Single-flight: the mount effect double-fires under React StrictMode (dev),
-  // which persisted TWO briefs per submit. The ref makes a retry explicit.
+  // Single-flight: a double click must not send twice. (The id below makes a
+  // repeat harmless on the server too; this keeps it from being made at all.)
   const inflight = useRef(false)
-  // The id this send saves under. The submit minted it into the snapshot, so a
-  // remount — or a retry after a lost response — repeats the SAME send and the
-  // server hands back the brief it already made. Only the explicit re-submit
-  // below mints a new one: that one is meant to be a new brief.
-  const sendId = useRef<string | undefined>(data.briefId)
-  const loadBundle = useCallback(async () => {
-    if (inflight.current) return
+  // The id a review from before IMP-06 sends under — it carries none. Minted
+  // on the first press, so a retry after a lost response repeats the SAME send
+  // and the server hands back the brief it already made.
+  const legacyId = useRef<string | null>(null)
+
+  /**
+   * The ONLY way a brief leaves this screen: the homeowner presses send. It
+   * saves under the review's own id (minted when the review was built, saved
+   * in the snapshot by the flush below), so a retry, or the same review sent
+   * from a second tab, finds the brief it already made instead of inserting a
+   * second one and emailing the maker again.
+   */
+  async function sendBrief() {
+    if (!offer || inflight.current) return
     inflight.current = true
-    setIsLoadingBundle(true)
+    setIsSending(true)
     setBundleError(null)
     try {
       // A failed save must never stop the brief.
       const extras = (await beforeSubmit?.().catch(() => undefined)) || undefined
+      if (!data.briefId && !legacyId.current) legacyId.current = mintBriefId()
       const res = await fetch('/api/handoff', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -167,44 +202,24 @@ export function WrapUpScreen({
           transcript,
           locale,
           projectId,
-          briefId: sendId.current,
+          briefId: data.briefId ?? legacyId.current,
           snapshot: extras?.snapshot,
           snapshotClaim: extras?.snapshotClaim,
         }),
       })
-      const data = await readJson<HandoffBundle & { code?: string }>(res)
-      if (!res.ok || data.error) {
-        throw new ApiError(data.error ?? `Bundle build failed (${res.status})`, res.status, data.code)
+      const sent = await readJson<HandoffBundle & { code?: string }>(res)
+      if (!res.ok || sent.error) {
+        throw new ApiError(sent.error ?? `Bundle build failed (${res.status})`, res.status, sent.code)
       }
-      setBundle(data)
-      if (data.briefId) onSent?.()
+      setBundle(sent)
+      if (sent.briefId) onSent?.(sent.briefId)
     } catch (err) {
       console.warn('[handoff]', err)
       setBundleError(apiErrorKey(err, 'wrapup.error.bundle'))
     } finally {
       inflight.current = false
-      setIsLoadingBundle(false)
+      setIsSending(false)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    // Submitting on mount is right the FIRST time — the homeowner has just
-    // finished and the brief is the point of the whole journey.
-    //
-    // It is wrong on every visit after that. Once a project has a brief, simply
-    // navigating back to this screen would insert another one and email the
-    // maker again, every time. So a re-submit is an explicit act: the button
-    // below. (The inflight ref only ever guarded StrictMode's double-fire
-    // within one mount; it cannot help across visits.)
-    if (hasExistingBrief) return
-    void loadBundle()
-  }, [loadBundle, hasExistingBrief])
-
-  /** An explicit re-submit is a NEW brief, so it gets a new id. */
-  function resubmit() {
-    sendId.current = mintBriefId()
-    void loadBundle()
   }
 
   async function downloadHandoff() {
@@ -231,10 +246,17 @@ export function WrapUpScreen({
     }
   }
 
-  const estimate = bundle?.estimate
-  // The range is priced from the build alone. No build, no range — say how to
-  // get one rather than showing a number made of nothing.
+  // The range is priced from the build alone, before anything is sent — the
+  // same function the handoff prices with, without the maker-only money. No
+  // build, no range — say how to get one rather than showing a number made of
+  // nothing. After a send, the figures the brief stored.
+  const preview = useMemo(() => customerEstimate(estimateFromBuild(profile)), [profile])
+  const estimate = bundle?.estimate ?? preview
   const noBuild = !profile.builderState
+  // The maker has this review (sent from here, or the brief on file).
+  const done = bundle !== null || state === 'sent'
+  // The brief "Što slijedi" refers to: this send's, or the one on file.
+  const briefRef = bundle ? bundle.briefId : data.briefId
 
   return (
     <motion.div
@@ -243,13 +265,41 @@ export function WrapUpScreen({
       transition={{ duration: 0.5, ease: 'easeOut' }}
       className="flex flex-col gap-7 py-4"
     >
+      {/* The header speaks to whoever is looking. The homeowner: their brief,
+          to review before it goes — a check only once the maker has it. The
+          maker looking in: what this is, the customer's own view, to look at
+          (never the homeowner's thank-you or "fix anything"). */}
       <div className="text-center">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-2xl text-primary-foreground">
-          ✓
-        </div>
-        <h2 className="text-2xl font-semibold text-foreground">{t('wrapup.title')}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{data.thankYouMessage}</p>
-        <p className="text-xs text-muted-foreground/70">{t('wrapup.review')}</p>
+        {readOnly ? (
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <Eye className="size-6 stroke-[1.75]" aria-hidden />
+          </div>
+        ) : done ? (
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-2xl text-primary-foreground">
+            ✓
+          </div>
+        ) : (
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <ListChecks className="size-6 stroke-[1.75]" aria-hidden />
+          </div>
+        )}
+        <h2 className="text-2xl font-semibold text-foreground">
+          {t(readOnly ? 'wrapup.readOnly.title' : 'wrapup.title')}
+        </h2>
+        {readOnly ? (
+          <p className="mt-1 text-sm text-muted-foreground">{t('wrapup.readOnly.lede')}</p>
+        ) : (
+          <>
+            <p className="mt-1 text-sm text-muted-foreground">{data.thankYouMessage}</p>
+            {offer ? (
+              <p className="text-xs text-muted-foreground/70">{t('wrapup.review')}</p>
+            ) : state === 'sent' && !bundle ? (
+              <p className="text-xs text-muted-foreground/70" data-sent-line>
+                {t('wrapup.sent.line').replace('{maker}', makerLabel)}
+              </p>
+            ) : null}
+          </>
+        )}
       </div>
 
       {/* Estimate — always a range, never a quote, and only ever from the
@@ -259,13 +309,19 @@ export function WrapUpScreen({
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t('wrapup.estimate.title')}
           </p>
-          {estimate && (
+          {!readOnly && !noBuild && estimate && (
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
               {t('wrapup.estimate.bomBadge')}
             </span>
           )}
         </div>
-        {noBuild ? (
+        {readOnly ? (
+          // The maker looking in: nothing is sent or priced from here, so no
+          // "send the changes" either — just where the brief got to.
+          <p className="text-sm text-muted-foreground" data-readonly-status>
+            {t(onFileBriefId ? 'wrapup.readOnly.sent' : 'wrapup.readOnly.notSent')}
+          </p>
+        ) : noBuild ? (
           <>
             <p className="text-sm text-foreground">{t('wrapup.estimate.noBuild')}</p>
             {onOpenBuilder && (
@@ -279,51 +335,27 @@ export function WrapUpScreen({
               </button>
             )}
           </>
-        ) : isLoadingBundle ? (
-          <p className="text-sm text-muted-foreground">{t('wrapup.estimate.loading')}</p>
         ) : estimate ? (
           <WrapUpEstimate estimate={estimate} makerName={makerName} />
-        ) : hasExistingBrief && !bundle ? (
-          // Built, not sent yet: the maker's copy is older than this build.
-          <p className="text-sm text-muted-foreground">{t('wrapup.estimate.afterResend')}</p>
-        ) : (
-          <p className="text-sm text-muted-foreground">{t('wrapup.estimate.unavailable')}</p>
-        )}
+        ) : null}
       </section>
 
-      {/* Re-submit, explicitly. The maker already has a brief for this kitchen;
-          sending changes is a decision the customer makes, not a side effect of
-          landing on this screen. */}
-      {hasExistingBrief && !bundle && (
-        <section className="rounded-2xl border border-border bg-card p-5 text-left shadow-sm">
-          <p className="mb-1 text-sm font-medium text-foreground">{t('wrapup.resubmit.title')}</p>
-          <p className="mb-3 text-xs leading-relaxed text-muted-foreground">{t('wrapup.resubmit.body')}</p>
-          <button
-            type="button"
-            onClick={resubmit}
-            disabled={isLoadingBundle}
-            className="w-full rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {isLoadingBundle ? t('wrapup.resubmit.sending') : t('wrapup.resubmit.cta')}
-          </button>
-        </section>
-      )}
-
       {/* What happens next — status visibility is a P0 (AGENTS.md rule 8).
-          Honest about persistence: only claims "saved" when the server said so. */}
-      {!isLoadingBundle && bundle && (
-        <section className="rounded-2xl border border-border bg-card p-5 text-left shadow-sm">
+          Only once the maker has this brief, and honest about persistence:
+          "sent" only when the server said so. */}
+      {done && (
+        <section className="rounded-2xl border border-border bg-card p-5 text-left shadow-sm" data-next>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t('wrapup.next.title')}
           </p>
-          {bundle.briefId ? (
+          {briefRef ? (
             <ul className="space-y-1.5 text-sm text-foreground/85">
               <li>{t('wrapup.next.saved')}</li>
               {contact.length > 0 && (
                 <li>{t('wrapup.next.contact').replace('{contact}', contact.join(` ${t('common.or')} `))}</li>
               )}
               <li className="font-mono text-[11px] text-muted-foreground">
-                {t('wrapup.next.ref').replace('{id}', bundle.briefId.slice(0, 8))}
+                {t('wrapup.next.ref').replace('{id}', briefRef.slice(0, 8))}
               </li>
             </ul>
           ) : (
@@ -331,7 +363,6 @@ export function WrapUpScreen({
           )}
         </section>
       )}
-
       {/* Chosen concept render */}
       {chosenRender && (
         <SectionWithFix
@@ -538,31 +569,59 @@ export function WrapUpScreen({
         </section>
       )}
 
+      {/* Send — after the whole brief, so it is read first (Pattern C). The
+          one control on this screen that reaches the maker. */}
+      {(offer || bundleError) && (
+        <section
+          className="rounded-2xl border border-primary/30 bg-primary/5 p-5 text-left shadow-sm"
+          data-send={offer ?? undefined}
+        >
+          {offer && (
+            <>
+              <p className="text-sm font-semibold text-foreground">
+                {t(offer === 'first' ? 'wrapup.send.title' : 'wrapup.changes.title')}
+              </p>
+              <p className="mb-3 mt-1 text-xs leading-relaxed text-muted-foreground">
+                {t(offer === 'first' ? 'wrapup.send.body' : 'wrapup.changes.body').replace('{maker}', makerLabel)}
+              </p>
+              <button
+                type="button"
+                onClick={() => void sendBrief()}
+                disabled={isSending}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60"
+              >
+                <Send className="size-4 stroke-[1.75]" aria-hidden />
+                {isSending ? t('wrapup.send.sending') : t(offer === 'first' ? 'wrapup.send.cta' : 'wrapup.changes.cta')}
+              </button>
+            </>
+          )}
+          {/* A failed send keeps the button above: pressing it again is the
+              retry, under the same id. A closed project (409) keeps only the
+              line — nothing can be sent there any more. */}
+          {bundleError && (
+            <p role="alert" className={cn('text-xs font-medium text-destructive', offer && 'mt-3')}>
+              {t(bundleError)}
+            </p>
+          )}
+        </section>
+      )}
+
       {/* Actions */}
       <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={downloadHandoff}
-          disabled={isExporting || !bundle}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-accent/40 disabled:opacity-60"
-        >
-          <Download className="size-4 stroke-[1.75]" aria-hidden />
-          {isExporting ? t('wrapup.actions.preparing') : t('wrapup.actions.download')}
-        </button>
-        {exportError && <p className="text-xs font-medium text-destructive">{t(exportError)}</p>}
-        {bundleError && (
-          <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-destructive">
-            <span>{t(bundleError)}</span>
-            <button
-              type="button"
-              onClick={() => void loadBundle()}
-              disabled={isLoadingBundle}
-              className="rounded-full border border-destructive/40 px-3 py-1 font-semibold transition-colors hover:bg-destructive/10 disabled:opacity-50"
-            >
-              {t('common.retry')}
-            </button>
-          </div>
+        {/* The download is the brief the maker received, so it exists only
+            once there is one; the maker looking in gets none. */}
+        {!readOnly && bundle && (
+          <button
+            type="button"
+            onClick={downloadHandoff}
+            disabled={isExporting}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-accent/40 disabled:opacity-60"
+          >
+            <Download className="size-4 stroke-[1.75]" aria-hidden />
+            {isExporting ? t('wrapup.actions.preparing') : t('wrapup.actions.download')}
+          </button>
         )}
+        {exportError && <p className="text-xs font-medium text-destructive">{t(exportError)}</p>}
 
         {/* Back to the kitchen home, which says where the brief got to. No
             link into the maker's side and no maker demo (IMP-05): this screen

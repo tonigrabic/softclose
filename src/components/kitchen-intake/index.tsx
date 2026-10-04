@@ -81,6 +81,7 @@ import { decorProfileHints } from '@/lib/api/decor-profile-hints'
 import { roomConstraintsFor } from '@/lib/render/room-constraints'
 import { contactChannels } from '@/lib/contact'
 import { mintBriefId } from '@/lib/handoff/brief-id'
+import { briefPrint, keepsReview } from '@/lib/handoff/review'
 
 /** Sign-off timestamp, read through a module-level helper so the React purity
  * lint doesn't flag `Date.now()` in the component's event handlers. */
@@ -116,8 +117,11 @@ export interface KitchenIntakeProps {
   /** True when the viewer is the maker looking in. The brief's whole value is
    *  that it is the homeowner's own answers, so the maker never writes to it. */
   readOnly?: boolean
-  /** The project already has a brief: re-submitting becomes explicit. */
-  hasExistingBrief?: boolean
+  /** The project's current brief, from the page load. The review compares
+   *  itself with it: the brief the maker already has is not sent again. */
+  currentBriefId?: string | null
+  /** The maker closed the project (IMP-03): the review offers no send. */
+  closed?: boolean
   /**
    * The journey as the server last saw it. Image-free by design (checkpoints
    * strip inline images), so it restores everything structural and nothing
@@ -140,7 +144,8 @@ export function KitchenIntake({
   makerName,
   initialRevision = 0,
   readOnly = false,
-  hasExistingBrief = false,
+  currentBriefId = null,
+  closed = false,
   initialSnapshot = null,
   customerEmail = null,
   customerName = null,
@@ -154,10 +159,10 @@ export function KitchenIntake({
   const [transcript, setTranscript] = useState<ClientMessage[]>([])
   const [isDone, setIsDone] = useState(false)
   const [wrapUpData, setWrapUpData] = useState<WrapUpData | null>(null)
-  // A brief went out during this visit. hasExistingBrief comes from the page
-  // load, so without this a return to the builder after sending would make the
-  // next wrap-up send again on mount — a second brief and a second email.
-  const [sentInSession, setSentInSession] = useState(false)
+  // The brief sent from the review in this visit. currentBriefId comes from
+  // the page load, so without this a return to the review after sending would
+  // offer to send the very brief the maker just got.
+  const [sentBriefId, setSentBriefId] = useState<string | null>(null)
   const [isFinalising, setIsFinalising] = useState(false)
   const [finaliseError, setFinaliseError] = useState<string | null>(null)
 
@@ -849,10 +854,16 @@ export function KitchenIntake({
     await finalise(patch)
   }
 
-  /** Wrap-up: apply final patch, fetch summary, mark done. */
+  /**
+   * Into the review: apply the final patch, fetch the summary, mark done.
+   * Nothing is sent from here — the review sends only on its button (IMP-07).
+   *
+   * A walk back through the steps that changed nothing keeps the review as it
+   * was, brief id and summary included (lib/handoff/review): the review then
+   * IS the brief the maker has, and offers no send. Anything else is a new
+   * brief, so it gets a new id — minted here, and only here.
+   */
   async function finalise(extraPatch: Partial<LeadProfile> = {}) {
-    setIsFinalising(true)
-    setFinaliseError(null)
     const finalProfile = {
       ...profile,
       ...extraPatch,
@@ -860,6 +871,15 @@ export function KitchenIntake({
       ...(chosenRenderId ? { conceptRenderChosenId: chosenRenderId } : {}),
       ...(conceptRenders.length > 0 ? { conceptRenders } : {}),
     }
+    const print = briefPrint(finalProfile)
+    if (keepsReview(wrapUpData, print)) {
+      setProfile(finalProfile)
+      setFinaliseError(null)
+      setIsDone(true)
+      return
+    }
+    setIsFinalising(true)
+    setFinaliseError(null)
     try {
       const res = await fetch('/api/summarize-brief', {
         method: 'POST',
@@ -876,6 +896,7 @@ export function KitchenIntake({
         thankYouMessage: summary.thankYouMessage,
         summaryLines: summary.summaryLines,
         briefId: mintBriefId(),
+        profilePrint: print,
       })
       setIsDone(true)
     } catch (err) {
@@ -886,6 +907,7 @@ export function KitchenIntake({
           .replace('{name}', finalProfile.name ? `, ${finalProfile.name}` : ''),
         summaryLines: buildFallbackSummary(finalProfile, locale),
         briefId: mintBriefId(),
+        profilePrint: print,
       })
       setFinaliseError(err instanceof Error ? err.message : 'Summary unavailable')
       setIsDone(true)
@@ -1090,24 +1112,32 @@ export function KitchenIntake({
           projectId={projectId}
           makerName={makerName}
           readOnly={readOnly}
-          hasExistingBrief={hasExistingBrief || sentInSession}
-          beforeSubmit={async () => {
-            // The submit stores this snapshot as the project's copy itself, in
-            // the update that stamps the brief's time (lib/project/
-            // submit-snapshot), so the copy always matches the brief and a
-            // save that lands late cannot flag it as changed. The flush is a
-            // head start: landed, the route has nothing to write. Not landed,
-            // the client is told the server copy will be this snapshot — and
-            // the route stores it only over a copy the claim says is this
-            // tab's. Halted on another device's write, there is no claim and
-            // no snapshot: the brief leaves that device's copy alone.
-            if (!projectId || readOnly) return
-            await flushCheckpoint(snapshot)
-            const snapshotClaim = checkpointSubmitting(snapshot)
-            if (!snapshotClaim) return
-            return { snapshot: submitSnapshotFrom(snapshot) ?? undefined, snapshotClaim }
-          }}
-          onSent={() => setSentInSession(true)}
+          closed={closed}
+          onFileBriefId={sentBriefId ?? currentBriefId}
+          // The maker looking in never sends, so there is nothing to flush
+          // before a send and no send to remember.
+          beforeSubmit={
+            readOnly
+              ? undefined
+              : async () => {
+                  // The submit stores this snapshot as the project's copy
+                  // itself, in the update that stamps the brief's time (lib/
+                  // project/submit-snapshot), so the copy always matches the
+                  // brief and a save that lands late cannot flag it as
+                  // changed. The flush is a head start: landed, the route has
+                  // nothing to write. Not landed, the client is told the
+                  // server copy will be this snapshot — and the route stores
+                  // it only over a copy the claim says is this tab's. Halted
+                  // on another device's write, there is no claim and no
+                  // snapshot: the brief leaves that device's copy alone.
+                  if (!projectId) return
+                  await flushCheckpoint(snapshot)
+                  const snapshotClaim = checkpointSubmitting(snapshot)
+                  if (!snapshotClaim) return
+                  return { snapshot: submitSnapshotFrom(snapshot) ?? undefined, snapshotClaim }
+                }
+          }
+          onSent={readOnly ? undefined : setSentBriefId}
           onOpenBuilder={
             readOnly
               ? undefined
@@ -1290,7 +1320,7 @@ export function KitchenIntake({
                   onStartWithAI={() => void loadHypothesis()}
                   onStartWithoutAI={() => setBuilderStartedNoAI(true)}
                   onSkip={() => {
-                    logTurn('user', 'Skipped the builder — sending minimal brief.')
+                    logTurn('user', 'Skipped the builder — a brief without a range.')
                     goNext()
                   }}
                 />
@@ -1906,7 +1936,8 @@ function FooterNav({
 }) {
   const { t } = useTranslations()
   // Per-step continue gating + label.
-  const ctaLabel = stepId === 'contact' ? t('nav.send') : t('nav.continue')
+  // Contact's Continue opens the review; nothing is sent from a step (IMP-07).
+  const ctaLabel = stepId === 'contact' ? t('nav.review') : t('nav.continue')
 
   const canContinue = (() => {
     switch (stepId) {
