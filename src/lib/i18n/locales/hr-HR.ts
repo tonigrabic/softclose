@@ -901,6 +901,9 @@ export const hrHR = {
     'Tvoj izrađivač već ima sažetak ove kuhinje. Pošalji izmjene i dobit će obavijest da si nešto promijenio.',
   'wrapup.resubmit.cta': 'Pošalji izmjene',
   'wrapup.resubmit.sending': 'Šaljem…',
+  // The maker looking in at the wrap-up: sending is the customer's act.
+  'wrapup.readOnly.notSent': 'Kupac još nije poslao sažetak.',
+  'wrapup.readOnly.sent': 'Kupac je poslao sažetak — otvori ga s popisa.',
   'auth.logout': 'Odjava',
   'readback.led.yes': 'LED rasvjeta',
   'readback.led.no': 'Bez LED rasvjete',

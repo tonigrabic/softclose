@@ -62,7 +62,10 @@ interface WrapUpScreenProps {
   /** The maker's display name, for "a range {maker} confirms". Absent → "your maker". */
   makerName?: string | null
   /** True when the viewer is the maker looking in at their customer's kitchen.
-   *  Only changes the back link's words: nothing on this screen is maker-only. */
+   *  Sending is the customer's act (/api/handoff answers the maker 404), so a
+   *  read-only wrap-up never sends — not on mount, not on a button — and says
+   *  where the brief got to instead. The back link is worded for the maker;
+   *  nothing on this screen is maker-only. */
   readOnly?: boolean
 }
 
@@ -93,8 +96,9 @@ export function WrapUpScreen({
   const [bundle, setBundle] = useState<HandoffBundle | null>(null)
   const [bundleError, setBundleError] = useState<TranslationKey | null>(null)
   // Only "loading" when we are about to submit on mount; on a revisit there
-  // is nothing in flight until the customer asks for it.
-  const [isLoadingBundle, setIsLoadingBundle] = useState(!hasExistingBrief)
+  // is nothing in flight until the customer asks for it, and for the maker
+  // looking in there never is.
+  const [isLoadingBundle, setIsLoadingBundle] = useState(!readOnly && !hasExistingBrief)
   const [isExporting, setIsExporting] = useState(false)
   const [exportError, setExportError] = useState<TranslationKey | null>(null)
 
@@ -147,7 +151,9 @@ export function WrapUpScreen({
   // below mints a new one: that one is meant to be a new brief.
   const sendId = useRef<string | undefined>(data.briefId)
   const loadBundle = useCallback(async () => {
-    if (inflight.current) return
+    // The maker looking in never sends: every path to the POST (mount, retry,
+    // re-submit) comes through here.
+    if (readOnly || inflight.current) return
     inflight.current = true
     setIsLoadingBundle(true)
     setBundleError(null)
@@ -192,9 +198,12 @@ export function WrapUpScreen({
     // maker again, every time. So a re-submit is an explicit act: the button
     // below. (The inflight ref only ever guarded StrictMode's double-fire
     // within one mount; it cannot help across visits.)
-    if (hasExistingBrief) return
+    //
+    // And it is never right for the maker looking in: the brief is the
+    // customer's to send, and the handoff refuses anyone else.
+    if (readOnly || hasExistingBrief) return
     void loadBundle()
-  }, [loadBundle, hasExistingBrief])
+  }, [loadBundle, hasExistingBrief, readOnly])
 
   /** An explicit re-submit is a NEW brief, so it gets a new id. */
   function resubmit() {
@@ -260,7 +269,13 @@ export function WrapUpScreen({
             </span>
           )}
         </div>
-        {noBuild ? (
+        {readOnly ? (
+          // The maker looking in: nothing is sent or priced from here, so no
+          // "send the changes" either — just where the brief got to.
+          <p className="text-sm text-muted-foreground" data-readonly-status>
+            {t(hasExistingBrief ? 'wrapup.readOnly.sent' : 'wrapup.readOnly.notSent')}
+          </p>
+        ) : noBuild ? (
           <>
             <p className="text-sm text-foreground">{t('wrapup.estimate.noBuild')}</p>
             {onOpenBuilder && (
@@ -288,8 +303,9 @@ export function WrapUpScreen({
 
       {/* Re-submit, explicitly. The maker already has a brief for this kitchen;
           sending changes is a decision the customer makes, not a side effect of
-          landing on this screen. */}
-      {hasExistingBrief && !bundle && (
+          landing on this screen. Never the maker's: the brief is the customer's
+          to send. */}
+      {!readOnly && hasExistingBrief && !bundle && (
         <section className="rounded-2xl border border-border bg-card p-5 text-left shadow-sm">
           <p className="mb-1 text-sm font-medium text-foreground">{t('wrapup.resubmit.title')}</p>
           <p className="mb-3 text-xs leading-relaxed text-muted-foreground">{t('wrapup.resubmit.body')}</p>
@@ -535,15 +551,19 @@ export function WrapUpScreen({
 
       {/* Actions */}
       <div className="flex flex-col gap-2">
-        <button
-          type="button"
-          onClick={downloadHandoff}
-          disabled={isExporting || !bundle}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-accent/40 disabled:opacity-60"
-        >
-          <Download className="size-4 stroke-[1.75]" aria-hidden />
-          {isExporting ? t('wrapup.actions.preparing') : t('wrapup.actions.download')}
-        </button>
+        {/* The download is the bundle a send returns. The maker looking in
+            never sends, so for them it would be a button that never wakes. */}
+        {!readOnly && (
+          <button
+            type="button"
+            onClick={downloadHandoff}
+            disabled={isExporting || !bundle}
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card px-5 py-3 text-sm font-semibold text-foreground shadow-sm transition-colors hover:bg-accent/40 disabled:opacity-60"
+          >
+            <Download className="size-4 stroke-[1.75]" aria-hidden />
+            {isExporting ? t('wrapup.actions.preparing') : t('wrapup.actions.download')}
+          </button>
+        )}
         {exportError && <p className="text-xs font-medium text-destructive">{t(exportError)}</p>}
         {bundleError && (
           <div className="flex flex-wrap items-center gap-3 text-xs font-medium text-destructive">

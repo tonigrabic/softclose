@@ -874,6 +874,9 @@ export const enUS: Record<TranslationKey, string> = {
     'Your maker already has a brief for this kitchen. Send your changes and they will be told something moved.',
   'wrapup.resubmit.cta': 'Send the changes',
   'wrapup.resubmit.sending': 'Sending…',
+  // The maker looking in at the wrap-up: sending is the customer's act.
+  'wrapup.readOnly.notSent': "The customer hasn't sent the brief yet.",
+  'wrapup.readOnly.sent': 'The customer has sent the brief — open it from your list.',
   'auth.logout': 'Sign out',
   'readback.led.yes': 'LED lighting',
   'readback.led.no': 'No LED lighting',
