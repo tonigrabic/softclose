@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from 'react'
 import { createDebouncer, type DebouncedFn, type Debouncer } from './debounce'
+import { subscribePageHide } from './page-hide'
 
 export interface DebouncedCallbackOptions {
   /** Fire a pending call when the owner unmounts, instead of dropping it. */
   flushOnUnmount?: boolean
   /**
-   * Fire a pending call when the tab is hidden or the page is left — a reload
-   * or a closing tab inside the window would otherwise lose it.
+   * Fire a pending call (cause `hide`) when the tab is hidden or the page is
+   * left. The fire itself is synchronous; on a reload or a closed tab only the
+   * callee's synchronous work survives (see lib/page-hide.ts), so a callee
+   * that must survive those writes something synchronous there.
    */
   flushOnPageHide?: boolean
 }
@@ -47,21 +50,10 @@ export function useDebouncedCallback<A extends unknown[]>(
 
   useEffect(() => {
     if (!flushOnPageHide) return
-    // `visibilitychange` (hidden) is the reliable signal on mobile; `pagehide`
-    // covers a desktop reload or close that skips it. Whichever comes second
-    // finds nothing pending. Not `beforeunload`: it disables the bfcache.
-    const onVisibility = () => {
-      if (document.visibilityState === 'hidden') debouncer.flush('hide')
-    }
-    const onPageHide = () => {
+    // Whichever of visibilitychange / pagehide comes second finds nothing pending.
+    return subscribePageHide(() => {
       debouncer.flush('hide')
-    }
-    document.addEventListener('visibilitychange', onVisibility)
-    window.addEventListener('pagehide', onPageHide)
-    return () => {
-      document.removeEventListener('visibilitychange', onVisibility)
-      window.removeEventListener('pagehide', onPageHide)
-    }
+    })
   }, [debouncer, flushOnPageHide])
 
   return debouncer

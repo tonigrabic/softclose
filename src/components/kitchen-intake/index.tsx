@@ -43,6 +43,8 @@ import { clearSnapshot, loadSnapshot, saveSnapshot, type StoredSnapshot } from '
 import type { ProjectSnapshot as IntakeSnapshot } from '@/lib/project/snapshot'
 import { useProjectCheckpoint } from './useProjectCheckpoint'
 import { useDebouncedCallback } from '@/lib/use-debounced-callback'
+import { subscribePageHide } from '@/lib/page-hide'
+import { createBuilderUnloadGuard, pendingBuilderKey } from '@/lib/builder/unload-save'
 import type { UploadedReference } from './ImageSelect'
 import type { FloorPlan } from '@/lib/floor-plan'
 import {
@@ -229,16 +231,44 @@ export function KitchenIntake({
   const [initialFingerprint] = useState(() =>
     initialSnapshot ? snapshotFingerprint(stripImages(initialSnapshot)) : null
   )
-  const checkpoint = useProjectCheckpoint({
+  // Both stable for the component's life, so the save effect below runs per
+  // snapshot, not per render.
+  const { queue: queueCheckpoint, flush: flushCheckpoint } = useProjectCheckpoint({
     projectId: readOnly ? undefined : projectId,
     initialRevision,
     initialFingerprint,
   })
 
+  // The builder's last change, held in localStorage from the moment the page
+  // is hidden or left until an IndexedDB write that holds it lands (IMP-06).
+  // An IndexedDB write started while the page is being left never lands, so
+  // without it a reload or a closed tab within a second of a pick, a Continue
+  // or a paid re-render brought back the build from before it.
+  const [builderGuard] = useState(() => {
+    let storage: Storage | null = null
+    try {
+      storage = typeof window === 'undefined' ? null : window.localStorage
+    } catch {
+      storage = null // blocked storage: the guard is a no-op, IndexedDB still saves
+    }
+    return createBuilderUnloadGuard(storage, pendingBuilderKey(projectId))
+  })
+  // Set when the next snapshot must reach IndexedDB at once rather than after
+  // the 800 ms debounce: a builder change (already debounced by the builder),
+  // or a restore that merged one in.
+  const localSaveNow = useRef(false)
+  // The restored journey had the unload record merged in (see adoptMergedBuild).
+  const mergedOffer = useRef(false)
+  useEffect(() => subscribePageHide(() => builderGuard.writeNow()), [builderGuard])
+
   useEffect(() => {
     let cancelled = false
-    void loadSnapshot<IntakeSnapshot>(projectId).then((rec) => {
+    void loadSnapshot<IntakeSnapshot>(projectId).then((loaded) => {
       if (cancelled) return
+      // A builder change the last visit closed on, merged over the IndexedDB
+      // copy when it is newer (re-render pixels kept from either).
+      const { rec, merged } = builderGuard.restore(loaded)
+      mergedOffer.current = merged
       const d = rec?.data
       const worthResuming =
         d && (d.currentStepId !== 'space_photos' || Object.keys(d.profile ?? {}).length > 0 || d.spacePhotos?.length > 0)
@@ -253,8 +283,10 @@ export function KitchenIntake({
       // device there is no local copy, and the server snapshot restores
       // everything except the pictures.
       if (projectId) {
-        if (worthResuming) applySnapshot(d)
-        else if (initialSnapshot) applySnapshot(initialSnapshot)
+        if (worthResuming) {
+          applySnapshot(d)
+          if (merged) adoptMergedBuild(d)
+        } else if (initialSnapshot) applySnapshot(initialSnapshot)
       } else if (worthResuming) {
         setResumeOffer(rec)
       }
@@ -320,14 +352,31 @@ export function KitchenIntake({
     setBuilderGroupId(isBuilderScreenId(d.builderGroupId) ? d.builderGroupId : undefined)
   }
 
+  /**
+   * A restored journey with the unload record merged in is applied: track its
+   * build, so the record lives until IndexedDB holds it, and write it there
+   * at once rather than in 800 ms.
+   */
+  function adoptMergedBuild(d: IntakeSnapshot) {
+    const build = d.profile?.builderState as BuilderState | undefined
+    if (readOnly || !build || !isBuilderScreenId(d.builderGroupId)) return
+    builderGuard.track(build, d.builderGroupId)
+    localSaveNow.current = true
+  }
+
   function resumeSession() {
-    if (resumeOffer) applySnapshot(resumeOffer.data)
+    if (resumeOffer) {
+      applySnapshot(resumeOffer.data)
+      if (mergedOffer.current) adoptMergedBuild(resumeOffer.data)
+    }
     setResumeOffer(null)
     persistenceReady.current = true
   }
 
   function discardSavedSession() {
     void clearSnapshot(projectId)
+    builderGuard.clear()
+    localSaveNow.current = false
     setResumeOffer(null)
     persistenceReady.current = true
   }
@@ -378,12 +427,19 @@ export function KitchenIntake({
     snapshotRef.current = snapshot
   }, [snapshot])
 
-  // The local copy, debounced — and written through when the tab is hidden or
-  // left inside the window (IMP-06). On a reload the local copy wins over the
-  // server one, so a save still waiting here would bring back the journey from
-  // before the last change: a builder pick autosaved half a second ago, lost.
+  /** Write the local copy; a landed write tells the builder guard what IndexedDB now holds. */
+  function persistLocal(snap: IntakeSnapshot) {
+    void saveSnapshot(snap, projectId).then((ok) => {
+      if (ok) builderGuard.landed(snap)
+    })
+  }
+
+  // The local copy, debounced. The hide flush lands on a tab or app switch and
+  // on an in-app unmount; on a reload or a closed tab an IndexedDB write
+  // started that late is lost (lib/page-hide.ts) — the builder's last change
+  // is covered by builderGuard, the rest by the 800 ms window being short.
   const localSave = useDebouncedCallback(
-    (_cause, snap: IntakeSnapshot) => void saveSnapshot(snap, projectId),
+    (_cause, snap: IntakeSnapshot) => persistLocal(snap),
     800,
     { flushOnPageHide: true, flushOnUnmount: true }
   )
@@ -400,8 +456,12 @@ export function KitchenIntake({
       return
     }
     localSave.run(snapshot)
-    checkpoint.queue(snapshot)
-  }, [snapshot, checkpoint, localSave])
+    if (localSaveNow.current) {
+      localSaveNow.current = false
+      localSave.flush()
+    }
+    queueCheckpoint(snapshot)
+  }, [snapshot, queueCheckpoint, localSave])
 
   const resumeBanner = resumeOffer && !projectId ? (
     <div
@@ -438,25 +498,42 @@ export function KitchenIntake({
   }
 
   /**
+   * A build leaving the builder — an autosave, Continue out of it, the escape
+   * hatch — that the local copy does not hold yet. The guard keeps it for the
+   * page-hide record until its IndexedDB write lands, and that write goes out
+   * with the next snapshot instead of 800 ms later: the builder has already
+   * debounced it, so the local copy lands ~500 ms after the last pick.
+   */
+  function trackBuilder(builderState: BuilderState, groupId: BuilderScreenId) {
+    if (readOnly || !persistenceReady.current) return
+    builderGuard.track(builderState, groupId)
+    localSaveNow.current = true
+  }
+
+  /**
    * Builder autosave (IMP-06): the live build and its group ride the same
-   * snapshot as everything else — the 800 ms IndexedDB save (with the
-   * re-render pixels) and the server checkpoint (image-free).
+   * snapshot as everything else — the IndexedDB copy (with the re-render
+   * pixels) and the server checkpoint (image-free).
    *
-   * `urgent` means the tab is being hidden or left inside the builder's
-   * window. The render that would schedule the IndexedDB save may never
-   * happen then, and the checkpoint's own hide flush only holds the older
-   * snapshot — so the composed snapshot is written through here. `flush`, not
-   * `queue({ immediate })`: a send already on the wire would make the
-   * immediate send return early; flush waits it out and lands ours last.
+   * `urgent` means the tab is being hidden or left, or the builder unmounts,
+   * inside the builder's window. The render that would schedule the saves may
+   * never happen then. What survives a reload or a closed tab is the guard's
+   * synchronous localStorage record, so that is written first; the IndexedDB
+   * write and the checkpoint flush of the composed snapshot still go out, and
+   * land whenever the page lives on (a tab switch, an in-app unmount).
+   * `flush`, not `queue({ immediate })`: a send already on the wire would make
+   * the immediate send return early; flush waits it out and lands ours last.
    */
   function saveBuilderProgress(builderState: BuilderState, groupId: BuilderScreenId, { urgent }: { urgent: boolean }) {
     patchProfile({ builderState })
     setBuilderGroupId(groupId)
+    trackBuilder(builderState, groupId)
     if (!urgent || !persistenceReady.current) return
+    builderGuard.writeNow()
     const base = snapshotRef.current
     const next: IntakeSnapshot = { ...base, profile: { ...base.profile, builderState }, builderGroupId: groupId }
-    void saveSnapshot(next, projectId)
-    void checkpoint.flush(next)
+    persistLocal(next)
+    void flushCheckpoint(next)
   }
 
   /** Move to a specific step. */
@@ -622,7 +699,7 @@ export function KitchenIntake({
   /** "Nemaš metar? Spremi i nastavi kasnije" — says saved only when it was. */
   async function saveRoomForLater(): Promise<SaveLaterResult> {
     const local = await saveSnapshot(snapshot, projectId)
-    if (projectId && (await checkpoint.flush(snapshot))) return 'saved_project'
+    if (projectId && (await flushCheckpoint(snapshot))) return 'saved_project'
     return local ? 'saved_local' : 'failed'
   }
 
@@ -822,6 +899,8 @@ export function KitchenIntake({
    */
   function resetAll() {
     void clearSnapshot(projectId)
+    builderGuard.clear()
+    localSaveNow.current = false
     setState({ currentStepId: 'space_photos' })
     setProfile({})
     setTranscript([])
@@ -1008,7 +1087,9 @@ export function KitchenIntake({
           readOnly={readOnly}
           hasExistingBrief={hasExistingBrief || sentInSession}
           beforeSubmit={async () => {
-            await checkpoint.flush(snapshot)
+            // `final`: should this save not land, it is not written after the
+            // brief either — that would flag the brand-new brief as changed.
+            await flushCheckpoint(snapshot, { final: true })
           }}
           onSent={() => setSentInSession(true)}
           onOpenBuilder={
@@ -1059,6 +1140,7 @@ export function KitchenIntake({
         onComplete={(builderState, groupId) => {
           patchProfile({ builderState })
           setBuilderGroupId(groupId)
+          trackBuilder(builderState, groupId)
           logTurn(
             'user',
             `Builder complete — doors: ${builderState.doors.decorCode}, worktop: ${builderState.worktop.decorCode}`
@@ -1072,6 +1154,7 @@ export function KitchenIntake({
           // hatch was opened from.
           patchProfile({ builderState })
           setBuilderGroupId(groupId)
+          trackBuilder(builderState, groupId)
           logTurn('user', 'Went back to edit the layout from the builder.')
           setState({ currentStepId: 'confirm_look' })
         }}

@@ -84,6 +84,45 @@ export function nextBackoffMs(attempt: number): number {
   return ladder[Math.min(attempt, ladder.length - 1)]
 }
 
+/** The client's idle debounce: a write goes out this long after the last change. */
+export const CHECKPOINT_IDLE_MS = 2_500
+
+/**
+ * The route's per-account limit. Since builder autosave (IMP-06) every pick
+ * is a checkpoint, so the old 240 an hour was within reach of one homeowner
+ * working through the builder for twenty minutes, and a fixed one-hour window
+ * then blocked them for the rest of the hour. One tab writes at most once per
+ * idle period (a write needs CHECKPOINT_IDLE_MS of quiet before it), so the
+ * cap sits above that ceiling with room for hide flushes; the short window
+ * means a block, should something still reach it, lifts within minutes.
+ */
+export const CHECKPOINT_RATE_LIMIT = { max: 180, windowMs: 5 * 60 * 1000 } as const
+
+/** A Retry-After longer than this is not believed (a bad header, a clock gone wrong). */
+const MAX_RETRY_AFTER_MS = 60 * 60 * 1000
+
+/**
+ * How long a 429 asked us to wait: the route's `retryAfterMs`, else a
+ * standard Retry-After header (seconds). Null when neither says.
+ */
+export function retryAfterFrom(body: { retryAfterMs?: unknown } | null | undefined, header: string | null): number | null {
+  const fromBody = body?.retryAfterMs
+  if (typeof fromBody === 'number' && Number.isFinite(fromBody) && fromBody > 0) return fromBody
+  const seconds = header === null || header.trim() === '' ? NaN : Number(header)
+  return Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : null
+}
+
+/**
+ * The wait before retry number `attempt + 1`: the ladder, or — after a rate
+ * limit — as long as the server said, whichever is longer. Retrying a 429
+ * sooner only spends another request on another 429.
+ */
+export function retryDelayMs(attempt: number, retryAfterMs: number | null = null): number {
+  const ladder = nextBackoffMs(attempt)
+  if (retryAfterMs === null || !Number.isFinite(retryAfterMs) || retryAfterMs <= 0) return ladder
+  return Math.max(ladder, Math.min(retryAfterMs, MAX_RETRY_AFTER_MS))
+}
+
 /**
  * A refusal no retry will change: not our project, session gone, a payload the
  * server will never accept. Retrying one just burns requests on a backoff
@@ -91,7 +130,8 @@ export function nextBackoffMs(attempt: number): number {
  *
  * Not 429 or 408: a rate limit or a timeout passes. With builder autosave
  * (IMP-06) every pick is a checkpoint, and halting on a 429 would stop saving
- * for the rest of the session, silently — the backoff ladder waits it out.
+ * for the rest of the session, silently — the client waits it out instead,
+ * for as long as the server says (retryDelayMs), sending nothing meanwhile.
  */
 export function isPermanentRefusal(status: number): boolean {
   return status >= 400 && status < 500 && status !== 408 && status !== 429

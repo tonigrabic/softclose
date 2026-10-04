@@ -104,7 +104,9 @@ export interface BuilderShellProps {
    * (BUILDER_AUTOSAVE_MS), on every real homeowner change — never for the
    * state the shell mounted with. `urgent` is set when the tab is being
    * hidden or left, or the shell unmounts, inside the window: the caller
-   * should then write through instead of waiting for its own debounced save.
+   * should then write through instead of waiting for its own debounced save —
+   * synchronously, for anything that must survive a reload or a closed tab
+   * (an async write started then is lost; see lib/page-hide.ts).
    * Omitted by the maker's read-only view and the /builder harness, which
    * must never write to a project.
    */
