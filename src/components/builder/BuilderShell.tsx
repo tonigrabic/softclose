@@ -119,6 +119,12 @@ export interface BuilderShellProps {
    * re-lock the units re-derive while every other pick survives.
    */
   onEditLayout?: (state: BuilderState, groupId: BuilderScreenId) => void
+  /**
+   * Editing from the review (IMP-07): back to the review with the live build
+   * and the group it was left on, without walking the remaining groups.
+   * Absent on the first walk, for the maker looking in and in the harness.
+   */
+  onBackToReview?: (state: BuilderState, groupId: BuilderScreenId) => void
 }
 
 export function BuilderShell({
@@ -137,6 +143,7 @@ export function BuilderShell({
   onStateChange,
   onComplete,
   onEditLayout,
+  onBackToReview,
 }: BuilderShellProps) {
   // Mount-only, like the reducer that consumes it: the intake rebuilds the
   // contract on every render (and now re-renders on every autosave), so a memo
@@ -192,6 +199,12 @@ export function BuilderShell({
         onEditLayout(s, currentId)
       }
     : undefined
+  const backToReview = onBackToReview
+    ? (s: BuilderState) => {
+        autosave.cancel()
+        onBackToReview(s, currentId)
+      }
+    : undefined
 
   // Locale comes from the root LocaleProvider (and the language switcher) — the
   // builder no longer forces its own; it inherits whatever the homeowner chose.
@@ -221,6 +234,7 @@ export function BuilderShell({
       makerName={makerName}
       onComplete={complete}
       onEditLayout={editLayout}
+      onBackToReview={backToReview}
     />
   )
 }
@@ -270,6 +284,7 @@ function Shell({
   makerName,
   onComplete,
   onEditLayout,
+  onBackToReview,
 }: {
   state: BuilderState
   dispatch: React.Dispatch<Parameters<ReturnType<typeof useBuilderState>[1]>[0]>
@@ -286,6 +301,7 @@ function Shell({
   makerName?: string | null
   onComplete?: (state: BuilderState) => void
   onEditLayout?: (state: BuilderState) => void
+  onBackToReview?: (state: BuilderState) => void
 }) {
   const { locale } = useTranslations()
   // The big preview always reads from `activeRenderId`: null = Phase-1
@@ -399,7 +415,12 @@ function Shell({
                 onEditLayout={onEditLayout ? () => onEditLayout(state) : undefined}
               />
 
-              <FooterNav currentId={currentId} onBack={goBack} onNext={goNext} />
+              <FooterNav
+                currentId={currentId}
+                onBack={goBack}
+                onNext={goNext}
+                onBackToReview={onBackToReview ? () => onBackToReview(state) : undefined}
+              />
             </motion.section>
           </AnimatePresence>
       </AppShell>
@@ -410,10 +431,13 @@ function FooterNav({
   currentId,
   onBack,
   onNext,
+  onBackToReview,
 }: {
   currentId: BuilderScreenId
   onBack: () => void
   onNext: () => void
+  /** Editing from the review: back to it from any group (IMP-07). */
+  onBackToReview?: () => void
 }) {
   const { t } = useTranslations()
   const canBack = prevBuilderGroup(currentId) !== null
@@ -432,14 +456,25 @@ function FooterNav({
         <ArrowLeft className="size-3.5 stroke-[2]" aria-hidden />
         {t('builder.shell.back')}
       </button>
-      <button
-        type="button"
-        onClick={onNext}
-        className="inline-flex items-center gap-1.5 rounded-full bg-foreground px-5 py-2 text-[13px] font-semibold text-background shadow-sm transition-all hover:brightness-110"
-      >
-        {t('builder.shell.continue')}
-        <ArrowRight className="size-3.5 stroke-[2]" aria-hidden />
-      </button>
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {onBackToReview && (
+          <button
+            type="button"
+            onClick={onBackToReview}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            {t('nav.backToReview')}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={onNext}
+          className="inline-flex items-center gap-1.5 rounded-full bg-foreground px-5 py-2 text-[13px] font-semibold text-background shadow-sm transition-all hover:brightness-110"
+        >
+          {t('builder.shell.continue')}
+          <ArrowRight className="size-3.5 stroke-[2]" aria-hidden />
+        </button>
+      </div>
     </div>
   )
 }

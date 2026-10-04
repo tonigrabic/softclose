@@ -24,7 +24,6 @@ import { cn } from '@/lib/utils'
 import {
   FLOW,
   flowIndex,
-  nextStepId,
   prevStepId,
   resolveStepId,
   resumeStepId,
@@ -82,6 +81,7 @@ import { roomConstraintsFor } from '@/lib/render/room-constraints'
 import { contactChannels } from '@/lib/contact'
 import { mintBriefId } from '@/lib/handoff/brief-id'
 import { briefPrint, keepsReview } from '@/lib/handoff/review'
+import { afterCommit, continueKey, needsTranslate, wishlistSource, type ReviewTarget } from '@/lib/review-nav'
 
 /** Sign-off timestamp, read through a module-level helper so the React purity
  * lint doesn't flag `Date.now()` in the component's event handlers. */
@@ -165,6 +165,12 @@ export function KitchenIntake({
   const [sentBriefId, setSentBriefId] = useState<string | null>(null)
   const [isFinalising, setIsFinalising] = useState(false)
   const [finaliseError, setFinaliseError] = useState<string | null>(null)
+  // Single-flight for finalise: a second Continue while the summary loads
+  // must not build a second review.
+  const finalising = useRef(false)
+  // Set when a step's Continue leads to the review; the effect below runs
+  // finalise once that event's patches have rendered (see goNext).
+  const [reviewQueued, setReviewQueued] = useState(false)
 
   // Per-step transient state lifted to the parent so Back navigation preserves work.
   const [spacePhotos, setSpacePhotos] = useState<string[]>([])
@@ -212,6 +218,9 @@ export function KitchenIntake({
   const [dealBreakersText, setDealBreakersText] = useState('')
   const [isTranslating, setIsTranslating] = useState(false)
   const [translateError, setTranslateError] = useState<TranslationKey | null>(null)
+  // The typed wishlist the profile's lists were translated from (snapshot
+  // `wishlistSource`), so passing the step unchanged keeps them (IMP-07).
+  const [wishlistTranslatedFrom, setWishlistTranslatedFrom] = useState<string | undefined>(undefined)
 
   // Phase-2 Builder state — populated lazily on entry to the builder step.
   const [builderHypothesis, setBuilderHypothesis] = useState<BuilderHypothesis | null>(null)
@@ -360,6 +369,7 @@ export function KitchenIntake({
     setBuilderHypothesis(d.builderHypothesis ?? null)
     setBuilderStartedNoAI(Boolean(d.builderStartedNoAI))
     setBuilderGroupId(isBuilderScreenId(d.builderGroupId) ? d.builderGroupId : undefined)
+    setWishlistTranslatedFrom(typeof d.wishlistSource === 'string' ? d.wishlistSource : undefined)
   }
 
   /**
@@ -421,13 +431,14 @@ export function KitchenIntake({
       roomPhase,
       roomPlan,
       builderGroupId,
+      wishlistSource: wishlistTranslatedFrom,
     }),
     [
       state.currentStepId, profile, transcript, isDone, wrapUpData, spacePhotos, spaceVision, floorPlan,
       unitEdits, inspirationStyles, inspirationRefs, inspirationVision, conceptRenders, chosenRenderId,
       productReferences, siteAccess, contactDraft, mustHavesText,
       niceToHavesText, dealBreakersText, builderHypothesis, builderStartedNoAI, roomPhase, roomPlan,
-      builderGroupId,
+      builderGroupId, wishlistTranslatedFrom,
     ]
   )
   // The last committed snapshot, for the builder's write-through when the tab
@@ -553,14 +564,43 @@ export function KitchenIntake({
     setFinaliseError(null)
   }
 
-  function goNext() {
-    const next = nextStepId(state.currentStepId)
-    if (next) {
-      goTo(next)
-    } else {
-      void finalise()
-    }
+  // The review has been reached at least once: Continue from an edited step
+  // goes back to it rather than through every step after (lib/review-nav).
+  const editing = wrapUpData !== null
+
+  /**
+   * Reopen a step from the review, the rail or a section's "Nešto ispraviti?".
+   * A builder group opens the builder there; without one the builder resumes
+   * at the group it was left on (IMP-06).
+   */
+  function openStep(target: ReviewTarget) {
+    if (target.group) setBuilderGroupId(target.group)
+    setIsDone(false)
+    goTo(target.step)
   }
+
+  /**
+   * After a step's commit: the next step, or the review (lib/review-nav
+   * afterCommit). The review is queued rather than built here: finalise reads
+   * `profile` from this render's closure, so calling it straight after a
+   * commit's patchProfile would build the review from the profile before the
+   * patch. The effect below runs it once the patch has rendered.
+   */
+  function goNext() {
+    const next = afterCommit(state.currentStepId, { editing, hasBuild: Boolean(profile.builderState) })
+    if (next === 'review') setReviewQueued(true)
+    else goTo(next)
+  }
+
+  // A synchronising effect on purpose: the trigger is consumed in the same
+  // pass that runs finalise, from the render that holds the step's patches.
+  useEffect(() => {
+    if (!reviewQueued) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot trigger, consumed here
+    setReviewQueued(false)
+    void finalise()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- finalise is this render's, with the patches in it
+  }, [reviewQueued])
 
   function goBack() {
     // The room step's measure screen goes back to its shape screen first.
@@ -776,7 +816,20 @@ export function KitchenIntake({
   }
 
   async function commitWishlist() {
+    const hasLists = Boolean(profile.mustHaves || profile.niceToHaves || profile.dealBreakers)
     if (!mustHavesText.trim() && !niceToHavesText.trim() && !dealBreakersText.trim()) {
+      // An emptied wishlist reaches the brief as none — the lists from the
+      // text that was there before must not ride along.
+      if (hasLists) patchProfile({ mustHaves: undefined, niceToHaves: undefined, dealBreakers: undefined })
+      setWishlistTranslatedFrom(undefined)
+      goNext()
+      return
+    }
+    // The same text as last time: keep the lists. The translation is an AI
+    // call, and words them afresh — an unchanged kitchen would become a new
+    // brief (IMP-07).
+    const source = wishlistSource(mustHavesText, niceToHavesText, dealBreakersText)
+    if (!needsTranslate(source, wishlistTranslatedFrom, hasLists)) {
       goNext()
       return
     }
@@ -806,6 +859,7 @@ export function KitchenIntake({
         niceToHaves: result.niceToHaves,
         dealBreakers: result.dealBreakers,
       })
+      setWishlistTranslatedFrom(source)
       logTurn(
         'user',
         [
@@ -840,7 +894,7 @@ export function KitchenIntake({
     goNext()
   }
 
-  async function commitContact() {
+  function commitContact() {
     const name = contactDraft.name.trim()
     if (!name) return
     // Signed in: the account email is the contact and a phone is optional (a
@@ -851,7 +905,7 @@ export function KitchenIntake({
     if (!customerEmail && !patch.contactValue) return
     patchProfile(patch)
     logTurn('user', `Contact: ${name} (${contactChannels(patch).join(', ')})`)
-    await finalise(patch)
+    goNext()
   }
 
   /**
@@ -863,10 +917,10 @@ export function KitchenIntake({
    * IS the brief the maker has, and offers no send. Anything else is a new
    * brief, so it gets a new id — minted here, and only here.
    */
-  async function finalise(extraPatch: Partial<LeadProfile> = {}) {
+  async function finalise() {
+    if (finalising.current) return
     const finalProfile = {
       ...profile,
-      ...extraPatch,
       // Chosen render at this point is owned by client state.
       ...(chosenRenderId ? { conceptRenderChosenId: chosenRenderId } : {}),
       ...(conceptRenders.length > 0 ? { conceptRenders } : {}),
@@ -878,6 +932,7 @@ export function KitchenIntake({
       setIsDone(true)
       return
     }
+    finalising.current = true
     setIsFinalising(true)
     setFinaliseError(null)
     try {
@@ -912,6 +967,7 @@ export function KitchenIntake({
       setFinaliseError(err instanceof Error ? err.message : 'Summary unavailable')
       setIsDone(true)
     } finally {
+      finalising.current = false
       setIsFinalising(false)
     }
   }
@@ -957,6 +1013,8 @@ export function KitchenIntake({
     setHypothesisError(null)
     setBuilderStartedNoAI(false)
     setBuilderGroupId(undefined)
+    setWishlistTranslatedFrom(undefined)
+    setReviewQueued(false)
   }
 
   /**
@@ -1100,7 +1158,15 @@ export function KitchenIntake({
                 {tDynamic('nav.startOver', locale)}
               </button>
             </header>
-            <JourneyNavRail funnelStepId="contact" profile={profile} journeyDone locale={locale} />
+            {/* Every done step is a way back into the journey (IMP-07). */}
+            <JourneyNavRail
+              funnelStepId="contact"
+              profile={profile}
+              journeyDone
+              expandDone={readOnly ? undefined : true}
+              onStepSelect={readOnly ? undefined : openStep}
+              locale={locale}
+            />
           </>
         }
       >
@@ -1138,6 +1204,16 @@ export function KitchenIntake({
                 }
           }
           onSent={readOnly ? undefined : setSentBriefId}
+          // Fix anything: a section reopens its step, Back the last one.
+          onFix={readOnly ? undefined : openStep}
+          onBack={
+            readOnly
+              ? undefined
+              : () => {
+                  setIsDone(false)
+                  goTo('contact')
+                }
+          }
           onOpenBuilder={
             readOnly
               ? undefined
@@ -1204,6 +1280,18 @@ export function KitchenIntake({
           logTurn('user', 'Went back to edit the layout from the builder.')
           setState({ currentStepId: 'confirm_look' })
         }}
+        // Editing from the review: back to it from any group, with the live
+        // build and the group it was left on (IMP-07).
+        onBackToReview={
+          editing && !readOnly
+            ? (builderState, groupId) => {
+                patchProfile({ builderState })
+                setBuilderGroupId(groupId)
+                trackBuilder(builderState, groupId)
+                setReviewQueued(true)
+              }
+            : undefined
+        }
       />
     )
   }
@@ -1293,7 +1381,15 @@ export function KitchenIntake({
               </button>
             </header>
           )}
-          <JourneyNavRail funnelStepId={state.currentStepId} profile={profile} locale={locale} />
+          <JourneyNavRail
+            funnelStepId={state.currentStepId}
+            profile={profile}
+            locale={locale}
+            // Done steps reopen; once the review was reached, the done acts
+            // show theirs too (IMP-07).
+            expandDone={readOnly ? undefined : editing}
+            onStepSelect={readOnly ? undefined : openStep}
+          />
           {projectId && makerName ? (
             <p className="mt-5 text-[10px] leading-relaxed text-muted-foreground">
               {tDynamic('kitchen.makerSees', locale).replace('{maker}', makerName)}
@@ -1406,6 +1502,7 @@ export function KitchenIntake({
                 isBusy={isTranslating || isFinalising || isReadingRoom}
                 onBack={goBack}
                 onContinue={() => commitForStep(state.currentStepId)}
+                continueLabel={continueKey(state.currentStepId, { editing, hasBuild: Boolean(profile.builderState) })}
                 profile={profile}
                 hasInspirationInput={
                   inspirationStyles.length > 0 || inspirationRefs.length > 0
@@ -1465,7 +1562,7 @@ export function KitchenIntake({
         commitLogistics()
         break
       case 'contact':
-        void commitContact()
+        commitContact()
         break
     }
   }
@@ -1914,6 +2011,7 @@ function FooterNav({
   isBusy,
   onBack,
   onContinue,
+  continueLabel,
   profile,
   hasInspirationInput,
   hasContactDraft,
@@ -1926,6 +2024,8 @@ function FooterNav({
   isBusy: boolean
   onBack: () => void
   onContinue: () => void
+  /** "Nastavi", or "Pregledaj sažetak" when Continue leads to the review (lib/review-nav). */
+  continueLabel: TranslationKey
   profile: LeadProfile
   hasInspirationInput: boolean
   hasContactDraft: boolean
@@ -1936,8 +2036,9 @@ function FooterNav({
 }) {
   const { t } = useTranslations()
   // Per-step continue gating + label.
-  // Contact's Continue opens the review; nothing is sent from a step (IMP-07).
-  const ctaLabel = stepId === 'contact' ? t('nav.review') : t('nav.continue')
+  // Contact's Continue — and an edited step's — opens the review; nothing is
+  // sent from a step (IMP-07).
+  const ctaLabel = t(continueLabel)
 
   const canContinue = (() => {
     switch (stepId) {

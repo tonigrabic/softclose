@@ -10,6 +10,7 @@ import { useTranslations, type TranslationKey } from '@/lib/i18n'
 import type { FlowStepId } from '@/lib/flow'
 import type { MakerDecision } from '@/lib/project/decision'
 import type { ProjectSnapshot } from '@/lib/project/snapshot'
+import { editEntryStep } from '@/lib/review-nav'
 import { cn } from '@/lib/utils'
 
 export interface KitchenHomeProps {
@@ -264,7 +265,17 @@ export function KitchenHome(props: KitchenHomeProps) {
             keeps editing open — changing the kitchen is one way to answer. */}
         {!props.closed ? (
           <>
-            <Button size="lg" className="mt-6 h-11 w-full rounded-xl text-sm" onClick={() => setEntered(true)}>
+            <Button
+              size="lg"
+              className="mt-6 h-11 w-full rounded-xl text-sm"
+              onClick={() => {
+                // "Izmijeni kuhinju" opens at the last step, never the done
+                // screen: Back walks the steps, Continue opens the review
+                // (IMP-07). Everyone else resumes where they left off.
+                setStartAt(editEntryStep({ submitted, readOnly: props.readOnly }))
+                setEntered(true)
+              }}
+            >
               {submitted
                 ? t('kitchen.home.cta.edit')
                 : awaitingSend

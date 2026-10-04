@@ -72,6 +72,15 @@ export interface ProjectSnapshot {
    * an older snapshot fingerprints the same.
    */
   builderGroupId?: BuilderScreenId
+  /**
+   * The typed wishlist the profile's lists were translated from (IMP-07,
+   * lib/review-nav `wishlistSource`). Passing the wishlist step with the same
+   * text then keeps the lists instead of asking the AI to word them afresh —
+   * which would make an unchanged kitchen a new brief. Optional: older
+   * snapshots translate once more. `undefined` when unset, so they
+   * fingerprint the same.
+   */
+  wishlistSource?: string
 }
 
 type SnapshotRecord = Record<string, unknown>

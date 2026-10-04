@@ -38,6 +38,7 @@ import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
 import { mintBriefId } from '@/lib/handoff/brief-id'
 import { customerEstimate, estimateFromBuild } from '@/lib/handoff/estimate'
 import { reviewState, sendOffer } from '@/lib/handoff/review'
+import { REVIEW_FIX, type ReviewSection, type ReviewTarget } from '@/lib/review-nav'
 import { contactChannels } from '@/lib/contact'
 import { cn } from '@/lib/utils'
 
@@ -70,6 +71,11 @@ interface WrapUpScreenProps {
   /** Called with the brief's id once a send from this screen has saved it, so
    *  the intake knows which brief the maker has now. */
   onSent?: (briefId: string) => void
+  /** "Nešto ispraviti?" on a section: reopen the step that asks it (IMP-07,
+   *  lib/review-nav REVIEW_FIX). Absent where nobody may edit. */
+  onFix?: (target: ReviewTarget) => void
+  /** Back to the steps (the contact step). Absent where nobody may edit. */
+  onBack?: () => void
   /** The maker's display name, for "a range {maker} confirms". Absent → "your maker". */
   makerName?: string | null
   /** True when the viewer is the maker looking in at their customer's kitchen.
@@ -109,6 +115,8 @@ export function WrapUpScreen({
   beforeSubmit,
   onOpenBuilder,
   onSent,
+  onFix,
+  onBack,
   makerName,
   readOnly = false,
 }: WrapUpScreenProps) {
@@ -167,6 +175,13 @@ export function WrapUpScreen({
     return label === `style.${value}` ? humanize(value) : label
   }
   const styles = profile.stylePreferences?.map(styleLabel).join(', ') || null
+
+  /** A section's "Nešto ispraviti?": reopens its step; none for the maker
+   *  looking in, and none where no step asks it any more. */
+  function fix(section: ReviewSection): (() => void) | null {
+    const target = REVIEW_FIX[section]
+    return onFix && !readOnly && target ? () => onFix(target) : null
+  }
 
   // Single-flight: a double click must not send twice. (The id below makes a
   // repeat harmless on the server too; this keeps it from being made at all.)
@@ -265,6 +280,18 @@ export function WrapUpScreen({
       transition={{ duration: 0.5, ease: 'easeOut' }}
       className="flex flex-col gap-7 py-4"
     >
+      {/* Back to the steps — the review is a place to check, not a dead end. */}
+      {onBack && !readOnly && (
+        <button
+          type="button"
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 self-start rounded-full border border-border bg-card px-4 py-2 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <ArrowLeft className="size-3.5 stroke-[2]" aria-hidden />
+          {t('wrapup.actions.backToSteps')}
+        </button>
+      )}
+
       {/* The header speaks to whoever is looking. The homeowner: their brief,
           to review before it goes — a check only once the maker has it. The
           maker looking in: what this is, the customer's own view, to look at
@@ -368,7 +395,7 @@ export function WrapUpScreen({
         <SectionWithFix
           title={t('wrapup.section.render')}
           badge={t('wrapup.section.renderBadge')}
-          onFix={null}
+          onFix={fix('render')}
         >
           <div className="overflow-hidden rounded-xl border border-border bg-background">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -394,7 +421,7 @@ export function WrapUpScreen({
 
       {/* Floor plan */}
       {showPlan && plan && (
-        <SectionWithFix title={t('wrapup.section.space')} onFix={null}>
+        <SectionWithFix title={t('wrapup.section.space')} onFix={fix('space')}>
           <FloorPlanStatic
             plan={plan}
             mode="homeowner"
@@ -407,7 +434,7 @@ export function WrapUpScreen({
       {/* Project basics. No budget row: the flow has no up-front budget any
           more — the live range above is the budget conversation. */}
       {(profile.projectType || profile.timeline) && (
-        <BriefSection title={t('wrapup.section.basics')} onFix={null}>
+        <BriefSection title={t('wrapup.section.basics')} onFix={fix('basics')}>
           <SummaryRow label={t('wrapup.row.projectType')} value={optionLabel('projectType', profile.projectType)} />
           <SummaryRow label={t('wrapup.row.timeline')} value={optionLabel('timeline', profile.timeline)} />
         </BriefSection>
@@ -415,7 +442,7 @@ export function WrapUpScreen({
 
       {/* Scope */}
       {profile.scope && (
-        <BriefSection title={t('wrapup.section.scope')} onFix={null}>
+        <BriefSection title={t('wrapup.section.scope')} onFix={fix('scope')}>
           <SummaryRow
             label={t('wrapup.row.scopeItems')}
             value={
@@ -435,7 +462,7 @@ export function WrapUpScreen({
           the build (see lib/builder/pick-labels). Fittings are the maker's
           standard spec, so there is no hardware row. */}
       {(styles || picks) && (
-        <BriefSection title={t('wrapup.section.style')} onFix={null}>
+        <BriefSection title={t('wrapup.section.style')} onFix={fix('style')}>
           <SummaryRow label={t('wrapup.row.style')} value={styles} />
           <SummaryRow label={t('wrapup.row.door')} value={picks?.doors} />
           <SummaryRow label={t('wrapup.row.worktop')} value={picks?.worktop} />
@@ -445,7 +472,7 @@ export function WrapUpScreen({
 
       {/* Trades — shown when any row has something to say. */}
       {(sinkLine || tradeRows.cookerType || tradeRows.gas || tradeRows.ventPath) && (
-        <BriefSection title={t('wrapup.section.trades')} onFix={null}>
+        <BriefSection title={t('wrapup.section.trades')} onFix={fix('trades')}>
           <SummaryRow label={t('wrapup.row.sinkPosition')} value={sinkLine} />
           <SummaryRow label={t('wrapup.row.cookerType')} value={tradeRows.cookerType} />
           <SummaryRow label={t('wrapup.row.gas')} value={tradeRows.gas} />
@@ -455,7 +482,7 @@ export function WrapUpScreen({
 
       {/* Lighting */}
       {profile.lighting && Object.keys(profile.lighting).length > 0 && (
-        <BriefSection title={t('wrapup.section.lighting')} onFix={null}>
+        <BriefSection title={t('wrapup.section.lighting')} onFix={fix('lighting')}>
           <SummaryRow
             label={t('wrapup.row.lightLayers')}
             value={
@@ -483,7 +510,7 @@ export function WrapUpScreen({
 
       {/* Wishlist */}
       {(profile.mustHaves?.length || profile.niceToHaves?.length || profile.dealBreakers?.length) && (
-        <BriefSection title={t('wrapup.section.wishlist')} onFix={null}>
+        <BriefSection title={t('wrapup.section.wishlist')} onFix={fix('wishlist')}>
           <SummaryRow label={t('wrapup.row.mustHaves')} value={listSummary(profile.mustHaves)} />
           <SummaryRow label={t('wrapup.row.niceToHaves')} value={listSummary(profile.niceToHaves)} />
           <SummaryRow label={t('wrapup.row.dealBreakers')} value={listSummary(profile.dealBreakers)} />
@@ -492,7 +519,7 @@ export function WrapUpScreen({
 
       {/* Logistics */}
       {profile.logistics && Object.keys(profile.logistics).length > 0 && (
-        <BriefSection title={t('wrapup.section.logistics')} onFix={null}>
+        <BriefSection title={t('wrapup.section.logistics')} onFix={fix('logistics')}>
           <SummaryRow
             label={t('wrapup.row.siteAccess')}
             value={optionLabel('siteAccess', profile.logistics.siteAccess)}
@@ -512,9 +539,17 @@ export function WrapUpScreen({
         </BriefSection>
       )}
 
+      {/* Contact — how the maker reaches them, as the brief carries it. */}
+      {(profile.name || contact.length > 0) && (
+        <BriefSection title={t('wrapup.section.contact')} onFix={fix('contact')}>
+          <SummaryRow label={t('wrapup.row.name')} value={profile.name} />
+          <SummaryRow label={t('wrapup.row.channels')} value={contact.join(' · ') || null} />
+        </BriefSection>
+      )}
+
       {/* Decisions */}
       {profile.decisionConfidence && Object.keys(profile.decisionConfidence).length > 0 && (
-        <BriefSection title={t('wrapup.section.confidence')} onFix={null}>
+        <BriefSection title={t('wrapup.section.confidence')} onFix={fix('confidence')}>
           {Object.entries(profile.decisionConfidence).map(([cat, val]) => (
             <SummaryRow
               key={cat}
@@ -527,7 +562,7 @@ export function WrapUpScreen({
 
       {/* Mood board */}
       {moodBoard.length > 0 && (
-        <SectionWithFix title={`${t('wrapup.section.moodboard')} (${moodBoard.length})`} onFix={null}>
+        <SectionWithFix title={`${t('wrapup.section.moodboard')} (${moodBoard.length})`} onFix={fix('moodboard')}>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {moodBoard.slice(0, 8).map((item) => (
               <div
@@ -786,6 +821,8 @@ function BriefSection({
           <button
             type="button"
             onClick={onFix}
+            aria-label={`${t('wrapup.fixAnything')}: ${title}`}
+            data-fix
             className="text-[11px] font-medium text-primary hover:underline"
           >
             {t('wrapup.fixAnything')}
@@ -824,6 +861,8 @@ function SectionWithFix({
           <button
             type="button"
             onClick={onFix}
+            aria-label={`${t('wrapup.fixAnything')}: ${title}`}
+            data-fix
             className="text-[11px] font-medium text-primary hover:underline"
           >
             {t('wrapup.fixAnything')}

@@ -377,3 +377,143 @@ describe('the kitchen home: finished, not sent', () => {
     expect(out).not.toContain(hrHR['kitchen.home.cta.review'])
   })
 })
+
+describe('fix anything from the review (IMP-07 step 2)', () => {
+  /** A profile that fills every review section. */
+  const FULL: LeadProfile = {
+    ...BUILT,
+    floorPlan: CONTRACT_FIXTURES.find((f) => f.id === 'l-shape')!.build(),
+    conceptRenders: [
+      {
+        id: 'r1',
+        imageDataUrl: 'data:image/jpeg;base64,AAAA',
+        prompt: '',
+        modelVersion: 'mock',
+        anchorPhotoIndex: 0,
+        nudges: [],
+        inputs: [],
+        generatedAt: '2026-10-04T08:00:00.000Z',
+      },
+    ],
+    conceptRenderChosenId: 'r1',
+    projectType: 'full_remodel',
+    timeline: '3_6_months',
+    scope: { cabinets: true },
+    stylePreferences: ['modern'],
+    trades: { electrical: { cookerType: 'induction' } },
+    lighting: { taskLayer: true },
+    mustHaves: [{ trade: 'Pull-out pantry' }],
+    logistics: { siteAccess: 'lift' },
+    decisionConfidence: { layout: 'locked' },
+    moodBoardItems: [{ id: 'm1', source: 'upload', imageUrl: 'data:image/jpeg;base64,BBBB' }],
+    phone: '+385 91 000 0000',
+  }
+  const FIXABLE = [
+    'wrapup.section.render',
+    'wrapup.section.space',
+    'wrapup.section.basics',
+    'wrapup.section.style',
+    'wrapup.section.trades',
+    'wrapup.section.lighting',
+    'wrapup.section.wishlist',
+    'wrapup.section.logistics',
+    'wrapup.section.moodboard',
+    'wrapup.section.contact',
+  ] as const
+  const fixButtons = (html: string) => (html.match(/data-fix=/g) ?? []).length
+
+  test('one "Nešto ispraviti?" per section that a step still asks — not scope, not decision confidence', () => {
+    const html = review({ profile: FULL, onFix: () => {} })
+    // Every section renders…
+    for (const key of [...FIXABLE, 'wrapup.section.scope', 'wrapup.section.confidence'] as const) {
+      expect(html, key).toContain(hrHR[key])
+    }
+    // …and the fixable ones, only, carry a button labelled with their title.
+    expect(fixButtons(html)).toBe(FIXABLE.length)
+    const label = (key: (typeof FIXABLE)[number] | 'wrapup.section.scope' | 'wrapup.section.confidence') =>
+      `aria-label="${hrHR['wrapup.fixAnything']}: ${hrHR[key]}`
+    for (const key of FIXABLE) expect(html, key).toContain(label(key))
+    expect(html).not.toContain(label('wrapup.section.scope'))
+    expect(html).not.toContain(label('wrapup.section.confidence'))
+  })
+
+  test('the contact section: the name and how to reach them', () => {
+    const out = text(review({ profile: FULL, onFix: () => {} }))
+    expect(out).toContain(hrHR['wrapup.row.name'])
+    expect(out).toContain('Ana')
+    expect(out).toContain('ana@example.test · +385 91 000 0000')
+  })
+
+  test('no fix buttons for the maker looking in, nor without onFix', () => {
+    expect(fixButtons(review({ profile: FULL, onFix: () => {}, readOnly: true }))).toBe(0)
+    expect(fixButtons(review({ profile: FULL }))).toBe(0)
+  })
+
+  test('Back to the steps only when the intake wires it, and never for the maker', () => {
+    const back = hrHR['wrapup.actions.backToSteps']
+    expect(review({ onBack: () => {} })).toContain(back)
+    expect(review({})).not.toContain(back)
+    expect(review({ onBack: () => {}, readOnly: true })).not.toContain(back)
+    // Back comes first, above the header.
+    const html = review({ onBack: () => {} })
+    expect(html.indexOf(back)).toBeLessThan(html.indexOf(hrHR['wrapup.title']))
+  })
+
+  test('after a send, editing stays open: the fix buttons and Back are still there', () => {
+    const html = review({ profile: FULL, onFix: () => {}, onBack: () => {}, onFileBriefId: BRIEF_ID })
+    expect(fixButtons(html)).toBe(FIXABLE.length)
+    expect(html).toContain(hrHR['wrapup.actions.backToSteps'])
+  })
+})
+
+describe('the edits reach their step, at the source', () => {
+  const intake = source('src/components/kitchen-intake/index.tsx')
+
+  test('the review’s Back reopens the contact step; its fixes go through openStep', () => {
+    const mount = intake.match(/<WrapUpScreen[\s\S]*?\/>/)![0]
+    expect(mount).toMatch(/onBack=\{\s*readOnly\s*\?\s*undefined\s*:\s*\(\) => \{\s*setIsDone\(false\)\s*goTo\('contact'\)\s*\}/)
+    expect(mount).toMatch(/onFix=\{readOnly \? undefined : openStep\}/)
+    expect(intake).toMatch(
+      /function openStep\(target: ReviewTarget\) \{\s*if \(target\.group\) setBuilderGroupId\(target\.group\)\s*setIsDone\(false\)\s*goTo\(target\.step\)/
+    )
+  })
+
+  test('both rails reopen done steps, and nothing does for the maker', () => {
+    const rails = [...intake.matchAll(/<JourneyNavRail[\s\S]*?\/>/g)].map((m) => m[0])
+    expect(rails).toHaveLength(2)
+    for (const rail of rails) expect(rail).toMatch(/onStepSelect=\{readOnly \? undefined : openStep\}/)
+    expect(rails[0]).toMatch(/expandDone=\{readOnly \? undefined : true\}/)
+    expect(rails[1]).toMatch(/expandDone=\{readOnly \? undefined : editing\}/)
+  })
+
+  test('Continue goes through afterCommit, and the review is built only by the queued effect', () => {
+    expect(intake).toMatch(/const next = afterCommit\(state\.currentStepId, \{ editing, hasBuild: Boolean\(profile\.builderState\) \}\)/)
+    // finalise() is called in exactly one place: the effect that consumes the queue.
+    const calls = [...intake.matchAll(/(?<!function )\bfinalise\(\)/g)]
+    expect(calls).toHaveLength(1)
+    expect(intake).toMatch(/if \(!reviewQueued\) return[\s\S]{0,200}setReviewQueued\(false\)\s*void finalise\(\)/)
+    // The contact step no longer builds the review from a stale closure itself.
+    expect(intake).not.toMatch(/await finalise\(/)
+  })
+
+  test('the builder goes back to the review only while editing, saving first', () => {
+    expect(intake).toMatch(/onBackToReview=\{\s*editing && !readOnly/)
+    const shell = source('src/components/builder/BuilderShell.tsx')
+    expect(shell).toMatch(/autosave\.cancel\(\)\s*onBackToReview\(s, currentId\)/)
+  })
+
+  test('the kitchen home opens "Izmijeni kuhinju" through editEntryStep', () => {
+    const home = source('src/app/kitchen/[projectId]/KitchenHome.tsx')
+    expect(home).toMatch(/setStartAt\(editEntryStep\(\{ submitted, readOnly: props\.readOnly \}\)\)\s*setEntered\(true\)/)
+  })
+
+  test('the step-2 copy, hr-HR first', () => {
+    expect(hrHR['wrapup.actions.backToSteps']).toBe('Natrag na korake')
+    expect(hrHR['nav.backToReview']).toBe('Natrag na pregled')
+    expect(hrHR['wrapup.section.contact']).toBe('Kontakt')
+    expect(hrHR['wrapup.row.name']).toBe('Ime')
+    expect(hrHR['wrapup.row.channels']).toBe('E-pošta / telefon')
+    expect(enUS['wrapup.actions.backToSteps']).toBe('Back to the steps')
+    expect(enUS['nav.backToReview']).toBe('Back to the review')
+  })
+})
