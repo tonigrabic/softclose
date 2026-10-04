@@ -212,7 +212,9 @@ export function formatQuoteEur(amount: number, locale: string): string {
 /**
  * When a decision was made, as a date. Formatted on the server (see the note
  * on DashboardList), pinned to Croatian time: the server runs in UTC, and a
- * decision at 00:30 in Zagreb must not read as the previous day.
+ * decision at 00:30 in Zagreb must not read as the previous day. The kitchen
+ * home dates its status lines with it in the browser, in the language on
+ * screen; the pinned zone keeps that render and the server's on the same day.
  */
 export function formatDecisionDate(iso: string, locale: string): string {
   return new Date(iso).toLocaleDateString(locale, {
