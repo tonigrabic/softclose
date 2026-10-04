@@ -53,11 +53,11 @@ const ACT_OF_GROUP: Record<string, ActId> = {
 
 /**
  * The rail's own words: its heading and the three acts. The homeowner reads
- * their own journey. The maker looking in (readOnly) reads the customer's, so
- * "Kupčev sažetak · Kupčev prostor", never "your" about someone else's kitchen,
- * and the third act by what it holds: the range is never a quote ("ponuda"),
- * the maker sends that. The step labels are the steps' names and read the
- * same to both.
+ * their own journey ("Tvoj sažetak · Tvoj prostor"). The maker looking in
+ * (readOnly) reads the customer's ("Kupčev sažetak · Kupčev prostor"), never
+ * "your" about someone else's kitchen. The third act is named by what it
+ * holds for both: the range is never a quote ("ponuda"), the maker sends
+ * that. The step labels are the steps' names and read the same to both.
  */
 export const RAIL_COPY = {
   homeowner: {

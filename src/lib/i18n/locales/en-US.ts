@@ -71,7 +71,7 @@ export const enUS: Record<TranslationKey, string> = {
   'journey.brief': 'Your brief',
   'journey.act.space': 'Your space',
   'journey.act.build': 'Build it',
-  'journey.act.offer': 'Your offer',
+  'journey.act.offer': 'Wishes & logistics',
   'journey.readOnly.brief': "The customer's brief",
   'journey.readOnly.act.space': "The customer's space",
   'journey.readOnly.act.build': 'The build',

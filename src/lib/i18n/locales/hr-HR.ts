@@ -70,14 +70,16 @@ export const hrHR = {
   'appliances.included': 'Uključeno',
   'appliances.notIncluded': 'Nije u ovoj kuhinji',
   'appliances.fromLayout': 'Iz tlocrta',
-  'journey.brief': 'Vaš sažetak',
-  'journey.act.space': 'Vaš prostor',
+  // The journey rail. "Tvoj" like the rest of the product, and the third act
+  // by what it holds (lista želja, logistika, kontakt) — never "ponuda": the
+  // range is not a quote, the maker sends that. Not "Završni detalji" either:
+  // that is a builder group in the act above.
+  'journey.brief': 'Tvoj sažetak',
+  'journey.act.space': 'Tvoj prostor',
   'journey.act.build': 'Gradnja',
-  'journey.act.offer': 'Vaša ponuda',
-  // The rail for the maker looking in (readOnly): the customer's journey, not
-  // theirs, and the third act by what it holds (lista želja, logistika,
-  // kontakt). Never "ponuda": the range is not a quote, the maker sends that.
-  // Not "Završni detalji" either: that is a builder group in the act above.
+  'journey.act.offer': 'Želje i logistika',
+  // The same rail for the maker looking in (readOnly): the customer's
+  // journey, not theirs.
   'journey.readOnly.brief': 'Kupčev sažetak',
   'journey.readOnly.act.space': 'Kupčev prostor',
   'journey.readOnly.act.build': 'Gradnja',

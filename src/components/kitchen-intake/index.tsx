@@ -144,7 +144,7 @@ export function KitchenIntake({
 }: KitchenIntakeProps = {}) {
   const { locale } = useTranslations()
   // The journey rail and its mobile pill: the maker looking in reads the
-  // customer's journey ("Kupčev sažetak"), not "Vaš sažetak".
+  // customer's journey ("Kupčev sažetak"), not "Tvoj sažetak".
   const railVoice: RailVoice = readOnly ? 'maker' : 'homeowner'
   const [state, setState] = useState<IntakeFlowState>({
     currentStepId: 'space_photos',

@@ -11,7 +11,9 @@
  * Now the rail and the pill speak to the maker wherever the maker sees them —
  * the wrap-up, the steps, the builder: "Kupčev sažetak · Kupčev prostor ·
  * Gradnja · Želje i logistika", and under the rail "Samo za gledanje — kuhinju
- * mijenja kupac." The customer's rail is unchanged.
+ * mijenja kupac." The customer's rail says "tvoj" like the rest of the
+ * product, and its third act is named by what it holds too (Toni,
+ * 2026-10-04): "Tvoj sažetak · Tvoj prostor · Gradnja · Želje i logistika".
  *
  * Rendered statically (no DOM), like tests/wrapup-readonly.test.ts. The intake
  * restores its journey in an effect, so its first paint is the first step; the
@@ -80,11 +82,10 @@ describe('the wrap-up rail speaks to the maker looking in', () => {
     expect(at('journey.readOnly.act.build')).toBeLessThan(at('journey.readOnly.act.offer'))
   })
 
-  test('nothing of the homeowner’s rail: no "Vaš sažetak", "Vaš prostor", "Vaša ponuda"', () => {
+  test('nothing of the customer’s own: no "Tvoj sažetak", "Tvoj prostor"', () => {
     const html = wrapUpRail('maker')
     expect(html).not.toContain(hrHR['journey.brief'])
     expect(html).not.toContain(hrHR['journey.act.space'])
-    expect(html).not.toContain(hrHR['journey.act.offer'])
     expectNoHomeownerWords(html)
   })
 
@@ -98,7 +99,7 @@ describe('the wrap-up rail speaks to the maker looking in', () => {
     expect(html).not.toMatch(/\b(offer|quote)\b/i)
   })
 
-  test('the customer keeps theirs', () => {
+  test('the customer keeps theirs: "Tvoj sažetak · Tvoj prostor · Gradnja · Želje i logistika"', () => {
     for (const html of [wrapUpRail(), wrapUpRail('homeowner')]) {
       expect(html).toContain(`aria-label="${hrHR['journey.brief']}"`)
       expect(html).toContain(hrHR['journey.act.space'])
@@ -106,7 +107,9 @@ describe('the wrap-up rail speaks to the maker looking in', () => {
       expect(html).toContain(hrHR['journey.act.offer'])
       expect(html).not.toContain(hrHR['journey.readOnly.brief'])
       expect(html).not.toContain(hrHR['journey.readOnly.act.space'])
-      expect(html).not.toContain(hrHR['journey.readOnly.act.offer'])
+      // Informal like the rest of the product, and never a quote.
+      expect(html).not.toMatch(/\bva[šs]/i)
+      expect(html).not.toMatch(/ponud/i)
     }
   })
 })
@@ -130,7 +133,7 @@ describe('the rail mid-journey and in the builder speaks to the maker too', () =
 })
 
 describe('the mobile pill says the same', () => {
-  test('the wrap-up: "Želje i logistika ✓", not "Vaša ponuda ✓"', () => {
+  test('the wrap-up: "Želje i logistika ✓"', () => {
     const pill = journeyPillLabel({ funnelStepId: 'contact', profile: {}, journeyDone: true, voice: 'maker' })
     expect(pill).toBe(`${hrHR['journey.readOnly.act.offer']} ✓`)
     expect(journeyPillLabel({ funnelStepId: 'contact', profile: {}, journeyDone: true, voice: 'maker', locale: 'en-US' })).toBe(
@@ -235,10 +238,36 @@ describe('the copy, hr-HR first, en-US the same keys', () => {
     }
   })
 
-  test('the heading, the space and the last act are different lines from the customer’s, in both languages', () => {
-    for (const key of ['brief', 'space', 'offer'] as const) {
+  test('the heading and the space are different lines from the customer’s, in both languages', () => {
+    for (const key of ['brief', 'space'] as const) {
       expect(hrHR[RAIL_COPY.maker[key]]).not.toBe(hrHR[RAIL_COPY.homeowner[key]])
       expect(enUS[RAIL_COPY.maker[key]]).not.toBe(enUS[RAIL_COPY.homeowner[key]])
+    }
+  })
+
+  test('the last act names what it holds, the same for both', () => {
+    expect(hrHR['journey.readOnly.act.offer']).toBe(hrHR['journey.act.offer'])
+    expect(enUS['journey.readOnly.act.offer']).toBe(enUS['journey.act.offer'])
+  })
+
+  test('the customer’s rail', () => {
+    expect(hrHR['journey.brief']).toBe('Tvoj sažetak')
+    expect(hrHR['journey.act.space']).toBe('Tvoj prostor')
+    expect(hrHR['journey.act.build']).toBe('Gradnja')
+    expect(hrHR['journey.act.offer']).toBe('Želje i logistika')
+    expect(enUS['journey.brief']).toBe('Your brief')
+    expect(enUS['journey.act.space']).toBe('Your space')
+    expect(enUS['journey.act.build']).toBe('Build it')
+    expect(enUS['journey.act.offer']).toBe('Wishes & logistics')
+  })
+
+  test('no rail line, in either voice, is formal or calls anything a quote', () => {
+    for (const voice of Object.values(RAIL_COPY)) {
+      for (const key of Object.values(voice)) {
+        expect(hrHR[key]).not.toMatch(/\bva[šs]/i)
+        expect(hrHR[key]).not.toMatch(/ponud/i)
+        expect(enUS[key]).not.toMatch(/\b(offer|quote)\b/i)
+      }
     }
   })
 })
