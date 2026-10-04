@@ -17,6 +17,7 @@ export const hrHR = {
   'builder.shell.bom.project': 'Građevinski radovi (procjena)',
   'builder.shell.bom.goodsExact': 'točno — tvoj odabir',
   'builder.shell.bom.goodsEstimate': 'procjena — odaberi modele za točnu cijenu',
+  'builder.shell.bom.lines': 'Sve stavke ({n})',
   // ---- Range line (IMP-04) — one line for every range, on every surface ---
   // Never call the range a quote ("ponuda"): the maker sends that.
   'range.confirms.homeowner': 'raspon koji {maker} potvrđuje',
@@ -560,7 +561,7 @@ export const hrHR = {
   'wrapup.actions.backToSteps': 'Natrag na korake',
   'nav.backToReview': 'Natrag na pregled',
   'builder.rerender.changedPrefix': 'Promijenio si:',
-  'builder.rerender.changedSuffix': '. Render iznad to još ne prikazuje.',
+  'builder.rerender.changedSuffix': '. Trenutni render to još ne prikazuje.',
   'builder.rerender.rendering': 'Renderiram ponovno…',
   'builder.rerender.button': 'Renderiraj ponovno s ovim odabirima (još {n})',
   'builder.rerender.change.door_decor': 'dekor vrata',
