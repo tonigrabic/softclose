@@ -902,6 +902,9 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.readOnly.lede': "This is how the customer sees it — you're only looking here.",
   'wrapup.readOnly.notSent': "The customer hasn't sent the brief yet.",
   'wrapup.readOnly.sent': 'The customer has sent the brief — open it from your list.',
+  'wrapup.readOnly.ledeSoFar': "What the customer has entered so far — you're only looking here.",
+  'wrapup.readOnly.inProgress': 'The customer is still describing the kitchen — last saved: {step}, {label}.',
+  'wrapup.readOnly.render.notStored': "The concept picture comes with the brief — it isn't stored here.",
   'wrapup.readOnly.section.render': 'The concept the customer chose',
   'wrapup.readOnly.render.note':
     "AI concept anchored to a photo of the customer's space. The direction they want, not a binding spec.",

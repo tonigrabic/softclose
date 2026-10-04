@@ -938,6 +938,9 @@ export const hrHR = {
   'wrapup.readOnly.lede': 'Ovako ga vidi kupac — ti ga ovdje samo gledaš.',
   'wrapup.readOnly.notSent': 'Kupac još nije poslao sažetak.',
   'wrapup.readOnly.sent': 'Kupac je poslao sažetak — otvori ga s popisa.',
+  'wrapup.readOnly.ledeSoFar': 'Ono što je kupac dosad unio — ti ovdje samo gledaš.',
+  'wrapup.readOnly.inProgress': 'Kupac još opisuje kuhinju — zadnje spremljeno: {step}, {label}.',
+  'wrapup.readOnly.render.notStored': 'Slika koncepta stiže sa sažetkom — ovdje se ne sprema.',
   // The sections, where the homeowner's words say "tvoj": the render, the
   // space, the sink "you agree with your maker".
   'wrapup.readOnly.section.render': 'Koncept koji je kupac odabrao',

@@ -18,6 +18,7 @@ import { FloorPlanStatic } from './FloorPlanStatic'
 import { VisualScale } from './VisualScale'
 import { ContactForm, type ContactValue } from './ContactForm'
 import { WrapUpScreen } from './WrapUpScreen'
+import { KitchenLookOnly } from './LookOnly'
 import { RoomStep, type RoomPhase, type RoomStepProps, type SaveLaterResult } from './RoomStep'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -110,7 +111,8 @@ export interface KitchenIntakeProps {
   /** The project row's current revision, for optimistic-concurrency writes. */
   initialRevision?: number
   /** True when the viewer is the maker looking in. The brief's whole value is
-   *  that it is the homeowner's own answers, so the maker never writes to it. */
+   *  that it is the homeowner's own answers, so the maker never writes to it:
+   *  they get KitchenLookOnly, built from `initialSnapshot`, not the steps. */
   readOnly?: boolean
   /** The project already has a brief: re-submitting becomes explicit. */
   hasExistingBrief?: boolean
@@ -228,6 +230,11 @@ export function KitchenIntake({
   })
 
   useEffect(() => {
+    // The maker looking in never touches this browser's copy. Their page is
+    // built from the server's (KitchenLookOnly): a copy kept here would win
+    // over the customer's later progress on the next look. And with nothing
+    // loaded, persistence never opens, so nothing they see is saved here.
+    if (readOnly) return
     let cancelled = false
     void loadSnapshot<IntakeSnapshot>(projectId).then((rec) => {
       if (cancelled) return
@@ -362,7 +369,7 @@ export function KitchenIntake({
   )
 
   useEffect(() => {
-    if (!persistenceReady.current) return
+    if (readOnly || !persistenceReady.current) return
     const hasSomething =
       snapshot.currentStepId !== 'space_photos' ||
       Object.keys(snapshot.profile).length > 0 ||
@@ -371,7 +378,7 @@ export function KitchenIntake({
     const t = setTimeout(() => void saveSnapshot(snapshot, projectId), 800)
     checkpoint.queue(snapshot)
     return () => clearTimeout(t)
-  }, [snapshot, checkpoint, projectId])
+  }, [snapshot, checkpoint, projectId, readOnly])
 
   const resumeBanner = resumeOffer && !projectId ? (
     <div
@@ -867,13 +874,13 @@ export function KitchenIntake({
   // longer feeds the plan or the tally, so nothing on this step waits for it.
   // Synchronises with an external system (the vision API) on step entry.
   useEffect(() => {
-    if (state.currentStepId !== 'confirm_look') return
+    if (readOnly || state.currentStepId !== 'confirm_look') return
     if (!chosenRender) return
     if (builderHypothesis || isLoadingHypothesis || hypothesisError) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadHypothesis()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.currentStepId, chosenRender, builderHypothesis, isLoadingHypothesis, hypothesisError])
+  }, [state.currentStepId, chosenRender, builderHypothesis, isLoadingHypothesis, hypothesisError, readOnly])
 
   // Seed the floor plan for the confirm step from the plan, never the render:
   // the measured room (IMP-31), a legacy journey's plan as it is, or — with
@@ -913,6 +920,21 @@ export function KitchenIntake({
     void readRoom()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentStepId, spaceVision, isReadingRoom, roomReadFailed, realPhotos.length, readOnly])
+
+  // ── The maker looking in: one page to look at, finished or not, from the
+  // server's copy. Never the steps: their controls edit the customer's answers
+  // and their buttons call AI routes (a render, a translation, a summary).
+  // The read-only guards below stay as a second line.
+  if (readOnly) {
+    return (
+      <KitchenLookOnly
+        snapshot={initialSnapshot}
+        projectId={projectId}
+        makerName={makerName}
+        hasExistingBrief={hasExistingBrief}
+      />
+    )
+  }
 
   // ── Wrap-up / offer — still inside the one shell: the journey rail stays,
   // with every act marked done (status visibility to the very last screen).

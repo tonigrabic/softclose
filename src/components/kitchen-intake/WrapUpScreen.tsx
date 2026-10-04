@@ -36,6 +36,8 @@ import { useTranslations, type TranslationKey } from '@/lib/i18n'
 import { FloorPlanStatic } from './FloorPlanStatic'
 import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
 import { mintBriefId } from '@/lib/handoff/brief-id'
+import { OMITTED_IMAGE } from '@/lib/project/checkpoint'
+import type { StepProgress } from '@/lib/project/status'
 import { contactChannels } from '@/lib/contact'
 import { cn } from '@/lib/utils'
 
@@ -69,6 +71,10 @@ interface WrapUpScreenProps {
    *  homeowner thank-you, no "fix anything"); nothing on this screen is
    *  maker-only. */
   readOnly?: boolean
+  /** The maker looking in before the customer has finished (KitchenLookOnly):
+   *  where they last saved, or that they have not started. Absent on a
+   *  finished journey. Read only with `readOnly`. */
+  progress?: StepProgress | 'not_started'
 }
 
 /**
@@ -105,6 +111,7 @@ export function WrapUpScreen({
   onSent,
   makerName,
   readOnly = false,
+  progress,
 }: WrapUpScreenProps) {
   const { t, tDynamic: td, locale } = useTranslations()
   /** The key the viewer reads: the maker's wording when they are looking in. */
@@ -141,6 +148,23 @@ export function WrapUpScreen({
   }
   const moodBoard = profile.moodBoardItems ?? []
   const chosenRender = profile.conceptRenders?.find((r) => r.id === profile.conceptRenderChosenId)
+  // The server's copy of the journey keeps no pictures (checkpoints strip
+  // them), so a render read from it has a marker for an image. No broken
+  // picture: the maker is told where the picture is, anyone else sees nothing.
+  const renderPictured = Boolean(chosenRender && chosenRender.imageDataUrl !== OMITTED_IMAGE)
+  /** The maker looking in: where the brief got to, or where the customer is. */
+  const readOnlyStatus = hasExistingBrief
+    ? t('wrapup.readOnly.sent')
+    : progress === 'not_started'
+      ? t('kitchen.home.readOnly.notStarted')
+      : progress
+        ? t('wrapup.readOnly.inProgress')
+            .replace(
+              '{step}',
+              t('dashboard.step').replace('{n}', String(progress.current)).replace('{total}', String(progress.total))
+            )
+            .replace('{label}', td(`flow.${progress.stepId}.label`))
+        : t('wrapup.readOnly.notSent')
   const picks = builderPickLabels(profile.builderState, locale)
 
   /** Translate an option value via its `option.*` family, humanized fallback. */
@@ -285,7 +309,9 @@ export function WrapUpScreen({
           {t(readOnly ? 'wrapup.readOnly.title' : 'wrapup.title')}
         </h2>
         {readOnly ? (
-          <p className="mt-1 text-sm text-muted-foreground">{t('wrapup.readOnly.lede')}</p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {t(progress ? 'wrapup.readOnly.ledeSoFar' : 'wrapup.readOnly.lede')}
+          </p>
         ) : (
           <>
             <p className="mt-1 text-sm text-muted-foreground">{data.thankYouMessage}</p>
@@ -311,7 +337,7 @@ export function WrapUpScreen({
           // The maker looking in: nothing is sent or priced from here, so no
           // "send the changes" either — just where the brief got to.
           <p className="text-sm text-muted-foreground" data-readonly-status>
-            {t(hasExistingBrief ? 'wrapup.readOnly.sent' : 'wrapup.readOnly.notSent')}
+            {readOnlyStatus}
           </p>
         ) : noBuild ? (
           <>
@@ -382,31 +408,38 @@ export function WrapUpScreen({
       )}
 
       {/* Chosen concept render */}
-      {chosenRender && (
+      {chosenRender && (renderPictured || readOnly) && (
         <SectionWithFix
           title={t(forViewer('wrapup.section.render'))}
           badge={t('wrapup.section.renderBadge')}
           onFix={null}
         >
-          <div className="overflow-hidden rounded-xl border border-border bg-background">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={chosenRender.imageDataUrl}
-              alt={t(forViewer('wrapup.section.render'))}
-              className="h-auto w-full"
-            />
-            <div className="border-t border-border/70 px-3 py-2 text-[11px] text-muted-foreground">
-              <p className="flex items-center gap-1.5">
-                <Sparkles className="size-3 stroke-[1.75]" aria-hidden />
-                {t(forViewer('wrapup.render.note'))}
-              </p>
-              {chosenRender.nudges.length > 0 && (
-                <p className="mt-1">
-                  {t('wrapup.render.tweaks')} {chosenRender.nudges.join(' · ')}
+          {renderPictured ? (
+            <div className="overflow-hidden rounded-xl border border-border bg-background">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={chosenRender.imageDataUrl}
+                alt={t(forViewer('wrapup.section.render'))}
+                className="h-auto w-full"
+              />
+              <div className="border-t border-border/70 px-3 py-2 text-[11px] text-muted-foreground">
+                <p className="flex items-center gap-1.5">
+                  <Sparkles className="size-3 stroke-[1.75]" aria-hidden />
+                  {t(forViewer('wrapup.render.note'))}
                 </p>
-              )}
+                {chosenRender.nudges.length > 0 && (
+                  <p className="mt-1">
+                    {t('wrapup.render.tweaks')} {chosenRender.nudges.join(' · ')}
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
+          ) : (
+            <p className="flex items-center gap-1.5 text-sm text-muted-foreground" data-render-not-stored>
+              <Sparkles className="size-3.5 stroke-[1.75]" aria-hidden />
+              {t('wrapup.readOnly.render.notStored')}
+            </p>
+          )}
         </SectionWithFix>
       )}
 
