@@ -689,6 +689,9 @@ export const hrHR = {
   'space.error.tooLarge': 'je veći od 5MB — odaberi manju fotografiju.',
   'space.error.analyzeFailed': 'Nije moguće analizirati fotografije',
   'space.removePhoto': 'Ukloni fotografiju',
+  // Where the photos go, before they go anywhere (IMP-09).
+  'space.processingNote':
+    'Fotografije čita AI asistent (OpenAI) da prepozna raspored i nacrta AI koncept kuhinje u tvom prostoru. Tvoj izrađivač ih dobiva sa sažetkom.',
 
   // ---- Confirm the look (chip rows) --------------------------------------
   'confirmLook.prefillBanner':
@@ -940,6 +943,8 @@ export const hrHR = {
   'kitchen.home.decision.pill.clarify': 'Treba pojašnjenje',
   'kitchen.home.decision.pill.declined': 'Zatvoreno',
   'kitchen.makerSees': '{maker} vidi tvoj napredak dok radiš.',
+  // AI disclosure (EU AI Act Art. 50, IMP-09) — "AI asistent", never "chatbot".
+  'kitchen.home.ai': 'Kroz korake te vodi AI asistent. {maker} osobno pregledava sve što podijeliš.',
   // ---- Delete my kitchen (IMP-09) — calm, two steps, no guilt copy ---------
   'kitchen.delete.open': 'Izbriši moju kuhinju',
   'kitchen.delete.title': 'Izbrisati tvoju kuhinju?',
@@ -1363,6 +1368,54 @@ export const hrHR = {
   'maker.transcript.user': 'kupac',
   'maker.transcript.assistant': 'asistent',
   'maker.transcript.images': 'slike: {n}',
+  // ---- Legal footer + privacy notice (IMP-09) -------------------------------
+  // Every line is backed by what the code does today. No retention period,
+  // region, legal role or certification the code does not back.
+  'legal.privacy': 'Privatnost',
+  'legal.nav': 'Pravne informacije',
+  'privacy.title': 'Privatnost',
+  'privacy.current': 'Trenutna obavijest o privatnosti · ažurirano 4. 10. 2026.',
+  'privacy.intro':
+    'softclose je alat kojim izrađivač kuhinja prikuplja opis tvoje kuhinje. Kroz korake te vodi AI asistent, a izrađivač osobno pregledava sve što podijeliš. Ovdje piše što spremamo, tko to vidi i kako to izbrisati.',
+  'privacy.collect.title': 'Što spremamo i zašto',
+  'privacy.collect.account': 'E-mail adresa i ime — za prijavu linkom i da ti se izrađivač može javiti.',
+  'privacy.collect.phone': 'Broj telefona, ako ga upišeš — da te izrađivač može nazvati.',
+  'privacy.collect.photos':
+    'Fotografije prostora — da AI asistent prepozna raspored i nacrta AI koncept kuhinje u tvom prostoru.',
+  'privacy.collect.inspiration': 'Slike inspiracije — za prijedlog stila.',
+  'privacy.collect.answers':
+    'Odgovori u koracima — mjere, odabiri, želje i rokovi — za sažetak i okvirni raspon cijene koji dobiva izrađivač.',
+  'privacy.collect.progress':
+    'Napredak, da možeš nastaviti na drugom uređaju. Na poslužitelju ga spremamo bez fotografija; fotografije i AI koncepte spremamo tek kad pošalješ sažetak, a do tada ih čuva samo ovaj preglednik.',
+  'privacy.collect.cookie':
+    'Jedan kolačić za prijavu — bez njega se ne možeš prijaviti. Preglednik još pamti odabrani jezik i kopiju tvog napretka. Kolačiće za oglašavanje ili analitiku ne koristimo.',
+  'privacy.who.title': 'Tko vidi tvoje podatke',
+  'privacy.who.maker': 'Tvoj izrađivač — sve što pošalješ, a napredak i dok još radiš.',
+  'privacy.who.services': 'Vanjske usluge koje za nas obrađuju podatke:',
+  'privacy.who.openai':
+    'OpenAI (AI modeli) — čita fotografije prostora i inspiracije, prevodi tvoje želje u stručne pojmove, piše sažetak iz tvojih odgovora (bez fotografija, ali s imenom, e-mail adresom i telefonom ako si ga upisao), crta AI koncept i iz njega predlaže materijale.',
+  'privacy.who.supabase': 'Supabase — baza podataka i pohrana fotografija.',
+  'privacy.who.vercel': 'Vercel — poslužitelji na kojima aplikacija radi; kroz njih prolazi sav promet.',
+  'privacy.who.resend':
+    'Resend — šalje e-poštu: linkove za prijavu, pozivnicu i obavijest izrađivaču o sažetku.',
+  'privacy.who.productImages':
+    'Slike nekih proizvoda (sudopera, slavina i uređaja) učitavaju se izravno s poslužitelja dobavljača Schachermayer, pa tvoj preglednik tom poslužitelju pritom šalje svoju IP adresu.',
+  'privacy.who.nobodyElse':
+    'Osim navedenog, tvoje podatke nikome ne dajemo. Koliko dugo te usluge čuvaju ono što im pošaljemo, određuju njihovi uvjeti.',
+  'privacy.ai.title': 'Što radi AI asistent',
+  'privacy.ai.body':
+    'Čita tvoje fotografije i inspiraciju, prevodi tvoje želje u stručne pojmove, predlaže materijale, piše sažetak i crta AI koncept kuhinje u tvom prostoru, uvijek označen kao koncept. Raspon cijene računa se iz kuhinje koju složiš — ne pogađa ga AI. Ništa od toga nije ponuda ni odluka: izrađivač sve pregledava osobno.',
+  'privacy.retention.title': 'Koliko dugo',
+  'privacy.retention.body':
+    'Čuvamo ih dok ne izbrišeš kuhinju ili dok je ne uklonimo na zahtjev tvog izrađivača. Automatskog brisanja nakon nekog roka zasad nema.',
+  'privacy.delete.title': 'Brisanje',
+  'privacy.delete.body':
+    'Kuhinju možeš izbrisati sam: na stranici svoje kuhinje odaberi „Izbriši moju kuhinju“. Brišemo fotografije, odgovore, AI koncepte, sažetke i spremljeni napredak, a ako ti je to jedina kuhinja, i tvoj račun.',
+  'privacy.delete.leftovers':
+    'Što ostaje: obavijest koju je izrađivač možda već dobio e-poštom, ono što vanjske usluge čuvaju prema svojim uvjetima, i kopija napretka u drugim preglednicima u kojima si radio — nju obriši u postavkama tog preglednika.',
+  'privacy.contact.title': 'Pitanja',
+  'privacy.contact.maker': 'O svojoj kuhinji i podacima u njoj najbrže ćeš se dogovoriti sa svojim izrađivačem.',
+  'privacy.contact.operator': 'O ovoj usluzi i privatnosti piši nam na {email}.',
 } as const
 
 export type TranslationKey = keyof typeof hrHR

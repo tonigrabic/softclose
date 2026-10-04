@@ -668,6 +668,8 @@ export const enUS: Record<TranslationKey, string> = {
   'space.photoThumbnail': 'Your kitchen photo',
   'space.error.tooLarge': 'is over 5MB — please pick a smaller photo.',
   'space.error.analyzeFailed': 'Could not analyze photos',
+  'space.processingNote':
+    'An AI assistant (OpenAI) reads your photos to find the layout and draw an AI concept of the kitchen in your space. Your maker receives them with your summary.',
   'space.removePhoto': 'Remove photo',
 
   // ---- Confirm the look (chip rows) --------------------------------------
@@ -902,6 +904,7 @@ export const enUS: Record<TranslationKey, string> = {
   'kitchen.home.decision.pill.clarify': 'Clarification needed',
   'kitchen.home.decision.pill.declined': 'Closed',
   'kitchen.makerSees': '{maker} can see your progress as you work.',
+  'kitchen.home.ai': 'An AI assistant guides you through the steps. {maker} personally reviews everything you share.',
   // ---- Delete my kitchen (IMP-09) ----------------------------------------
   'kitchen.delete.open': 'Delete my kitchen',
   'kitchen.delete.title': 'Delete your kitchen?',
@@ -1312,4 +1315,49 @@ export const enUS: Record<TranslationKey, string> = {
   'maker.transcript.user': 'homeowner',
   'maker.transcript.assistant': 'assistant',
   'maker.transcript.images': 'images: {n}',
+  // ---- Legal footer + privacy notice (IMP-09) ---------------------------
+  'legal.privacy': 'Privacy',
+  'legal.nav': 'Legal',
+  'privacy.title': 'Privacy',
+  'privacy.current': 'Current privacy notice · updated 4 Oct 2026',
+  'privacy.intro':
+    'softclose is a tool kitchen makers use to collect a description of your kitchen. An AI assistant guides you through the steps, and your maker personally reviews everything you share. This page says what we keep, who sees it and how to delete it.',
+  'privacy.collect.title': 'What we keep and why',
+  'privacy.collect.account': 'Email address and name — to sign you in by link and so your maker can reach you.',
+  'privacy.collect.phone': 'Phone number, if you add one — so your maker can call you.',
+  'privacy.collect.photos':
+    'Photos of your space — so the AI assistant can read the layout and draw an AI concept of the kitchen in your space.',
+  'privacy.collect.inspiration': 'Inspiration images — to suggest a style.',
+  'privacy.collect.answers':
+    'Your answers — measurements, choices, wishes and timing — for the summary and the rough price range your maker receives.',
+  'privacy.collect.progress':
+    'Your progress, so you can continue on another device. On our server we keep it without photos; photos and AI concepts are stored only once you send the summary, and until then only this browser keeps them.',
+  'privacy.collect.cookie':
+    'One sign-in cookie — without it you cannot sign in. Your browser also remembers your language and a copy of your progress. We use no advertising or analytics cookies.',
+  'privacy.who.title': 'Who sees your data',
+  'privacy.who.maker': 'Your maker — everything you send, and your progress while you are still working.',
+  'privacy.who.services': 'Outside services that process data for us:',
+  'privacy.who.openai':
+    'OpenAI (AI models) — reads your space and inspiration photos, turns your wishes into trade terms, writes the summary from your answers (without photos, but with your name, email address and phone if you added one), draws the AI concept and suggests materials from it.',
+  'privacy.who.supabase': 'Supabase — database and photo storage.',
+  'privacy.who.vercel': 'Vercel — the servers the app runs on; all traffic passes through them.',
+  'privacy.who.resend': 'Resend — sends email: sign-in links, the invite, and the notice to your maker about your summary.',
+  'privacy.who.productImages':
+    'Some product images (sinks, taps and appliances) load straight from the servers of the supplier Schachermayer, so your browser sends its IP address to that server when it loads them.',
+  'privacy.who.nobodyElse':
+    'Beyond these, we give your data to no one. How long these services keep what we send them is set by their own terms.',
+  'privacy.ai.title': 'What the AI assistant does',
+  'privacy.ai.body':
+    'It reads your photos and inspiration, turns your wishes into trade terms, suggests materials, writes the summary and draws an AI concept of the kitchen in your space, always marked as a concept. The price range is calculated from the kitchen you put together — the AI does not guess it. None of this is a quote or a decision: your maker reviews everything personally.',
+  'privacy.retention.title': 'How long',
+  'privacy.retention.body':
+    "We keep it until you delete your kitchen or we remove it at your maker's request. There is no automatic deletion after a set time yet.",
+  'privacy.delete.title': 'Deleting',
+  'privacy.delete.body':
+    'You can delete your kitchen yourself: on your kitchen page choose “Delete my kitchen”. We delete your photos, answers, AI concepts, summaries and saved progress — and, if it is your only kitchen, your account.',
+  'privacy.delete.leftovers':
+    "What stays: an email notice your maker may already have received, what the outside services keep under their own terms, and the copy of your progress in other browsers you used — clear that in that browser's settings.",
+  'privacy.contact.title': 'Questions',
+  'privacy.contact.maker': 'For your kitchen and the data in it, your maker is the quickest person to ask.',
+  'privacy.contact.operator': 'About this service and privacy, write to us at {email}.',
 }

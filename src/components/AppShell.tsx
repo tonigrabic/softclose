@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { ProgressBar } from '@/components/kitchen-intake/ProgressBar'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { LegalFooter } from '@/components/LegalFooter'
 import { MockBadge } from '@/components/MockBadge'
 import { useTranslations } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -96,6 +97,9 @@ export function AppShell({
           18rem — wide mode pads past it, centered mode clamps its margin. */}
       <aside className="fixed left-0 top-0 z-30 hidden h-dvh w-64 shrink-0 overflow-y-auto px-5 py-10 lg:flex lg:w-72 lg:flex-col lg:px-6">
         {nav}
+        {/* The privacy notice stays one click away mid-journey (IMP-09), in a
+            new tab so the intake keeps its place. */}
+        <LegalFooter newTab className="mt-auto pt-8" />
       </aside>
 
       {rightRail ? (
@@ -146,6 +150,7 @@ export function AppShell({
           >
             <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-border" aria-hidden />
             {nav}
+            <LegalFooter newTab className="mt-6" />
           </div>
         </div>
       )}
