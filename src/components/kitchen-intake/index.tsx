@@ -1091,23 +1091,28 @@ export function KitchenIntake({
           makerName={makerName}
           readOnly={readOnly}
           hasExistingBrief={hasExistingBrief || sentInSession}
-          beforeSubmit={async () => {
-            // The submit stores this snapshot as the project's copy itself, in
-            // the update that stamps the brief's time (lib/project/
-            // submit-snapshot), so the copy always matches the brief and a
-            // save that lands late cannot flag it as changed. The flush is a
-            // head start: landed, the route has nothing to write. Not landed,
-            // the client is told the server copy will be this snapshot — and
-            // the route stores it only over a copy the claim says is this
-            // tab's. Halted on another device's write, there is no claim and
-            // no snapshot: the brief leaves that device's copy alone.
-            if (!projectId || readOnly) return
-            await flushCheckpoint(snapshot)
-            const snapshotClaim = checkpointSubmitting(snapshot)
-            if (!snapshotClaim) return
-            return { snapshot: submitSnapshotFrom(snapshot) ?? undefined, snapshotClaim }
-          }}
-          onSent={() => setSentInSession(true)}
+          // The maker looking in never sends, so there is nothing to flush
+          // before a send and no send to remember. For the customer, the submit
+          // stores this snapshot as the project's copy itself, in the update that
+          // stamps the brief's time (lib/project/submit-snapshot), so the copy
+          // always matches the brief and a save that lands late cannot flag it
+          // as changed. The flush is a head start: landed, the route has nothing
+          // to write. Not landed, the client is told the server copy will be
+          // this snapshot — and the route stores it only over a copy the claim
+          // says is this tab's. Halted on another device's write, there is no
+          // claim and no snapshot: the brief leaves that device's copy alone.
+          beforeSubmit={
+            readOnly
+              ? undefined
+              : async () => {
+                  if (!projectId) return
+                  await flushCheckpoint(snapshot)
+                  const snapshotClaim = checkpointSubmitting(snapshot)
+                  if (!snapshotClaim) return
+                  return { snapshot: submitSnapshotFrom(snapshot) ?? undefined, snapshotClaim }
+                }
+          }
+          onSent={readOnly ? undefined : () => setSentInSession(true)}
           onOpenBuilder={
             readOnly
               ? undefined
