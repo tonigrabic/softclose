@@ -15,8 +15,17 @@
  *  - the review prices its range with the handoff's own function, without the
  *    maker-only money.
  */
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { briefPrint, keepsReview, reviewState, sendOffer, type ReviewState } from '@/lib/handoff/review'
+import {
+  briefPrint,
+  keepsReview,
+  legacyReviewPrint,
+  reviewState,
+  sendOffer,
+  type ReviewState,
+} from '@/lib/handoff/review'
 import { customerEstimate, estimateFromBuild } from '@/lib/handoff/estimate'
 import { buildHandoffBundle, toCustomerBundle } from '@/lib/handoff/bundle'
 import { OMITTED_IMAGE } from '@/lib/project/checkpoint'
@@ -97,6 +106,39 @@ describe('keepsReview', () => {
 
   test('no review yet', () => {
     expect(keepsReview(null, print)).toBe(false)
+  })
+
+  test('a review from before IMP-07 is kept by the print its snapshot vouches for', () => {
+    expect(keepsReview(review({ briefId: 'X' }), print, print)).toBe(true)
+    expect(keepsReview(review({ briefId: 'X' }), print, 'other')).toBe(false)
+    // Its own print wins over any legacy one.
+    expect(keepsReview(review({ briefId: 'X', profilePrint: 'other' }), print, print)).toBe(false)
+    // Still no id, still nothing to keep.
+    expect(keepsReview(review({}), print, print)).toBe(false)
+  })
+})
+
+describe('legacyReviewPrint: what a snapshot from before IMP-07 can vouch for', () => {
+  const wrapUpData: WrapUpData = { thankYouMessage: '', summaryLines: [], briefId: 'X' }
+
+  test('saved on the review: its profile is the reviewed one', () => {
+    expect(legacyReviewPrint({ isDone: true, wrapUpData, profile: profile() })).toBe(briefPrint(profile()))
+  })
+
+  test('saved mid-edit, without an id, or with a print of its own: nothing', () => {
+    expect(legacyReviewPrint({ isDone: false, wrapUpData, profile: profile() })).toBeNull()
+    expect(legacyReviewPrint({ isDone: true, wrapUpData: { ...wrapUpData, briefId: undefined }, profile: profile() })).toBeNull()
+    expect(legacyReviewPrint({ isDone: true, wrapUpData: { ...wrapUpData, profilePrint: 'p' }, profile: profile() })).toBeNull()
+    expect(legacyReviewPrint({ isDone: true, wrapUpData: null, profile: profile() })).toBeNull()
+    expect(legacyReviewPrint(null)).toBeNull()
+  })
+
+  test('the intake holds it in memory from the restore, and finishes with it', () => {
+    const intake = readFileSync(join(__dirname, '..', 'src/components/kitchen-intake/index.tsx'), 'utf8')
+    expect(intake).toMatch(/legacyPrint\.current = legacyReviewPrint\(d\)/)
+    expect(intake).toMatch(/keepsReview\(wrapUpData, print, legacyPrint\.current\)/)
+    // Never written into the snapshot (a write on arrival would flag the brief).
+    expect(intake).not.toMatch(/profilePrint: legacyPrint/)
   })
 })
 
@@ -196,6 +238,19 @@ describe('no identical resend, as a sequence', () => {
     expect(offerFor(changed, onFile, true)).toBeNull()
     expect(offerFor(finish(changed, { ...rewalked, timeline: 'asap' }, mint), onFile)).toBeNull()
     expect(n).toBe(2)
+  })
+
+  test('a brief sent before IMP-07: walking back unchanged keeps it, so nothing to send', () => {
+    let n = 0
+    const mint = () => `brief-${++n}`
+    // The snapshot as the old wrap-up left it: on the review, an id, no print.
+    const old: WrapUpData = { thankYouMessage: 'Hvala', summaryLines: [], briefId: 'old-brief' }
+    const legacy = legacyReviewPrint({ isDone: true, wrapUpData: old, profile: profile() })
+    const print = briefPrint({ ...profile(), contractConfirmedAt: 7_777 })
+    expect(keepsReview(old, print, legacy)).toBe(true)
+    const kept = keepsReview(old, print, legacy) ? old : finish(old, profile(), mint)
+    expect(offerFor(kept, 'old-brief')).toBeNull()
+    expect(n).toBe(0)
   })
 
   test('a change before the first send is still the first send, under a new id', () => {

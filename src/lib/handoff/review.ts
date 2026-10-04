@@ -23,6 +23,7 @@
  * Pure and client-safe.
  */
 import { snapshotFingerprint, stripImages } from '@/lib/project/checkpoint'
+import type { ProjectSnapshot } from '@/lib/project/snapshot'
 import type { LeadProfile, WrapUpData } from '@/lib/types'
 
 /** The content of a brief's profile: what changes the brief, nothing else. */
@@ -44,10 +45,27 @@ export function briefPrint(profile: LeadProfile): string {
 /**
  * The review on screen can be kept as it is — same brief id, same summary —
  * because the profile has not changed since it was built. A review without a
- * print (a snapshot from before IMP-07) is rebuilt once.
+ * print of its own (a snapshot from before IMP-07) is compared with
+ * `legacyPrint` when its snapshot could vouch for one, else rebuilt once.
  */
-export function keepsReview(prev: WrapUpData | null, print: string): boolean {
-  return Boolean(prev?.briefId) && prev?.profilePrint === print
+export function keepsReview(prev: WrapUpData | null, print: string, legacyPrint: string | null = null): boolean {
+  if (!prev?.briefId) return false
+  return (prev.profilePrint ?? legacyPrint) === print
+}
+
+/**
+ * The print a review saved before IMP-07 (no `profilePrint`) was built from,
+ * when its snapshot can vouch for it: saved while on the review (`isDone`),
+ * the snapshot's profile IS the reviewed one — a finish sets both together,
+ * and every edit leaves the review first. Null otherwise. Held in memory by
+ * the intake, never written back: a write on arrival would flag the brief as
+ * changed for the maker.
+ */
+export function legacyReviewPrint(
+  snap: Pick<ProjectSnapshot, 'isDone' | 'wrapUpData' | 'profile'> | null | undefined
+): string | null {
+  if (!snap?.isDone || !snap.wrapUpData?.briefId || snap.wrapUpData.profilePrint) return null
+  return briefPrint(snap.profile ?? {})
 }
 
 /**

@@ -81,7 +81,7 @@ import { decorProfileHints } from '@/lib/api/decor-profile-hints'
 import { roomConstraintsFor } from '@/lib/render/room-constraints'
 import { contactChannels } from '@/lib/contact'
 import { mintBriefId } from '@/lib/handoff/brief-id'
-import { briefPrint, keepsReview } from '@/lib/handoff/review'
+import { briefPrint, keepsReview, legacyReviewPrint } from '@/lib/handoff/review'
 import { afterCommit, continueKey, needsTranslate, wishlistSource, type ReviewTarget } from '@/lib/review-nav'
 
 /** Sign-off timestamp, read through a module-level helper so the React purity
@@ -173,6 +173,10 @@ export function KitchenIntake({
   // Single-flight for finalise: a second Continue while the summary loads
   // must not build a second review.
   const finalising = useRef(false)
+  // The print a restored review from before IMP-07 was built from, when the
+  // snapshot vouches for it (lib/handoff/review legacyReviewPrint), so walking
+  // back through an unchanged kitchen keeps it there too. Memory only.
+  const legacyPrint = useRef<string | null>(null)
   // Set when a step's Continue leads to the review; the effect below runs
   // finalise once that event's patches have rendered (see goNext).
   const [reviewQueued, setReviewQueued] = useState(false)
@@ -375,6 +379,7 @@ export function KitchenIntake({
     setBuilderStartedNoAI(Boolean(d.builderStartedNoAI))
     setBuilderGroupId(isBuilderScreenId(d.builderGroupId) ? d.builderGroupId : undefined)
     setWishlistTranslatedFrom(typeof d.wishlistSource === 'string' ? d.wishlistSource : undefined)
+    legacyPrint.current = legacyReviewPrint(d)
   }
 
   /**
@@ -931,7 +936,7 @@ export function KitchenIntake({
       ...(conceptRenders.length > 0 ? { conceptRenders } : {}),
     }
     const print = briefPrint(finalProfile)
-    if (keepsReview(wrapUpData, print)) {
+    if (keepsReview(wrapUpData, print, legacyPrint.current)) {
       setProfile(finalProfile)
       setFinaliseError(null)
       setIsDone(true)
@@ -1020,6 +1025,7 @@ export function KitchenIntake({
     setBuilderGroupId(undefined)
     setWishlistTranslatedFrom(undefined)
     setReviewQueued(false)
+    legacyPrint.current = null
   }
 
   /**
