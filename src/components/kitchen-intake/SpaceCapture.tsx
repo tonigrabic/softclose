@@ -41,6 +41,24 @@ interface SpaceCaptureProps {
   captureOnly?: boolean
 }
 
+/** The calm line under the drop zone: who reads the photos, and where to read more. */
+export function PhotoProcessingNote() {
+  const { t } = useTranslations()
+  return (
+    <p data-photo-notice className="text-[11px] leading-relaxed text-muted-foreground">
+      {t('space.processingNote')}{' '}
+      <a
+        href="/privatnost"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="underline underline-offset-2 hover:text-foreground"
+      >
+        {t('legal.privacy')}
+      </a>
+    </p>
+  )
+}
+
 type Phase =
   | 'awaiting'
   | 'analyzing'
@@ -222,6 +240,10 @@ export function SpaceCapture({
               {t('nav.skip')}
             </button>
           </div>
+
+          {/* Where the photos go (IMP-09), said before "Pročitaj moj prostor"
+              sends them anywhere. The link opens beside the intake. */}
+          <PhotoProcessingNote />
 
           <input
             ref={inputRef}

@@ -149,9 +149,22 @@ describe('proxy', () => {
 })
 
 describe('public paths', () => {
-  it('is exactly the three routes that must work signed out', () => {
+  it('is exactly the four routes that must work signed out', () => {
     // Anything added here is reachable by anyone on the internet. Changing this
-    // list should be a deliberate act, not a side effect.
-    expect([...PUBLIC_PATHS]).toEqual(['/login', '/auth/verify', '/logout'])
+    // list should be a deliberate act, not a side effect. /privatnost joined in
+    // IMP-09: a static notice with no data on it, linked from the invite email
+    // and read by people who have not signed in yet.
+    expect([...PUBLIC_PATHS]).toEqual(['/login', '/auth/verify', '/logout', '/privatnost'])
+  })
+
+  it('/privatnost has no server action and reads no session', () => {
+    // Public means public-safe: the page must stay a static notice.
+    const dir = join(APP_DIR, 'privatnost')
+    expect(existsSync(join(dir, 'actions.ts'))).toBe(false)
+    for (const f of readdirSync(dir)) {
+      const src = readFileSync(join(dir, f), 'utf8')
+      expect(src, f).not.toMatch(/\b(getSession|requireSession|cookies|supabaseAdmin)\s*\(/)
+      expect(src, f).not.toMatch(/['"]use server['"]/)
+    }
   })
 })

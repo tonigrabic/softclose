@@ -12,6 +12,7 @@ import type { ProjectSnapshot } from '@/lib/project/snapshot'
 import type { HandoffEstimate } from '@/lib/types'
 import { editEntryStep, type EntryStep } from '@/lib/review-nav'
 import { cn } from '@/lib/utils'
+import { DeleteKitchen } from './DeleteKitchen'
 
 export interface KitchenHomeProps {
   projectId: string
@@ -170,6 +171,12 @@ export function KitchenHome(props: KitchenHomeProps) {
                   : 'kitchen.home.title'
           ).replace('{maker}', makerLabel)}
         </h1>
+        {/* AI disclosure (EU AI Act Art. 50, IMP-09): said once, on first
+            load and in every state after, before anything is shared. */}
+        <p data-ai-disclosure className="mt-2 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+          <Sparkles className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          <span>{t('kitchen.home.ai').replace('{maker}', makerLabel)}</span>
+        </p>
 
         {submitted ? (
           <div className="mt-5 space-y-3 rounded-2xl border border-border bg-card p-5 shadow-sm">
@@ -329,6 +336,13 @@ export function KitchenHome(props: KitchenHomeProps) {
               </p>
             )}
           </>
+        ) : null}
+
+        {/* "Izbriši moju kuhinju" (IMP-09): the customer's own act, so never on
+            the maker's read-only view — and on a closed project too: a
+            declined kitchen is still theirs to erase. */}
+        {!props.readOnly ? (
+          <DeleteKitchen projectId={props.projectId} makerName={props.makerName} submitted={submitted} />
         ) : null}
       </div>
     </AuthShell>

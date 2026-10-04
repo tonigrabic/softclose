@@ -2083,3 +2083,68 @@ maker signing in.
   …/kitchen/<project>". The en-US version matches.
 
 Gate: 1153 tests (72 files) · tsc · eslint · next build green.
+
+### 2026-10-04 — IMP-09: AI disclosure, photo notice, privacy page, delete-my-kitchen, EGGER flag
+Spec item 10 (IMPROVEMENTS.md). Nothing user-facing said an AI reads the
+photos (EU AI Act Art. 50 is in force since August 2026). The photo step sent
+home photos to OpenAI with no notice. There was no privacy page and no way for
+a homeowner to delete their kitchen. EGGER swatches were hotlinked behind a
+compile-time `true` marked "testing only".
+
+- **Disclosure.** "Kroz korake te vodi AI asistent. {maker} osobno pregledava
+  sve što podijeliš." appears on the kitchen home on first load and in the
+  invite email. A calm line under the photo drop zone says "Fotografije čita
+  AI asistent (OpenAI) … Tvoj izrađivač ih dobiva sa sažetkom.", with a
+  "Privatnost" link. A `LegalFooter` ("Privatnost") sits in AuthShell and the
+  intake shell.
+- **`/privatnost`.** A static, public notice. It covers what is stored and
+  why, who sees it, and every processor the code uses: OpenAI (photos,
+  wishlist, summary incl. name/email/phone), Supabase, Vercel and Resend.
+  Product images load straight from Schachermayer/Elgrad, so their servers
+  see the browser's IP. Retention is as it really is: until the homeowner
+  deletes, no automatic expiry. The page also covers rights and how to
+  delete. Nothing is invented: the operator contact shows only when
+  `PRIVACY_CONTACT_EMAIL` is set, and a `TODO(Toni, before launch)` marks
+  where the operator identity and impressum go.
+- **"Izbriši moju kuhinju".** Customers only, own project only, with an
+  explicit two-step confirmation. It removes Storage objects first, then the
+  briefs, the project (snapshot), the customer's tokens, and the account when
+  no other project names it. Then it clears the session and the browser copy
+  and lands on "/login?deleted=1". A delete that stops part-way reopens the
+  kitchen. One that stops at the account step can be retried from the panel
+  or the "no kitchen" home (`deleteMyAccount`, account taken from the
+  session).
+- **EGGER.** `DECOR_IMAGES_ENABLED = NEXT_PUBLIC_DECOR_IMAGES === '1'`, off by
+  default. Decor and Schachermayer images get `referrerPolicy="no-referrer"`,
+  and colour tiles stand in when images are off. To see the swatches locally,
+  set `NEXT_PUBLIC_DECOR_IMAGES=1` in `.env.development.local` (not done here).
+- One review round (delete, compliance). Four verified findings were fixed:
+  the account step can be retried, a failed delete no longer leaves the
+  kitchen archived, Elgrad is now named, and "always marked as a concept"
+  was dropped because the render is not labelled everywhere.
+
+Not done or left as it was:
+- The operator identity, impressum and contact need Toni before launch.
+- The "AI koncept" badge is missing on the right rail, the builder confirm
+  screen and the carousel. The notice no longer claims "always".
+- A send racing the delete could add objects after the listing. Unlikely,
+  noted in code.
+
+**Browser check** (local stack, mock AI):
+- `/login` shows the "Privatnost" footer, and `/privatnost` returns 200 while
+  signed out. It names OpenAI, Supabase, Vercel, Resend, Elgrad and
+  Schachermayer, has no `mailto:` because the env is unset, and explains the
+  delete.
+- Customer imp32-sanity: the kitchen home shows the AI line on first load.
+  The photo step (awaiting) shows the processing note with its `/privatnost`
+  link. Builder Fronte: 33 decor swatches as colour tiles, 0 images from
+  egger.com.
+- Before the delete: 3 briefs, 6 Storage objects, 4 tokens and the account.
+  "Izbriši moju kuhinju" → the panel explains what goes → "Izbriši trajno" →
+  `/login?deleted=1` ("Tvoja kuhinja je izbrisana …"). After: project 0,
+  briefs 0, objects 0, tokens 0, account 0. Only tokens, briefs and projects
+  reference a project or account.
+- Maker imp32-maker: the dashboard lists one customer and loads fine, and the
+  deleted brief's `/maker/<id>` returns 404.
+
+Gate: 1264 tests (78 files) · tsc · eslint · next build green.

@@ -29,10 +29,12 @@ export interface LayoutInput {
   cta?: { label: string; url: string }
   /** Small grey print at the bottom. */
   footnote?: string
+  /** A small grey link under the footnote (the invite's privacy notice). */
+  footerLink?: { label: string; url: string }
 }
 
 export function renderEmail(input: LayoutInput): { html: string; text: string } {
-  const { eyebrow, title, intro = [], rows = [], cta, footnote } = input
+  const { eyebrow, title, intro = [], rows = [], cta, footnote, footerLink } = input
 
   const html = `<!doctype html><html><body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#111;max-width:560px;margin:0 auto;padding:24px">
 <p style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:#666;margin:0 0 8px">${escapeHtml(eyebrow)}</p>
@@ -51,6 +53,11 @@ ${
     : ''
 }
 ${footnote ? `<p style="font-size:12px;color:#666">${escapeHtml(footnote)}</p>` : ''}
+${
+  footerLink
+    ? `<p style="font-size:12px;color:#666"><a href="${escapeHtml(footerLink.url)}" style="color:#666">${escapeHtml(footerLink.label)}</a></p>`
+    : ''
+}
 </body></html>`
 
   const text = [
@@ -62,6 +69,7 @@ ${footnote ? `<p style="font-size:12px;color:#666">${escapeHtml(footnote)}</p>` 
     ...(rows.length ? [''] : []),
     ...(cta ? [`${cta.label}: ${cta.url}`, ''] : []),
     ...(footnote ? [footnote] : []),
+    ...(footerLink ? [...(footnote ? [''] : []), `${footerLink.label}: ${footerLink.url}`] : []),
   ].join('\n')
 
   return { html, text }
