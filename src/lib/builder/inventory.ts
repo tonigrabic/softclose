@@ -477,6 +477,11 @@ export const BUILDER_GROUPS: BuilderGroupMeta[] = [
   { id: 'finishing', labelKey: 'builder.groups.finishing.label', whyKey: 'builder.groups.finishing.why', order: 8 },
 ]
 
+/** A stored group id that is still a builder screen (not a retired or non-screen group). */
+export function isBuilderScreenId(v: unknown): v is BuilderScreenId {
+  return typeof v === 'string' && BUILDER_GROUPS.some((g) => g.id === v)
+}
+
 export function builderGroupOrder(id: BuilderScreenId): number {
   return BUILDER_GROUPS.find((g) => g.id === id)?.order ?? 0
 }

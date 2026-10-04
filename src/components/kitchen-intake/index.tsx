@@ -34,7 +34,7 @@ import {
 import { BuilderShell } from '@/components/builder/BuilderShell'
 import { LayoutConfirm } from '@/components/builder/LayoutConfirm'
 import { decorHypothesis, type BuilderHypothesis } from '@/lib/builder/hypothesis'
-import type { BuilderState } from '@/lib/builder/inventory'
+import { isBuilderScreenId, type BuilderScreenId, type BuilderState } from '@/lib/builder/inventory'
 import type { UnitEdits } from '@/lib/builder/unit-assembly'
 import { builderPickLabels } from '@/lib/builder/pick-labels'
 import { derivePrefills } from '@/lib/derive-prefills'
@@ -42,6 +42,7 @@ import { seedConfirmPlan } from '@/lib/derive-layout'
 import { clearSnapshot, loadSnapshot, saveSnapshot, type StoredSnapshot } from '@/lib/session-store'
 import type { ProjectSnapshot as IntakeSnapshot } from '@/lib/project/snapshot'
 import { useProjectCheckpoint } from './useProjectCheckpoint'
+import { useDebouncedCallback } from '@/lib/use-debounced-callback'
 import type { UploadedReference } from './ImageSelect'
 import type { FloorPlan } from '@/lib/floor-plan'
 import {
@@ -210,6 +211,10 @@ export function KitchenIntake({
   const [hypothesisError, setHypothesisError] = useState<TranslationKey | null>(null)
   // True once the user explicitly starts building without the AI suggestion.
   const [builderStartedNoAI, setBuilderStartedNoAI] = useState(false)
+  // The builder group the homeowner is on (IMP-06), so a reload reopens the
+  // builder there. Undefined, never null, until the builder first saves: an
+  // older snapshot then fingerprints the same.
+  const [builderGroupId, setBuilderGroupId] = useState<BuilderScreenId | undefined>(undefined)
 
   // ── Session persistence (AGENTS.md rule 7/8: reload must not wipe the journey).
   // Everything `resetAll` clears is snapshotted to IndexedDB (debounced) and
@@ -306,6 +311,7 @@ export function KitchenIntake({
     setDealBreakersText(d.dealBreakersText ?? '')
     setBuilderHypothesis(d.builderHypothesis ?? null)
     setBuilderStartedNoAI(Boolean(d.builderStartedNoAI))
+    setBuilderGroupId(isBuilderScreenId(d.builderGroupId) ? d.builderGroupId : undefined)
   }
 
   function resumeSession() {
@@ -349,13 +355,31 @@ export function KitchenIntake({
       builderStartedNoAI,
       roomPhase,
       roomPlan,
+      builderGroupId,
     }),
     [
       state.currentStepId, profile, transcript, isDone, wrapUpData, spacePhotos, spaceVision, floorPlan,
       unitEdits, inspirationStyles, inspirationRefs, inspirationVision, conceptRenders, chosenRenderId,
       productReferences, siteAccess, contactDraft, mustHavesText,
       niceToHavesText, dealBreakersText, builderHypothesis, builderStartedNoAI, roomPhase, roomPlan,
+      builderGroupId,
     ]
+  )
+  // The last committed snapshot, for the builder's write-through when the tab
+  // is hidden inside its autosave window (see saveBuilderProgress).
+  const snapshotRef = useRef(snapshot)
+  useEffect(() => {
+    snapshotRef.current = snapshot
+  }, [snapshot])
+
+  // The local copy, debounced — and written through when the tab is hidden or
+  // left inside the window (IMP-06). On a reload the local copy wins over the
+  // server one, so a save still waiting here would bring back the journey from
+  // before the last change: a builder pick autosaved half a second ago, lost.
+  const localSave = useDebouncedCallback(
+    (_cause, snap: IntakeSnapshot) => void saveSnapshot(snap, projectId),
+    800,
+    { flushOnPageHide: true, flushOnUnmount: true }
   )
 
   useEffect(() => {
@@ -364,11 +388,14 @@ export function KitchenIntake({
       snapshot.currentStepId !== 'space_photos' ||
       Object.keys(snapshot.profile).length > 0 ||
       snapshot.spacePhotos.length > 0
-    if (!hasSomething) return
-    const t = setTimeout(() => void saveSnapshot(snapshot, projectId), 800)
+    if (!hasSomething) {
+      // Start over cleared the stored journey; a save still pending must not put it back.
+      localSave.cancel()
+      return
+    }
+    localSave.run(snapshot)
     checkpoint.queue(snapshot)
-    return () => clearTimeout(t)
-  }, [snapshot, checkpoint, projectId])
+  }, [snapshot, checkpoint, localSave])
 
   const resumeBanner = resumeOffer && !projectId ? (
     <div
@@ -402,6 +429,28 @@ export function KitchenIntake({
   /** Patch the central LeadProfile (replace strategy at top-level keys). */
   function patchProfile(patch: Partial<LeadProfile>) {
     setProfile((prev) => ({ ...prev, ...patch }))
+  }
+
+  /**
+   * Builder autosave (IMP-06): the live build and its group ride the same
+   * snapshot as everything else — the 800 ms IndexedDB save (with the
+   * re-render pixels) and the server checkpoint (image-free).
+   *
+   * `urgent` means the tab is being hidden or left inside the builder's
+   * window. The render that would schedule the IndexedDB save may never
+   * happen then, and the checkpoint's own hide flush only holds the older
+   * snapshot — so the composed snapshot is written through here. `flush`, not
+   * `queue({ immediate })`: a send already on the wire would make the
+   * immediate send return early; flush waits it out and lands ours last.
+   */
+  function saveBuilderProgress(builderState: BuilderState, groupId: BuilderScreenId, { urgent }: { urgent: boolean }) {
+    patchProfile({ builderState })
+    setBuilderGroupId(groupId)
+    if (!urgent || !persistenceReady.current) return
+    const base = snapshotRef.current
+    const next: IntakeSnapshot = { ...base, profile: { ...base.profile, builderState }, builderGroupId: groupId }
+    void saveSnapshot(next, projectId)
+    void checkpoint.flush(next)
   }
 
   /** Move to a specific step. */
@@ -795,6 +844,7 @@ export function KitchenIntake({
     setBuilderHypothesis(null)
     setHypothesisError(null)
     setBuilderStartedNoAI(false)
+    setBuilderGroupId(undefined)
   }
 
   /**
@@ -990,6 +1040,7 @@ export function KitchenIntake({
         layoutContract={layoutContract}
         unitEdits={(profile.unitEdits as UnitEdits | undefined) ?? unitEdits}
         savedState={builderSavedState}
+        initialGroupId={builderGroupId}
         renderImageDataUrl={chosenRender?.imageDataUrl}
         anchorPhotoDataUrl={spacePhotos[0]}
         rerenderBlocked={!roomDone}
@@ -997,19 +1048,24 @@ export function KitchenIntake({
         profile={profile}
         makerName={makerName}
         layoutPreconfirmed
-        onComplete={(builderState) => {
+        // The maker looking in never writes the homeowner's build.
+        onStateChange={readOnly ? undefined : saveBuilderProgress}
+        onComplete={(builderState, groupId) => {
           patchProfile({ builderState })
+          setBuilderGroupId(groupId)
           logTurn(
             'user',
             `Builder complete — doors: ${builderState.doors.decorCode}, worktop: ${builderState.worktop.decorCode}`
           )
           goNext()
         }}
-        onEditLayout={(builderState) => {
+        onEditLayout={(builderState, groupId) => {
           // Escape hatch: keep every pick, reopen the layout. On re-lock the
           // builder remounts with this savedState and relockBuilderState
-          // re-derives the units against the new contract.
+          // re-derives the units against the new contract — at the group the
+          // hatch was opened from.
           patchProfile({ builderState })
+          setBuilderGroupId(groupId)
           logTurn('user', 'Went back to edit the layout from the builder.')
           setState({ currentStepId: 'confirm_look' })
         }}

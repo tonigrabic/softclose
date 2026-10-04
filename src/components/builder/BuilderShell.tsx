@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -18,6 +18,14 @@ import {
   relockBuilderState,
   useBuilderState,
 } from '@/lib/builder/state'
+import {
+  BUILDER_AUTOSAVE_MS,
+  builderSaveKey,
+  createSaveGate,
+  resumeBuilderGroup,
+  visibleRerenders,
+} from '@/lib/builder/autosave'
+import { useDebouncedCallback } from '@/lib/use-debounced-callback'
 import type { UnitEdits } from '@/lib/builder/unit-assembly'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { LayoutContract } from '@/lib/contract/layout-contract'
@@ -86,14 +94,29 @@ export interface BuilderShellProps {
    * re-entering the builder keeps every pick instead of starting over.
    */
   savedState?: BuilderState
-  /** Callback fired when the user finishes the builder. */
-  onComplete?: (state: BuilderState) => void
+  /**
+   * The group to open at — where a saved build was left (IMP-06). Read once,
+   * on mount; anything that is not a live builder screen opens the first group.
+   */
+  initialGroupId?: BuilderScreenId
+  /**
+   * Autosave (IMP-06): the live build and the group, debounced
+   * (BUILDER_AUTOSAVE_MS), on every real homeowner change — never for the
+   * state the shell mounted with. `urgent` is set when the tab is being
+   * hidden or left, or the shell unmounts, inside the window: the caller
+   * should then write through instead of waiting for its own debounced save.
+   * Omitted by the maker's read-only view and the /builder harness, which
+   * must never write to a project.
+   */
+  onStateChange?: (state: BuilderState, groupId: BuilderScreenId, info: { urgent: boolean }) => void
+  /** Callback fired when the user finishes the builder (with the group it finished on). */
+  onComplete?: (state: BuilderState, groupId: BuilderScreenId) => void
   /**
    * Escape hatch: persist the LIVE state and jump back to Part 1's
    * confirm_look step so the homeowner can change the locked layout. On
    * re-lock the units re-derive while every other pick survives.
    */
-  onEditLayout?: (state: BuilderState) => void
+  onEditLayout?: (state: BuilderState, groupId: BuilderScreenId) => void
 }
 
 export function BuilderShell({
@@ -108,10 +131,17 @@ export function BuilderShell({
   makerName,
   layoutPreconfirmed,
   savedState,
+  initialGroupId,
+  onStateChange,
   onComplete,
   onEditLayout,
 }: BuilderShellProps) {
-  const initial = useMemo(() => {
+  // Mount-only, like the reducer that consumes it: the intake rebuilds the
+  // contract on every render (and now re-renders on every autosave), so a memo
+  // would relock and re-assemble units each time for a value nobody reads.
+  // A different saved state means a remount — the escape-hatch return, the
+  // harness's `key` — and that relocks.
+  const [initial] = useState(() => {
     if (savedState) {
       // Deterministic + idempotent, so every resume re-locks against the
       // CURRENT contract: the escape-hatch return path re-derives units while
@@ -121,10 +151,45 @@ export function BuilderShell({
     const s = hydrateFromHypothesis(hypothesis, { layoutContract, unitEdits })
     if (layoutPreconfirmed) s.layoutConfirmed = true
     return s
-  }, [hypothesis, layoutContract, unitEdits, layoutPreconfirmed, savedState])
+  })
   const [state, dispatch] = useBuilderState(initial)
-  // Builder now opens on Cabinet Boxes — Layout/dimensions are owned by Phase 1.
-  const [currentId, setCurrentId] = useState<BuilderScreenId>('cabinetBoxes')
+  // Opens where a saved build was left; Cabinet Boxes otherwise — Layout and
+  // dimensions are owned by Phase 1.
+  const [currentId, setCurrentId] = useState<BuilderScreenId>(() => resumeBuilderGroup(initialGroupId))
+
+  // ── Autosave (IMP-06). Every builder action is a homeowner action (no group
+  // dispatches from an effect), so "the state changed" is "they changed
+  // something" — except on mount, which the gate swallows: the mount value is
+  // what is stored (or its relock), and saving it would flag a sent brief as
+  // changed. The content key ignores the reducer's timestamp, so a re-tap of
+  // the same chip writes nothing either.
+  const autosave = useDebouncedCallback(
+    (cause, s: BuilderState, g: BuilderScreenId) => onStateChange?.(s, g, { urgent: cause !== 'timer' }),
+    BUILDER_AUTOSAVE_MS,
+    { flushOnUnmount: true, flushOnPageHide: true }
+  )
+  const [gate] = useState(createSaveGate)
+  const autosaving = Boolean(onStateChange)
+  useEffect(() => {
+    if (!autosaving) return
+    if (gate(builderSaveKey(state, currentId))) autosave.run(state, currentId)
+  }, [state, currentId, autosaving, gate, autosave])
+
+  // Handing the build off cancels the pending save first: the builder unmounts
+  // right after, and an unmount flush of the pre-Continue state would land on
+  // top of the confirmed one the callback just stored.
+  const complete = onComplete
+    ? (s: BuilderState) => {
+        autosave.cancel()
+        onComplete(s, currentId)
+      }
+    : undefined
+  const editLayout = onEditLayout
+    ? (s: BuilderState) => {
+        autosave.cancel()
+        onEditLayout(s, currentId)
+      }
+    : undefined
 
   // Locale comes from the root LocaleProvider (and the language switcher) — the
   // builder no longer forces its own; it inherits whatever the homeowner chose.
@@ -152,8 +217,8 @@ export function BuilderShell({
       layoutSummary={layoutSummary}
       profile={profile}
       makerName={makerName}
-      onComplete={onComplete}
-      onEditLayout={onEditLayout}
+      onComplete={complete}
+      onEditLayout={editLayout}
     />
   )
 }
@@ -224,10 +289,11 @@ function Shell({
   // The big preview always reads from `activeRenderId`: null = Phase-1
   // Original (renderImageDataUrl), otherwise the matching entry in rerenders[].
   // The Original is structurally protected — it lives outside rerenders[] so
-  // the cap can't evict it.
+  // the cap can't evict it. A re-render restored without its pixels (the
+  // server copy is image-free) is not shown, so the preview falls back to it.
   const originalSrc = renderImageDataUrl ?? anchorPhotoDataUrl
   const activeRerender = state.activeRenderId
-    ? state.rerenders?.find((r) => r.id === state.activeRenderId)
+    ? visibleRerenders(state).find((r) => r.id === state.activeRenderId)
     : undefined
   const previewSrc = activeRerender?.imageDataUrl ?? originalSrc ?? null
 
