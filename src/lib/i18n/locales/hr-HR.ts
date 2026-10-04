@@ -902,6 +902,10 @@ export const hrHR = {
   'wrapup.resubmit.cta': 'Pošalji izmjene',
   'wrapup.resubmit.sending': 'Šaljem…',
   // The maker looking in at the wrap-up: sending is the customer's act.
+  // The header is theirs too — what this screen is, never the homeowner's
+  // thank-you or "ispravi sve što ne valja".
+  'wrapup.readOnly.title': 'Kupčev sažetak',
+  'wrapup.readOnly.lede': 'Ovako ga vidi kupac — ti ga ovdje samo gledaš.',
   'wrapup.readOnly.notSent': 'Kupac još nije poslao sažetak.',
   'wrapup.readOnly.sent': 'Kupac je poslao sažetak — otvori ga s popisa.',
   'auth.logout': 'Odjava',

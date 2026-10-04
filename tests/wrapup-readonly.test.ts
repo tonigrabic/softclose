@@ -9,6 +9,11 @@
  * Now a read-only wrap-up never sends (no mount POST, no re-submit, no
  * beforeSubmit/onSent) and says where the brief got to in one calm line.
  *
+ * Its header is the maker's too. The homeowner's — "Evo tvog sažetka", the
+ * thank-you the interview stored ("…na putu prema izrađivaču"), "Pregledaj što
+ * šaljemo — ispravi sve što ne valja" — sat right above "Kupac još nije poslao
+ * sažetak", and offered a fix to someone who can only look.
+ *
  * Rendered statically: the first paint, before any effect. The effect itself
  * is checked at the source (there is no DOM in this suite).
  */
@@ -27,6 +32,10 @@ import { enUS } from '@/lib/i18n/locales/en-US'
 const ROOT = join(__dirname, '..')
 const source = (file: string) => readFileSync(join(ROOT, file), 'utf8')
 
+/** The thank-you as the snapshot stores it: written for the homeowner, in the
+ *  locale it was generated in. */
+const THANK_YOU = 'Hvala — tvoj sažetak je spreman i na putu prema izrađivaču.'
+
 /** A build on the profile, so the estimate card is past "build your kitchen". */
 const BUILT = {
   builderState: hydrateFromHypothesis(null, {
@@ -38,7 +47,7 @@ function wrapUp(props: { readOnly?: boolean; hasExistingBrief?: boolean; built?:
   const { built = true, ...rest } = props
   return renderToStaticMarkup(
     createElement(WrapUpScreen, {
-      data: { thankYouMessage: 'x', summaryLines: [] },
+      data: { thankYouMessage: THANK_YOU, summaryLines: [] },
       profile: built ? BUILT : {},
       explorationRefs: [],
       transcript: [],
@@ -82,6 +91,49 @@ describe('the maker looking in never sends', () => {
     expect(html).not.toContain(hrHR['wrapup.estimate.noBuild'])
     expect(html).not.toContain(hrHR['wrapup.estimate.openBuilder'])
     expectNoSendControls(html)
+  })
+})
+
+/** The homeowner's header: nothing of it reaches the maker. */
+function expectNoHomeownerHeader(html: string) {
+  expect(html).not.toContain(hrHR['wrapup.title'])
+  expect(html).not.toContain(THANK_YOU)
+  expect(html).not.toContain(hrHR['wrapup.review'])
+  expect(html).not.toContain('✓')
+}
+
+describe('the header speaks to the maker looking in', () => {
+  test('an unsent project: the customer’s view, to look at — and "not sent yet" right under it', () => {
+    const html = wrapUp({ readOnly: true })
+    expect(html).toContain(hrHR['wrapup.readOnly.title'])
+    expect(html).toContain(hrHR['wrapup.readOnly.lede'])
+    expectNoHomeownerHeader(html)
+    // The header comes first, the status line under it, and they agree.
+    expect(html.indexOf(hrHR['wrapup.readOnly.lede'])).toBeLessThan(html.indexOf(hrHR['wrapup.readOnly.notSent']))
+  })
+
+  test('a project with a brief: the same header', () => {
+    const html = wrapUp({ readOnly: true, hasExistingBrief: true })
+    expect(html).toContain(hrHR['wrapup.readOnly.title'])
+    expect(html).toContain(hrHR['wrapup.readOnly.lede'])
+    expectNoHomeownerHeader(html)
+  })
+
+  test('no build either: the same header', () => {
+    const html = wrapUp({ readOnly: true, built: false })
+    expect(html).toContain(hrHR['wrapup.readOnly.title'])
+    expectNoHomeownerHeader(html)
+  })
+
+  test('the customer keeps theirs: the check, "here’s your brief", the thank-you, "review what we’re sending"', () => {
+    for (const html of [wrapUp(), wrapUp({ hasExistingBrief: true })]) {
+      expect(html).toContain('✓')
+      expect(html).toContain(hrHR['wrapup.title'])
+      expect(html).toContain(THANK_YOU)
+      expect(html).toContain(hrHR['wrapup.review'])
+      expect(html).not.toContain(hrHR['wrapup.readOnly.title'])
+      expect(html).not.toContain(hrHR['wrapup.readOnly.lede'])
+    }
   })
 })
 
@@ -133,6 +185,13 @@ describe('no send for the maker, at the source', () => {
 })
 
 describe('the copy, hr-HR first, en-US the same keys', () => {
+  test('the read-only header', () => {
+    expect(hrHR['wrapup.readOnly.title']).toBe('Kupčev sažetak')
+    expect(hrHR['wrapup.readOnly.lede']).toBe('Ovako ga vidi kupac — ti ga ovdje samo gledaš.')
+    expect(enUS['wrapup.readOnly.title']).toBe("The customer's brief")
+    expect(enUS['wrapup.readOnly.lede']).toBe("This is how the customer sees it — you're only looking here.")
+  })
+
   test('the read-only status lines', () => {
     expect(hrHR['wrapup.readOnly.notSent']).toBe('Kupac još nije poslao sažetak.')
     expect(hrHR['wrapup.readOnly.sent']).toBe('Kupac je poslao sažetak — otvori ga s popisa.')

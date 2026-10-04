@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { ArrowLeft, Download, Sparkles, AlertCircle, Hammer } from 'lucide-react'
+import { ArrowLeft, Download, Eye, Sparkles, AlertCircle, Hammer } from 'lucide-react'
 import type {
   ClientMessage,
   ConceptVisualRef,
@@ -64,8 +64,9 @@ interface WrapUpScreenProps {
   /** True when the viewer is the maker looking in at their customer's kitchen.
    *  Sending is the customer's act (/api/handoff answers the maker 404), so a
    *  read-only wrap-up never sends — not on mount, not on a button — and says
-   *  where the brief got to instead. The back link is worded for the maker;
-   *  nothing on this screen is maker-only. */
+   *  where the brief got to instead. The header and the back link are worded
+   *  for the maker (no homeowner thank-you, no "fix anything"); nothing on
+   *  this screen is maker-only. */
   readOnly?: boolean
 }
 
@@ -247,13 +248,33 @@ export function WrapUpScreen({
       transition={{ duration: 0.5, ease: 'easeOut' }}
       className="flex flex-col gap-7 py-4"
     >
+      {/* The header speaks to whoever is looking. The homeowner's — a check,
+          "here's your brief", the thank-you the interview wrote them, "review
+          what we're sending, fix anything" — would tell the maker looking in
+          that it is done, sent and theirs to fix, right above the line saying
+          the customer hasn't sent it. The maker gets what this is instead:
+          the customer's own view, to look at. */}
       <div className="text-center">
-        <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-2xl text-primary-foreground">
-          ✓
-        </div>
-        <h2 className="text-2xl font-semibold text-foreground">{t('wrapup.title')}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{data.thankYouMessage}</p>
-        <p className="text-xs text-muted-foreground/70">{t('wrapup.review')}</p>
+        {readOnly ? (
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <Eye className="size-6 stroke-[1.75]" aria-hidden />
+          </div>
+        ) : (
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-2xl text-primary-foreground">
+            ✓
+          </div>
+        )}
+        <h2 className="text-2xl font-semibold text-foreground">
+          {t(readOnly ? 'wrapup.readOnly.title' : 'wrapup.title')}
+        </h2>
+        {readOnly ? (
+          <p className="mt-1 text-sm text-muted-foreground">{t('wrapup.readOnly.lede')}</p>
+        ) : (
+          <>
+            <p className="mt-1 text-sm text-muted-foreground">{data.thankYouMessage}</p>
+            <p className="text-xs text-muted-foreground/70">{t('wrapup.review')}</p>
+          </>
+        )}
       </div>
 
       {/* Estimate — always a range, never a quote, and only ever from the

@@ -875,6 +875,10 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.resubmit.cta': 'Send the changes',
   'wrapup.resubmit.sending': 'Sending…',
   // The maker looking in at the wrap-up: sending is the customer's act.
+  // The header is theirs too — what this screen is, never the homeowner's
+  // thank-you or "fix anything that's off".
+  'wrapup.readOnly.title': "The customer's brief",
+  'wrapup.readOnly.lede': "This is how the customer sees it — you're only looking here.",
   'wrapup.readOnly.notSent': "The customer hasn't sent the brief yet.",
   'wrapup.readOnly.sent': 'The customer has sent the brief — open it from your list.',
   'auth.logout': 'Sign out',
