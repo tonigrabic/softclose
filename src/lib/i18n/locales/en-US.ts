@@ -17,6 +17,7 @@ export const enUS: Record<TranslationKey, string> = {
   'builder.shell.bom.project': 'Project work (allowance)',
   'builder.shell.bom.goodsExact': 'exact — your picks',
   'builder.shell.bom.goodsEstimate': 'estimate — pick models to pin it',
+  'builder.shell.bom.lines': 'All line items ({n})',
   // ---- Range line (IMP-04) ----------------------------------------------
   'range.confirms.homeowner': 'a range {maker} confirms',
   'range.confirms.maker': 'a range you confirm',
@@ -541,7 +542,7 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.actions.backToSteps': 'Back to the steps',
   'nav.backToReview': 'Back to the review',
   'builder.rerender.changedPrefix': 'You changed:',
-  'builder.rerender.changedSuffix': '. The render above does not reflect this yet.',
+  'builder.rerender.changedSuffix': '. The current render does not show this yet.',
   'builder.rerender.rendering': 'Re-rendering…',
   'builder.rerender.button': 'Re-render with these picks ({n} left)',
   'builder.rerender.change.door_decor': 'door decor',
