@@ -62,7 +62,7 @@ import {
   workingPlanFromRoom,
   type TradeMove,
 } from '@/lib/floor-plan'
-import { OMITTED_IMAGE, snapshotFingerprint } from '@/lib/project/checkpoint'
+import { OMITTED_IMAGE, snapshotFingerprint, stripImages } from '@/lib/project/checkpoint'
 import { requestSpaceVision } from '@/lib/api/space-vision-client'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import type {
@@ -224,9 +224,15 @@ export function KitchenIntake({
   const persistenceReady = useRef(false)
   // Dual write: IndexedDB stays the fast local cache, the server copy is what
   // survives a different device and what the maker's dashboard reads.
+  // Seeded with what the server holds, so a visit that changes nothing — a
+  // resume into the builder, a look at the wrap-up — writes nothing.
+  const [initialFingerprint] = useState(() =>
+    initialSnapshot ? snapshotFingerprint(stripImages(initialSnapshot)) : null
+  )
   const checkpoint = useProjectCheckpoint({
     projectId: readOnly ? undefined : projectId,
     initialRevision,
+    initialFingerprint,
   })
 
   useEffect(() => {

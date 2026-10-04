@@ -84,6 +84,19 @@ export function nextBackoffMs(attempt: number): number {
   return ladder[Math.min(attempt, ladder.length - 1)]
 }
 
+/**
+ * A refusal no retry will change: not our project, session gone, a payload the
+ * server will never accept. Retrying one just burns requests on a backoff
+ * forever, which is exactly what a 404 did the first time this ran.
+ *
+ * Not 429 or 408: a rate limit or a timeout passes. With builder autosave
+ * (IMP-06) every pick is a checkpoint, and halting on a 429 would stop saving
+ * for the rest of the session, silently — the backoff ladder waits it out.
+ */
+export function isPermanentRefusal(status: number): boolean {
+  return status >= 400 && status < 500 && status !== 408 && status !== 429
+}
+
 export interface ConflictDecision {
   /** True when the server already holds exactly what we tried to send. */
   alreadyApplied: boolean

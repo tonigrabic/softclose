@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   classifyConflict,
+  isPermanentRefusal,
   MAX_CHECKPOINT_BYTES,
   nextBackoffMs,
   snapshotFingerprint,
@@ -45,7 +46,17 @@ export interface CheckpointApi {
  * It must never interrupt the homeowner. Every failure is swallowed into a
  * state the save indicator can show quietly; IndexedDB still has their work.
  */
-export function useProjectCheckpoint(opts: { projectId?: string; initialRevision?: number }): CheckpointApi {
+export function useProjectCheckpoint(opts: {
+  projectId?: string
+  initialRevision?: number
+  /**
+   * Fingerprint of what the server already holds (`snapshotFingerprint` of
+   * the stripped initial snapshot). Seeds the "nothing changed" check, so a
+   * visit that changes nothing writes nothing — every write moves
+   * `updated_at`, and that is the maker's "changed since the brief" signal.
+   */
+  initialFingerprint?: string | null
+}): CheckpointApi {
   const { projectId } = opts
   const [state, setState] = useState<CheckpointState>(projectId ? 'idle' : 'disabled')
   const revision = useRef(opts.initialRevision ?? 0)
@@ -54,7 +65,7 @@ export function useProjectCheckpoint(opts: { projectId?: string; initialRevision
   const maxTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const inFlight = useRef(false)
   const pendingSnapshot = useRef<ProjectSnapshot | null>(null)
-  const lastSentFingerprint = useRef<string | null>(null)
+  const lastSentFingerprint = useRef<string | null>(opts.initialFingerprint ?? null)
   const attempt = useRef(0)
   // Set once a conflict is confirmed: we stop writing rather than race another
   // device. There is no defensible automatic merge of conceptRenders or
@@ -151,11 +162,10 @@ export function useProjectCheckpoint(opts: { projectId?: string; initialRevision
         return
       }
 
-      // Any other 4xx is permanent: not our project, session gone, a payload
-      // the server will never accept. Retrying it just burns requests on a
-      // backoff forever, which is exactly what a 404 did the first time this
-      // ran. Stop and let the local copy stand.
-      if (res.status >= 400 && res.status < 500) {
+      // Any other 4xx but a rate limit or a timeout is permanent (see
+      // isPermanentRefusal). Stop and let the local copy stand; a 429 or 408
+      // falls through to the backoff below.
+      if (isPermanentRefusal(res.status)) {
         console.error('[checkpoint] refused:', res.status, data.reason)
         halted.current = true
         setState('error')
