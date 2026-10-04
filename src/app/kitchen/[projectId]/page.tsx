@@ -4,7 +4,7 @@ import { findAccountById } from '@/lib/auth/accounts'
 import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import { DEFAULT_LOCALE, isLocale, tDynamic } from '@/lib/i18n/core'
 import { migrateSnapshot } from '@/lib/project/snapshot'
-import { stepProgress } from '@/lib/project/status'
+import { changedSinceBrief, stepProgress } from '@/lib/project/status'
 import { formatDecisionDate, isDecided, isProjectClosed } from '@/lib/project/decision'
 import { resumeStepId } from '@/lib/flow'
 import { roomStepDone } from '@/lib/floor-plan'
@@ -145,6 +145,9 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
       submittedAt={date(project.submittedAt)}
       makerViewedAt={date(brief?.makerViewedAt ?? null)}
       briefId={project.currentBriefId}
+      // The kitchen changed since the brief went out, and the changes were
+      // not sent: the same test as the maker's "izmijenjeno" (0008).
+      unsentChanges={changedSinceBrief(project.contentChangedAt, brief?.createdAt ?? null)}
       range={range}
       savedEstimate={estimate}
       decision={decision}

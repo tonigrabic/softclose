@@ -888,6 +888,8 @@ export const hrHR = {
   'kitchen.home.status.rangeLabel': 'Okvirni raspon — kuhinja, izrada i montaža',
   'kitchen.home.status.noRange': 'Raspon dobivaš kad sastaviš kuhinju.',
   'kitchen.home.editNote': 'Izmjene odlaze izrađivaču tek kad ih pregledaš i pošalješ.',
+  'kitchen.home.status.unsent': 'Imaš izmjene koje još nisu poslane — {maker} ima raniju verziju sažetka.',
+  'kitchen.home.cta.reviewChanges': 'Pregledaj i pošalji izmjene',
   // The maker's decision (IMP-03). Led by "{maker}:" so a studio name never
   // has to be declined and nothing is masculine-only. The maker's real quote
   // IS a "ponuda"; the range stays "procjena" everywhere. No full stop after

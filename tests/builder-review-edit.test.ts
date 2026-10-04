@@ -21,6 +21,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, test } from 'vitest'
 import { BuilderShell } from '@/components/builder/BuilderShell'
+import { GROUP_MODULES } from '@/components/builder/groups/registry'
 import { CONTRACT_FIXTURES } from '@/lib/builder/fixtures'
 import { hydrateFromHypothesis } from '@/lib/builder/state'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
@@ -84,6 +85,37 @@ describe('a build that does not exist yet starts at the first group', () => {
   test('"Natrag na pregled" only once there is a build to go back with', () => {
     expect(shell({ onBackToReview: () => {} })).not.toContain(BACK_TO_REVIEW)
     expect(shell({ savedState: SAVED, onBackToReview: () => {} })).toContain(BACK_TO_REVIEW)
+  })
+})
+
+/**
+ * Round 2 of the IMP-07 review: a review without a range offers "Sastavi
+ * kuhinju", and the build it starts was opened with `reviewed` — every other
+ * group done with a read-back of defaults nobody chose, the bar at 100 % on
+ * the first group. The review never covered that build: it is walked as on
+ * the first walk.
+ */
+describe('a build started from the review is walked, not shown as done', () => {
+  /** Read-backs of groups the homeowner has not reached, from the defaults. */
+  const UNSEEN = (['worktop', 'finishing'] as const).map((g) => GROUP_MODULES[g].readback(SAVED, 'hr-HR')!)
+  const progress = (html: string) => Number(html.match(/role="progressbar" aria-valuenow="(\d+)"/)?.[1])
+
+  test('no saved build: positional rail and bar, no read-backs of unseen defaults', () => {
+    const html = shell({ reviewed: true, onBackToReview: () => {} })
+    expect(progress(html)).toBeLessThan(100)
+    for (const readback of UNSEEN) expect(html).not.toContain(readback)
+  })
+
+  test('a saved build being edited from its review: every step done, the bar full', () => {
+    const html = shell({ reviewed: true, savedState: SAVED, initialGroupId: 'doors', onBackToReview: () => {} })
+    expect(progress(html)).toBe(100)
+    for (const readback of UNSEEN) expect(html).toContain(readback)
+  })
+
+  test('decided on mount: the first save of a new build does not make it "reviewed"', () => {
+    const shellSource = readFileSync(join(__dirname, '..', 'src/components/builder/BuilderShell.tsx'), 'utf8')
+    expect(shellSource).toMatch(/const \[newBuild\] = useState\(\(\) => !savedState\)/)
+    expect(shellSource).toMatch(/reviewed=\{reviewed && !newBuild\}/)
   })
 })
 

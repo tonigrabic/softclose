@@ -86,9 +86,13 @@ import {
   afterCommit,
   continueKey,
   needsTranslate,
+  owedAfterCommit,
+  owedAfterLeave,
   restoredWishlistSource,
   spacePhotosChanged,
+  stepDraftPrint,
   wishlistSource,
+  type EntryStep,
   type ReviewTarget,
 } from '@/lib/review-nav'
 
@@ -147,8 +151,9 @@ export interface KitchenIntakeProps {
   /** The name the maker invited them under — prefilled, still editable. */
   customerName?: string | null
   /** Open the journey at this step instead of where it was left, e.g. the
-   *  builder for a customer whose brief went out without a range. */
-  startAt?: FlowStepId
+   *  builder for a customer whose brief went out without a range — or at the
+   *  review, for changes made since the brief went out and not sent. */
+  startAt?: EntryStep
 }
 
 export function KitchenIntake({
@@ -191,6 +196,11 @@ export function KitchenIntake({
   // Set when a step's Continue leads to the review; the effect below runs
   // finalise once that event's patches have rendered (see goNext).
   const [reviewQueued, setReviewQueued] = useState(false)
+  // Editing from the review: the steps still owed their Continue before the
+  // review is built again, in flow order (lib/review-nav owedAfterCommit,
+  // owedAfterLeave) — a new room on its way to the builder, an edit left on a
+  // step by Back or the rail. Continue leads to the first of them.
+  const [owedSteps, setOwedSteps] = useState<FlowStepId[]>([])
 
   // Per-step transient state lifted to the parent so Back navigation preserves work.
   const [spacePhotos, setSpacePhotos] = useState<string[]>([])
@@ -321,15 +331,25 @@ export function KitchenIntake({
       // journey WITH its photos — the server copy is image-free. On a second
       // device there is no local copy, and the server snapshot restores
       // everything except the pictures.
+      let applied: IntakeSnapshot | null = null
       if (projectId) {
         if (worthResuming) {
           applySnapshot(d)
           if (merged) adoptMergedBuild(d)
-        } else if (initialSnapshot) applySnapshot(initialSnapshot)
+          applied = d
+        } else if (initialSnapshot) {
+          applySnapshot(initialSnapshot)
+          applied = initialSnapshot
+        }
       } else if (worthResuming) {
         setResumeOffer(rec)
       }
-      if (startAt) {
+      if (startAt === 'review') {
+        // Changes not sent yet: their review — built from the restored
+        // journey, unless it was left on its review already. Queued, so it is
+        // built from the restored state, and through any step still owed.
+        if (!(applied?.isDone && applied.wrapUpData)) setReviewQueued(true)
+      } else if (startAt) {
         setState({ currentStepId: startAt })
         setIsDone(false)
       }
@@ -394,6 +414,11 @@ export function KitchenIntake({
     setWishlistTranslatedFrom(restoredWishlistSource(d))
     legacyPrint.current = legacyReviewPrint(d)
     setSentReview(sentReviewFrom(d, currentBriefId) ?? undefined)
+    setOwedSteps(
+      Array.isArray(d.owedSteps)
+        ? d.owedSteps.map((s) => resolveStepId(s)).filter((s): s is FlowStepId => s !== null)
+        : []
+    )
   }
 
   /**
@@ -457,13 +482,14 @@ export function KitchenIntake({
       builderGroupId,
       wishlistSource: wishlistTranslatedFrom,
       sentReview,
+      owedSteps: owedSteps.length > 0 ? owedSteps : undefined,
     }),
     [
       state.currentStepId, profile, transcript, isDone, wrapUpData, spacePhotos, spaceVision, floorPlan,
       unitEdits, inspirationStyles, inspirationRefs, inspirationVision, conceptRenders, chosenRenderId,
       productReferences, siteAccess, contactDraft, mustHavesText,
       niceToHavesText, dealBreakersText, builderHypothesis, builderStartedNoAI, roomPhase, roomPlan,
-      builderGroupId, wishlistTranslatedFrom, sentReview,
+      builderGroupId, wishlistTranslatedFrom, sentReview, owedSteps,
     ]
   )
   // The last committed snapshot, for the builder's write-through when the tab
@@ -593,6 +619,18 @@ export function KitchenIntake({
   // goes back to it rather than through every step after (lib/review-nav).
   const editing = wrapUpData !== null
 
+  // What the step on screen held when it was entered (lib/review-nav
+  // stepDraftPrint), so leaving it by Back or the rail can tell whether an
+  // edit was left on it. Re-read whenever a step is entered: a step change,
+  // the review left for its own step, a restore that makes this an edit.
+  // Only read while editing (leaveStep): the first walk passes every step
+  // again anyway. Declared after the snapshotRef effect, so the ref holds
+  // this render's snapshot.
+  const stepEntry = useRef('')
+  useEffect(() => {
+    if (editing) stepEntry.current = stepDraftPrint(state.currentStepId, snapshotRef.current)
+  }, [state.currentStepId, isDone, editing])
+
   /**
    * Reopen a step from the review, the rail or a section's "Nešto ispraviti?".
    * A builder group opens a saved build there; without one the build resumes
@@ -602,6 +640,7 @@ export function KitchenIntake({
    * first group whatever it is handed).
    */
   function openStep(target: ReviewTarget) {
+    leaveStep()
     if (target.step === 'builder' && !profile.builderState) setBuilderGroupId(undefined)
     else if (target.group) setBuilderGroupId(target.group)
     setIsDone(false)
@@ -614,7 +653,20 @@ export function KitchenIntake({
     () => spacePhotosChanged({ photos: spacePhotos, vision: spaceVision }, profile),
     [spacePhotos, spaceVision, profile]
   )
-  const commitContext = { editing, hasBuild: Boolean(profile.builderState), photosChanged }
+  const commitContext = { editing, hasBuild: Boolean(profile.builderState), photosChanged, owed: owedSteps }
+
+  /**
+   * Leaving the step on screen without its Continue — Back, the rail,
+   * "Izmjeri" — while editing: an edit left on it is owed its Continue
+   * (lib/review-nav owedAfterLeave), so the review cannot go out without it.
+   * Not from the review itself, which holds no draft.
+   */
+  function leaveStep() {
+    if (!editing || isDone) return
+    const step = state.currentStepId
+    const changed = stepDraftPrint(step, snapshot) !== stepEntry.current
+    setOwedSteps((owed) => owedAfterLeave(step, owed, changed))
+  }
 
   /**
    * After a step's commit: the next step, or the review (lib/review-nav
@@ -625,6 +677,7 @@ export function KitchenIntake({
    */
   function goNext() {
     const next = afterCommit(state.currentStepId, commitContext)
+    setOwedSteps(owedAfterCommit(state.currentStepId, commitContext))
     if (next === 'review') setReviewQueued(true)
     else goTo(next)
   }
@@ -635,6 +688,13 @@ export function KitchenIntake({
     if (!reviewQueued) return
     // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot trigger, consumed here
     setReviewQueued(false)
+    // A step still owed its Continue comes first (lib/review-nav): the
+    // review is never built past a change on its way.
+    if (owedSteps.length > 0) {
+      setIsDone(false)
+      goTo(owedSteps[0])
+      return
+    }
     void finalise()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- finalise is this render's, with the patches in it
   }, [reviewQueued])
@@ -646,7 +706,9 @@ export function KitchenIntake({
       return
     }
     const prev = prevStepId(state.currentStepId)
-    if (prev) goTo(prev)
+    if (!prev) return
+    leaveStep()
+    goTo(prev)
   }
 
   /** Nudge the transcript with what the user just told us, in plain English. */
@@ -1059,6 +1121,7 @@ export function KitchenIntake({
     setWishlistTranslatedFrom(undefined)
     setSentReview(undefined)
     setReviewQueued(false)
+    setOwedSteps([])
     legacyPrint.current = null
   }
 
@@ -1344,14 +1407,15 @@ export function KitchenIntake({
           setState({ currentStepId: 'confirm_look' })
         }}
         // Editing from the review: back to it from any group, with the live
-        // build and the group it was left on (IMP-07).
+        // build and the group it was left on (IMP-07) — through any step
+        // still owed its Continue, like every Continue (goNext).
         onBackToReview={
           editing && !readOnly
             ? (builderState, groupId) => {
                 patchProfile({ builderState })
                 setBuilderGroupId(groupId)
                 trackBuilder(builderState, groupId)
-                setReviewQueued(true)
+                goNext()
               }
             : undefined
         }
@@ -1499,6 +1563,7 @@ export function KitchenIntake({
                 confirmHypothesis={builderHyp}
                 roomMeasured={roomMeasuredNow}
                 onMeasureRoom={() => {
+                  leaveStep()
                   setRoomPhase('measure')
                   goTo('room')
                 }}

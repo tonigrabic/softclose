@@ -30,6 +30,7 @@ import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import { hrHR } from '@/lib/i18n/locales/hr-HR'
 import { enUS } from '@/lib/i18n/locales/en-US'
 import type { ProjectSnapshot } from '@/lib/project/snapshot'
+import { changedSinceBrief, projectDisplayStatus } from '@/lib/project/status'
 import type { HandoffEstimate, LeadProfile } from '@/lib/types'
 
 const ROOT = join(__dirname, '..')
@@ -393,6 +394,99 @@ describe('the kitchen home: finished, not sent', () => {
   })
 })
 
+/**
+ * Round 2 of the IMP-07 review: a homeowner who changed the kitchen after the
+ * send and left before "Pošalji izmjene" came back to "Tvoj sažetak je kod
+ * {maker}", the old range and the generic edit note — nothing said the
+ * changes were not sent. The maker's list meanwhile said "izmijenjeno", over
+ * the old brief. Each waited for the other. Now the home says so, calmly, and
+ * opens the review of the changes.
+ */
+describe('the kitchen home: changed since the brief went out, not sent', () => {
+  const home = (props: Partial<KitchenHomeProps>) =>
+    text(
+      renderToStaticMarkup(
+        createElement(KitchenHome, {
+          projectId: 'p1',
+          makerName: 'Stolarija Horvat',
+          stepLabel: 'Korak 8/8',
+          submittedAt: '3. 10. 2026.',
+          makerViewedAt: null,
+          briefId: BRIEF_ID,
+          unsentChanges: true,
+          range: null,
+          savedEstimate: null,
+          decision: null,
+          closed: false,
+          started: true,
+          revision: 3,
+          readOnly: false,
+          snapshot: { isDone: false, wrapUpData: null } as unknown as ProjectSnapshot,
+          customerEmail: 'ana@example.test',
+          customerName: 'Ana',
+          ...props,
+        })
+      )
+    )
+  const UNSENT = hrHR['kitchen.home.status.unsent'].replace('{maker}', 'Stolarija Horvat')
+
+  test('the sent status, then "changes not sent yet", and the CTA opens their review', () => {
+    const out = home({})
+    expect(out).toContain(hrHR['kitchen.home.titleSubmitted'].replace('{maker}', 'Stolarija Horvat'))
+    expect(out.indexOf(hrHR['kitchen.home.status.sent'].replace('{date}', '3. 10. 2026.'))).toBeLessThan(out.indexOf(UNSENT))
+    expect(out).toContain(hrHR['kitchen.home.cta.reviewChanges'])
+    expect(out).not.toContain(hrHR['kitchen.home.cta.edit'])
+  })
+
+  test('nothing changed since the brief: as before — "Izmijeni kuhinju", no unsent line', () => {
+    const out = home({ unsentChanges: false })
+    expect(out).not.toContain(UNSENT)
+    expect(out).not.toContain(hrHR['kitchen.home.cta.reviewChanges'])
+    expect(out).toContain(hrHR['kitchen.home.cta.edit'])
+  })
+
+  test('not for the maker looking in, and not on a closed project (no send either way)', () => {
+    for (const out of [home({ readOnly: true }), home({ closed: true })]) {
+      expect(out).not.toContain(UNSENT)
+      expect(out).not.toContain(hrHR['kitchen.home.cta.reviewChanges'])
+    }
+  })
+
+  test('the same test as the maker’s "izmijenjeno", so the two sides agree', () => {
+    const brief = '2026-10-03T10:00:00.000Z'
+    expect(changedSinceBrief('2026-10-04T08:00:00.000Z', brief)).toBe(true)
+    expect(changedSinceBrief(null, brief)).toBe(false)
+    expect(changedSinceBrief('2026-10-03T09:00:00.000Z', brief)).toBe(false)
+    expect(changedSinceBrief('2026-10-04T08:00:00.000Z', null)).toBe(false)
+    for (const changed of ['2026-10-04T08:00:00.000Z', null]) {
+      const status = projectDisplayStatus({
+        status: 'submitted',
+        openedAt: brief,
+        step: 'contact',
+        contentChangedAt: changed,
+        currentBriefCreatedAt: brief,
+      })
+      expect(status === 'changed_since_submit').toBe(changedSinceBrief(changed, brief))
+    }
+    const page = source('src/app/kitchen/[projectId]/page.tsx')
+    expect(page).toMatch(/unsentChanges=\{changedSinceBrief\(project\.contentChangedAt, brief\?\.createdAt \?\? null\)\}/)
+  })
+
+  test('the intake opens at the review for it: queued from the restored journey, through any step still owed', () => {
+    const intake = source('src/components/kitchen-intake/index.tsx')
+    expect(intake).toMatch(
+      /if \(startAt === 'review'\) \{[\s\S]{0,400}if \(!\(applied\?\.isDone && applied\.wrapUpData\)\) setReviewQueued\(true\)\s*\} else if \(startAt\)/
+    )
+  })
+
+  test('the copy, hr-HR first — calm, no urgency', () => {
+    expect(hrHR['kitchen.home.status.unsent']).toBe('Imaš izmjene koje još nisu poslane — {maker} ima raniju verziju sažetka.')
+    expect(hrHR['kitchen.home.cta.reviewChanges']).toBe('Pregledaj i pošalji izmjene')
+    expect(enUS['kitchen.home.status.unsent']).toBe("You have changes that aren't sent yet — {maker} has the earlier version of your brief.")
+    expect(enUS['kitchen.home.cta.reviewChanges']).toBe('Review and send the changes')
+  })
+})
+
 describe('fix anything from the review (IMP-07 step 2)', () => {
   /** A profile that fills every review section. */
   const FULL: LeadProfile = {
@@ -506,7 +600,7 @@ describe('the edits reach their step, at the source', () => {
     expect(mount).toMatch(/onBack=\{\s*readOnly\s*\?\s*undefined\s*:\s*\(\) => \{\s*setIsDone\(false\)\s*goTo\('contact'\)\s*\}/)
     expect(mount).toMatch(/onFix=\{readOnly \? undefined : openStep\}/)
     expect(intake).toMatch(
-      /function openStep\(target: ReviewTarget\) \{\s*if \(target\.step === 'builder' && !profile\.builderState\) setBuilderGroupId\(undefined\)\s*else if \(target\.group\) setBuilderGroupId\(target\.group\)\s*setIsDone\(false\)\s*goTo\(target\.step\)/
+      /function openStep\(target: ReviewTarget\) \{\s*leaveStep\(\)\s*if \(target\.step === 'builder' && !profile\.builderState\) setBuilderGroupId\(undefined\)\s*else if \(target\.group\) setBuilderGroupId\(target\.group\)\s*setIsDone\(false\)\s*goTo\(target\.step\)/
     )
   })
 
@@ -519,13 +613,15 @@ describe('the edits reach their step, at the source', () => {
   })
 
   test('Continue goes through afterCommit, and the review is built only by the queued effect', () => {
-    expect(intake).toMatch(/const commitContext = \{ editing, hasBuild: Boolean\(profile\.builderState\), photosChanged \}/)
+    expect(intake).toMatch(
+      /const commitContext = \{ editing, hasBuild: Boolean\(profile\.builderState\), photosChanged, owed: owedSteps \}/
+    )
     expect(intake).toMatch(/const next = afterCommit\(state\.currentStepId, commitContext\)/)
     expect(intake).toMatch(/continueLabel=\{continueKey\(state\.currentStepId, commitContext\)\}/)
     // finalise() is called in exactly one place: the effect that consumes the queue.
     const calls = [...intake.matchAll(/(?<!function )\bfinalise\(\)/g)]
     expect(calls).toHaveLength(1)
-    expect(intake).toMatch(/if \(!reviewQueued\) return[\s\S]{0,200}setReviewQueued\(false\)\s*void finalise\(\)/)
+    expect(intake).toMatch(/if \(!reviewQueued\) return[\s\S]{0,200}setReviewQueued\(false\)[\s\S]{0,300}void finalise\(\)/)
     // The contact step no longer builds the review from a stale closure itself.
     expect(intake).not.toMatch(/await finalise\(/)
   })
@@ -538,7 +634,9 @@ describe('the edits reach their step, at the source', () => {
 
   test('the kitchen home opens "Izmijeni kuhinju" through editEntryStep', () => {
     const home = source('src/app/kitchen/[projectId]/KitchenHome.tsx')
-    expect(home).toMatch(/setStartAt\(editEntryStep\(\{ submitted, readOnly: props\.readOnly \}\)\)\s*setEntered\(true\)/)
+    expect(home).toMatch(
+      /setStartAt\(editEntryStep\(\{ submitted, readOnly: props\.readOnly, unsentChanges: unsent \}\)\)\s*setEntered\(true\)/
+    )
   })
 
   test('the step-2 copy, hr-HR first', () => {

@@ -862,6 +862,8 @@ export const enUS: Record<TranslationKey, string> = {
   'kitchen.home.status.rangeLabel': 'Rough range — kitchen, made & installed',
   'kitchen.home.status.noRange': 'You get a range once you build your kitchen.',
   'kitchen.home.editNote': 'Changes reach your maker only when you review and send them.',
+  'kitchen.home.status.unsent': "You have changes that aren't sent yet — {maker} has the earlier version of your brief.",
+  'kitchen.home.cta.reviewChanges': 'Review and send the changes',
   'kitchen.home.decision.quoted': '{maker}: quote sent {date}.',
   'kitchen.home.decision.quotedNext': 'The amount and terms come to you directly from the maker.',
   'kitchen.home.decision.clarify': '{maker}: needs a clarification ({date}).',

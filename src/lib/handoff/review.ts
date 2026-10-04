@@ -9,7 +9,9 @@
  *
  *  1. A walk back through the steps that changes nothing is not a new brief.
  *     `briefPrint` is the content of the brief's profile, minus what a re-walk
- *     stamps on its own (sign-off times, the builder's reducer clock) and with
+ *     stamps on its own (sign-off times, the builder's reducer clock, unit
+ *     edit stamps), minus the builder's preview (which render it shows, the
+ *     re-renders — neither surface shows them) and with
  *     images normalised (a data URL here, `omitted://image` on a second
  *     device). The intake keeps the review — and its brief id — when the print
  *     is unchanged, and goes back to the brief the maker has whenever the
@@ -37,10 +39,38 @@ export function briefPrint(profile: LeadProfile): string {
       // Stamped by every pass through the confirm step and the room step.
       contractConfirmedAt: undefined,
       roomConfirmed: rc && { ...rc, at: undefined },
-      // Stamped by every builder action and every relock on re-entry.
-      builderState: build && { ...build, lastUpdatedAt: undefined },
+      unitEdits: unitEditsContent(profile.unitEdits),
+      builderState: build && {
+        ...build,
+        // Stamped by every builder action and every relock on re-entry.
+        lastUpdatedAt: undefined,
+        // The builder's preview: which render its big picture shows, and the
+        // re-renders made on the way. Neither the review nor the maker's brief
+        // shows them (both show the chosen concept render), and the range does
+        // not read them — a tap on "Vrati na original" is not a new kitchen.
+        activeRenderId: undefined,
+        rerenders: undefined,
+      },
     })
   )
+}
+
+/**
+ * The confirm step's unit edits as content: the sequence each row ends up
+ * with. Each edit stamps `editedAt` and moves its row to the end of the list
+ * (lib/builder/unit-assembly upsertRow), so a pattern changed and changed back
+ * would otherwise print as a change; the assembler reads neither.
+ */
+function unitEditsContent(edits: unknown): unknown {
+  const rows = (edits as { rows?: unknown } | null | undefined)?.rows
+  if (!Array.isArray(rows)) return edits
+  const key = (r: { runId?: unknown; row?: unknown }) => `${String(r?.runId)}/${String(r?.row)}`
+  return {
+    ...(edits as object),
+    rows: rows
+      .map((r) => (r && typeof r === 'object' ? { ...r, editedAt: undefined } : r))
+      .sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0)),
+  }
 }
 
 /**

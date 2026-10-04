@@ -91,6 +91,16 @@ export interface ProjectSnapshot {
    * from their review; `undefined` when unset, so they fingerprint the same.
    */
   sentReview?: WrapUpData
+  /**
+   * While editing from the review (IMP-07): the steps still owed their
+   * Continue before the review is built again, in flow order (lib/review-nav
+   * `owedAfterCommit`, `owedAfterLeave`) — a new room on its way through the
+   * confirm step and the builder, an edit left on a step by Back or the rail.
+   * Kept across a reload, so "Izmijeni kuhinju" cannot reach the review past
+   * them. Optional: `undefined` when none is owed, so older snapshots
+   * fingerprint the same.
+   */
+  owedSteps?: FlowStepId[]
 }
 
 type SnapshotRecord = Record<string, unknown>

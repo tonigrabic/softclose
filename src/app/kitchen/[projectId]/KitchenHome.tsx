@@ -7,11 +7,10 @@ import { AuthShell } from '@/components/AuthShell'
 import { Button } from '@/components/ui/button'
 import { RangeLine, type RangeLineValue } from '@/components/range/RangeLine'
 import { useTranslations, type TranslationKey } from '@/lib/i18n'
-import type { FlowStepId } from '@/lib/flow'
 import type { MakerDecision } from '@/lib/project/decision'
 import type { ProjectSnapshot } from '@/lib/project/snapshot'
 import type { HandoffEstimate } from '@/lib/types'
-import { editEntryStep } from '@/lib/review-nav'
+import { editEntryStep, type EntryStep } from '@/lib/review-nav'
 import { cn } from '@/lib/utils'
 
 export interface KitchenHomeProps {
@@ -23,6 +22,10 @@ export interface KitchenHomeProps {
   submittedAt: string | null
   makerViewedAt: string | null
   briefId: string | null
+  /** The kitchen changed after the brief went out and the changes were not
+   *  sent (`changedSinceBrief`, the maker's "izmijenjeno"): the home says so
+   *  and opens their review, so neither side waits on the other (rule 8). */
+  unsentChanges?: boolean
   /** The works range the current brief stored, with its ± and assumptions.
    *  Null when the brief went out without a build (no range to show). */
   range: RangeLineValue | null
@@ -100,7 +103,7 @@ const ACTS = [
 export function KitchenHome(props: KitchenHomeProps) {
   const { t } = useTranslations()
   const [entered, setEntered] = useState(false)
-  const [startAt, setStartAt] = useState<FlowStepId | undefined>(undefined)
+  const [startAt, setStartAt] = useState<EntryStep | undefined>(undefined)
   // Heads a sentence ("Tvoj izrađivač je otvorio…"), so capitalised. The
   // range lines (here and in the intake) get the raw name and word their own
   // lower-case fallback mid-sentence ("raspon koji tvoj izrađivač potvrđuje").
@@ -125,6 +128,10 @@ export function KitchenHome(props: KitchenHomeProps) {
   }
 
   const submitted = Boolean(props.submittedAt)
+  // Changed since the brief went out, not sent (IMP-07): the maker has the
+  // earlier version. Not for the maker looking in (sending is the customer's
+  // act), and not on a closed project, which takes no send.
+  const unsent = submitted && !props.readOnly && !props.closed && Boolean(props.unsentChanges)
   // Finished, never sent (IMP-07): the review waits for the homeowner's own
   // "Pošalji izrađivaču". Entering restores the review as it was left. Not
   // for the maker looking in: sending is the customer's act, and the
@@ -163,6 +170,12 @@ export function KitchenHome(props: KitchenHomeProps) {
               <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />
               {t('kitchen.home.status.sent').replace('{date}', props.submittedAt!)}
             </p>
+            {unsent ? (
+              <p className="flex items-start gap-2 text-sm text-foreground" data-unsent-changes>
+                <ListChecks className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                {t('kitchen.home.status.unsent').replace('{maker}', makerLabel)}
+              </p>
+            ) : null}
             {/* Only claims the maker opened it when they actually did — the
                 stamp now comes from a maker-authenticated page load. */}
             <p className="text-sm text-muted-foreground">
@@ -280,18 +293,21 @@ export function KitchenHome(props: KitchenHomeProps) {
               onClick={() => {
                 // "Izmijeni kuhinju" opens at the last step, never the done
                 // screen: Back walks the steps, Continue opens the review
-                // (IMP-07). Everyone else resumes where they left off.
-                setStartAt(editEntryStep({ submitted, readOnly: props.readOnly }))
+                // (IMP-07); with changes not sent, the review of them.
+                // Everyone else resumes where they left off.
+                setStartAt(editEntryStep({ submitted, readOnly: props.readOnly, unsentChanges: unsent }))
                 setEntered(true)
               }}
             >
-              {submitted
-                ? t('kitchen.home.cta.edit')
-                : awaitingSend
-                  ? t('kitchen.home.cta.review')
-                  : props.started
-                  ? t('kitchen.home.cta.continue').replace('{step}', props.stepLabel ?? '')
-                  : t('kitchen.home.cta.start')}
+              {unsent
+                ? t('kitchen.home.cta.reviewChanges')
+                : submitted
+                  ? t('kitchen.home.cta.edit')
+                  : awaitingSend
+                    ? t('kitchen.home.cta.review')
+                    : props.started
+                      ? t('kitchen.home.cta.continue').replace('{step}', props.stepLabel ?? '')
+                      : t('kitchen.home.cta.start')}
             </Button>
 
             {props.briefId ? (

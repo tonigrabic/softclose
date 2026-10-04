@@ -373,11 +373,14 @@ export function WrapUpScreen({
           <p className="mt-1 text-sm text-muted-foreground">{t('wrapup.readOnly.lede')}</p>
         ) : (
           <>
-            <p className="mt-1 text-sm text-muted-foreground">{data.thankYouMessage}</p>
+            {/* The thank-you is written for the moment before a send ("…look
+                at it before sending"): shown only while there is one to
+                make, never next to the ✓ or "nothing new to send". */}
+            {offer ? <p className="mt-1 text-sm text-muted-foreground">{data.thankYouMessage}</p> : null}
             {offer ? (
               <p className="text-xs text-muted-foreground/70">{t('wrapup.review')}</p>
             ) : state === 'sent' && !bundle ? (
-              <p className="text-xs text-muted-foreground/70" data-sent-line>
+              <p className="mt-1 text-xs text-muted-foreground/70" data-sent-line>
                 {t('wrapup.sent.line').replace('{maker}', makerLabel)}
               </p>
             ) : null}

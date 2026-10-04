@@ -143,7 +143,10 @@ export interface BuilderShellProps {
    * The review has been reached (IMP-07): the rail shows every step of the
    * journey done, this group current, and the progress bar stays full —
    * a finished brief being edited never looks unfinished. Funnel steps are
-   * reached from here through "Natrag na pregled".
+   * reached from here through "Natrag na pregled". Not for a build this
+   * mount starts (no `savedState`): the review never covered it, so its
+   * groups are walked as on the first walk — to do, no read-backs of
+   * defaults nobody chose, the bar at the group it is on.
    */
   reviewed?: boolean
 }
@@ -185,6 +188,10 @@ export function BuilderShell({
     return s
   })
   const [state, dispatch] = useBuilderState(initial)
+  // A build started on this mount (a review without a range, "Sastavi
+  // kuhinju"): its first save makes `savedState` defined, but the review it
+  // is walked from still covers none of it (`reviewed`).
+  const [newBuild] = useState(() => !savedState)
   // Opens where a saved build was left; Cabinet Boxes otherwise — Layout and
   // dimensions are owned by Phase 1.
   const [currentId, setCurrentId] = useState<BuilderScreenId>(() =>
@@ -261,7 +268,7 @@ export function BuilderShell({
       onEditLayout={editLayout}
       onBackToReview={backToReview}
       busy={busy}
-      reviewed={reviewed}
+      reviewed={reviewed && !newBuild}
     />
   )
 }

@@ -43,15 +43,25 @@ export interface StatusInput {
   currentBriefCreatedAt: string | null
 }
 
+/**
+ * The kitchen differs from the brief on file, and has since that brief went
+ * out (0008): the maker's "izmijenjeno", and on the kitchen home the
+ * homeowner's "changes not sent yet" — one test, so the two sides never
+ * disagree about it.
+ */
+export function changedSinceBrief(contentChangedAt: string | null, briefCreatedAt: string | null): boolean {
+  return (
+    briefCreatedAt !== null &&
+    contentChangedAt !== null &&
+    Date.parse(contentChangedAt) > Date.parse(briefCreatedAt)
+  )
+}
+
 export function projectDisplayStatus(p: StatusInput): ProjectDisplayStatus {
   if (p.status === 'archived') return 'archived'
 
   if (p.status === 'submitted' || p.currentBriefCreatedAt) {
-    const changed =
-      p.currentBriefCreatedAt !== null &&
-      p.contentChangedAt !== null &&
-      Date.parse(p.contentChangedAt) > Date.parse(p.currentBriefCreatedAt)
-    return changed ? 'changed_since_submit' : 'submitted'
+    return changedSinceBrief(p.contentChangedAt, p.currentBriefCreatedAt) ? 'changed_since_submit' : 'submitted'
   }
 
   if (!p.openedAt) return 'invited'

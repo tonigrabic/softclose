@@ -15,6 +15,8 @@
  * Ported from fix/wrapup-readonly-header (IMP-05 follow-up), whose mount-send
  * source checks IMP-07 replaces (tests/wrapup-review.test.ts).
  */
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, test } from 'vitest'
@@ -37,7 +39,9 @@ const BUILT = {
   }),
 }
 
-function wrapUp(props: { readOnly?: boolean; onFileBriefId?: string | null; built?: boolean } = {}) {
+function wrapUp(
+  props: { readOnly?: boolean; onFileBriefId?: string | null; built?: boolean; closed?: boolean } = {}
+) {
   const { built = true, ...rest } = props
   return renderToStaticMarkup(
     createElement(WrapUpScreen, {
@@ -125,13 +129,16 @@ describe('the header speaks to the maker looking in', () => {
     expectNoHomeownerHeader(html)
   })
 
-  test('the customer keeps theirs: "here’s your brief" and the thank-you', () => {
+  test('the customer keeps theirs: "here’s your brief" — with the thank-you while there is a send to make', () => {
     for (const html of [wrapUp(), wrapUp({ onFileBriefId: BRIEF_ID })]) {
       expect(html).toContain(hrHR['wrapup.title'])
-      expect(html).toContain(THANK_YOU)
       expect(html).not.toContain(hrHR['wrapup.readOnly.title'])
       expect(html).not.toContain(hrHR['wrapup.readOnly.lede'])
     }
+    expect(wrapUp()).toContain(THANK_YOU)
+    // The brief on file (a revisit): "look at it before sending" would sit
+    // right above "nothing new to send" — see the round-2 test below.
+    expect(wrapUp({ onFileBriefId: BRIEF_ID })).not.toContain(THANK_YOU)
   })
 })
 
@@ -147,6 +154,40 @@ describe('the customer still sends — by pressing the button', () => {
     const html = wrapUp({ onFileBriefId: '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d' })
     expect(html).toContain(hrHR['wrapup.changes.cta'])
     expect(html).not.toContain(hrHR['wrapup.readOnly.sent'])
+  })
+})
+
+/**
+ * Round 2 of the IMP-07 review: the thank-you is written for the moment
+ * before a send ("…Pogledaj ga u miru prije slanja."), and was shown in every
+ * homeowner state — next to the ✓ right after a send, and on every revisit
+ * straight above "{maker} ima ovu verziju sažetka — nema ništa novo za
+ * slanje". Now it shows only while there is a send to make.
+ */
+describe('the pre-send thank-you, only while there is a send to make', () => {
+  test('first arrival, and a newer review than the brief on file: shown, with "Pregledaj što šaljemo"', () => {
+    for (const html of [wrapUp(), wrapUp({ onFileBriefId: '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d' })]) {
+      expect(html).toContain(THANK_YOU)
+      expect(html).toContain(hrHR['wrapup.review'])
+    }
+  })
+
+  test('a revisit of the brief on file: ✓ and "nothing new to send" — no "look at it before sending"', () => {
+    const html = wrapUp({ onFileBriefId: BRIEF_ID })
+    expect(html).toContain('✓')
+    expect(html).toContain(hrHR['wrapup.sent.line'].replace('{maker}', hrHR['kitchen.home.yourMaker']))
+    expect(html).not.toContain(THANK_YOU)
+  })
+
+  test('a closed project, which takes no send: no thank-you asking for one', () => {
+    expect(wrapUp({ onFileBriefId: '0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d', closed: true })).not.toContain(THANK_YOU)
+  })
+
+  test('right after a send (the response held in the screen’s state): the same guard — `offer` is null once sent', () => {
+    const screen = readFileSync(join(__dirname, '..', 'src/components/kitchen-intake/WrapUpScreen.tsx'), 'utf8')
+    expect(screen).toMatch(/const offer = sendOffer\(state, \{ sentNow: bundle !== null, closed: isClosed \}\)/)
+    expect(screen).toMatch(/\{offer \? <p className="mt-1 text-sm text-muted-foreground">\{data\.thankYouMessage\}<\/p> : null\}/)
+    expect(screen.match(/data\.thankYouMessage/g)).toHaveLength(1)
   })
 })
 

@@ -31,9 +31,19 @@ import {
 import type { ProjectSnapshot } from '@/lib/project/snapshot'
 import { customerEstimate, estimateFromBuild } from '@/lib/handoff/estimate'
 import { buildHandoffBundle, toCustomerBundle } from '@/lib/handoff/bundle'
-import { OMITTED_IMAGE } from '@/lib/project/checkpoint'
+import { OMITTED_IMAGE, stripImages } from '@/lib/project/checkpoint'
+import { contentChangedAt } from '@/lib/project/status'
 import { CONTRACT_FIXTURES } from '@/lib/builder/fixtures'
-import { hydrateFromHypothesis } from '@/lib/builder/state'
+import { builderReducer, hydrateFromHypothesis } from '@/lib/builder/state'
+import { builderSaveKey, createSaveGate } from '@/lib/builder/autosave'
+import {
+  assembleUnits,
+  displayedSequence,
+  withPatternChanged,
+  withUnitAdded,
+  withUnitRemoved,
+  type UnitEdits,
+} from '@/lib/builder/unit-assembly'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import type { BuilderState } from '@/lib/builder/inventory'
 import type { LeadProfile, WrapUpData } from '@/lib/types'
@@ -447,5 +457,92 @@ describe('the review prices the range the way the handoff does', () => {
   test('the handoff’s customer response strips through the same function', () => {
     const bundle = buildHandoffBundle({ brief: profile() })
     expect(toCustomerBundle(bundle).estimate).toEqual(customerEstimate(bundle.estimate))
+  })
+})
+
+/**
+ * Round 2 of the IMP-07 review: two things a homeowner can do after a send
+ * changed the print — so the maker's list said "izmijenjeno · v2" and the
+ * review offered "Pošalji izmjene" for a brief identical in every field the
+ * maker sees, and sending it emailed the maker a duplicate.
+ */
+describe('briefPrint: what neither surface shows is no change', () => {
+  const NOW = '2026-10-05T09:00:00.000Z'
+  /** The checkpoint's verdict on a saved profile, against the brief sent from `sentProfile`. */
+  const flag = (sentProfile: LeadProfile, saved: LeadProfile) =>
+    contentChangedAt({ currentBriefId: 'B1', briefPrint: briefPrint(sentProfile) }, { profile: stripImages(saved) }, NOW)
+  const sentOf = (p: LeadProfile): WrapUpData => ({
+    thankYouMessage: 'Hvala',
+    summaryLines: [],
+    briefId: 'B1',
+    profilePrint: briefPrint(p),
+  })
+
+  test('the builder preview: a re-render, then "Vrati na original" — the brief on file, nothing flagged or offered', () => {
+    const sent = profile()
+    const build = sent.builderState as BuilderState
+    // A re-render made after the send (push_rerender switches the preview to it)…
+    const rerendered = builderReducer(build, { type: 'push_rerender', trigger: 'doors', imageDataUrl: PHOTO })
+    // …then "Vrati na original", then the re-render picked again.
+    const original = builderReducer(rerendered, { type: 'set_active_render', id: null })
+    const picked = builderReducer(original, { type: 'set_active_render', id: rerendered.activeRenderId })
+    // Each is a save: the builder's gate passes the preview change.
+    const gate = createSaveGate()
+    gate(builderSaveKey(build, 'doors'))
+    for (const b of [rerendered, original, picked]) {
+      expect(gate(builderSaveKey(b, 'doors'))).toBe(true)
+      const saved: LeadProfile = { ...sent, builderState: b }
+      expect(briefPrint(saved)).toBe(briefPrint(sent))
+      expect(flag(sent, saved)).toBeNull()
+      expect(keptReview(briefPrint(saved), { prev: null, sent: sentOf(sent) })?.briefId).toBe('B1')
+    }
+    // Sent with the re-render showing, then back to the original: the same.
+    expect(flag({ ...sent, builderState: rerendered }, { ...sent, builderState: original })).toBeNull()
+    // The range does not read the preview either.
+    expect(estimateFromBuild({ ...sent, builderState: original })).toEqual(estimateFromBuild(sent))
+  })
+
+  test('a pick made in the builder is still a change', () => {
+    const sent = profile()
+    const build = sent.builderState as BuilderState
+    const saved: LeadProfile = { ...sent, builderState: builderReducer(build, { type: 'patch_doors', patch: { decorCode: 'U999' } }) }
+    expect(flag(sent, saved)).toBe(NOW)
+  })
+
+  describe('the confirm step’s unit edits: an edit undone is no edit', () => {
+    const LAYOUT = floorPlanToLayout(CONTRACT_FIXTURES.find((f) => f.id === 'l-shape')!.build())
+    const run = LAYOUT.runs[0].id
+    const units = (edits: UnitEdits | null) => assembleUnits({ contract: LAYOUT, edits }).units
+    const shown = (edits: UnitEdits | null, row: 'base' | 'wall' = 'base') => displayedSequence(units(edits), run, row)
+    const otherThan = (p: string) => (p === 'trash_pullout' ? 'doors_shelf' : 'trash_pullout')
+    // Before the send: the base row edited at t=100, the wall row at t=200.
+    const SENT_EDITS = (() => {
+      const base = withPatternChanged(null, shown(null), run, 'base', 1, otherThan(shown(null)[1]), 100)
+      return withPatternChanged(base, shown(base, 'wall'), run, 'wall', 0, otherThan(shown(base, 'wall')[0]), 200)
+    })()
+    const sent: LeadProfile = { ...profile(), unitEdits: SENT_EDITS }
+
+    test('a pattern changed and changed back after the send: new stamps, rows reordered, the same kitchen and print', () => {
+      const original = shown(SENT_EDITS)[1]
+      const changed = withPatternChanged(SENT_EDITS, shown(SENT_EDITS), run, 'base', 1, otherThan(original), 5_000)
+      const undone = withPatternChanged(changed, shown(changed), run, 'base', 1, original, 6_000)
+      expect(units(undone)).toEqual(units(SENT_EDITS))
+      expect(undone).not.toEqual(SENT_EDITS)
+      const saved: LeadProfile = { ...sent, unitEdits: undone, contractConfirmedAt: 7_000 }
+      expect(briefPrint(saved)).toBe(briefPrint(sent))
+      expect(flag(sent, saved)).toBeNull()
+      expect(keptReview(briefPrint(saved), { prev: null, sent: sentOf(sent) })?.briefId).toBe('B1')
+      // While it was changed, it was a change.
+      expect(flag(sent, { ...sent, unitEdits: changed })).toBe(NOW)
+    })
+
+    test('a unit added and removed again: the same print', () => {
+      const added = withUnitAdded(SENT_EDITS, shown(SENT_EDITS), run, 'base', 'doors_shelf', 5_000)
+      const shownAdded = shown(added)
+      const removed = withUnitRemoved(added, shownAdded, run, 'base', shownAdded.length - 1, 6_000)
+      expect(units(removed)).toEqual(units(SENT_EDITS))
+      expect(flag(sent, { ...sent, unitEdits: removed })).toBeNull()
+      expect(flag(sent, { ...sent, unitEdits: added })).toBe(NOW)
+    })
   })
 })
