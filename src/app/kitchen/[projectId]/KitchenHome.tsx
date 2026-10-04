@@ -150,8 +150,15 @@ export function KitchenHome(props: KitchenHomeProps) {
     <AuthShell signedIn>
       <div className="w-full py-6">
         <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
-          {t('kitchen.home.eyebrow')}
+          {t(props.readOnly ? 'kitchen.home.readOnly.eyebrow' : 'kitchen.home.eyebrow')}
         </p>
+        {/* The maker looking in reads the customer's page, in the customer's
+            voice: say so once, so "tvoj" is not read as addressed to them. */}
+        {props.readOnly ? (
+          <p className="mt-1 text-sm text-muted-foreground" data-readonly-lede>
+            {t('kitchen.home.readOnly.lede')}
+          </p>
+        ) : null}
         <h1 className="mt-2 text-xl font-semibold leading-snug tracking-tight text-foreground">
           {t(
             props.closed
@@ -299,7 +306,9 @@ export function KitchenHome(props: KitchenHomeProps) {
                 setEntered(true)
               }}
             >
-              {unsent
+              {props.readOnly
+                ? t('kitchen.home.cta.look')
+                : unsent
                 ? t('kitchen.home.cta.reviewChanges')
                 : submitted
                   ? t('kitchen.home.cta.edit')
@@ -310,7 +319,7 @@ export function KitchenHome(props: KitchenHomeProps) {
                       : t('kitchen.home.cta.start')}
             </Button>
 
-            {props.briefId ? (
+            {props.readOnly ? null : props.briefId ? (
               <p className="mt-3 text-center text-[0.6875rem] text-muted-foreground">
                 {t('kitchen.home.editNote')}
               </p>

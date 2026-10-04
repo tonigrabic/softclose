@@ -857,6 +857,8 @@ export const hrHR = {
   'dashboard.invite.err.generic': 'Pozivnicu trenutno nije moguće stvoriti.',
   // ---- The customer's project home (walkthrough + status) -----------------
   'kitchen.home.eyebrow': 'Tvoja kuhinja',
+  'kitchen.home.readOnly.eyebrow': 'Kuhinja kupca',
+  'kitchen.home.readOnly.lede': 'Ovako ovu stranicu vidi kupac — ti je ovdje samo gledaš.',
   'kitchen.home.yourMaker': 'Tvoj izrađivač',
   'kitchen.home.title': '{maker} te pozvao da opišeš svoju kuhinju',
   'kitchen.home.titleSubmitted': 'Tvoj sažetak je kod {maker}',
@@ -881,6 +883,7 @@ export const hrHR = {
   'kitchen.home.cta.start': 'Počni',
   'kitchen.home.cta.continue': 'Nastavi · {step}',
   'kitchen.home.cta.edit': 'Izmijeni kuhinju',
+  'kitchen.home.cta.look': 'Pogledaj kupčevu kuhinju',
   'kitchen.home.cta.build': 'Sastavi kuhinju',
   'kitchen.home.status.sent': 'Poslano {date}.',
   'kitchen.home.status.seen': '{maker} je otvorio sažetak {date}.',
@@ -1112,7 +1115,7 @@ export const hrHR = {
   'funnel.wishlist.error': 'Nismo uspjeli spremiti listu želja.',
   'funnel.builderEntry.error': 'Nismo uspjeli pročitati tvoj render. Pokušaj ponovno ili započni bez AI prijedloga.',
   'funnel.thanksFallback': 'Hvala{name} — tvoj sažetak je spreman.',
-  'wrapup.error.bundle': 'Nismo uspjeli složiti tvoj sažetak.',
+  'wrapup.error.bundle': 'Sažetak nije poslan. Pokušaj ponovno.',
   'wrapup.error.export': 'Preuzimanje sažetka nije uspjelo.',
   'wrapup.fixAnything': 'Nešto ispraviti?',
   'concept.error.capReached':

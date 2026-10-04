@@ -834,6 +834,8 @@ export const enUS: Record<TranslationKey, string> = {
   'dashboard.invite.err.generic': "The invite can't be created right now.",
   // ---- The customer's project home (walkthrough + status) -----------------
   'kitchen.home.eyebrow': 'Your kitchen',
+  'kitchen.home.readOnly.eyebrow': "Customer's kitchen",
+  'kitchen.home.readOnly.lede': 'This is the page as your customer sees it — you can only look here.',
   'kitchen.home.yourMaker': 'Your maker',
   'kitchen.home.title': '{maker} invited you to describe your kitchen',
   'kitchen.home.titleSubmitted': 'Your brief is with {maker}',
@@ -855,6 +857,7 @@ export const enUS: Record<TranslationKey, string> = {
   'kitchen.home.cta.start': 'Start',
   'kitchen.home.cta.continue': 'Continue · {step}',
   'kitchen.home.cta.edit': 'Edit your kitchen',
+  'kitchen.home.cta.look': "View the customer's kitchen",
   'kitchen.home.cta.build': 'Build your kitchen',
   'kitchen.home.status.sent': 'Sent {date}.',
   'kitchen.home.status.seen': '{maker} opened it on {date}.',
@@ -1074,7 +1077,7 @@ export const enUS: Record<TranslationKey, string> = {
   'funnel.wishlist.error': 'Could not save your wishlist.',
   'funnel.builderEntry.error': 'Could not read your render. Try again, or start without the AI suggestion.',
   'funnel.thanksFallback': 'Thanks{name} — your brief is ready.',
-  'wrapup.error.bundle': 'Could not put your brief together.',
+  'wrapup.error.bundle': "Your brief wasn't sent. Try again.",
   'wrapup.error.export': 'Could not download the brief.',
   'wrapup.fixAnything': 'Fix anything?',
   'concept.error.capReached':

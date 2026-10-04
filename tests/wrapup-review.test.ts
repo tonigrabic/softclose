@@ -392,6 +392,22 @@ describe('the kitchen home: finished, not sent', () => {
     expect(out).not.toContain(hrHR['kitchen.home.cta.review'])
     expect(out).not.toMatch(/pošalj/i)
   })
+
+  test('the maker looking in is told it is the customer’s page, gets a look-only button and no edit note', () => {
+    for (const props of [{ readOnly: true }, { readOnly: true, submittedAt: '3. 10. 2026.', briefId: 'b1' }]) {
+      const out = home(props)
+      expect(out).toContain(hrHR['kitchen.home.readOnly.eyebrow'])
+      expect(out).toContain(hrHR['kitchen.home.readOnly.lede'])
+      expect(out).toContain(hrHR['kitchen.home.cta.look'])
+      expect(out).not.toContain(hrHR['kitchen.home.cta.edit'])
+      expect(out).not.toContain(hrHR['kitchen.home.editNote'])
+      expect(out).not.toMatch(/pošalj/i)
+    }
+    // The homeowner keeps their own words.
+    const own = home({ submittedAt: '3. 10. 2026.', briefId: 'b1' })
+    expect(own).toContain(hrHR['kitchen.home.eyebrow'])
+    expect(own).not.toContain(hrHR['kitchen.home.readOnly.lede'])
+  })
 })
 
 /**
