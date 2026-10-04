@@ -155,3 +155,36 @@ export interface ConflictDecision {
 export function classifyConflict(sentFingerprint: string, serverFingerprint: string | null): ConflictDecision {
   return { alreadyApplied: serverFingerprint !== null && serverFingerprint === sentFingerprint }
 }
+
+/**
+ * A 409 whose server copy is a write of ours we never heard back about.
+ *
+ * `classifyConflict` only recognises the snapshot just sent. That is not
+ * enough once a write can land unheard — a response lost to a dropped
+ * connection, an iOS tab backgrounded mid-request ('Load failed'), a 504
+ * after the update ran — because the retry sends whatever is latest by then,
+ * and with every builder pick a checkpoint (IMP-06) something newer is the
+ * normal case. The retry of B at the old base then finds A on the server;
+ * halting on that would freeze the server copy, silently, for the rest of
+ * the session.
+ *
+ * So the server copy is ours when it is:
+ *  - a write whose outcome we never learned, at exactly the revision that
+ *    write would have made (`unheard`: fingerprint → the base revision it was
+ *    sent on); or
+ *  - the snapshot a brief went out with (`submitted`): /api/handoff stores it
+ *    as the project's copy, at a revision the client never hears about.
+ * Anything else is another device.
+ */
+export function landedUnheard(
+  serverFingerprint: string | null,
+  serverRevision: unknown,
+  unheard: ReadonlyMap<string, number>,
+  submitted: ReadonlySet<string> = new Set()
+): boolean {
+  if (serverFingerprint === null) return false
+  if (typeof serverRevision !== 'number' || !Number.isFinite(serverRevision)) return false
+  if (submitted.has(serverFingerprint)) return true
+  const base = unheard.get(serverFingerprint)
+  return base !== undefined && serverRevision === base + 1
+}

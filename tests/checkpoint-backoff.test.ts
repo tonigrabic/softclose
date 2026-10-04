@@ -275,35 +275,39 @@ describe('createCheckpointClient — nothing is lost or invented', () => {
     expect(posts).toEqual([])
   })
 
-  it('a pre-submit flush that fails is not written after the brief; the next real change is', async () => {
-    const { client, posts } = setup([{ status: 500 }, ok(4)])
-    expect(await client.flush(snap(9), { final: true })).toBe(false)
+  it('a pre-submit flush that fails stays queued: the retry writes it, and the retried flush is a no-op that reports it landed', async () => {
+    // Offline at wrap-up: the flush (and the submit) fail. Signal back, the
+    // retry writes the snapshot — before the homeowner's retried submit, so
+    // the brief that follows is the later write (tests/checkpoint-submit).
+    const { client, posts } = setup(['network', ok(4)])
+    expect(await client.flush(snap(9))).toBe(false)
     expect(posts).toHaveLength(1)
-    // The retry finds the submitted snapshot and leaves it: the brief has it.
-    client.queue(snap(9))
-    await vi.advanceTimersByTimeAsync(10 * 60_000)
-    expect(posts).toHaveLength(1)
-    // Editing after the send is a real change, and saves.
-    client.queue(snap(10))
-    await vi.advanceTimersByTimeAsync(CHECKPOINT_IDLE_MS)
-    expect(posts.map((p) => p.picks)).toEqual([9, 10])
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(posts.map((p) => [p.picks, p.baseRevision])).toEqual([
+      [9, 3],
+      [9, 3],
+    ])
+    expect(await client.flush(snap(9))).toBe(true)
+    expect(posts).toHaveLength(2)
   })
 
-  it('a flush inside a rate limit returns at once without a request, and the submitted snapshot never lands late', async () => {
+  it('a flush inside a rate limit returns at once without a request; the retry sends it when the limit lifts', async () => {
     const { client, posts } = setup([rateLimited(5 * 60_000), ok(4)])
     client.queue(snap(1))
     await vi.advanceTimersByTimeAsync(CHECKPOINT_IDLE_MS)
     expect(posts).toHaveLength(1)
 
     const started = Date.now()
-    const landed = client.flush(snap(2), { final: true })
+    const landed = client.flush(snap(2))
     await vi.advanceTimersByTimeAsync(0)
     expect(await landed).toBe(false)
     expect(Date.now() - started).toBeLessThan(FLUSH_TIMEOUT_MS)
     expect(posts).toHaveLength(1)
 
+    await vi.advanceTimersByTimeAsync(5 * 60_000)
+    expect(posts.map((p) => p.picks)).toEqual([1, 2])
     await vi.advanceTimersByTimeAsync(60 * 60_000)
-    expect(posts).toHaveLength(1)
+    expect(posts).toHaveLength(2)
   })
 
   it('a flush outside any backoff lands and reports it', async () => {

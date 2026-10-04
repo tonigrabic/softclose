@@ -14,11 +14,14 @@ export interface CheckpointApi {
   queue: CheckpointClient['queue']
   /** Stable for the component's life. See CheckpointClient['flush']. */
   flush: CheckpointClient['flush']
+  /** Stable for the component's life. See CheckpointClient['submitting']. */
+  submitting: CheckpointClient['submitting']
   state: CheckpointState
 }
 
 const disabledQueue: CheckpointClient['queue'] = () => {}
 const disabledFlush: CheckpointClient['flush'] = async () => false
+const disabledSubmitting: CheckpointClient['submitting'] = () => {}
 
 /**
  * Mirror the journey to the server, alongside the existing IndexedDB save.
@@ -71,5 +74,10 @@ export function useProjectCheckpoint(opts: {
     }
   }, [client])
 
-  return { queue: client?.queue ?? disabledQueue, flush: client?.flush ?? disabledFlush, state }
+  return {
+    queue: client?.queue ?? disabledQueue,
+    flush: client?.flush ?? disabledFlush,
+    submitting: client?.submitting ?? disabledSubmitting,
+    state,
+  }
 }

@@ -15,12 +15,15 @@
  * is armed, for the ladder step or — after a 429 — for as long as the server
  * said. Until it fires, a new snapshot only replaces the one waiting; the
  * idle timer, a hidden tab and queue() all leave the wire alone, and the
- * retry sends whatever is latest by then.
+ * retry sends whatever is latest by then — at the old base revision, so a
+ * write that landed unheard comes back as a 409, recognised as ours
+ * (`landedUnheard`) rather than taken for another device.
  */
 import {
   CHECKPOINT_IDLE_MS,
   classifyConflict,
   isPermanentRefusal,
+  landedUnheard,
   MAX_CHECKPOINT_BYTES,
   retryAfterFrom,
   retryDelayMs,
@@ -45,14 +48,17 @@ export interface CheckpointClient {
   /**
    * Write `snapshot` now and resolve once it has landed (or failed, or timed
    * out): true only when the server holds exactly this snapshot — so a
-   * "Spremljeno" built on it is never a guess.
-   *
-   * `final`: this is the snapshot a brief is about to be built from. Should
-   * it fail to land, it is never written later either: the brief carries it,
-   * and a late write would only move `updated_at` past the brief and flag a
-   * brand-new brief as "changed since submit". The next real change writes.
+   * "Spremljeno" built on it is never a guess. One that fails stays queued
+   * and is retried like any other.
    */
-  flush: (snapshot: ProjectSnapshot, opts?: { final?: boolean }) => Promise<boolean>
+  flush: (snapshot: ProjectSnapshot) => Promise<boolean>
+  /**
+   * A brief is about to go out with `snapshot`. /api/handoff stores it as the
+   * project's copy whenever the server holds something else (a pre-submit
+   * flush that failed or timed out), at a revision this client never hears
+   * about; the 409 our next write then meets is recognised as ours.
+   */
+  submitting: (snapshot: ProjectSnapshot) => void
   /** The tab is being hidden: send what is waiting now — unless backing off. */
   hide: () => void
   /** Clear every timer. Not terminal: StrictMode remounts the same client. */
@@ -91,8 +97,13 @@ export function createCheckpointClient(opts: CheckpointClientOptions): Checkpoin
 
   let revision = opts.initialRevision ?? 0
   let lastSentFingerprint: string | null = opts.initialFingerprint ?? null
-  // The snapshot a brief went out with after its pre-submit flush failed (see `flush`).
-  let coveredBySubmit: string | null = null
+  // Writes the server may have applied without our hearing — a network error,
+  // a 5xx, a 408 — by fingerprint, with the base revision each was sent on.
+  // All share one base: the revision only moves when a write is confirmed,
+  // and that clears them.
+  const unheard = new Map<string, number>()
+  // Snapshots a brief went out with (see `submitting`).
+  const submitted = new Set<string>()
   let pending: ProjectSnapshot | null = null
   let inFlight = false
   let attempt = 0
@@ -131,8 +142,8 @@ export function createCheckpointClient(opts: CheckpointClientOptions): Checkpoin
     attempt = 0
     rateLimitedUntil = 0
     clearRetry()
-    // The server copy has moved on from the submitted one; writing that back later is a real change.
-    coveredBySubmit = null
+    // The server holds `sent` at a revision we know: no unheard write can be there.
+    unheard.clear()
     if (pending === sent) {
       pending = null
       return
@@ -153,7 +164,7 @@ export function createCheckpointClient(opts: CheckpointClientOptions): Checkpoin
 
     const payload = stripImages(snapshot)
     const fingerprint = snapshotFingerprint(payload)
-    if (fingerprint === lastSentFingerprint || fingerprint === coveredBySubmit) {
+    if (fingerprint === lastSentFingerprint) {
       // Nothing actually changed. Skipping is not just thrift: the maker's
       // "changed since submit" flag is `updated_at > brief.created_at`, so a
       // no-op write would fabricate customer activity that never happened.
@@ -161,7 +172,8 @@ export function createCheckpointClient(opts: CheckpointClientOptions): Checkpoin
       return
     }
 
-    const body = JSON.stringify({ baseRevision: revision, step: snapshot.currentStepId, snapshot: payload })
+    const base = revision
+    const body = JSON.stringify({ baseRevision: base, step: snapshot.currentStepId, snapshot: payload })
     if (body.length > MAX_CHECKPOINT_BYTES) {
       console.error('[checkpoint] refusing to send an oversized snapshot', body.length)
       setState('error')
@@ -195,13 +207,31 @@ export function createCheckpointClient(opts: CheckpointClientOptions): Checkpoin
     }
 
     if (res?.status === 409 && data.reason === 'conflict') {
-      if (classifyConflict(fingerprint, data.serverFingerprint ?? null).alreadyApplied) {
+      const serverFingerprint = data.serverFingerprint ?? null
+      if (classifyConflict(fingerprint, serverFingerprint).alreadyApplied) {
         // Our own earlier write won — a StrictMode double-mount, or a retry
         // after a timeout that actually landed. Adopt the revision, carry on.
         revision = data.revision ?? revision
         lastSentFingerprint = fingerprint
         setState('saved')
         settled(snapshot)
+        return
+      }
+      if (landedUnheard(serverFingerprint, data.revision, unheard, submitted)) {
+        // What the server holds is ours after all: an earlier write whose
+        // response was lost (and something newer was picked meanwhile), or
+        // the snapshot the brief went out with. No other device is involved.
+        // Adopt its revision and put what is pending — this snapshot, or a
+        // newer one — on top of it now. Bounded: each adoption needs the
+        // server to have moved on to a write of ours, and the resend goes on
+        // top of exactly that revision.
+        revision = data.revision as number
+        lastSentFingerprint = serverFingerprint
+        unheard.clear()
+        attempt = 0
+        rateLimitedUntil = 0
+        clearRetry()
+        await send(force)
         return
       }
       // A genuinely different device is editing this project. Stop writing
@@ -225,6 +255,10 @@ export function createCheckpointClient(opts: CheckpointClientOptions): Checkpoin
     }
 
     // 5xx, a network error, a timeout, a rate limit: wait, then send the latest.
+    // All but the rate limit (refused before the write) may have been applied
+    // unheard — a 200 whose body never arrived included. Remember it, so the
+    // 409 the retry meets if it was is recognised as ours.
+    if (!res || res.ok || res.status >= 500 || res.status === 408) unheard.set(fingerprint, base)
     attempt += 1
     const rateLimited = res?.status === 429
     const wait = retryDelayMs(attempt - 1, rateLimited ? retryAfterFrom(data, res!.headers.get('Retry-After')) : null)
@@ -261,14 +295,14 @@ export function createCheckpointClient(opts: CheckpointClientOptions): Checkpoin
     }, CHECKPOINT_MAX_WAIT_MS)
   }
 
-  // Submitting the brief must be the project's LAST write. The maker's "changed
-  // since submit" flag is `updated_at > brief.created_at`, and the submit itself
-  // changes the snapshot (isDone, wrapUpData) — left to the idle timer, that save
-  // lands a few seconds after the brief and flags every fresh brief as edited.
-  // Flushed first, the same snapshot queued afterwards is a fingerprint no-op.
-  // A save that fails or stalls must not block the submit; with `final` it is
-  // not written after the brief either.
-  const flush: CheckpointClient['flush'] = async (snapshot, flushOpts) => {
+  // Before a submit, and when the builder is left: write it now. The submit's
+  // flush is a head start, not the guarantee — /api/handoff stores the
+  // snapshot the brief went out with itself, in the same update that stamps
+  // `updated_at` with the brief's time, so the server copy always matches the
+  // brief and the maker's "changed since submit" flag (`updated_at >
+  // brief.created_at`) is not raised by a save that landed late. A save that
+  // fails or stalls must not block the submit; it stays queued and retried.
+  const flush: CheckpointClient['flush'] = async (snapshot) => {
     if (halted) return false
     const target = snapshotFingerprint(stripImages(snapshot))
     let abandoned = false
@@ -284,9 +318,11 @@ export function createCheckpointClient(opts: CheckpointClientOptions): Checkpoin
     await Promise.race([write, sleep(FLUSH_TIMEOUT_MS)])
     abandoned = true
     // Landed now, or already there (an unchanged snapshot is a no-op send).
-    const landed = lastSentFingerprint === target
-    if (!landed && flushOpts?.final) coveredBySubmit = target
-    return landed
+    return lastSentFingerprint === target
+  }
+
+  const submitting: CheckpointClient['submitting'] = (snapshot) => {
+    submitted.add(snapshotFingerprint(stripImages(snapshot)))
   }
 
   const hide: CheckpointClient['hide'] = () => {
@@ -298,5 +334,5 @@ export function createCheckpointClient(opts: CheckpointClientOptions): Checkpoin
     clearRetry()
   }
 
-  return { queue, flush, hide, dispose }
+  return { queue, flush, submitting, hide, dispose }
 }

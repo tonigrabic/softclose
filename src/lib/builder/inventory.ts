@@ -419,7 +419,9 @@ export interface BuilderState {
   /**
    * Re-renders triggered from builder edits. The Phase-1 Original is *not*
    * stored here — it lives outside the array so it can never be evicted by
-   * the cap or accidentally promoted away. Hard cap: MAX_RERENDERS_PER_SESSION.
+   * the cap or accidentally promoted away. Hard cap: MAX_RERENDERS_PER_SESSION
+   * (lib/builder/rerender-cap), counted from this array — so it is append-only:
+   * an entry restored without its pixels was still paid for.
    */
   rerenders?: { id: string; trigger: string; imageDataUrl: string; createdAt: string }[]
   /**

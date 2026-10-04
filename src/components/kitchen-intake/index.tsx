@@ -65,6 +65,7 @@ import {
   type TradeMove,
 } from '@/lib/floor-plan'
 import { OMITTED_IMAGE, snapshotFingerprint, stripImages } from '@/lib/project/checkpoint'
+import { submitSnapshotFrom } from '@/lib/project/submit-snapshot'
 import { requestSpaceVision } from '@/lib/api/space-vision-client'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import type {
@@ -233,7 +234,11 @@ export function KitchenIntake({
   )
   // Both stable for the component's life, so the save effect below runs per
   // snapshot, not per render.
-  const { queue: queueCheckpoint, flush: flushCheckpoint } = useProjectCheckpoint({
+  const {
+    queue: queueCheckpoint,
+    flush: flushCheckpoint,
+    submitting: checkpointSubmitting,
+  } = useProjectCheckpoint({
     projectId: readOnly ? undefined : projectId,
     initialRevision,
     initialFingerprint,
@@ -1087,9 +1092,16 @@ export function KitchenIntake({
           readOnly={readOnly}
           hasExistingBrief={hasExistingBrief || sentInSession}
           beforeSubmit={async () => {
-            // `final`: should this save not land, it is not written after the
-            // brief either — that would flag the brand-new brief as changed.
-            await flushCheckpoint(snapshot, { final: true })
+            // The submit stores this snapshot as the project's copy itself, in
+            // the update that stamps the brief's time (lib/project/
+            // submit-snapshot), so the copy always matches the brief and a
+            // save that lands late cannot flag it as changed. The flush is a
+            // head start: landed, the route has nothing to write. Not landed,
+            // the client is told the server copy will be this snapshot.
+            if (!projectId || readOnly) return
+            checkpointSubmitting(snapshot)
+            await flushCheckpoint(snapshot)
+            return { snapshot: submitSnapshotFrom(snapshot) ?? undefined }
           }}
           onSent={() => setSentInSession(true)}
           onOpenBuilder={
