@@ -2032,3 +2032,54 @@ Soba", sent before IMP-07:
   zero calls before the button, one after. Third brief stored, flag cleared.
 
 Gate: 1129 tests (70 files) · tsc · eslint · next build green.
+
+### 2026-10-04 — IMP-08: the maker's email in their language; a mail that did not go out says so
+Spec item 9 (IMPROVEMENTS.md). The maker's "Novi sažetak kuhinje" email had an
+English "Homeowner" row and raw ids (`l_shape`, `3_6_months`).
+`requestLoginLink` said "link is on its way" whatever the provider answered.
+(As the spec notes, the audit was wrong that Resend was unconfigured: it was
+set on Vercel on 2026-10-02.)
+
+- **Maker email** (`lib/notify/maker-email.ts`): every label comes from the
+  new `makerEmail.*` keys in the maker account's locale. The handoff now reads
+  it from the account instead of passing the homeowner's UI locale.
+  Layout and timeline go through `layout.shape.*` / `option.timeline.*`, and
+  an unknown value prints "—", never the id. The email now carries the
+  project link "Kuhinja kupca" → `/kitchen/<projectId>`, the maker's
+  read-only view of the customer's page, next to the brief link. It is not
+  `/dashboard/project/<id>`, whose "U TIJEKU … nije poslani sažetak" banner is
+  wrong once a brief exists, and an ownerless project gets no link.
+  `<html lang>` is set and links are escaped.
+- **Login**: with no provider at all, every address gets "notSent" before
+  the account lookup, so it can't be used to enumerate accounts. When the
+  provider refuses one message, the form says "Slanje nije uspjelo, zatraži
+  link od izrađivača". The log carries the masked address, provider, outcome
+  and HTTP status, never the link. In development the on-screen link is the
+  delivery, so no error there. `LoginFormView` is exported so each state
+  renders in a test.
+- **Invites** are never refused (Decision 4). If the email does not go out,
+  the link box adds "E-mail s pozivnicom nije otišao — pošalji kupcu link
+  ispod sam." and the provider status is logged.
+- Tests: `maker-email` (no `_` ids, no "Homeowner", hr-HR and en-US, project
+  link, unknown enums), `login-send-honest` (mocked failed and skipped sends
+  in production → the form's error state; dev link kept in development) and
+  `invite-email-honest`.
+
+One adversarial review. Its one serious claim (enumeration) was rejected:
+the no-provider case is uniform, and a single refused message only signals
+during an outage, which is documented in the action. Nit not changed: "ask
+your maker for a link" is the spec's copy, though it reads oddly for a
+maker signing in.
+
+**Browser check** (local stack, mock AI):
+- `/login` as imp31-kupac still shows "Provjeri poštu" plus the
+  development link, and the server log shows the console send.
+- Signed in, changed a decor from the review and sent: `/api/handoff` 200.
+  The dev server has no real provider, so the maker email is not sent
+  locally. Rendering `buildMakerEmail` on the brief just stored gives
+  "Novi sažetak kuhinje — Lana Soba · 5.800 € – 7.800 € · ±15 %", "Kupac:",
+  "Raspored: L-oblik · 420 × 300 cm", the range line with its assumptions,
+  "Rok: 3–6 mjeseci", "Otvori sažetak: …/maker/<brief>" and "Kuhinja kupca:
+  …/kitchen/<project>". The en-US version matches.
+
+Gate: 1153 tests (72 files) · tsc · eslint · next build green.

@@ -58,7 +58,9 @@ describe('while the review is being built, the build holds still', () => {
     for (const label of [hrHR['builder.shell.back'], BACK_TO_REVIEW, WORKING]) {
       expect(button(html, label), label).toMatch(/^<button[^>]*disabled=""/)
     }
-    expect((html.match(/<fieldset[^>]*disabled=""/g) ?? []).length).toBe(2)
+    // The screen, and in the rail the re-render offer (above the render) and
+    // the carousel (below it).
+    expect((html.match(/<fieldset[^>]*disabled=""/g) ?? []).length).toBe(3)
     expect(html).toContain('data-builder-busy="true"')
   })
 
