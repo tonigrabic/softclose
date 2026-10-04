@@ -94,6 +94,21 @@ export async function ensureCustomerAccount(input: {
   return toAccount(data as AccountRow)
 }
 
+/**
+ * Whether a session cookie for this account, signed at `epoch`, is honoured.
+ *
+ * The DAL's rule, in one place, because sign-in checks it too: a cookie the
+ * DAL refuses is not "signed out", it is a loop — every page sends the
+ * visitor to /login, and a validly signed cookie there used to send them
+ * straight back. `completeSignIn` asks this before setting one.
+ */
+export function accountAdmitsSession(
+  account: Pick<Account, 'status' | 'sessionEpoch'> | null,
+  epoch: number
+): boolean {
+  return account !== null && account.status === 'active' && account.sessionEpoch === epoch
+}
+
 /** First successful sign-in: pending → active. */
 export async function activateAccount(id: string): Promise<void> {
   const db = supabaseAdmin()
