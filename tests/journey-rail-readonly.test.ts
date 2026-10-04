@@ -10,10 +10,10 @@
  *
  * Now the rail and the pill speak to the maker wherever the maker sees them —
  * the wrap-up, the steps, the builder: "Kupčev sažetak · Kupčev prostor ·
- * Gradnja · Želje i logistika", and under the rail "Samo za gledanje — kuhinju
+ * Gradnja · Logistika i kontakt", and under the rail "Samo za gledanje — kuhinju
  * mijenja kupac." The customer's rail says "tvoj" like the rest of the
  * product, and its third act is named by what it holds too (Toni,
- * 2026-10-04): "Tvoj sažetak · Tvoj prostor · Gradnja · Želje i logistika".
+ * 2026-10-04): "Tvoj sažetak · Tvoj prostor · Gradnja · Logistika i kontakt".
  *
  * Rendered statically (no DOM), like tests/wrapup-readonly.test.ts. The intake
  * restores its journey in an effect, so its first paint is the first step; the
@@ -68,7 +68,7 @@ function expectNoHomeownerWords(html: string) {
 }
 
 describe('the wrap-up rail speaks to the maker looking in', () => {
-  test('"Kupčev sažetak · Kupčev prostor · Gradnja · Želje i logistika"', () => {
+  test('"Kupčev sažetak · Kupčev prostor · Gradnja · Logistika i kontakt"', () => {
     const html = wrapUpRail('maker')
     expect(html).toContain(`aria-label="${hrHR['journey.readOnly.brief']}"`)
     expect(html).toContain(`>${hrHR['journey.readOnly.brief']}</p>`)
@@ -99,7 +99,7 @@ describe('the wrap-up rail speaks to the maker looking in', () => {
     expect(html).not.toMatch(/\b(offer|quote)\b/i)
   })
 
-  test('the customer keeps theirs: "Tvoj sažetak · Tvoj prostor · Gradnja · Želje i logistika"', () => {
+  test('the customer keeps theirs: "Tvoj sažetak · Tvoj prostor · Gradnja · Logistika i kontakt"', () => {
     for (const html of [wrapUpRail(), wrapUpRail('homeowner')]) {
       expect(html).toContain(`aria-label="${hrHR['journey.brief']}"`)
       expect(html).toContain(hrHR['journey.act.space'])
@@ -133,7 +133,7 @@ describe('the rail mid-journey and in the builder speaks to the maker too', () =
 })
 
 describe('the mobile pill says the same', () => {
-  test('the wrap-up: "Želje i logistika ✓"', () => {
+  test('the wrap-up: "Logistika i kontakt ✓"', () => {
     const pill = journeyPillLabel({ funnelStepId: 'contact', profile: {}, journeyDone: true, voice: 'maker' })
     expect(pill).toBe(`${hrHR['journey.readOnly.act.offer']} ✓`)
     expect(journeyPillLabel({ funnelStepId: 'contact', profile: {}, journeyDone: true, voice: 'maker', locale: 'en-US' })).toBe(
@@ -213,11 +213,11 @@ describe('the copy, hr-HR first, en-US the same keys', () => {
     expect(hrHR['journey.readOnly.brief']).toBe('Kupčev sažetak')
     expect(hrHR['journey.readOnly.act.space']).toBe('Kupčev prostor')
     expect(hrHR['journey.readOnly.act.build']).toBe('Gradnja')
-    expect(hrHR['journey.readOnly.act.offer']).toBe('Želje i logistika')
+    expect(hrHR['journey.readOnly.act.offer']).toBe('Logistika i kontakt')
     expect(enUS['journey.readOnly.brief']).toBe("The customer's brief")
     expect(enUS['journey.readOnly.act.space']).toBe("The customer's space")
     expect(enUS['journey.readOnly.act.build']).toBe('The build')
-    expect(enUS['journey.readOnly.act.offer']).toBe('Wishes & logistics')
+    expect(enUS['journey.readOnly.act.offer']).toBe('Logistics & contact')
   })
 
   test('the heading matches the wrap-up’s own title for the maker', () => {
@@ -245,6 +245,14 @@ describe('the copy, hr-HR first, en-US the same keys', () => {
     }
   })
 
+  test('the last act holds logistics and contact — the wishlist ends the build — and says so', () => {
+    // The rail at the logistics step expands the last act: its steps, in order.
+    const html = rail({ funnelStepId: 'logistics' })
+    const steps = [...html.matchAll(/<li>[\s\S]*?<span class="block truncate">([^<]*)<\/span>/g)].map((m) => m[1])
+    expect(steps).toEqual([hrHR['flow.logistics.label'], hrHR['flow.contact.label']])
+    expect(steps).not.toContain(hrHR['flow.wishlist.label'])
+  })
+
   test('the last act names what it holds, the same for both', () => {
     expect(hrHR['journey.readOnly.act.offer']).toBe(hrHR['journey.act.offer'])
     expect(enUS['journey.readOnly.act.offer']).toBe(enUS['journey.act.offer'])
@@ -254,11 +262,11 @@ describe('the copy, hr-HR first, en-US the same keys', () => {
     expect(hrHR['journey.brief']).toBe('Tvoj sažetak')
     expect(hrHR['journey.act.space']).toBe('Tvoj prostor')
     expect(hrHR['journey.act.build']).toBe('Gradnja')
-    expect(hrHR['journey.act.offer']).toBe('Želje i logistika')
+    expect(hrHR['journey.act.offer']).toBe('Logistika i kontakt')
     expect(enUS['journey.brief']).toBe('Your brief')
     expect(enUS['journey.act.space']).toBe('Your space')
     expect(enUS['journey.act.build']).toBe('Build it')
-    expect(enUS['journey.act.offer']).toBe('Wishes & logistics')
+    expect(enUS['journey.act.offer']).toBe('Logistics & contact')
   })
 
   test('no rail line, in either voice, is formal or calls anything a quote', () => {

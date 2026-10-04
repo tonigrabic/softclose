@@ -71,19 +71,19 @@ export const hrHR = {
   'appliances.notIncluded': 'Nije u ovoj kuhinji',
   'appliances.fromLayout': 'Iz tlocrta',
   // The journey rail. "Tvoj" like the rest of the product, and the third act
-  // by what it holds (lista želja, logistika, kontakt) — never "ponuda": the
-  // range is not a quote, the maker sends that. Not "Završni detalji" either:
-  // that is a builder group in the act above.
+  // by what it holds (logistika, kontakt; the wishlist ends Gradnja) — never
+  // "ponuda": the range is not a quote, the maker sends that. Not "Završni
+  // detalji" either: that is a builder group in the act above.
   'journey.brief': 'Tvoj sažetak',
   'journey.act.space': 'Tvoj prostor',
   'journey.act.build': 'Gradnja',
-  'journey.act.offer': 'Želje i logistika',
+  'journey.act.offer': 'Logistika i kontakt',
   // The same rail for the maker looking in (readOnly): the customer's
   // journey, not theirs.
   'journey.readOnly.brief': 'Kupčev sažetak',
   'journey.readOnly.act.space': 'Kupčev prostor',
   'journey.readOnly.act.build': 'Gradnja',
-  'journey.readOnly.act.offer': 'Želje i logistika',
+  'journey.readOnly.act.offer': 'Logistika i kontakt',
   'nav.startOver': 'Počni ispočetka',
 
   // Layout-counts confirmation gate
