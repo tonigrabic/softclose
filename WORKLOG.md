@@ -1173,3 +1173,62 @@ re-commits without one; a snapshot rewritten to the old order at the render
 step (local copy cleared) resumes at "korak 2/8" on the room step.
 
 Gate: 433 tests · tsc · eslint · next build green.
+
+### 2026-10-03 — IMP-32: the render is made in the measured room; light confirm; voda/plin on the brief
+Spec item 3, on top of IMP-31. The render prompt knew nothing of the room and
+the confirm step then re-read the layout off the picture.
+
+- **Hard rules in the render prompt.** `src/lib/render/room-constraints.ts`
+  builds a sanitised payload from the working plan (shape, counter walls with
+  wall and run lengths, uppers, window and door walls, sink and hob walls,
+  island, room size, ceiling) and `describeRoomConstraints` writes it as a
+  "ROOM — HARD RULES" block, with camera words for the anchor ("wall D runs in
+  from the left edge… walls B and C are behind the camera"). Per intent: keep /
+  add island / new hold everything; move sink frees the sink ("not on wall A");
+  change keeps only size, openings and ceiling. `buildPrompt` is exported and
+  the mock builds the real prompt (`tests/render-prompt.test.ts`).
+- **Other photos and the anchor.** `src/lib/render/anchor.ts` ranks photos
+  from the IMP-31 photo views (the widest shot of the counter walls first);
+  the homeowner can still pick another. Up to two other photos go in as "same
+  room, other position" references (recompressed). "Prikaži drugi zid" renders
+  from the photo that shows the walls the anchor does not, with the chosen
+  render as a design reference, and spends one of the five. A camera change
+  sends the previous render as a design reference instead of an iteration
+  base. Render output is JPEG.
+- **Hypothesis demoted to decor.** `decorHypothesis` drops layout, unit
+  patterns, towers and the integrated fridge for journeys that completed the
+  room step; the route asks only for finishes, materials and appliance types
+  and takes `{ renderImage, hints }` (no profile dump, no anchor photo).
+  `seedConfirmPlan` no longer derives anything from the render. With "keep",
+  the tally after the render equals the tally before it, in the confirm card,
+  the builder seed and relock (`tests/confirm-keep-parity.test.ts`, incl. a
+  hostile read).
+- **Light confirm.** Plan picture with letters, an island toggle, "Sudoper:
+  ostaje gdje je / seli se → kamo?", uppers per wall and the tally. Length
+  inputs, tall toggle and "Ukloni zid" are gone from the card (lengths come
+  from the room step); the full editor sits under "Promijeni raspored", open by
+  default only for "change".
+- **Voda / plin.** `src/lib/floor-plan/trade-moves.ts` compares the as-is room
+  with the working plan (geometry first, then the homeowner's answer, then the
+  intent) and the brief shows e.g. "se sele — sudoper: zid A → zid D · ploča
+  ostaje na zidu A"; the wrap-up says "seli se na zid D". Schematics carry the
+  wall letters.
+
+Implemented as six steps (one implementer per plan step, each green and
+committed), then an adversarial review: 4 lenses, 6 confirmed (an island along
+B/D dropped as "No island"; a wall added under "Promijeni raspored" sent a
+render with no room; the design reference contradicting tweak chips after a
+camera change; legacy confirm tally vs builder relock) — all fixed, with
+regression tests. The confirm card copy no longer offers length editing and
+its title no longer says "what we measured".
+
+Gate: 549 tests · tsc · eslint · next build green.
+
+Browser-verified (mock AI, invited customer, 4 photos): anchor = the corner
+shot; prompt carries room 420 × 300, runs on A and D, "Walls B and C carry
+NO", window on C, door on B, sink and hob on A, no island, camera words;
+switching to photo 1 + regenerate sends a design reference; "Prikaži drugi
+zid (troši 1 od 5)" renders from photo 2 and disappears; confirm: tally 18
+before and after the hypothesis, island on 20 / off 18, sink → wall D;
+builder opens with 18 cabinets; wrap-up "seli se na zid D"; maker brief
+"Voda / plin: se sele — sudoper: zid A → zid D · ploča ostaje na zidu A".

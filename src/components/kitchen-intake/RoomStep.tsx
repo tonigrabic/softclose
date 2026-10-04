@@ -91,9 +91,10 @@ export function RoomStep(props: RoomStepProps) {
   return props.phase === 'shape' ? <ShapeScreen {...props} /> : <MeasureScreen {...props} />
 }
 
-function letterLabel(t: (k: TranslationKey) => string, target: PhotoViewTarget): string {
+/** "Zid A" / "Kut A–D" / "Ne vidi se jasno" — the photo-view label, also on the render step's thumbnails. */
+export function photoViewLabel(t: (k: TranslationKey) => string, target: PhotoViewTarget): string {
   if (target === 'unclear') return t('room.view.unclear')
-  if (target in CORNER_WALLS) {
+  if (Object.prototype.hasOwnProperty.call(CORNER_WALLS, target)) {
     const [a, b] = CORNER_WALLS[target].map((w) => WALL_LETTER[w]).sort()
     return t('room.view.corner').replace('{a}', a).replace('{b}', b)
   }
@@ -120,7 +121,7 @@ function ShapeScreen({
   const views = vision?.lookedLikeKitchen && !vision.emptyRoom && !empty ? (vision.photoViews ?? []) : []
   // "Procjena s fotografija" only while the picked card is the one the photos read.
   const visionCard: RoomCard | null = vision?.emptyRoom ? 'empty' : cardForPlan(roomPlanFromVision(vision))
-  const viewOptions: ChipOption<PhotoViewTarget>[] = VIEW_TARGETS.map((v) => ({ value: v, label: letterLabel(t, v) }))
+  const viewOptions: ChipOption<PhotoViewTarget>[] = VIEW_TARGETS.map((v) => ({ value: v, label: photoViewLabel(t, v) }))
 
   if (isReading) {
     return (

@@ -11,7 +11,9 @@ import { describe, expect, test } from 'vitest'
 import { CONTRACT_FIXTURES } from '@/lib/builder/fixtures'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import { hydrateFromHypothesis } from '@/lib/builder/state'
-import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
+import { decorHypothesis, type BuilderHypothesis } from '@/lib/builder/hypothesis'
+import { hypothesisFixtureById } from '@/lib/builder/hypothesis-fixtures'
+import { assembleUnits } from '@/lib/builder/unit-assembly'
 
 function lShapeContract() {
   return floorPlanToLayout(CONTRACT_FIXTURES.find((f) => f.id === 'l-shape')!.build())
@@ -48,6 +50,23 @@ describe('render tall towers seed into the builder', () => {
     expect(
       state.cabinetBoxes.units.some((u) => u.runId === runId && u.type === 'tall' && !u.boundTo)
     ).toBe(true)
+  })
+
+  // IMP-32: once the room is measured the builder gets the decor-only read,
+  // so the same render-seen towers — and the fridge housing an AI-guessed
+  // built-in fridge would add — never reach the units.
+  test('a decorHypothesis-projected fixture adds no tower and no housing', () => {
+    const contract = lShapeContract()
+    expect(contract.appliances.some((a) => a.kind === 'fridge')).toBe(true)
+    const expected = assembleUnits({ contract }).units
+    for (const id of ['decor', 'tall-tower', 'patterns'] as const) {
+      const state = hydrateFromHypothesis(decorHypothesis(hypothesisFixtureById(id).build(contract)), {
+        layoutContract: contract,
+      })
+      expect(state.layout.runs.every((r) => r.hasTall === false)).toBe(true)
+      expect(state.cabinetBoxes.units.filter((u) => u.type === 'tall')).toHaveLength(0)
+      expect(state.cabinetBoxes.units).toEqual(expected)
+    }
   })
 
   test('no hypothesis → contract authority unchanged (no towers)', () => {

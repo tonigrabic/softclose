@@ -13,6 +13,8 @@ import { SpaceCapture } from './SpaceCapture'
 import { Inspiration } from './Inspiration'
 import { ConceptRender as ConceptRenderUI, type ProductReference } from './ConceptRender'
 import { LayoutReview } from './LayoutReview'
+import { ConfirmToggles, EditPlanDisclosure } from './ConfirmToggles'
+import { FloorPlanStatic } from './FloorPlanStatic'
 import { VisualScale } from './VisualScale'
 import { ContactForm, type ContactValue } from './ContactForm'
 import { WrapUpScreen } from './WrapUpScreen'
@@ -31,7 +33,7 @@ import {
 } from '@/lib/flow'
 import { BuilderShell } from '@/components/builder/BuilderShell'
 import { LayoutConfirm } from '@/components/builder/LayoutConfirm'
-import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
+import { decorHypothesis, type BuilderHypothesis } from '@/lib/builder/hypothesis'
 import type { BuilderState } from '@/lib/builder/inventory'
 import type { UnitEdits } from '@/lib/builder/unit-assembly'
 import { builderPickLabels } from '@/lib/builder/pick-labels'
@@ -46,15 +48,18 @@ import {
   planFromProfile,
   validate,
   fromShapePreset,
-  isRoomMeasured,
-  makeIsland,
   WALL_LETTER,
   counterWalls,
+  isRoomMeasured,
+  missingWalls,
   relabelPhotoView,
   reseedRoomPlan,
   roomPlanFromVision,
   roomStepReady,
   roomStepDone,
+  tradeMovesFromProfile,
+  workingPlanFromRoom,
+  type TradeMove,
 } from '@/lib/floor-plan'
 import { OMITTED_IMAGE, snapshotFingerprint } from '@/lib/project/checkpoint'
 import { requestSpaceVision } from '@/lib/api/space-vision-client'
@@ -68,6 +73,8 @@ import type {
 } from '@/lib/types'
 import type { InspirationVisionResult } from '@/app/api/inspiration-vision/route'
 import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
+import { decorProfileHints } from '@/lib/api/decor-profile-hints'
+import { roomConstraintsFor } from '@/lib/render/room-constraints'
 import { contactChannels } from '@/lib/contact'
 import { mintBriefId } from '@/lib/handoff/brief-id'
 
@@ -75,6 +82,13 @@ import { mintBriefId } from '@/lib/handoff/brief-id'
  * lint doesn't flag `Date.now()` in the component's event handlers. */
 function nowMs(): number {
   return Date.now()
+}
+
+/** "sink moves A→D", "sink moves A→?", "hob stays" — the confirm turn's trade line. */
+function tradeNote(part: 'sink' | 'hob', m: TradeMove): string {
+  const walls =
+    m.status === 'moves' && m.fromWall ? ` ${WALL_LETTER[m.fromWall]}→${m.toWall ? WALL_LETTER[m.toWall] : '?'}` : ''
+  return `${part} ${m.status}${walls}`
 }
 
 // Labels and captions are option.timeline.* / option.siteAccess.* in the locale files.
@@ -514,15 +528,18 @@ export function KitchenIntake({
     const fingerprint = snapshotFingerprint(room)
     const unchanged =
       floorPlan && profile.roomConfirmed?.fingerprint === fingerprint && profile.roomConfirmed.intent === intent
-    const working = unchanged
-      ? floorPlan
-      : intent === 'add_island' && !room.hasIsland
-        ? validate({ ...room, island: makeIsland(room.room), hasIsland: true })
-        : room
+    const working = unchanged ? floorPlan : workingPlanFromRoom(room, intent)
+    // A sink answer belongs to the intent it was given under (IMP-32): a new
+    // intent starts the confirm step's sink chips from the plan again.
+    const clearSinkAnswer =
+      !unchanged && profile.roomConfirmed?.intent !== intent && profile.trades?.plumbing?.sinkPosition !== undefined
     setRoomPlan(room)
     setFloorPlan(working)
     if (!unchanged) setUnitEdits(null)
     patchProfile({
+      ...(clearSinkAnswer
+        ? { trades: { ...profile.trades, plumbing: { ...profile.trades?.plumbing, sinkPosition: undefined } } }
+        : {}),
       floorPlan: working,
       existingFloorPlan: empty ? undefined : room,
       existingRoom: empty ? 'empty' : 'kitchen',
@@ -582,12 +599,15 @@ export function KitchenIntake({
   /**
    * Freeze the reviewed layout — the contract the builder prices from — and
    * record the explicit sign-off. This is where the contract is locked: the
-   * homeowner has seen the render-derived plan, adjusted everything on the
-   * canvas, and watched the live cabinet breakdown (LayoutConfirm) update.
-   * Decor (door/worktop/hardware) is NOT captured here — it lives in the builder.
+   * homeowner has seen the plan the room step committed, set the island, the
+   * sink and the uppers (or changed the layout in the editor), and watched
+   * the live cabinet breakdown (LayoutConfirm) update. The transcript turn
+   * says whether the sink and the hob move. The sink answer itself was
+   * written on its tap. Decor (door/worktop/hardware) is NOT captured here —
+   * it lives in the builder.
    */
   function commitConfirmLook() {
-    // The plan the homeowner reviewed (render-derived, then their edits).
+    // The plan the homeowner reviewed (the room step's plan, then their edits).
     const planToFreeze = floorPlan
     if (planToFreeze) {
       const frozen = validate(planToFreeze)
@@ -602,9 +622,10 @@ export function KitchenIntake({
         unitEdits: unitEdits ?? undefined,
         contractConfirmedAt: nowMs(),
       })
+      const tm = tradeMovesFromProfile({ ...profile, floorPlan: frozen })
       logTurn(
         'user',
-        `Confirmed layout contract: ${frozen.layoutShape} ${Math.round(frozen.room.lengthCm)}×${Math.round(frozen.room.widthCm)} cm${frozen.hasIsland ? ' + island' : ''}`
+        `Confirmed layout contract: ${frozen.layoutShape} ${Math.round(frozen.room.lengthCm)}×${Math.round(frozen.room.widthCm)} cm${frozen.hasIsland ? ' + island' : ''}; ${tradeNote('sink', tm.sink)}; ${tradeNote('hob', tm.hob)}`
       )
     } else {
       logTurn('user', 'Confirmed layout contract: (skipped)')
@@ -788,8 +809,9 @@ export function KitchenIntake({
 
   /**
    * Fire the builder-hypothesis vision call; the builder mounts when it lands.
-   * Hands the measured layout to the vision call so it reuses our run ids /
-   * lengths instead of inventing its own (context/layout-contract.md).
+   * Decor only (IMP-32): the render plus a few preference ids. No plan, no
+   * anchor photo and no profile: the layout is measured, and the profile
+   * carries every render and photo as data URLs (413 risk).
    */
   async function loadHypothesis() {
     const render = chosenRender
@@ -797,17 +819,10 @@ export function KitchenIntake({
     setIsLoadingHypothesis(true)
     setHypothesisError(null)
     try {
-      const plan = planFromProfile(profile)
-      const layoutContract = plan ? floorPlanToLayout(validate(plan)) : undefined
       const res = await fetch('/api/builder-hypothesis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          renderImage: render.imageDataUrl,
-          anchorPhoto: spacePhotos[0],
-          profile,
-          layoutContract,
-        }),
+        body: JSON.stringify({ renderImage: render.imageDataUrl, hints: decorProfileHints(profile) }),
       })
       const data = await readJson(res)
       if (!res.ok || data.error) {
@@ -827,20 +842,26 @@ export function KitchenIntake({
     [state.currentStepId, isDone]
   )
 
-  // The render the builder anchors to: the explicitly chosen one, else the latest.
-  const chosenRender = chosenRenderId
-    ? conceptRenders.find((r) => r.id === chosenRenderId)
-    : conceptRenders[conceptRenders.length - 1]
+  // The render the builder anchors to: the explicitly chosen one, else the
+  // latest main render — an other-side render (IMP-32) is never the design.
+  const mainRenders = conceptRenders.filter((r) => r.view !== 'other_side')
+  const latestMainRender = mainRenders[mainRenders.length - 1]
+  const chosenRender = chosenRenderId ? conceptRenders.find((r) => r.id === chosenRenderId) : latestMainRender
 
-  // The render-derived layout is still being computed when a render exists but
-  // the vision pass hasn't returned (or errored) yet. While pending, the
-  // confirm step shows a loading state rather than seeding a premature plan.
-  const layoutPending = Boolean(chosenRender) && !builderHypothesis && !hypothesisError
+  // The render read, as the builder may use it (IMP-32). Once the room step is
+  // done the plan owns the layout, so the read is demoted to decor and
+  // materials: no render-seen tower, unit pattern or fridge housing can move
+  // the tally the homeowner confirmed. A journey confirmed before the room
+  // step keeps its full read, so its confirmed tally does not shift on resume.
+  const roomDone = roomStepDone(profile)
+  const builderHyp = useMemo(
+    () => (roomDone ? decorHypothesis(builderHypothesis) : builderHypothesis),
+    [roomDone, builderHypothesis]
+  )
 
-  // On reaching "Confirm layout & look", fire the render vision pass ONCE. It
-  // yields both the layout geometry (→ the proposed FloorPlan below) and the
-  // decor hypothesis the builder reuses — decoupled from builder entry so the
-  // homeowner confirms the layout derived from their render BEFORE building.
+  // On reaching "Confirm layout & look", fire the render vision pass ONCE, as
+  // a prefetch for the builder's decor (fronts, worktop, hardware). It no
+  // longer feeds the plan or the tally, so nothing on this step waits for it.
   // Synchronises with an external system (the vision API) on step entry.
   useEffect(() => {
     if (state.currentStepId !== 'confirm_look') return
@@ -851,20 +872,18 @@ export function KitchenIntake({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentStepId, chosenRender, builderHypothesis, isLoadingHypothesis, hypothesisError])
 
-  // Seed the floor plan for the confirm step. The measured room (IMP-31) is
-  // the seed and is never rebuilt from the render; only a journey that never
-  // measured falls back to the old render-over-photo derivation, once the
-  // render layout has landed (or errored). Guarded so it never clobbers
-  // homeowner edits, and seeds exactly once (the plan carries random element
-  // ids, so it must be stored, not recomputed each render).
+  // Seed the floor plan for the confirm step from the plan, never the render:
+  // the measured room (IMP-31), a legacy journey's plan as it is, or — with
+  // no plan at all — the photo read. Guarded so it never clobbers homeowner
+  // edits, and seeds exactly once (the plan carries random element ids, so it
+  // must be stored, not recomputed each render).
   useEffect(() => {
     if (state.currentStepId !== 'confirm_look') return
     if (floorPlan) return
-    const measured = profile.floorPlan
-    if (!isRoomMeasured(measured) && (layoutPending || (!builderHypothesis && !spaceVision))) return
+    if (!profile.floorPlan && !spaceVision) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setFloorPlan(seedConfirmPlan(null, measured, spaceVision, builderHypothesis ?? null))
-  }, [state.currentStepId, floorPlan, layoutPending, builderHypothesis, spaceVision, profile.floorPlan])
+    setFloorPlan(seedConfirmPlan(null, profile.floorPlan, spaceVision))
+  }, [state.currentStepId, floorPlan, spaceVision, profile.floorPlan])
 
   // The room step seeds its plan from the photo read (shape pre-selected); an
   // empty-room read pre-selects "Prazna prostorija". Without a read, nothing is
@@ -965,13 +984,13 @@ export function KitchenIntake({
     const layoutContract = floorPlanToLayout(validate(plan))
     return (
       <BuilderShell
-        hypothesis={builderHypothesis}
+        hypothesis={builderHyp}
         layoutContract={layoutContract}
         unitEdits={(profile.unitEdits as UnitEdits | undefined) ?? unitEdits}
         savedState={builderSavedState}
         renderImageDataUrl={chosenRender?.imageDataUrl}
         anchorPhotoDataUrl={spacePhotos[0]}
-        rerenderBlocked={!roomStepDone(profile)}
+        rerenderBlocked={!roomDone}
         layoutSummary={summariseLayoutFromProfile(profile, locale, floorPlan)}
         profile={profile}
         layoutPreconfirmed
@@ -1003,7 +1022,7 @@ export function KitchenIntake({
     (chosenRenderId
       ? conceptRenders.find((r) => r.id === chosenRenderId)?.imageDataUrl
       : undefined) ??
-    conceptRenders[conceptRenders.length - 1]?.imageDataUrl ??
+    latestMainRender?.imageDataUrl ??
     spacePhotos[0]
   const funnelBuilderState = profile.builderState as BuilderState | undefined
   const rightRailSteps: FlowStepId[] = [
@@ -1119,6 +1138,7 @@ export function KitchenIntake({
                 spaceVision={spaceVision}
                 onSpaceVisionChange={handleSpaceVisionChange}
                 room={roomProps}
+                confirmHypothesis={builderHyp}
                 roomMeasured={roomMeasuredNow}
                 onMeasureRoom={() => {
                   setRoomPhase('measure')
@@ -1159,8 +1179,6 @@ export function KitchenIntake({
                   logTurn('user', 'Skipped concept render')
                   goNext()
                 }}
-                layoutLoading={layoutPending || isLoadingHypothesis}
-                builderHypothesis={builderHypothesis}
                 unitEdits={unitEdits}
                 onUnitEditsChange={setUnitEdits}
                 anchorRenderUrl={funnelRenderSrc}
@@ -1259,6 +1277,13 @@ export function KitchenIntake({
 
 interface StepBodyProps {
   stepId: FlowStepId
+  /**
+   * The render read as the builder sees it: decor only once the room step is
+   * done (so the confirm tally is the plan's), the full read for a journey
+   * from before it — the same hints the builder relocks with, so the confirm
+   * tally and the builder never disagree.
+   */
+  confirmHypothesis: BuilderHypothesis | null
   /** The room step (IMP-31): its own props, built by the intake. */
   room: RoomStepProps
   /** Every wall the kitchen stands on has a typed length — the render's gate. */
@@ -1302,10 +1327,6 @@ interface StepBodyProps {
   onDealBreakersTextChange: (t: string) => void
   onSpacePhotosSkip: () => void
   onConceptRenderSkip: () => void
-  /** True while the render→layout vision pass is in flight (confirm_look). */
-  layoutLoading: boolean
-  /** Render hypothesis — folds AI unit hints into the confirm tally (parity). */
-  builderHypothesis: BuilderHypothesis | null
   /** Per-row unit edits from the contract card + their setter. */
   unitEdits: UnitEdits | null
   onUnitEditsChange: (e: UnitEdits) => void
@@ -1316,6 +1337,7 @@ interface StepBodyProps {
 function StepBody(props: StepBodyProps) {
   const {
     stepId,
+    confirmHypothesis,
     room,
     roomMeasured,
     onMeasureRoom,
@@ -1354,8 +1376,6 @@ function StepBody(props: StepBodyProps) {
     onDealBreakersTextChange,
     onSpacePhotosSkip,
     onConceptRenderSkip,
-    layoutLoading,
-    builderHypothesis,
     unitEdits,
     onUnitEditsChange,
     anchorRenderUrl,
@@ -1436,45 +1456,98 @@ function StepBody(props: StepBodyProps) {
             autoStart
             roomMeasured={roomMeasured}
             onMeasureRoom={onMeasureRoom}
+            room={
+              // The live plan when its walls are known; otherwise the plan the
+              // room step committed — never a render without the room.
+              roomConstraintsFor({
+                plan: floorPlan ?? profile.floorPlan,
+                existing: profile.existingFloorPlan,
+                intent: profile.layoutIntent,
+                existingRoom: profile.existingRoom,
+                sinkAnswer: profile.trades?.plumbing?.sinkPosition,
+              }) ??
+              roomConstraintsFor({
+                plan: profile.floorPlan,
+                existing: profile.existingFloorPlan,
+                intent: profile.layoutIntent,
+                existingRoom: profile.existingRoom,
+                sinkAnswer: profile.trades?.plumbing?.sinkPosition,
+              })
+            }
+            photoViews={spaceVision?.photoViews}
           />
         </StepFrame>
       )
 
     case 'confirm_look': {
-      // The contract tally derived from the CURRENT edited plan — shown
-      // read-only below the editor so the homeowner sees exactly what we'll
-      // price before the footer Continue freezes it and records the sign-off.
+      // The light confirm (IMP-32): the plan the room step committed, never
+      // re-read from the render. The plan picture, the island and sink
+      // toggles, and the tally with its uppers per wall; the full editor
+      // waits under "Promijeni raspored". The footer Continue freezes the
+      // plan and locks the contract. Decor (door/worktop/hardware) is NOT
+      // here — it belongs to the builder.
       const reviewContract = floorPlan ? floorPlanToLayout(validate(floorPlan)) : null
+      // An empty room has no intent (commitRoom drops it), whatever is left in the profile.
+      const intent = profile.existingRoom === 'empty' ? undefined : profile.layoutIntent
+      const walls = floorPlan ? counterWalls(floorPlan) : []
+      const unmeasured = floorPlan ? missingWalls(floorPlan) : []
       return (
         <StepFrame
           eyebrow={stepEyebrow('confirm_look')}
           title={t('funnel.confirm_look.title')}
           subtitle={t('funnel.confirm_look.subtitle')}
         >
-          {/* The layout DERIVED FROM THE RENDER — the homeowner adjusts walls,
-              sizes, appliances, island and the per-wall upper/tall toggles right
-              here; the footer Continue freezes it and locks the contract. Decor
-              (door/worktop/hardware) is NOT here — it belongs to the builder. */}
-          <LayoutReview
-            key={layoutEditNonce}
-            floorPlan={floorPlan}
-            onFloorPlanChange={onFloorPlanChange}
-            anchorPhotoUrl={anchorRenderUrl}
-            isLoading={layoutLoading}
-          />
+          {floorPlan && (
+            <>
+              <FloorPlanStatic
+                plan={floorPlan}
+                wallLetters={Object.fromEntries(walls.map((w) => [w, WALL_LETTER[w]]))}
+                wallLettersDone={walls.filter((w) => !unmeasured.includes(w))}
+                hideFooter
+                className="mx-auto max-w-md"
+              />
+              <ConfirmToggles
+                plan={floorPlan}
+                existing={profile.existingFloorPlan}
+                existingRoom={profile.existingRoom}
+                intent={intent}
+                sinkAnswer={profile.trades?.plumbing?.sinkPosition}
+                onPlanChange={onContractPlanChange}
+                onSinkAnswer={(sinkPosition) =>
+                  // patchProfile replaces top-level keys, so the answer merges in.
+                  onPatchProfile({
+                    trades: { ...profile.trades, plumbing: { ...profile.trades?.plumbing, sinkPosition } },
+                  })
+                }
+              />
+            </>
+          )}
           {/* The contract we'll price — appliances + the per-wall cabinet
-              sequence. EDITABLE here (lengths, walls, rows) and on the plan
-              above; both stay in sync. The footer Continue locks it. */}
+              sequence, from the plan alone (no render read). The uppers per
+              wall and the per-unit picks are edited here; lengths are the
+              room step's. */}
           {reviewContract && (
             <LayoutConfirm
               contract={reviewContract}
-              hypothesis={builderHypothesis}
+              hypothesis={confirmHypothesis}
               plan={floorPlan}
               onPlanChange={onContractPlanChange}
               edits={unitEdits}
               onEditsChange={onUnitEditsChange}
             />
           )}
+          <EditPlanDisclosure
+            label={t('confirm.editPlan')}
+            defaultOpen={intent === 'change' || !floorPlan || !isRoomMeasured(floorPlan)}
+          >
+            <LayoutReview
+              key={layoutEditNonce}
+              floorPlan={floorPlan}
+              onFloorPlanChange={onFloorPlanChange}
+              anchorPhotoUrl={anchorRenderUrl}
+              isLoading={false}
+            />
+          </EditPlanDisclosure>
         </StepFrame>
       )
     }

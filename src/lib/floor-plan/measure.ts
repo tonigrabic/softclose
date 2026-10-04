@@ -12,9 +12,12 @@ import type { LayoutIntent, LeadProfile, SpaceVisionResult, WallSide } from '@/l
 import {
   DIM_HARD_MAX,
   DIM_HARD_MIN,
+  effectiveCounterLength,
+  effectiveCounterStart,
   effectiveHasCounter,
   fromShapePreset,
   fromVision,
+  makeFeature,
   makeIsland,
   validate,
   wallAxis,
@@ -305,6 +308,72 @@ export function reseedRoomPlan(
   }
   if (prev.ceilingSource === 'homeowner') next = withCeiling(next, prev.ceilingHeightCm ?? null)
   return next
+}
+
+/**
+ * The working plan the render and the confirm step build on: the room as
+ * measured, plus the intent — an island added when that is what they want.
+ * Every other intent starts from the room as it is today.
+ */
+export function workingPlanFromRoom(room: FloorPlan, intent?: LayoutIntent): FloorPlan {
+  return intent === 'add_island' && !room.hasIsland
+    ? validate({ ...room, island: makeIsland(room.room), hasIsland: true })
+    : room
+}
+
+// ─── The light confirm (IMP-32) ──────────────────────────────────────────────
+
+/**
+ * The island on or off. On adds the default island when there is none (an
+ * existing one stays as drawn); off removes it. The counter walls never
+ * change, so the rest of the tally is untouched.
+ */
+export function withIsland(plan: FloorPlan, on: boolean): FloorPlan {
+  if (on) return plan.island ? plan : validate({ ...plan, island: makeIsland(plan.room), hasIsland: true })
+  return plan.island ? validate({ ...plan, island: undefined, hasIsland: false }) : plan
+}
+
+/**
+ * The sink on another wall, as the homeowner tapped it: the first sink moves
+ * to the middle of that wall's counter run (the whole wall when the run is
+ * not cut short) and becomes theirs. With no sink on the plan, one is added
+ * there.
+ */
+export function withSinkOnWall(plan: FloorPlan, wall: WallSide): FloorPlan {
+  const centerCm = effectiveCounterStart(plan, wall) + effectiveCounterLength(plan, wall) / 2
+  const sink = plan.features.find((f) => f.kind === 'sink')
+  const features = sink
+    ? plan.features.map((f) =>
+        f.id === sink.id ? { ...f, wall, centerCm, confidence: 'H' as const, source: 'homeowner' as const } : f
+      )
+    : [...plan.features, { ...makeFeature('sink', wall, plan.room), centerCm }]
+  return validate({ ...plan, features })
+}
+
+/**
+ * The sink back where it is today: the plan's sink takes the wall, position,
+ * width and provenance of the room's own sink (added when the plan has
+ * none). A no-op — the same object — when the room shows no sink or the
+ * sink is already there.
+ */
+export function withSinkAsToday(plan: FloorPlan, existing: FloorPlan | null | undefined): FloorPlan {
+  const today = existing?.features.find((f) => f.kind === 'sink')
+  if (!today) return plan
+  const sink = plan.features.find((f) => f.kind === 'sink')
+  if (sink && sink.wall === today.wall && sink.centerCm === today.centerCm && sink.widthCm === today.widthCm) {
+    return plan
+  }
+  const spot = {
+    wall: today.wall,
+    centerCm: today.centerCm,
+    widthCm: today.widthCm,
+    confidence: today.confidence,
+    source: today.source,
+  }
+  const features = sink
+    ? plan.features.map((f) => (f.id === sink.id ? { ...f, ...spot } : f))
+    : [...plan.features, { ...today }]
+  return validate({ ...plan, features })
 }
 
 /** Can the room step's footer Continue move on from this screen? */
