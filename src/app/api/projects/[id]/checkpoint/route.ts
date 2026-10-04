@@ -3,6 +3,7 @@ import { unauthorized } from '@/lib/api/errors'
 import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import { CHECKPOINT_RATE_LIMIT, MAX_CHECKPOINT_BYTES, snapshotFingerprint } from '@/lib/project/checkpoint'
 import { SNAPSHOT_VERSION } from '@/lib/project/snapshot'
+import { contentChangedAt } from '@/lib/project/status'
 import { rateLimitKey } from '@/lib/rate-limit'
 
 /**
@@ -65,7 +66,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   // answers — the brief's value is that it is the homeowner's own words.
   const { data: project } = await db
     .from(TABLES.projects)
-    .select('id, customer_id, revision, status, snapshot_version')
+    .select('id, customer_id, revision, status, snapshot_version, current_brief_id, brief_print')
     .eq('id', id)
     .maybeSingle()
   if (!project || project.customer_id !== session.accountId) {
@@ -86,6 +87,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
   // a decline archives the project, a send marks it submitted, and neither
   // bumps `revision` — so writing it back would undo them: an autosave in
   // flight across the maker's decline would re-open the project (IMP-03).
+  //
+  // Every save is activity (`updated_at`); only a kitchen that differs from
+  // the brief the maker has is a change (`content_changed_at`, 0008). A walk
+  // back through the steps from the review moves the step and the done flag
+  // and re-stamps sign-offs — saved for the resume, never flagged.
+  const now = new Date().toISOString()
   const { data: updated, error } = await db
     .from(TABLES.projects)
     .update({
@@ -93,7 +100,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
       snapshot_version: SNAPSHOT_VERSION,
       revision: (project.revision as number) + 1,
       step: body.step ?? null,
-      updated_at: new Date().toISOString(),
+      updated_at: now,
+      content_changed_at: contentChangedAt(
+        {
+          currentBriefId: (project.current_brief_id as string | null) ?? null,
+          briefPrint: (project.brief_print as string | null) ?? null,
+        },
+        body.snapshot,
+        now
+      ),
     })
     .eq('id', id)
     .eq('revision', body.baseRevision)

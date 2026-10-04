@@ -12,10 +12,12 @@
  * Rendered statically, and called as a function to read the click targets
  * (JourneyNavRail calls no hooks).
  */
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { createElement, type ReactElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, test } from 'vitest'
-import { JourneyNavRail } from '@/components/JourneyNavRail'
+import { JourneyNavRail, journeyPillLabel } from '@/components/JourneyNavRail'
 import type { RailAct } from '@/components/JourneyRail'
 import { BUILDER_GROUPS } from '@/lib/builder/inventory'
 import { FLOW } from '@/lib/flow'
@@ -109,5 +111,60 @@ describe('the funnel’s rail', () => {
     for (const s of steps) s.onSelect?.()
     expect(picked).toEqual([])
     expect(navigated).toEqual(BUILDER_GROUPS.map((g) => g.id))
+  })
+})
+
+describe('editing from the review: the journey stays done (IMP-07 review)', () => {
+  // A section's "Nešto ispraviti?" on the photos reopens the first step. The
+  // rail used to be positional: every later step "to do" and not a button,
+  // the build and offer acts collapsed, the pill "1/5", the bar near 0 % — a
+  // sent brief that looked started over, with no way on to "Popis želja".
+  test('the step reopened is current; every other step is done and reopens', () => {
+    const { picked, onStepSelect } = select()
+    const all = acts({ funnelStepId: 'space_photos', reviewed: true, expandDone: true, onStepSelect })
+    const steps = all.flatMap((a) => a.steps ?? [])
+    expect(steps.filter((s) => s.status === 'current').map((s) => s.id)).toEqual(['space_photos'])
+    expect(steps.filter((s) => s.status === 'todo')).toEqual([])
+    for (const s of steps) s.onSelect?.()
+    expect(picked).toHaveLength(FUNNEL.length - 1 + BUILDER_GROUPS.length)
+    expect(picked).toContainEqual({ step: 'wishlist' })
+    expect(picked).toContainEqual({ step: 'contact' })
+    expect(picked).not.toContainEqual({ step: 'space_photos' })
+  })
+
+  test('the acts: the one reopened is current, the others done and open', () => {
+    const all = acts({ funnelStepId: 'space_photos', reviewed: true, expandDone: true, onStepSelect: () => {} })
+    expect(all.map((a) => [a.id, a.status, Boolean(a.expanded)])).toEqual([
+      ['space', 'current', false],
+      ['build', 'done', true],
+      ['offer', 'done', true],
+    ])
+    // The current act counts its other steps done, not "0 of 5".
+    expect(all[0].count).toEqual({ done: 4, total: 5 })
+    expect(buttons(html({ funnelStepId: 'space_photos', reviewed: true, expandDone: true, onStepSelect: () => {} }))).toBe(
+      FUNNEL.length - 1 + BUILDER_GROUPS.length
+    )
+  })
+
+  test('inside the builder: the funnel steps show done (reached through "Natrag na pregled")', () => {
+    const steps = acts({ funnelStepId: 'builder', builderGroupId: 'doors', reviewed: true }).flatMap((a) => a.steps ?? [])
+    expect(steps.filter((s) => s.status === 'todo')).toEqual([])
+    expect(steps.find((s) => s.id === 'doors')?.status).toBe('current')
+  })
+
+  test('the mobile pill names the step without a count', () => {
+    expect(journeyPillLabel({ funnelStepId: 'space_photos', profile: {}, reviewed: true })).toBe(
+      `${t('journey.act.space')} · ${t('flow.space_photos.label')}`
+    )
+    expect(journeyPillLabel({ funnelStepId: 'space_photos', profile: {} })).toMatch(/1\/5$/)
+  })
+
+  test('the intake and the builder keep the bar full and pass `reviewed` while editing', () => {
+    const intake = readFileSync(join(__dirname, '..', 'src/components/kitchen-intake/index.tsx'), 'utf8')
+    expect(intake).toMatch(/editing \? 100 : Math\.round/)
+    expect(intake).toMatch(/journeyPillLabel\(\{ funnelStepId: state\.currentStepId, profile, reviewed: editing, locale \}\)/)
+    expect((intake.match(/reviewed=\{editing\}/g) ?? []).length).toBe(2) // the funnel rail and BuilderShell
+    const shell = readFileSync(join(__dirname, '..', 'src/components/builder/BuilderShell.tsx'), 'utf8')
+    expect(shell).toMatch(/const progressPercent = reviewed \? 100 :/)
   })
 })

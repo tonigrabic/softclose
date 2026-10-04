@@ -81,6 +81,16 @@ export interface ProjectSnapshot {
    * fingerprint the same.
    */
   wishlistSource?: string
+  /**
+   * The review the brief on file went out from (IMP-07): its summary, its id
+   * and the print of the profile actually sent. A finish whose profile prints
+   * the same shows this review again — the brief the maker has, nothing to
+   * send — even after a change was made and undone, or the review was rebuilt
+   * in between. Trusted only while its id is the project's current brief
+   * (lib/handoff/review `sentReviewFrom`). Optional: older snapshots derive it
+   * from their review; `undefined` when unset, so they fingerprint the same.
+   */
+  sentReview?: WrapUpData
 }
 
 type SnapshotRecord = Record<string, unknown>

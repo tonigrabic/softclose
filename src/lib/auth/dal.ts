@@ -101,11 +101,13 @@ export interface Project {
   openedAt: string | null
   submittedAt: string | null
   updatedAt: string
+  /** When the kitchen last differed from the current brief (0008) — the maker's "changed" flag. */
+  contentChangedAt: string | null
   title: string | null
 }
 
 const PROJECT_COLUMNS =
-  'id, maker_id, customer_id, status, step, revision, snapshot_version, current_brief_id, opened_at, submitted_at, updated_at, title'
+  'id, maker_id, customer_id, status, step, revision, snapshot_version, current_brief_id, opened_at, submitted_at, updated_at, content_changed_at, title'
 
 /** Deliberately excludes `snapshot`: on a list or a guard it is dead weight, and
  *  a snapshot is megabytes once renders are in it. */
@@ -121,6 +123,7 @@ interface ProjectRow {
   opened_at: string | null
   submitted_at: string | null
   updated_at: string
+  content_changed_at?: string | null
   title: string | null
 }
 
@@ -137,6 +140,7 @@ export function toProject(row: ProjectRow): Project {
     openedAt: row.opened_at,
     submittedAt: row.submitted_at,
     updatedAt: row.updated_at,
+    contentChangedAt: row.content_changed_at ?? null,
     title: row.title,
   }
 }

@@ -21,11 +21,14 @@ import { describe, expect, test } from 'vitest'
 import {
   briefPrint,
   keepsReview,
+  keptReview,
   legacyReviewPrint,
   reviewState,
   sendOffer,
+  sentReviewFrom,
   type ReviewState,
 } from '@/lib/handoff/review'
+import type { ProjectSnapshot } from '@/lib/project/snapshot'
 import { customerEstimate, estimateFromBuild } from '@/lib/handoff/estimate'
 import { buildHandoffBundle, toCustomerBundle } from '@/lib/handoff/bundle'
 import { OMITTED_IMAGE } from '@/lib/project/checkpoint'
@@ -133,12 +136,13 @@ describe('legacyReviewPrint: what a snapshot from before IMP-07 can vouch for', 
     expect(legacyReviewPrint(null)).toBeNull()
   })
 
-  test('the intake holds it in memory from the restore, and finishes with it', () => {
+  test('the intake holds it from the restore, and finishes with it and the brief on file', () => {
     const intake = readFileSync(join(__dirname, '..', 'src/components/kitchen-intake/index.tsx'), 'utf8')
     expect(intake).toMatch(/legacyPrint\.current = legacyReviewPrint\(d\)/)
-    expect(intake).toMatch(/keepsReview\(wrapUpData, print, legacyPrint\.current\)/)
-    // Never written into the snapshot (a write on arrival would flag the brief).
-    expect(intake).not.toMatch(/profilePrint: legacyPrint/)
+    expect(intake).toMatch(/setSentReview\(sentReviewFrom\(d, currentBriefId\) \?\? undefined\)/)
+    expect(intake).toMatch(
+      /keptReview\(print, \{ prev: wrapUpData, sent: sentReview \?\? null, legacyPrint: legacyPrint\.current \}\)/
+    )
   })
 })
 
@@ -260,6 +264,159 @@ describe('no identical resend, as a sequence', () => {
     const edited = finish(first, { ...profile(), timeline: 'no_rush' }, mint)
     expect(edited.briefId).toBe('brief-2')
     expect(offerFor(edited, null)).toBe('first')
+  })
+})
+
+describe('sentReviewFrom: the brief on file, as a restored journey knows it', () => {
+  const p = profile()
+  const print = briefPrint(p)
+  const review: WrapUpData = { thankYouMessage: 'Hvala', summaryLines: ['a'], briefId: 'X', profilePrint: print }
+  const snap = (over: Partial<ProjectSnapshot>) =>
+    ({ isDone: true, wrapUpData: null, profile: p, ...over }) as Pick<
+      ProjectSnapshot,
+      'isDone' | 'wrapUpData' | 'profile' | 'sentReview'
+    >
+
+  test('its own record, while it names the current brief', () => {
+    const sent = { ...review, briefId: 'X' }
+    expect(sentReviewFrom(snap({ isDone: false, sentReview: sent }), 'X')).toBe(sent)
+    expect(sentReviewFrom(snap({ isDone: false, sentReview: sent }), 'Y')).toBeNull()
+  })
+
+  test('else its review, when that review IS the current brief', () => {
+    expect(sentReviewFrom(snap({ wrapUpData: review }), 'X')).toEqual(review)
+    expect(sentReviewFrom(snap({ wrapUpData: review }), 'Y')).toBeNull()
+  })
+
+  test('a review from before IMP-07: the print its snapshot vouches for — only while on the review', () => {
+    const old: WrapUpData = { thankYouMessage: 'Hvala', summaryLines: [], briefId: 'X' }
+    expect(sentReviewFrom(snap({ wrapUpData: old }), 'X')).toEqual({ ...old, profilePrint: print })
+    expect(sentReviewFrom(snap({ isDone: false, wrapUpData: old }), 'X')).toBeNull()
+  })
+
+  test('nothing on file (never sent, the anonymous funnel), or no snapshot: null', () => {
+    expect(sentReviewFrom(snap({ wrapUpData: review }), null)).toBeNull()
+    expect(sentReviewFrom(null, 'X')).toBeNull()
+  })
+})
+
+describe('keptReview', () => {
+  const print = briefPrint(profile())
+  const sent: WrapUpData = { thankYouMessage: 'Hvala', summaryLines: ['x'], briefId: 'X', profilePrint: print }
+  const other: WrapUpData = { thankYouMessage: 'Hvala', summaryLines: ['y'], briefId: 'Y', profilePrint: 'p2' }
+
+  test('the brief on file wins whenever the kitchen is it again', () => {
+    expect(keptReview(print, { prev: other, sent })).toBe(sent)
+    expect(keptReview(print, { prev: null, sent })).toBe(sent)
+  })
+
+  test('else the review on screen, unchanged', () => {
+    expect(keptReview('p2', { prev: other, sent })).toBe(other)
+    expect(keptReview('p3', { prev: other, sent })).toBeNull()
+  })
+
+  test('a legacy review kept by its vouched print gets the print written in', () => {
+    const old: WrapUpData = { thankYouMessage: 'Hvala', summaryLines: [], briefId: 'X' }
+    expect(keptReview(print, { prev: old, sent: null, legacyPrint: print })).toEqual({ ...old, profilePrint: print })
+    expect(keptReview(print, { prev: old, sent: null, legacyPrint: 'other' })).toBeNull()
+  })
+})
+
+describe('the brief on file is never sent again, whatever happens in between', () => {
+  let n = 0
+  const mint = () => `brief-${++n}`
+  /** The intake's finish (finalise) with the brief on file, minus the summary call. */
+  function finish(prev: WrapUpData | null, sent: WrapUpData | null, p: LeadProfile, legacyPrint: string | null = null) {
+    const print = briefPrint(p)
+    return (
+      keptReview(print, { prev, sent, legacyPrint }) ?? {
+        thankYouMessage: 'Hvala',
+        summaryLines: [],
+        briefId: mint(),
+        profilePrint: print,
+      }
+    )
+  }
+  const offerFor = (review: WrapUpData, onFile: string | null) =>
+    sendOffer(reviewState({ readOnly: false, onFileBriefId: onFile, reviewBriefId: review.briefId }), {
+      sentNow: false,
+      closed: false,
+    })
+  /** What onSent records: the review, with the print of the profile actually sent. */
+  const sentFrom = (review: WrapUpData, sentProfile: LeadProfile): WrapUpData => ({
+    ...review,
+    profilePrint: briefPrint(sentProfile),
+  })
+
+  test('a change, then the change undone: back to the brief the maker has, nothing to send', () => {
+    n = 0
+    const a = profile()
+    const x = finish(null, null, a)
+    const sent = sentFrom(x, a)
+    // "Nešto ispraviti?" → another timeline: a new review, the changes offered.
+    const y = finish(x, sent, { ...a, timeline: 'asap' })
+    expect(y.briefId).toBe('brief-2')
+    expect(offerFor(y, sent.briefId!)).toBe('changes')
+    // Back again, the timeline as it was: the brief on file, not brief-3.
+    const z = finish(y, sent, { ...a, contractConfirmedAt: 4_444 })
+    expect(z).toBe(sent)
+    expect(offerFor(z, sent.briefId!)).toBeNull()
+    expect(n).toBe(2)
+  })
+
+  test('…and across a reload: the snapshot keeps the brief on file next to the newer review', () => {
+    n = 0
+    const a = profile()
+    const sent = sentFrom(finish(null, null, a), a)
+    const y = finish(sent, sent, { ...a, timeline: 'asap' })
+    // Saved mid-edit with review Y on screen; reloaded with brief-1 on file.
+    const saved = { isDone: false, wrapUpData: y, profile: { ...a, timeline: 'asap' }, sentReview: sent }
+    const restored = sentReviewFrom(saved, sent.briefId)
+    expect(restored).toBe(sent)
+    expect(offerFor(finish(y, restored, a), sent.briefId!)).toBeNull()
+  })
+
+  test('a brief sent before IMP-07: a visit that leaves on a step keeps it recognisable for the next', () => {
+    n = 0
+    const a = profile()
+    const old: WrapUpData = { thankYouMessage: 'Hvala', summaryLines: [], briefId: 'old-brief' }
+    // Visit 1: restored on the review (isDone) — the brief on file, derived.
+    const visit1 = { isDone: true, wrapUpData: old, profile: a }
+    const onFile = sentReviewFrom(visit1, 'old-brief')
+    expect(onFile).toEqual({ ...old, profilePrint: briefPrint(a) })
+    // "Izmijeni kuhinju" → contact, then the tab is closed there: the save
+    // holds the done flag off — and the record of the brief on file.
+    const left = { isDone: false, wrapUpData: old, profile: a, sentReview: onFile ?? undefined }
+    expect(legacyReviewPrint(left)).toBeNull()
+    // Visit 2: Continue with nothing changed — the brief on file, no send.
+    const visit2 = sentReviewFrom(left, 'old-brief')
+    const review = finish(old, visit2, { ...a, contractConfirmedAt: 5_555 }, legacyReviewPrint(left))
+    expect(review.briefId).toBe('old-brief')
+    expect(offerFor(review, 'old-brief')).toBeNull()
+    expect(n).toBe(0)
+  })
+
+  test('the sent profile, not the review’s print, is what the brief on file is recognised by', () => {
+    n = 0
+    const a = profile()
+    const x = finish(null, null, a)
+    // A pick landed while the summary loaded: the review's print is of `a`,
+    // the profile sent under its id is `b`.
+    const build = a.builderState as BuilderState
+    const b: LeadProfile = { ...a, builderState: { ...build, doors: { ...build.doors, decorCode: 'U999' } } }
+    const sent = sentFrom(x, b)
+    expect(sent.profilePrint).not.toBe(x.profilePrint)
+    // Next visit, nothing changed: the kitchen is `b`, which is the brief on file.
+    const again = finish(x, sent, b)
+    expect(again).toBe(sent)
+    expect(offerFor(again, sent.briefId!)).toBeNull()
+    expect(n).toBe(1)
+  })
+
+  test('the intake records the send that way', () => {
+    const intake = readFileSync(join(__dirname, '..', 'src/components/kitchen-intake/index.tsx'), 'utf8')
+    expect(intake).toMatch(/\(briefId\) => setSentReview\(\{ \.\.\.wrapUpData, briefId, profilePrint: briefPrint\(profile\) \}\)/)
+    expect(intake).toMatch(/onFileBriefId=\{sentReview\?\.briefId \?\? currentBriefId\}/)
   })
 })
 

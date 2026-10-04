@@ -96,7 +96,10 @@ export interface BuilderShellProps {
   savedState?: BuilderState
   /**
    * The group to open at — where a saved build was left (IMP-06). Read once,
-   * on mount; anything that is not a live builder screen opens the first group.
+   * on mount; anything that is not a live builder screen opens the first group,
+   * and so does a build that is not saved yet (no `savedState`): a new build
+   * is walked from the first group, never opened mid-walk on defaults the
+   * homeowner has not seen (IMP-07: a review fix or rail click before a build).
    */
   initialGroupId?: BuilderScreenId
   /**
@@ -122,9 +125,27 @@ export interface BuilderShellProps {
   /**
    * Editing from the review (IMP-07): back to the review with the live build
    * and the group it was left on, without walking the remaining groups.
-   * Absent on the first walk, for the maker looking in and in the harness.
+   * Absent on the first walk, for the maker looking in and in the harness —
+   * and not offered until there is a build to go back with (`savedState`): a
+   * build started from the review is walked from its first group, and offers
+   * the way back once the homeowner has made it theirs (its first save).
    */
   onBackToReview?: (state: BuilderState, groupId: BuilderScreenId) => void
+  /**
+   * The review is being built from this build (IMP-07: an AI summary call
+   * after "Natrag na pregled" or the last Continue). The build holds still —
+   * the screen's picks, the re-render and the footer are disabled and the
+   * footer says it is working — so the review is of the build on screen, not
+   * of one a tap made while it loaded.
+   */
+  busy?: boolean
+  /**
+   * The review has been reached (IMP-07): the rail shows every step of the
+   * journey done, this group current, and the progress bar stays full —
+   * a finished brief being edited never looks unfinished. Funnel steps are
+   * reached from here through "Natrag na pregled".
+   */
+  reviewed?: boolean
 }
 
 export function BuilderShell({
@@ -144,6 +165,8 @@ export function BuilderShell({
   onComplete,
   onEditLayout,
   onBackToReview,
+  busy = false,
+  reviewed = false,
 }: BuilderShellProps) {
   // Mount-only, like the reducer that consumes it: the intake rebuilds the
   // contract on every render (and now re-renders on every autosave), so a memo
@@ -164,7 +187,9 @@ export function BuilderShell({
   const [state, dispatch] = useBuilderState(initial)
   // Opens where a saved build was left; Cabinet Boxes otherwise — Layout and
   // dimensions are owned by Phase 1.
-  const [currentId, setCurrentId] = useState<BuilderScreenId>(() => resumeBuilderGroup(initialGroupId))
+  const [currentId, setCurrentId] = useState<BuilderScreenId>(() =>
+    resumeBuilderGroup(savedState ? initialGroupId : undefined)
+  )
 
   // ── Autosave (IMP-06). Every builder action is a homeowner action (no group
   // dispatches from an effect), so "the state changed" is "they changed
@@ -199,7 +224,7 @@ export function BuilderShell({
         onEditLayout(s, currentId)
       }
     : undefined
-  const backToReview = onBackToReview
+  const backToReview = onBackToReview && savedState
     ? (s: BuilderState) => {
         autosave.cancel()
         onBackToReview(s, currentId)
@@ -235,6 +260,8 @@ export function BuilderShell({
       onComplete={complete}
       onEditLayout={editLayout}
       onBackToReview={backToReview}
+      busy={busy}
+      reviewed={reviewed}
     />
   )
 }
@@ -285,6 +312,8 @@ function Shell({
   onComplete,
   onEditLayout,
   onBackToReview,
+  busy,
+  reviewed,
 }: {
   state: BuilderState
   dispatch: React.Dispatch<Parameters<ReturnType<typeof useBuilderState>[1]>[0]>
@@ -302,6 +331,8 @@ function Shell({
   onComplete?: (state: BuilderState) => void
   onEditLayout?: (state: BuilderState) => void
   onBackToReview?: (state: BuilderState) => void
+  busy: boolean
+  reviewed: boolean
 }) {
   const { locale } = useTranslations()
   // The big preview always reads from `activeRenderId`: null = Phase-1
@@ -330,7 +361,7 @@ function Shell({
   }
 
   const currentOrder = BUILDER_GROUPS.find((g) => g.id === currentId)?.order ?? 0
-  const progressPercent = Math.round((currentOrder / BUILDER_GROUPS.length) * 100)
+  const progressPercent = reviewed ? 100 : Math.round((currentOrder / BUILDER_GROUPS.length) * 100)
   const GroupBody = GROUP_MODULES[currentId].Body
 
   // Left nav: the ONE "Your brief" act/step rail, spanning the whole journey.
@@ -343,30 +374,36 @@ function Shell({
       builderState={state}
       builderGroupId={currentId}
       onBuilderNavigate={onCurrentChange}
+      reviewed={reviewed}
       locale={locale}
     />
   )
 
   // Right rail: live price range first (always visible), then render anchor.
+  // The carousel and the re-render change the build, so they hold still with
+  // the screen while the review is built (a disabled fieldset disables every
+  // control inside it).
   const rightRail = (
     <div className="flex flex-col gap-5">
       <LiveBOMPanel state={state} makerName={makerName} />
       {previewSrc && <RenderAnchorCard src={previewSrc} summary={layoutSummary} locale={locale} />}
 
-      <RenderCarousel
-        state={state}
-        originalImageDataUrl={renderImageDataUrl}
-        anchorPhotoDataUrl={anchorPhotoDataUrl}
-        onSetActive={(id) => dispatch({ type: 'set_active_render', id })}
-      />
+      <fieldset disabled={busy} className="flex min-w-0 flex-col gap-5">
+        <RenderCarousel
+          state={state}
+          originalImageDataUrl={renderImageDataUrl}
+          anchorPhotoDataUrl={anchorPhotoDataUrl}
+          onSetActive={(id) => dispatch({ type: 'set_active_render', id })}
+        />
 
-      <RerenderPanel
-        state={state}
-        anchorPhotoDataUrl={anchorPhotoDataUrl}
-        blocked={rerenderBlocked}
-        currentRenderDataUrl={previewSrc ?? undefined}
-        onRendered={(imageDataUrl, trigger) => dispatch({ type: 'push_rerender', imageDataUrl, trigger })}
-      />
+        <RerenderPanel
+          state={state}
+          anchorPhotoDataUrl={anchorPhotoDataUrl}
+          blocked={rerenderBlocked}
+          currentRenderDataUrl={previewSrc ?? undefined}
+          onRendered={(imageDataUrl, trigger) => dispatch({ type: 'push_rerender', imageDataUrl, trigger })}
+        />
+      </fieldset>
     </div>
   )
 
@@ -379,6 +416,7 @@ function Shell({
           funnelStepId: 'builder',
           profile: profile ?? {},
           builderGroupId: currentId,
+          reviewed,
           locale,
         })}
         mobileDock={<MobileRangeDock state={state} makerName={makerName} />}
@@ -406,20 +444,23 @@ function Shell({
 
               {/* The screen body comes from the registry — adding/removing a
                   builder screen never touches this shell. */}
-              <GroupBody
-                state={state}
-                hypothesis={hypothesis}
-                layoutContract={layoutContract}
-                unitEdits={unitEdits}
-                dispatch={dispatch}
-                onEditLayout={onEditLayout ? () => onEditLayout(state) : undefined}
-              />
+              <fieldset disabled={busy} className="min-w-0" data-builder-busy={busy || undefined}>
+                <GroupBody
+                  state={state}
+                  hypothesis={hypothesis}
+                  layoutContract={layoutContract}
+                  unitEdits={unitEdits}
+                  dispatch={dispatch}
+                  onEditLayout={onEditLayout ? () => onEditLayout(state) : undefined}
+                />
+              </fieldset>
 
               <FooterNav
                 currentId={currentId}
                 onBack={goBack}
                 onNext={goNext}
                 onBackToReview={onBackToReview ? () => onBackToReview(state) : undefined}
+                busy={busy}
               />
             </motion.section>
           </AnimatePresence>
@@ -432,15 +473,18 @@ function FooterNav({
   onBack,
   onNext,
   onBackToReview,
+  busy,
 }: {
   currentId: BuilderScreenId
   onBack: () => void
   onNext: () => void
   /** Editing from the review: back to it from any group (IMP-07). */
   onBackToReview?: () => void
+  /** The review is being built: nothing moves, Continue says it is working. */
+  busy: boolean
 }) {
   const { t } = useTranslations()
-  const canBack = prevBuilderGroup(currentId) !== null
+  const canBack = prevBuilderGroup(currentId) !== null && !busy
   return (
     <div className="flex items-center justify-between gap-3 pt-4">
       <button
@@ -461,7 +505,8 @@ function FooterNav({
           <button
             type="button"
             onClick={onBackToReview}
-            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted"
+            disabled={busy}
+            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
           >
             {t('nav.backToReview')}
           </button>
@@ -469,10 +514,26 @@ function FooterNav({
         <button
           type="button"
           onClick={onNext}
-          className="inline-flex items-center gap-1.5 rounded-full bg-foreground px-5 py-2 text-[13px] font-semibold text-background shadow-sm transition-all hover:brightness-110"
+          disabled={busy}
+          aria-busy={busy || undefined}
+          className={cn(
+            'inline-flex items-center gap-1.5 rounded-full px-5 py-2 text-[13px] font-semibold transition-all',
+            busy
+              ? 'cursor-wait bg-muted text-muted-foreground'
+              : 'bg-foreground text-background shadow-sm hover:brightness-110'
+          )}
         >
-          {t('builder.shell.continue')}
-          <ArrowRight className="size-3.5 stroke-[2]" aria-hidden />
+          {busy ? (
+            <>
+              <span className="inline-block size-1.5 animate-pulse rounded-full bg-muted-foreground/80" aria-hidden />
+              {t('nav.working')}
+            </>
+          ) : (
+            <>
+              {t('builder.shell.continue')}
+              <ArrowRight className="size-3.5 stroke-[2]" aria-hidden />
+            </>
+          )}
         </button>
       </div>
     </div>

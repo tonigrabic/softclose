@@ -31,6 +31,9 @@ import { GROUP_MODULES } from './builder/groups/registry'
  * active act expands, so the groups are only visible once you're actually building
  * — unless `expandDone` asks for the done acts too (IMP-07): on the review, and
  * while editing from it, every done step is a way back (`onStepSelect`).
+ * While editing from the review (`reviewed`) every step is done — the review
+ * covers them all — and only the one reopened is current: the steps after it
+ * are not "to do" again, and stay a click away.
  */
 
 type Entry =
@@ -61,6 +64,7 @@ export function JourneyNavRail({
   journeyDone,
   expandDone,
   onStepSelect,
+  reviewed,
   locale = DEFAULT_LOCALE,
 }: {
   funnelStepId: FlowStepId
@@ -79,6 +83,8 @@ export function JourneyNavRail({
    *  builder there). Outside the builder only; inside it, groups navigate
    *  through `onBuilderNavigate`. Absent where nobody may edit. */
   onStepSelect?: (target: ReviewTarget) => void
+  /** The review has been reached (IMP-07): every step but the current one is done. */
+  reviewed?: boolean
   locale?: Locale
 }) {
   const inBuilder = funnelStepId === 'builder'
@@ -91,6 +97,10 @@ export function JourneyNavRail({
   const currentIndex = journeyDone
     ? linear.length
     : currentLinearIndex(linear, funnelStepId, builderGroupId)
+  // Positional on the walk; once the review was reached, everything but the
+  // step on screen is done.
+  const statusAt = (i: number): RailStatus =>
+    i === currentIndex ? 'current' : reviewed || i < currentIndex ? 'done' : 'todo'
 
   const acts: RailAct[] = ACTS.map((act) => {
     const indices = linear
@@ -98,14 +108,14 @@ export function JourneyNavRail({
       .filter(({ e }) => entryAct(e) === act.id)
 
     const status: RailStatus =
-      indices.every(({ i }) => i < currentIndex)
+      indices.every(({ i }) => statusAt(i) === 'done')
         ? 'done'
         : indices.some(({ i }) => i === currentIndex)
           ? 'current'
           : 'todo'
 
     const steps: RailStep[] = indices.map(({ e, i }) => {
-      const st: RailStatus = i < currentIndex ? 'done' : i === currentIndex ? 'current' : 'todo'
+      const st = statusAt(i)
       return {
         id: e.id,
         label: e.label,
@@ -131,7 +141,7 @@ export function JourneyNavRail({
       status,
       count:
         status === 'current'
-          ? { done: indices.filter(({ i }) => i < currentIndex).length, total: indices.length }
+          ? { done: indices.filter(({ i }) => statusAt(i) === 'done').length, total: indices.length }
           : undefined,
       steps,
       expanded: status === 'done' && Boolean(expandDone),
@@ -195,16 +205,19 @@ const entryAct = (e: Entry): 'space' | 'build' | 'offer' =>
 /**
  * Compact "where am I" label for the mobile progress pill, e.g.
  * "Gradnja · Korpusi ormarića · 2/12". Mirrors the rail's model exactly so the
- * pill and the bottom-sheet rail can never disagree.
+ * pill and the bottom-sheet rail can never disagree. Editing from the review
+ * (`reviewed`), the step without the count: "1/5" would read as a journey
+ * started over.
  */
 export function journeyPillLabel(opts: {
   funnelStepId: FlowStepId
   profile: LeadProfile
   builderGroupId?: BuilderScreenId | null
   journeyDone?: boolean
+  reviewed?: boolean
   locale?: Locale
 }): string {
-  const { funnelStepId, profile, builderGroupId, journeyDone, locale = DEFAULT_LOCALE } = opts
+  const { funnelStepId, profile, builderGroupId, journeyDone, reviewed, locale = DEFAULT_LOCALE } = opts
   if (journeyDone) return `${tDynamic('journey.act.offer', locale)} ✓`
   const builderStateForReadbacks =
     (profile.builderState as BuilderState | undefined) ?? null
@@ -213,6 +226,7 @@ export function journeyPillLabel(opts: {
   const current = linear[currentIndex]
   if (!current) return tDynamic('journey.brief', locale)
   const act = entryAct(current)
+  if (reviewed) return `${tDynamic(`journey.act.${act}`, locale)} · ${current.label}`
   const actSteps = linear.filter((e) => entryAct(e) === act)
   const pos = actSteps.findIndex((e) => e === current) + 1
   return `${tDynamic(`journey.act.${act}`, locale)} · ${current.label} · ${pos}/${actSteps.length}`

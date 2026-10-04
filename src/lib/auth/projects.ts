@@ -10,7 +10,7 @@ export interface CreateProjectInput {
 }
 
 const COLUMNS =
-  'id, maker_id, customer_id, status, step, revision, snapshot_version, current_brief_id, opened_at, submitted_at, updated_at, title'
+  'id, maker_id, customer_id, status, step, revision, snapshot_version, current_brief_id, opened_at, submitted_at, updated_at, content_changed_at, title'
 
 export async function createProject(input: CreateProjectInput): Promise<Project | null> {
   const db = supabaseAdmin()

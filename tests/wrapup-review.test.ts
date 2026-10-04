@@ -239,8 +239,8 @@ describe('nothing reaches /api/handoff before the button, at the source', () => 
     const mount = intake.match(/<WrapUpScreen[\s\S]*?\/>/)
     expect(mount).not.toBeNull()
     expect(mount![0]).toMatch(/beforeSubmit=\{\s*readOnly\s*\?\s*undefined/)
-    expect(mount![0]).toMatch(/onSent=\{readOnly \? undefined/)
-    expect(mount![0]).toMatch(/onFileBriefId=\{sentBriefId \?\? currentBriefId\}/)
+    expect(mount![0]).toMatch(/onSent=\{\s*readOnly\s*\?\s*undefined/)
+    expect(mount![0]).toMatch(/onFileBriefId=\{sentReview\?\.briefId \?\? currentBriefId\}/)
   })
 
   test('right after a send, what happens next takes the send card’s place and is announced', () => {
@@ -383,6 +383,14 @@ describe('the kitchen home: finished, not sent', () => {
     expect(out).not.toContain(hrHR['kitchen.home.titleReady'])
     expect(out).not.toContain(hrHR['kitchen.home.cta.review'])
   })
+
+  test('not for the maker looking in: no "send it", no "Pregledaj i pošalji" — sending is the customer’s act', () => {
+    const out = home({ readOnly: true })
+    expect(out).not.toContain(hrHR['kitchen.home.titleReady'])
+    expect(out).not.toContain(hrHR['kitchen.home.status.ready'])
+    expect(out).not.toContain(hrHR['kitchen.home.cta.review'])
+    expect(out).not.toMatch(/pošalj/i)
+  })
 })
 
 describe('fix anything from the review (IMP-07 step 2)', () => {
@@ -420,6 +428,7 @@ describe('fix anything from the review (IMP-07 step 2)', () => {
     'wrapup.section.space',
     'wrapup.section.basics',
     'wrapup.section.style',
+    'wrapup.section.materials',
     'wrapup.section.trades',
     'wrapup.section.lighting',
     'wrapup.section.wishlist',
@@ -442,6 +451,22 @@ describe('fix anything from the review (IMP-07 step 2)', () => {
     for (const key of FIXABLE) expect(html, key).toContain(label(key))
     expect(html).not.toContain(label('wrapup.section.scope'))
     expect(html).not.toContain(label('wrapup.section.confidence'))
+  })
+
+  test('style and materials are two sections: the tags fix at inspiration, the picks in the builder', () => {
+    const label = (key: 'wrapup.section.style' | 'wrapup.section.materials') =>
+      `aria-label="${hrHR['wrapup.fixAnything']}: ${hrHR[key]}"`
+    // Tags, no build (the "Sastavi kuhinju" path): only the style section.
+    const tagsOnly = review({ profile: { name: 'Ana', stylePreferences: ['modern'] }, onFix: () => {} })
+    expect(tagsOnly).toContain(label('wrapup.section.style'))
+    expect(tagsOnly).not.toContain(label('wrapup.section.materials'))
+    // A build, no tags: only the materials section.
+    const picksOnly = review({ profile: BUILT, onFix: () => {} })
+    expect(picksOnly).toContain(label('wrapup.section.materials'))
+    expect(picksOnly).not.toContain(label('wrapup.section.style'))
+    expect(hrHR['wrapup.section.style']).toBe('Stil')
+    expect(hrHR['wrapup.section.materials']).toBe('Materijali')
+    expect(enUS['wrapup.section.materials']).toBe('Materials')
   })
 
   test('the contact section: the name and how to reach them', () => {
@@ -481,7 +506,7 @@ describe('the edits reach their step, at the source', () => {
     expect(mount).toMatch(/onBack=\{\s*readOnly\s*\?\s*undefined\s*:\s*\(\) => \{\s*setIsDone\(false\)\s*goTo\('contact'\)\s*\}/)
     expect(mount).toMatch(/onFix=\{readOnly \? undefined : openStep\}/)
     expect(intake).toMatch(
-      /function openStep\(target: ReviewTarget\) \{\s*if \(target\.group\) setBuilderGroupId\(target\.group\)\s*setIsDone\(false\)\s*goTo\(target\.step\)/
+      /function openStep\(target: ReviewTarget\) \{\s*if \(target\.step === 'builder' && !profile\.builderState\) setBuilderGroupId\(undefined\)\s*else if \(target\.group\) setBuilderGroupId\(target\.group\)\s*setIsDone\(false\)\s*goTo\(target\.step\)/
     )
   })
 
@@ -494,7 +519,9 @@ describe('the edits reach their step, at the source', () => {
   })
 
   test('Continue goes through afterCommit, and the review is built only by the queued effect', () => {
-    expect(intake).toMatch(/const next = afterCommit\(state\.currentStepId, \{ editing, hasBuild: Boolean\(profile\.builderState\) \}\)/)
+    expect(intake).toMatch(/const commitContext = \{ editing, hasBuild: Boolean\(profile\.builderState\), photosChanged \}/)
+    expect(intake).toMatch(/const next = afterCommit\(state\.currentStepId, commitContext\)/)
+    expect(intake).toMatch(/continueLabel=\{continueKey\(state\.currentStepId, commitContext\)\}/)
     // finalise() is called in exactly one place: the effect that consumes the queue.
     const calls = [...intake.matchAll(/(?<!function )\bfinalise\(\)/g)]
     expect(calls).toHaveLength(1)

@@ -41,7 +41,8 @@ export function useProjectCheckpoint(opts: {
    * Fingerprint of what the server already holds (`snapshotFingerprint` of
    * the stripped initial snapshot). Seeds the "nothing changed" check, so a
    * visit that changes nothing writes nothing — every write moves
-   * `updated_at`, and that is the maker's "changed since the brief" signal.
+   * `updated_at`, the maker's "last activity" (and, for a brief sent before
+   * 0008 with no record of its print, the "changed since the brief" flag).
    */
   initialFingerprint?: string | null
 }): CheckpointApi {

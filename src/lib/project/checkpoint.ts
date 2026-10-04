@@ -45,10 +45,11 @@ export function stripImages<T>(value: T): T {
 /**
  * A stable digest of a payload, used to skip writes that change nothing.
  *
- * This is not only an optimisation. The maker's "changed since you got the
- * brief" flag is derived from `updated_at > brief.created_at`, so a checkpoint
- * that wrote on every React re-render would invent customer activity that never
- * happened and make that signal worthless.
+ * This is not only an optimisation. Every write moves `updated_at`, the
+ * maker's "last activity" for the project, so a checkpoint that wrote on every
+ * React re-render would invent customer activity that never happened. (The
+ * "changed since you got the brief" flag reads `content_changed_at` since
+ * 0008, which the route moves only when the kitchen differs from the brief.)
  *
  * Key order is normalised, because JSON.stringify follows insertion order and
  * two structurally identical snapshots can be built in different orders.

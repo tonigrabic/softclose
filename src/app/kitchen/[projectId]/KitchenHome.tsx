@@ -126,8 +126,11 @@ export function KitchenHome(props: KitchenHomeProps) {
 
   const submitted = Boolean(props.submittedAt)
   // Finished, never sent (IMP-07): the review waits for the homeowner's own
-  // "Pošalji izrađivaču". Entering restores the review as it was left.
-  const awaitingSend = !submitted && !props.closed && Boolean(props.snapshot?.isDone && props.snapshot?.wrapUpData)
+  // "Pošalji izrađivaču". Entering restores the review as it was left. Not
+  // for the maker looking in: sending is the customer's act, and the
+  // read-only review they would open has no send.
+  const awaitingSend =
+    !props.readOnly && !submitted && !props.closed && Boolean(props.snapshot?.isDone && props.snapshot?.wrapUpData)
   const decision = props.decision
     ? {
         ...props.decision,

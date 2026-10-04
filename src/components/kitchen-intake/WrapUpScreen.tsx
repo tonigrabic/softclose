@@ -492,17 +492,24 @@ export function WrapUpScreen({
         </BriefSection>
       )}
 
-      {/* Style + materials — the tagged styles, then what the homeowner picked
-          in the builder. Not profile.doorMaterial & co.: those are the
-          inspiration-photo guesses from before the builder, and can contradict
-          the build (see lib/builder/pick-labels). Fittings are the maker's
-          standard spec, so there is no hardware row. */}
-      {(styles || picks) && (
+      {/* Style — the tagged styles, from the inspiration step (its fix goes
+          there: the builder cannot change them). */}
+      {styles && (
         <BriefSection title={t('wrapup.section.style')} onFix={fix('style')}>
           <SummaryRow label={t('wrapup.row.style')} value={styles} />
-          <SummaryRow label={t('wrapup.row.door')} value={picks?.doors} />
-          <SummaryRow label={t('wrapup.row.worktop')} value={picks?.worktop} />
-          <SummaryRow label={t('wrapup.row.backsplash')} value={picks?.backsplash} />
+        </BriefSection>
+      )}
+
+      {/* Materials — what the homeowner picked in the builder. Not
+          profile.doorMaterial & co.: those are the inspiration-photo guesses
+          from before the builder, and can contradict the build (see
+          lib/builder/pick-labels). Fittings are the maker's standard spec, so
+          there is no hardware row. */}
+      {picks && (
+        <BriefSection title={t('wrapup.section.materials')} onFix={fix('materials')}>
+          <SummaryRow label={t('wrapup.row.door')} value={picks.doors} />
+          <SummaryRow label={t('wrapup.row.worktop')} value={picks.worktop} />
+          <SummaryRow label={t('wrapup.row.backsplash')} value={picks.backsplash} />
         </BriefSection>
       )}
 

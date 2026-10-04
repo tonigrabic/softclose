@@ -10,6 +10,8 @@
  *
  * Pure (lib/review-nav).
  */
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
 import {
   REVIEW_FIX,
@@ -17,11 +19,16 @@ import {
   continueKey,
   editEntryStep,
   needsTranslate,
+  restoredWishlistSource,
+  spacePhotosChanged,
   wishlistSource,
   type ReviewSection,
 } from '@/lib/review-nav'
 import { FLOW, nextStepId, type FlowStepId } from '@/lib/flow'
 import { isBuilderScreenId } from '@/lib/builder/inventory'
+import { OMITTED_IMAGE } from '@/lib/project/checkpoint'
+import type { ProjectSnapshot } from '@/lib/project/snapshot'
+import type { SpaceVisionResult } from '@/lib/types'
 
 const STEPS = FLOW.map((s) => s.id)
 
@@ -41,7 +48,9 @@ describe('REVIEW_FIX: each section opens the step that asks it', () => {
       space: 'confirm_look',
       basics: 'logistics',
       scope: null,
-      style: 'builder/doors',
+      // The tags come from the inspiration tiles; the picks from the builder.
+      style: 'inspiration',
+      materials: 'builder/doors',
       trades: 'confirm_look',
       lighting: 'builder/lighting',
       wishlist: 'wishlist',
@@ -91,6 +100,48 @@ describe('afterCommit', () => {
   test('the matrix covers every step', () => {
     expect(STEPS).toHaveLength(9)
   })
+
+  test('editing from the photos with new photos (or a new read): through the room step, which reads them as one room', () => {
+    for (const hasBuild of [false, true]) {
+      expect(afterCommit('space_photos', { editing: true, hasBuild, photosChanged: true })).toBe('room')
+      expect(afterCommit('space_photos', { editing: true, hasBuild, photosChanged: false })).toBe('review')
+      expect(continueKey('space_photos', { editing: true, hasBuild, photosChanged: true })).toBe('nav.continue')
+    }
+    // The first walk goes to the room step anyway.
+    expect(afterCommit('space_photos', { editing: false, hasBuild: false, photosChanged: true })).toBe('room')
+  })
+})
+
+describe('spacePhotosChanged: what the photo step must hand to the room step', () => {
+  const A = 'data:image/jpeg;base64,AAAA'
+  const B = 'data:image/jpeg;base64,BBBB'
+  const C = 'data:image/jpeg;base64,CCCC'
+  const READ = { summary: 'L-shaped kitchen' } as unknown as SpaceVisionResult
+
+  test('unchanged: the same photos and read — also as a resumed journey’s markers', () => {
+    expect(spacePhotosChanged({ photos: [A, B], vision: READ }, { spacePhotos: [A, B], spaceVisionResult: READ })).toBe(false)
+    expect(
+      spacePhotosChanged(
+        { photos: [OMITTED_IMAGE], vision: { ...READ } },
+        { spacePhotos: [OMITTED_IMAGE], spaceVisionResult: READ }
+      )
+    ).toBe(false)
+  })
+
+  test('one photo swapped for another (same count, so the same image-stripped print): changed', () => {
+    expect(spacePhotosChanged({ photos: [A, C], vision: READ }, { spacePhotos: [A, B], spaceVisionResult: READ })).toBe(true)
+  })
+
+  test('a photo removed (its read cleared), or a new read: changed', () => {
+    expect(spacePhotosChanged({ photos: [A], vision: null }, { spacePhotos: [A, B], spaceVisionResult: READ })).toBe(true)
+    expect(spacePhotosChanged({ photos: [A, B], vision: null }, { spacePhotos: [A, B], spaceVisionResult: READ })).toBe(true)
+    expect(
+      spacePhotosChanged(
+        { photos: [A, B], vision: { summary: 'galley' } as unknown as SpaceVisionResult },
+        { spacePhotos: [A, B], spaceVisionResult: READ }
+      )
+    ).toBe(true)
+  })
 })
 
 describe('continueKey: Continue says where it goes', () => {
@@ -131,6 +182,45 @@ describe('the wishlist is translated again only when its text changed', () => {
     expect(needsTranslate(src, undefined, true)).toBe(true)
     // Same text but no lists in the profile (a translation that never landed).
     expect(needsTranslate(src, src, false)).toBe(true)
+  })
+})
+
+describe('restoredWishlistSource: a journey from before IMP-07 keeps its lists', () => {
+  const lists = { mustHaves: [{ trade: 'Pull-out pantry' }] }
+  const snap = (over: Partial<ProjectSnapshot>) =>
+    ({
+      isDone: true,
+      wrapUpData: { thankYouMessage: '', summaryLines: [], briefId: 'X' },
+      profile: lists,
+      mustHavesText: 'izvlačna smočnica',
+      niceToHavesText: '',
+      dealBreakersText: '',
+      ...over,
+    }) as ProjectSnapshot
+
+  test('its own record wins', () => {
+    expect(restoredWishlistSource(snap({ wishlistSource: 'recorded' }))).toBe('recorded')
+  })
+
+  test('sent before IMP-07, on its review: the stored text — so passing the step unchanged translates nothing', () => {
+    const source = restoredWishlistSource(snap({}))
+    expect(source).toBe(wishlistSource('izvlačna smočnica', '', ''))
+    expect(needsTranslate(wishlistSource('izvlačna smočnica', '', ''), source, true)).toBe(false)
+    // A real edit still translates.
+    expect(needsTranslate(wishlistSource('smočnica uz hladnjak', '', ''), source, true)).toBe(true)
+  })
+
+  test('the intake restores through it', () => {
+    const intake = readFileSync(join(__dirname, '..', 'src/components/kitchen-intake/index.tsx'), 'utf8')
+    expect(intake).toMatch(/setWishlistTranslatedFrom\(restoredWishlistSource\(d\)\)/)
+  })
+
+  test('nothing to vouch for (mid-walk, no brief id, a print of its own): unknown', () => {
+    expect(restoredWishlistSource(snap({ isDone: false }))).toBeUndefined()
+    expect(restoredWishlistSource(snap({ wrapUpData: null }))).toBeUndefined()
+    expect(
+      restoredWishlistSource(snap({ wrapUpData: { thankYouMessage: '', summaryLines: [], briefId: 'X', profilePrint: 'p' } }))
+    ).toBeUndefined()
   })
 })
 

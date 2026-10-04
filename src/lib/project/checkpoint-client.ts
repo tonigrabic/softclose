@@ -77,7 +77,8 @@ export interface CheckpointClientOptions {
    * Fingerprint of what the server already holds (`snapshotFingerprint` of
    * the stripped initial snapshot). Seeds the "nothing changed" check, so a
    * visit that changes nothing writes nothing — every write moves
-   * `updated_at`, and that is the maker's "changed since the brief" signal.
+   * `updated_at`, the maker's "last activity" (and, for a brief sent before
+   * 0008 with no record of its print, the "changed since the brief" flag).
    */
   initialFingerprint?: string | null
   onState?: (state: CheckpointState) => void
@@ -172,9 +173,9 @@ export function createCheckpointClient(opts: CheckpointClientOptions): Checkpoin
     const payload = stripImages(snapshot)
     const fingerprint = snapshotFingerprint(payload)
     if (fingerprint === lastSentFingerprint) {
-      // Nothing actually changed. Skipping is not just thrift: the maker's
-      // "changed since submit" flag is `updated_at > brief.created_at`, so a
-      // no-op write would fabricate customer activity that never happened.
+      // Nothing actually changed. Skipping is not just thrift: every write
+      // moves the maker's "last activity" (`updated_at`), so a no-op write
+      // would fabricate customer activity that never happened.
       pending = null
       return
     }
