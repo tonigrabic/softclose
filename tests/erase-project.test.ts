@@ -8,15 +8,20 @@
  * project row, and — when the customer has no other kitchen — their login
  * tokens and the account. Storage goes first so a failure leaves every row
  * (and with it the retry) in place; each failure case below checks that no
- * later step ran.
+ * later step ran, and that the project's status is put back while its row
+ * still exists. A failure at the account step — the project already gone —
+ * is finished by eraseCustomerAccount alone.
  */
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
-import { eraseCustomerProject, type EraseDb } from '@/lib/project/erase'
+import { eraseCustomerAccount, eraseCustomerProject, type EraseDb } from '@/lib/project/erase'
 
 const P = '55555555-5555-4555-8555-555555555555'
 const C = '33333333-3333-4333-8333-333333333333'
 const EMAIL = 'ana@example.test'
 const BUCKET = 'softclose-media'
+/** What the action passes: the ids, and the status its guard read. */
+const IN = { projectId: P, customerId: C, status: 'submitted' }
+const RESTORE = `softclose_projects.update id=${P} customer_id=${C} status=archived {"status":"submitted"}`
 
 type Filter = [op: 'eq', column: string, value: unknown]
 interface TableCall {
@@ -42,7 +47,11 @@ type Err = { code?: string; message: string; statusCode?: string }
 function fakeDb(init: {
   briefs?: Record<string, number>
   otherProjects?: boolean
+  /** The project's status before the erase. */
+  status?: string
   fail?: Partial<Record<'list' | 'remove' | `${string}.${TableCall['op']}`, Err>>
+  /** A failure for one particular call, decided when it resolves. */
+  failWhen?: (call: TableCall) => Err | undefined
 }) {
   const calls: Call[] = []
   /** briefId → object names still in Storage. */
@@ -54,14 +63,19 @@ function fakeDb(init: {
     )
   }
   let briefRows = Object.keys(init.briefs ?? {})
+  let projectStatus = init.status ?? 'submitted'
   const fail = init.fail ?? {}
 
   function table(name: string) {
     const call: TableCall = { kind: 'table', table: name, op: 'select', filters: [] }
     calls.push(call)
     const result = () => {
-      const err = fail[`${name}.${call.op}`]
+      const err = fail[`${name}.${call.op}`] ?? init.failWhen?.(call)
       if (err) return { data: null, error: err }
+      if (call.op === 'update' && name === 'softclose_projects') {
+        const onlyIf = call.filters.find(([, col]) => col === 'status')
+        if (!onlyIf || onlyIf[2] === projectStatus) projectStatus = String(call.payload?.status)
+      }
       if (call.op === 'select' && name === 'softclose_briefs') {
         return { data: briefRows.map((id) => ({ id })), error: null }
       }
@@ -129,7 +143,15 @@ function fakeDb(init: {
     },
   }
 
-  return { db: db as unknown as EraseDb, calls, objects }
+  return {
+    db: db as unknown as EraseDb,
+    calls,
+    objects,
+    fail,
+    get status() {
+      return projectStatus
+    },
+  }
 }
 
 /** A compact, comparable line per call. */
@@ -158,7 +180,7 @@ afterEach(() => {
 describe('eraseCustomerProject — the whole kitchen, in order', () => {
   test('two briefs, five objects, no other kitchen: everything goes, account last', async () => {
     const { db, calls, objects } = fakeDb({ briefs: { B1: 3, B2: 2 } })
-    const r = await eraseCustomerProject(db, { projectId: P, customerId: C })
+    const r = await eraseCustomerProject(db, IN)
 
     expect(r).toEqual({ ok: true, objects: 5, briefs: 2, accountDeleted: true })
     expect(calls.map(line)).toEqual([
@@ -181,7 +203,7 @@ describe('eraseCustomerProject — the whole kitchen, in order', () => {
 
   test('only the folders of this project’s briefs are touched', async () => {
     const { db, calls } = fakeDb({ briefs: { B1: 3, B2: 2 } })
-    await eraseCustomerProject(db, { projectId: P, customerId: C })
+    await eraseCustomerProject(db, IN)
     const removed = calls.flatMap((c) => (c.kind === 'storage' && c.op === 'remove' ? c.paths ?? [] : []))
     expect(removed).toHaveLength(5)
     for (const p of removed) expect(p).toMatch(/^briefs\/(B1|B2)\/\d{3}\.jpg$/)
@@ -189,7 +211,7 @@ describe('eraseCustomerProject — the whole kitchen, in order', () => {
 
   test('another kitchen on the account: the account and its login tokens stay', async () => {
     const { db, calls } = fakeDb({ briefs: { B1: 1 }, otherProjects: true })
-    const r = await eraseCustomerProject(db, { projectId: P, customerId: C })
+    const r = await eraseCustomerProject(db, IN)
     expect(r).toEqual({ ok: true, objects: 1, briefs: 1, accountDeleted: false })
     expect(tableDeletes(calls).map((c) => c.table)).toEqual([
       'softclose_briefs',
@@ -201,7 +223,7 @@ describe('eraseCustomerProject — the whole kitchen, in order', () => {
 
   test('invited, never sent (no briefs): no Storage remove, rows still go', async () => {
     const { db, calls } = fakeDb({})
-    const r = await eraseCustomerProject(db, { projectId: P, customerId: C })
+    const r = await eraseCustomerProject(db, IN)
     expect(r).toEqual({ ok: true, objects: 0, briefs: 0, accountDeleted: true })
     expect(calls.some((c) => c.kind === 'storage')).toBe(false)
     expect(tableDeletes(calls).map((c) => c.table)).toEqual([
@@ -215,7 +237,7 @@ describe('eraseCustomerProject — the whole kitchen, in order', () => {
 
   test('1001 objects: listed in pages of 1000, removed in chunks of 1000 and 1', async () => {
     const { db, calls, objects } = fakeDb({ briefs: { B1: 1001 } })
-    const r = await eraseCustomerProject(db, { projectId: P, customerId: C })
+    const r = await eraseCustomerProject(db, IN)
     expect(r).toMatchObject({ ok: true, objects: 1001 })
     const lists = calls.filter((c): c is StorageCall => c.kind === 'storage' && c.op === 'list')
     expect(lists.map((c) => c.options)).toEqual([
@@ -229,8 +251,8 @@ describe('eraseCustomerProject — the whole kitchen, in order', () => {
 
   test('a re-run on an already emptied project is a calm no-op', async () => {
     const fake = fakeDb({ briefs: { B1: 2 } })
-    await eraseCustomerProject(fake.db, { projectId: P, customerId: C })
-    const again = await eraseCustomerProject(fake.db, { projectId: P, customerId: C })
+    await eraseCustomerProject(fake.db, IN)
+    const again = await eraseCustomerProject(fake.db, IN)
     expect(again).toEqual({ ok: true, objects: 0, briefs: 0, accountDeleted: true })
   })
 })
@@ -238,14 +260,14 @@ describe('eraseCustomerProject — the whole kitchen, in order', () => {
 describe('eraseCustomerProject — a failure stops it, and nothing after it runs', () => {
   test('Storage list fails → failedAt storage, no row deleted', async () => {
     const { db, calls } = fakeDb({ briefs: { B1: 2 }, fail: { list: { statusCode: '500', message: 'boom' } } })
-    const r = await eraseCustomerProject(db, { projectId: P, customerId: C })
+    const r = await eraseCustomerProject(db, IN)
     expect(r).toEqual({ ok: false, failedAt: 'storage' })
     expect(tableDeletes(calls)).toEqual([])
   })
 
   test('Storage remove fails → failedAt storage, no row deleted', async () => {
     const { db, calls } = fakeDb({ briefs: { B1: 2 }, fail: { remove: { statusCode: '503', message: 'boom' } } })
-    const r = await eraseCustomerProject(db, { projectId: P, customerId: C })
+    const r = await eraseCustomerProject(db, IN)
     expect(r).toEqual({ ok: false, failedAt: 'storage' })
     expect(tableDeletes(calls)).toEqual([])
   })
@@ -255,7 +277,7 @@ describe('eraseCustomerProject — a failure stops it, and nothing after it runs
       briefs: { B1: 1 },
       fail: { 'softclose_briefs.delete': { code: '57014', message: 'canceling statement' } },
     })
-    const r = await eraseCustomerProject(db, { projectId: P, customerId: C })
+    const r = await eraseCustomerProject(db, IN)
     expect(r).toEqual({ ok: false, failedAt: 'briefs' })
     expect(tableDeletes(calls).map((c) => c.table)).toEqual(['softclose_briefs'])
   })
@@ -265,7 +287,7 @@ describe('eraseCustomerProject — a failure stops it, and nothing after it runs
       briefs: { B1: 1 },
       fail: { 'softclose_projects.update': { code: '08006', message: 'connection failure' } },
     })
-    const r = await eraseCustomerProject(db, { projectId: P, customerId: C })
+    const r = await eraseCustomerProject(db, IN)
     expect(r).toEqual({ ok: false, failedAt: 'close' })
     expect(calls).toHaveLength(1)
   })
@@ -280,13 +302,13 @@ describe('eraseCustomerProject — a failure stops it, and nothing after it runs
         },
       },
     })
-    const r = await eraseCustomerProject(db, { projectId: P, customerId: C })
+    const r = await eraseCustomerProject(db, IN)
     expect(r).toEqual({ ok: true, objects: 1, briefs: 1, accountDeleted: false })
   })
 
   test('any other account delete error is a failure at the account step', async () => {
     const { db } = fakeDb({ fail: { 'softclose_accounts.delete': { code: '42501', message: 'permission denied' } } })
-    const r = await eraseCustomerProject(db, { projectId: P, customerId: C })
+    const r = await eraseCustomerProject(db, IN)
     expect(r).toEqual({ ok: false, failedAt: 'account' })
   })
 
@@ -300,7 +322,7 @@ describe('eraseCustomerProject — a failure stops it, and nothing after it runs
         },
       },
     })
-    const r = await eraseCustomerProject(db, { projectId: P, customerId: C })
+    const r = await eraseCustomerProject(db, IN)
     expect(r).toEqual({ ok: false, failedAt: 'project' })
     expect(errorSpy).toHaveBeenCalledWith('[erase] stopped at', 'project', '23503')
     const logged = JSON.stringify(errorSpy.mock.calls)
@@ -322,8 +344,120 @@ describe('eraseCustomerProject — a failure stops it, and nothing after it runs
         }),
       },
     } as unknown as EraseDb
-    const r = await eraseCustomerProject(throwing, { projectId: P, customerId: C })
+    const r = await eraseCustomerProject(throwing, IN)
     expect(r).toEqual({ ok: false, failedAt: 'storage' })
     expect(JSON.stringify(errorSpy.mock.calls)).not.toContain(P)
+  })
+})
+
+describe('eraseCustomerProject — a failure does not leave the kitchen closed', () => {
+  const timeout: Err = { code: '57014', message: 'canceling statement due to statement timeout' }
+
+  test.each<[string, Parameters<typeof fakeDb>[0]['fail'], string]>([
+    ['Storage list', { list: { statusCode: '503', message: 'boom' } }, 'storage'],
+    ['Storage remove', { remove: { statusCode: '503', message: 'boom' } }, 'storage'],
+    ['the brief read', { 'softclose_briefs.select': timeout }, 'briefs-read'],
+    ['the brief delete', { 'softclose_briefs.delete': timeout }, 'briefs'],
+    ['the invite-token delete', { 'softclose_auth_tokens.delete': timeout }, 'tokens'],
+    ['the project delete', { 'softclose_projects.delete': timeout }, 'project'],
+  ])('%s fails → the status the guard read is written back', async (_label, fail, failedAt) => {
+    const fake = fakeDb({ briefs: { B1: 2 }, status: 'submitted', fail })
+    const r = await eraseCustomerProject(fake.db, IN)
+    expect(r).toEqual({ ok: false, failedAt })
+    // The last call puts it back, and only over the 'archived' step 1 wrote.
+    expect(line(fake.calls.at(-1)!)).toBe(RESTORE)
+    expect(fake.status).toBe('submitted')
+  })
+
+  test('closing fails → nothing to put back', async () => {
+    const fake = fakeDb({ fail: { 'softclose_projects.update': timeout } })
+    await eraseCustomerProject(fake.db, IN)
+    expect(fake.calls.filter((c) => c.kind === 'table' && c.op === 'update')).toHaveLength(1)
+  })
+
+  test('a kitchen that was already archived (declined) stays archived — no restore write', async () => {
+    const fake = fakeDb({ briefs: { B1: 1 }, status: 'archived', fail: { list: { statusCode: '503', message: 'boom' } } })
+    const r = await eraseCustomerProject(fake.db, { ...IN, status: 'archived' })
+    expect(r).toEqual({ ok: false, failedAt: 'storage' })
+    expect(fake.calls.filter((c) => c.kind === 'table' && c.op === 'update')).toHaveLength(1)
+    expect(fake.status).toBe('archived')
+  })
+
+  test('the account step fails → no restore: the project row is already gone', async () => {
+    const fake = fakeDb({ briefs: { B1: 1 }, fail: { 'softclose_projects.select': timeout } })
+    const r = await eraseCustomerProject(fake.db, IN)
+    expect(r).toEqual({ ok: false, failedAt: 'account' })
+    expect(fake.calls.filter((c) => c.kind === 'table' && c.op === 'update')).toHaveLength(1)
+  })
+
+  test('the restore itself fails → logged by code only; the result is the original failure', async () => {
+    const fake = fakeDb({
+      briefs: { B1: 1 },
+      fail: { list: { statusCode: '503', message: 'boom' } },
+      failWhen: (c) =>
+        c.table === 'softclose_projects' && c.op === 'update' && c.payload?.status === 'submitted'
+          ? { code: '08006', message: `connection failure for ${P}` }
+          : undefined,
+    })
+    const r = await eraseCustomerProject(fake.db, IN)
+    expect(r).toEqual({ ok: false, failedAt: 'storage' })
+    expect(errorSpy).toHaveBeenCalledWith('[erase] status not restored', '08006')
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain(P)
+  })
+})
+
+describe('eraseCustomerAccount — the account step on its own', () => {
+  test('no project names the customer: login tokens, then the account', async () => {
+    const { db, calls } = fakeDb({})
+    const r = await eraseCustomerAccount(db, { customerId: C })
+    expect(r).toEqual({ ok: true, accountDeleted: true })
+    expect(calls.map(line)).toEqual([
+      `softclose_projects.select customer_id=${C} limit 1`,
+      `softclose_auth_tokens.delete account_id=${C}`,
+      `softclose_accounts.delete id=${C} role=customer`,
+    ])
+  })
+
+  test('a kitchen is on the account: nothing deleted, the account stays', async () => {
+    const { db, calls } = fakeDb({ otherProjects: true })
+    const r = await eraseCustomerAccount(db, { customerId: C })
+    expect(r).toEqual({ ok: true, accountDeleted: false })
+    expect(tableDeletes(calls)).toEqual([])
+  })
+
+  test('RESTRICT (a new invite in between, 23503): ok, the account stays', async () => {
+    const { db } = fakeDb({ fail: { 'softclose_accounts.delete': { code: '23503', message: `Key (id)=(${C})` } } })
+    expect(await eraseCustomerAccount(db, { customerId: C })).toEqual({ ok: true, accountDeleted: false })
+  })
+
+  test('the count fails → failedAt account, nothing deleted, the log carries only the code', async () => {
+    const { db, calls } = fakeDb({ fail: { 'softclose_projects.select': { code: '57014', message: `for ${C}` } } })
+    const r = await eraseCustomerAccount(db, { customerId: C })
+    expect(r).toEqual({ ok: false, failedAt: 'account' })
+    expect(tableDeletes(calls)).toEqual([])
+    expect(errorSpy).toHaveBeenCalledWith('[erase] stopped at', 'account', '57014')
+    expect(JSON.stringify(errorSpy.mock.calls)).not.toContain(C)
+  })
+
+  test('stopped at the account step, then retried without the project: the account and its tokens go', async () => {
+    const fake = fakeDb({ briefs: { B1: 2 }, fail: { 'softclose_projects.select': { code: '57014', message: 'timeout' } } })
+    const first = await eraseCustomerProject(fake.db, IN)
+    expect(first).toEqual({ ok: false, failedAt: 'account' })
+    // Everything up to the project is gone; the account is not.
+    expect(tableDeletes(fake.calls).map((c) => c.table)).toEqual([
+      'softclose_briefs',
+      'softclose_auth_tokens',
+      'softclose_projects',
+    ])
+
+    delete fake.fail['softclose_projects.select']
+    const before = fake.calls.length
+    const retry = await eraseCustomerAccount(fake.db, { customerId: C })
+    expect(retry).toEqual({ ok: true, accountDeleted: true })
+    expect(fake.calls.slice(before).map(line)).toEqual([
+      `softclose_projects.select customer_id=${C} limit 1`,
+      `softclose_auth_tokens.delete account_id=${C}`,
+      `softclose_accounts.delete id=${C} role=customer`,
+    ])
   })
 })

@@ -829,6 +829,8 @@ export const hrHR = {
   'auth.deleted.body':
     'Izbrisali smo tvoje fotografije, odgovore, sažetke i spremljeni napredak, i kopiju u ovom pregledniku. Ako ti je to bila jedina kuhinja, izbrisan je i tvoj račun.',
   'auth.deleted.signIn': 'Imaš još jednu kuhinju? Prijavi se',
+  'auth.deletedAccount.title': 'Tvoj račun je izbrisan',
+  'auth.deletedAccount.body': 'Izbrisali smo tvoj račun: e-mail adresu, ime, jezik i linkove za prijavu.',
   // ---- Maker dashboard ----------------------------------------------------
   'dashboard.subtitle': '{n} kupaca',
   'dashboard.refresh': 'Osvježi',
@@ -956,6 +958,14 @@ export const hrHR = {
   'kitchen.delete.confirm': 'Izbriši trajno',
   'kitchen.delete.pending': 'Brišem…',
   'kitchen.delete.failed': 'Brisanje nije dovršeno. Pokušaj ponovno za koju minutu — nastavit ćemo gdje je stalo.',
+  'kitchen.delete.failedAccount':
+    'Kuhinja je izbrisana, ali račun još nije. Pokušaj ponovno za koju minutu — ostao je samo račun.',
+  // ---- Delete my account (IMP-09) — once no kitchen is left on it ----------
+  'account.delete.open': 'Izbriši moj račun',
+  'account.delete.title': 'Izbrisati tvoj račun?',
+  'account.delete.body':
+    'Brišemo tvoju e-mail adresu, ime i jezik koji smo zapamtili te linkove za prijavu. Ovo se ne može poništiti.',
+  'account.delete.failed': 'Brisanje nije dovršeno. Pokušaj ponovno za koju minutu.',
   'live.back': 'Natrag na popis',
   'live.banner.title': 'U TIJEKU — kupac još radi',
   'live.banner.body':
@@ -1399,18 +1409,18 @@ export const hrHR = {
   'privacy.who.resend':
     'Resend — šalje e-poštu: linkove za prijavu, pozivnicu i obavijest izrađivaču o sažetku.',
   'privacy.who.productImages':
-    'Slike nekih proizvoda (sudopera, slavina i uređaja) učitavaju se izravno s poslužitelja dobavljača Schachermayer, pa tvoj preglednik tom poslužitelju pritom šalje svoju IP adresu.',
+    'Slike nekih proizvoda (sudopera, slavina i uređaja) učitavaju se izravno s poslužitelja dobavljača Schachermayer i Elgrad, pa tvoj preglednik tim poslužiteljima pritom šalje svoju IP adresu.',
   'privacy.who.nobodyElse':
     'Osim navedenog, tvoje podatke nikome ne dajemo. Koliko dugo te usluge čuvaju ono što im pošaljemo, određuju njihovi uvjeti.',
   'privacy.ai.title': 'Što radi AI asistent',
   'privacy.ai.body':
-    'Čita tvoje fotografije i inspiraciju, prevodi tvoje želje u stručne pojmove, predlaže materijale, piše sažetak i crta AI koncept kuhinje u tvom prostoru, uvijek označen kao koncept. Raspon cijene računa se iz kuhinje koju složiš — ne pogađa ga AI. Ništa od toga nije ponuda ni odluka: izrađivač sve pregledava osobno.',
+    'Čita tvoje fotografije i inspiraciju, prevodi tvoje želje u stručne pojmove, predlaže materijale, piše sažetak i crta AI koncept kuhinje u tvom prostoru. Raspon cijene računa se iz kuhinje koju složiš — ne pogađa ga AI. Ništa od toga nije ponuda ni odluka: izrađivač sve pregledava osobno.',
   'privacy.retention.title': 'Koliko dugo',
   'privacy.retention.body':
     'Čuvamo ih dok ne izbrišeš kuhinju ili dok je ne uklonimo na zahtjev tvog izrađivača. Automatskog brisanja nakon nekog roka zasad nema.',
   'privacy.delete.title': 'Brisanje',
   'privacy.delete.body':
-    'Kuhinju možeš izbrisati sam: na stranici svoje kuhinje odaberi „Izbriši moju kuhinju“. Brišemo fotografije, odgovore, AI koncepte, sažetke i spremljeni napredak, a ako ti je to jedina kuhinja, i tvoj račun.',
+    'Kuhinju možeš izbrisati sam: na stranici svoje kuhinje odaberi „Izbriši moju kuhinju“. Brišemo fotografije, odgovore, AI koncepte, sažetke i spremljeni napredak, a ako ti je to jedina kuhinja, i tvoj račun. Ako kuhinje više nema, a račun je ostao, prijavi se i odaberi „Izbriši moj račun“.',
   'privacy.delete.leftovers':
     'Što ostaje: obavijest koju je izrađivač možda već dobio e-poštom, ono što vanjske usluge čuvaju prema svojim uvjetima, i kopija napretka u drugim preglednicima u kojima si radio — nju obriši u postavkama tog preglednika.',
   'privacy.contact.title': 'Pitanja',

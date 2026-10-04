@@ -18,7 +18,13 @@ export default async function LoginPage({
   if (session) redirect(safeNext || homePathForRole(session.role))
 
   // ?deleted=1 is where "Izbriši moju kuhinju" lands (IMP-09), signed out:
-  // a calm confirmation instead of the form. It reveals nothing — anyone can
-  // type the parameter, and the notice says only what deleting does.
-  return <LoginForm next={safeNext || undefined} deleted={deleted === '1'} />
+  // a calm confirmation instead of the form; ?deleted=account is where
+  // "Izbriši moj račun" lands. It reveals nothing — anyone can type the
+  // parameter, and the notice says only what deleting does.
+  return (
+    <LoginForm
+      next={safeNext || undefined}
+      deleted={deleted === '1' ? true : deleted === 'account' ? 'account' : false}
+    />
+  )
 }

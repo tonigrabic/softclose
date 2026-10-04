@@ -7,7 +7,7 @@ import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, test } from 'vitest'
 import { KitchenHome, type KitchenHomeProps } from '@/app/kitchen/[projectId]/KitchenHome'
-import { DeleteKitchenView } from '@/app/kitchen/[projectId]/DeleteKitchen'
+import { DeleteAccount, DeleteKitchenView } from '@/app/kitchen/[projectId]/DeleteKitchen'
 import { LoginFormView } from '@/app/login/LoginForm'
 import { hrHR } from '@/lib/i18n/locales/hr-HR'
 
@@ -113,6 +113,36 @@ describe('the confirmation panel', () => {
   })
 })
 
+describe('the account panel — once no kitchen is left on the account', () => {
+  test('the no-kitchen panel’s link reads "Izbriši moj račun"', () => {
+    const html = renderToStaticMarkup(createElement(DeleteAccount))
+    expect(html).toContain(hrHR['account.delete.open'])
+    expect(html).not.toContain(hrHR['kitchen.delete.open'])
+  })
+
+  test('says what goes — the account, not a kitchen — with Odustani first and no maker note', () => {
+    const html = panel({ variant: 'account', makerName: null, submitted: true })
+    expect(html).toContain(hrHR['account.delete.title'])
+    expect(html).toContain(hrHR['account.delete.body'])
+    expect(html).not.toContain(hrHR['kitchen.delete.title'])
+    expect(html).not.toContain(hrHR['kitchen.delete.sentNote'])
+    expect(html.indexOf(hrHR['kitchen.delete.cancel'])).toBeLessThan(html.indexOf(hrHR['kitchen.delete.confirm']))
+  })
+
+  test('a failure on the no-kitchen panel says to try again', () => {
+    const html = panel({ variant: 'account', failed: true })
+    expect(html).toMatch(new RegExp(`role="alert"[^>]*>${hrHR['account.delete.failed']}`))
+  })
+
+  test('the kitchen went but the account step stopped: the panel says exactly that', () => {
+    const html = panel({ variant: 'account', kitchenGone: true, failed: true })
+    expect(html).toContain(hrHR['account.delete.title'])
+    expect(html).toMatch(new RegExp(`role="alert"[^>]*>${hrHR['kitchen.delete.failedAccount']}`))
+    // Not the "picks up where it stopped" line: the retry runs a different action.
+    expect(html).not.toContain(hrHR['kitchen.delete.failed'] + '<')
+  })
+})
+
 describe('where deleting lands: /login?deleted=1', () => {
   test('a calm notice instead of the sign-in form, with a way back for a second kitchen', () => {
     const html = renderToStaticMarkup(
@@ -122,6 +152,17 @@ describe('where deleting lands: /login?deleted=1', () => {
     expect(html).toContain(hrHR['auth.deleted.body'])
     expect(html).toContain(hrHR['auth.deleted.signIn'])
     expect(html).toContain('href="/login"')
+    expect(html).not.toContain('name="email"')
+  })
+
+  test('?deleted=account: the account notice, and no "another kitchen" link', () => {
+    const html = renderToStaticMarkup(
+      createElement(LoginFormView, { state: { status: 'idle' }, formAction: noop, deleted: 'account' })
+    )
+    expect(html).toContain(hrHR['auth.deletedAccount.title'])
+    expect(html).toContain(hrHR['auth.deletedAccount.body'])
+    expect(html).not.toContain(hrHR['auth.deleted.title'])
+    expect(html).not.toContain(hrHR['auth.deleted.signIn'])
     expect(html).not.toContain('name="email"')
   })
 
