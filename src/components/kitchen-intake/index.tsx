@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react'
-import { JourneyNavRail, journeyPillLabel } from '@/components/JourneyNavRail'
+import { JourneyNavRail, journeyPillLabel, type RailVoice } from '@/components/JourneyNavRail'
 import { RenderAnchorCard } from '@/components/RenderAnchorCard'
 import { LiveBOMPanel } from '@/components/builder/LiveBOMPanel'
 import { MobileRangeDock } from '@/components/builder/MobileRangeDock'
@@ -143,6 +143,9 @@ export function KitchenIntake({
   startAt,
 }: KitchenIntakeProps = {}) {
   const { locale } = useTranslations()
+  // The journey rail and its mobile pill: the maker looking in reads the
+  // customer's journey ("Kupčev sažetak"), not "Vaš sažetak".
+  const railVoice: RailVoice = readOnly ? 'maker' : 'homeowner'
   const [state, setState] = useState<IntakeFlowState>({
     currentStepId: 'space_photos',
   })
@@ -921,6 +924,7 @@ export function KitchenIntake({
           funnelStepId: 'contact',
           profile,
           journeyDone: true,
+          voice: railVoice,
           locale,
         })}
         nav={
@@ -938,7 +942,7 @@ export function KitchenIntake({
                 {tDynamic('nav.startOver', locale)}
               </button>
             </header>
-            <JourneyNavRail funnelStepId="contact" profile={profile} journeyDone locale={locale} />
+            <JourneyNavRail funnelStepId="contact" profile={profile} journeyDone voice={railVoice} locale={locale} />
           </>
         }
       >
@@ -1002,6 +1006,7 @@ export function KitchenIntake({
         layoutSummary={summariseLayoutFromProfile(profile, locale, floorPlan)}
         profile={profile}
         makerName={makerName}
+        railVoice={railVoice}
         layoutPreconfirmed
         onComplete={(builderState) => {
           patchProfile({ builderState })
@@ -1085,7 +1090,7 @@ export function KitchenIntake({
     <AppShell
       progressPercent={progress}
       rightRail={funnelRightRail}
-      mobilePillLabel={journeyPillLabel({ funnelStepId: state.currentStepId, profile, locale })}
+      mobilePillLabel={journeyPillLabel({ funnelStepId: state.currentStepId, profile, voice: railVoice, locale })}
       mobileDock={
         funnelBuilderState && rightRailSteps.includes(state.currentStepId) ? (
           <MobileRangeDock state={funnelBuilderState} scope={liveScope} makerName={makerName} />
@@ -1108,8 +1113,14 @@ export function KitchenIntake({
               </button>
             </header>
           )}
-          <JourneyNavRail funnelStepId={state.currentStepId} profile={profile} locale={locale} />
-          {projectId && makerName ? (
+          <JourneyNavRail funnelStepId={state.currentStepId} profile={profile} voice={railVoice} locale={locale} />
+          {/* "{maker} vidi tvoj napredak" is for the customer; the maker
+              looking in reads that the kitchen is theirs to look at only. */}
+          {readOnly ? (
+            <p className="mt-5 text-[10px] leading-relaxed text-muted-foreground">
+              {tDynamic('kitchen.home.readOnly.note', locale)}
+            </p>
+          ) : projectId && makerName ? (
             <p className="mt-5 text-[10px] leading-relaxed text-muted-foreground">
               {tDynamic('kitchen.makerSees', locale).replace('{maker}', makerName)}
             </p>

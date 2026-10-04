@@ -72,6 +72,10 @@ export const enUS: Record<TranslationKey, string> = {
   'journey.act.space': 'Your space',
   'journey.act.build': 'Build it',
   'journey.act.offer': 'Your offer',
+  'journey.readOnly.brief': "The customer's brief",
+  'journey.readOnly.act.space': "The customer's space",
+  'journey.readOnly.act.build': 'The build',
+  'journey.readOnly.act.offer': 'Wishes & logistics',
   'nav.startOver': 'Start over',
 
   // Layout-counts confirmation gate

@@ -25,7 +25,7 @@ import { LiveBOMPanel } from './LiveBOMPanel'
 import { RerenderPanel } from './RerenderPanel'
 import { RenderCarousel } from './RenderCarousel'
 import { LayoutConfirm } from './LayoutConfirm'
-import { JourneyNavRail, journeyPillLabel } from '@/components/JourneyNavRail'
+import { JourneyNavRail, journeyPillLabel, type RailVoice } from '@/components/JourneyNavRail'
 import { RenderAnchorCard } from '@/components/RenderAnchorCard'
 import { MobileRangeDock } from './MobileRangeDock'
 import { AppShell } from '@/components/AppShell'
@@ -75,6 +75,12 @@ export interface BuilderShellProps {
    */
   makerName?: string | null
   /**
+   * Whose words the journey rail and its mobile pill use: 'maker' when the
+   * maker looks in at the customer's kitchen. Only the rail — the rest of the
+   * builder still speaks to the homeowner.
+   */
+  railVoice?: RailVoice
+  /**
    * True when the contract was already confirmed at the end of Part 1 (the
    * capture "confirm everything" step). The builder then skips its own confirm
    * gate. The dev harness omits this, so it still shows the gate.
@@ -106,6 +112,7 @@ export function BuilderShell({
   layoutSummary,
   profile,
   makerName,
+  railVoice = 'homeowner',
   layoutPreconfirmed,
   savedState,
   onComplete,
@@ -152,6 +159,7 @@ export function BuilderShell({
       layoutSummary={layoutSummary}
       profile={profile}
       makerName={makerName}
+      railVoice={railVoice}
       onComplete={onComplete}
       onEditLayout={onEditLayout}
     />
@@ -201,6 +209,7 @@ function Shell({
   layoutSummary,
   profile,
   makerName,
+  railVoice,
   onComplete,
   onEditLayout,
 }: {
@@ -217,6 +226,7 @@ function Shell({
   layoutSummary?: string
   profile?: LeadProfile
   makerName?: string | null
+  railVoice: RailVoice
   onComplete?: (state: BuilderState) => void
   onEditLayout?: (state: BuilderState) => void
 }) {
@@ -259,6 +269,7 @@ function Shell({
       builderState={state}
       builderGroupId={currentId}
       onBuilderNavigate={onCurrentChange}
+      voice={railVoice}
       locale={locale}
     />
   )
@@ -295,6 +306,7 @@ function Shell({
           funnelStepId: 'builder',
           profile: profile ?? {},
           builderGroupId: currentId,
+          voice: railVoice,
           locale,
         })}
         mobileDock={<MobileRangeDock state={state} makerName={makerName} />}

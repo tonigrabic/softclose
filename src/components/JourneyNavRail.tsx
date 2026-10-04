@@ -7,7 +7,7 @@ import {
   type BuilderScreenId,
   type BuilderState,
 } from '@/lib/builder/inventory'
-import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n'
+import { t, tDynamic, DEFAULT_LOCALE, type Locale, type TranslationKey } from '@/lib/i18n'
 import { JourneyRail, type RailAct, type RailStatus, type RailStep } from '@/components/JourneyRail'
 import { readbackFor } from './kitchen-intake/readbacks'
 import { GROUP_MODULES } from './builder/groups/registry'
@@ -34,20 +34,46 @@ type Entry =
   | { kind: 'funnel'; id: FlowStepId; label: string; readback: string | null }
   | { kind: 'builder'; id: BuilderScreenId; label: string; readback: string | null }
 
-const ACTS: { id: 'space' | 'build' | 'offer'; num: number }[] = [
+type ActId = 'space' | 'build' | 'offer'
+
+const ACTS: { id: ActId; num: number }[] = [
   { id: 'space', num: 1 },
   { id: 'build', num: 2 },
   { id: 'offer', num: 3 },
 ]
 
 /** Which acts each FLOW group belongs to (the `builder` step expands separately). */
-const ACT_OF_GROUP: Record<string, 'space' | 'build' | 'offer'> = {
+const ACT_OF_GROUP: Record<string, ActId> = {
   space: 'space',
   look: 'space',
   build: 'build',
   details: 'offer',
   finish: 'offer',
 }
+
+/**
+ * The rail's own words: its heading and the three acts. The homeowner reads
+ * their own journey. The maker looking in (readOnly) reads the customer's, so
+ * "Kupčev sažetak · Kupčev prostor", never "your" about someone else's kitchen,
+ * and the third act by what it holds: the range is never a quote ("ponuda"),
+ * the maker sends that. The step labels are the steps' names and read the
+ * same to both.
+ */
+export const RAIL_COPY = {
+  homeowner: {
+    brief: 'journey.brief',
+    space: 'journey.act.space',
+    build: 'journey.act.build',
+    offer: 'journey.act.offer',
+  },
+  maker: {
+    brief: 'journey.readOnly.brief',
+    space: 'journey.readOnly.act.space',
+    build: 'journey.readOnly.act.build',
+    offer: 'journey.readOnly.act.offer',
+  },
+} as const satisfies Record<string, Record<'brief' | ActId, TranslationKey>>
+export type RailVoice = keyof typeof RAIL_COPY
 
 export function JourneyNavRail({
   funnelStepId,
@@ -56,6 +82,7 @@ export function JourneyNavRail({
   builderGroupId,
   onBuilderNavigate,
   journeyDone,
+  voice = 'homeowner',
   locale = DEFAULT_LOCALE,
 }: {
   funnelStepId: FlowStepId
@@ -68,8 +95,11 @@ export function JourneyNavRail({
   onBuilderNavigate?: (id: BuilderScreenId) => void
   /** True on the wrap-up screen: every act and step renders as done. */
   journeyDone?: boolean
+  /** Whose words: 'maker' when the maker looks in at the customer's kitchen. */
+  voice?: RailVoice
   locale?: Locale
 }) {
+  const copy = RAIL_COPY[voice]
   const inBuilder = funnelStepId === 'builder'
   // `profile.builderState` is stored as `unknown` on LeadProfile (the builder
   // module owns the type); cast on read, as the rest of the builder does.
@@ -113,7 +143,7 @@ export function JourneyNavRail({
     return {
       id: act.id,
       num: act.num,
-      label: tDynamic(`journey.act.${act.id}`, locale),
+      label: t(copy[act.id], locale),
       status,
       count:
         status === 'current'
@@ -123,7 +153,7 @@ export function JourneyNavRail({
     }
   })
 
-  return <JourneyRail brief={tDynamic('journey.brief', locale)} acts={acts} />
+  return <JourneyRail brief={t(copy.brief, locale)} acts={acts} />
 }
 
 /* ── Shared journey-position model ──────────────────────────────────────────
@@ -174,7 +204,7 @@ function currentLinearIndex(
     : linear.findIndex((e) => e.kind === 'funnel' && e.id === funnelStepId)
 }
 
-const entryAct = (e: Entry): 'space' | 'build' | 'offer' =>
+const entryAct = (e: Entry): ActId =>
   e.kind === 'builder' ? 'build' : ACT_OF_GROUP[FLOW[flowIndex(e.id)].group]
 
 /**
@@ -187,19 +217,21 @@ export function journeyPillLabel(opts: {
   profile: LeadProfile
   builderGroupId?: BuilderScreenId | null
   journeyDone?: boolean
+  voice?: RailVoice
   locale?: Locale
 }): string {
-  const { funnelStepId, profile, builderGroupId, journeyDone, locale = DEFAULT_LOCALE } = opts
-  if (journeyDone) return `${tDynamic('journey.act.offer', locale)} ✓`
+  const { funnelStepId, profile, builderGroupId, journeyDone, voice = 'homeowner', locale = DEFAULT_LOCALE } = opts
+  const copy = RAIL_COPY[voice]
+  if (journeyDone) return `${t(copy.offer, locale)} ✓`
   const builderStateForReadbacks =
     (profile.builderState as BuilderState | undefined) ?? null
   const linear = buildLinear(profile, builderStateForReadbacks, locale)
   const currentIndex = currentLinearIndex(linear, funnelStepId, builderGroupId)
   const current = linear[currentIndex]
-  if (!current) return tDynamic('journey.brief', locale)
+  if (!current) return t(copy.brief, locale)
   const act = entryAct(current)
   const actSteps = linear.filter((e) => entryAct(e) === act)
   const pos = actSteps.findIndex((e) => e === current) + 1
-  return `${tDynamic(`journey.act.${act}`, locale)} · ${current.label} · ${pos}/${actSteps.length}`
+  return `${t(copy[act], locale)} · ${current.label} · ${pos}/${actSteps.length}`
 }
 
