@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
-import { Download, ExternalLink, Sparkles, AlertCircle } from 'lucide-react'
+import { Download, ExternalLink, Sparkles, AlertCircle, Hammer } from 'lucide-react'
 import type {
   ClientMessage,
   ConceptVisualRef,
@@ -33,6 +33,12 @@ interface WrapUpScreenProps {
   /** Runs before the brief is sent — the intake flushes its pending save, so the
    *  brief is the project's last write and never arrives flagged as edited. */
   beforeSubmit?: () => Promise<void>
+  /** Back to the builder, for a homeowner who skipped it and so has no range.
+   *  Absent where nobody may edit (the maker looking in). */
+  onOpenBuilder?: () => void
+  /** Called once this screen has saved a brief, so the intake knows one went
+   *  out in this visit and the next send is an explicit act, not a mount. */
+  onSent?: () => void
 }
 
 function humanize(v: string): string {
@@ -52,6 +58,8 @@ export function WrapUpScreen({
   projectId,
   hasExistingBrief = false,
   beforeSubmit,
+  onOpenBuilder,
+  onSent,
 }: WrapUpScreenProps) {
   const { t, tDynamic: td, locale } = useTranslations()
   const contact = contactChannels(profile)
@@ -125,6 +133,7 @@ export function WrapUpScreen({
         throw new ApiError(data.error ?? `Bundle build failed (${res.status})`, res.status)
       }
       setBundle(data)
+      if (data.briefId) onSent?.()
     } catch (err) {
       console.warn('[handoff]', err)
       setBundleError(apiErrorKey(err, 'wrapup.error.bundle'))
@@ -184,10 +193,11 @@ export function WrapUpScreen({
 
   const estimate = bundle?.estimate
   const estimateBasis = estimate
-    ? estimate.placeholder
-      ? t('wrapup.estimate.basisStub')
-      : t('wrapup.estimate.basisBom').replace('{pct}', String(estimate.bandPct ?? 20))
+    ? t('wrapup.estimate.basisBom').replace('{pct}', String(estimate.bandPct ?? 20))
     : null
+  // The range is priced from the build alone. No build, no range — say how to
+  // get one rather than showing a number made of nothing.
+  const noBuild = !profile.builderState
 
   return (
     <motion.div
@@ -205,26 +215,34 @@ export function WrapUpScreen({
         <p className="text-xs text-muted-foreground/70">{t('wrapup.review')}</p>
       </div>
 
-      {/* Estimate — always a range, never a quote. The badge is honest about
-          provenance: amber placeholder for the budget stub, neutral tag when
-          the range comes from the homeowner's real build. */}
+      {/* Estimate — always a range, never a quote, and only ever from the
+          homeowner's own build. */}
       <section className="rounded-2xl border border-border bg-card p-5 text-left shadow-sm">
         <div className="mb-2 flex items-baseline justify-between">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             {t('wrapup.estimate.title')}
           </p>
-          {estimate &&
-            (estimate.placeholder ? (
-              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-900 dark:bg-amber-500/20 dark:text-amber-200">
-                {t('wrapup.estimate.placeholderBadge')}
-              </span>
-            ) : (
-              <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
-                {t('wrapup.estimate.bomBadge')}
-              </span>
-            ))}
+          {estimate && (
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-primary">
+              {t('wrapup.estimate.bomBadge')}
+            </span>
+          )}
         </div>
-        {isLoadingBundle ? (
+        {noBuild ? (
+          <>
+            <p className="text-sm text-foreground">{t('wrapup.estimate.noBuild')}</p>
+            {onOpenBuilder && (
+              <button
+                type="button"
+                onClick={onOpenBuilder}
+                className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-border px-3.5 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                <Hammer className="size-3.5 stroke-[1.75]" aria-hidden />
+                {t('wrapup.estimate.openBuilder')}
+              </button>
+            )}
+          </>
+        ) : isLoadingBundle ? (
           <p className="text-sm text-muted-foreground">{t('wrapup.estimate.loading')}</p>
         ) : estimate ? (
           <>
@@ -255,6 +273,9 @@ export function WrapUpScreen({
               {t('wrapup.estimate.makerConfirms')}
             </p>
           </>
+        ) : hasExistingBrief && !bundle ? (
+          // Built, not sent yet: the maker's copy is older than this build.
+          <p className="text-sm text-muted-foreground">{t('wrapup.estimate.afterResend')}</p>
         ) : (
           <p className="text-sm text-muted-foreground">{t('wrapup.estimate.unavailable')}</p>
         )}

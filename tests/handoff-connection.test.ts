@@ -4,9 +4,9 @@
  * The journey's two handoff seams, exercised for real:
  *  1. Builder entry: contract from the Part-1 plan + null hypothesis must
  *     hydrate a working state (the calm "start without AI" path).
- *  2. Maker handoff: buildHandoffBundle must prefer the homeowner's real build
- *     (BOM totals, band ≤ ±20%) over the budget-band stub, and fall back to
- *     the stub — flagged as placeholder — only when the builder was skipped.
+ *  2. Maker handoff: buildHandoffBundle prices the range from the homeowner's
+ *     real build (BOM totals, band ≤ ±20%) and from nothing else. A skipped
+ *     builder yields no range at all — never a number made of no inputs.
  *     Targets the pure builder rather than the route: the route now reads a
  *     session, which vitest cannot provide, and the estimate logic — the part
  *     worth guarding — lives in the pure function either way.
@@ -16,6 +16,8 @@
  * — see WORKLOG for the click-path.
  */
 import { describe, expect, test } from 'vitest'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { join, resolve } from 'node:path'
 import { buildHandoffBundle } from '@/lib/handoff/bundle'
 import { CONTRACT_FIXTURES } from '@/lib/builder/fixtures'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
@@ -37,13 +39,12 @@ function builderStateFromFixture(id: string) {
 
 
 describe('maker handoff — estimate comes from the real build', () => {
-  test('brief WITH builderState: estimate is the BOM, not the stub', () => {
+  test('brief WITH builderState: estimate is the BOM', () => {
     const builderState = builderStateFromFixture('l-shape')
     const bom = computeBom(builderState)
 
     const bundle = buildHandoffBundle({ brief: { builderState } })
 
-    expect(bundle.estimate!.placeholder).toBe(false)
     // Headline is kitchen-only (works); the all-in figure rides in withAppliances.
     expect(bundle.estimate!.low).toBe(bom.sections.works.low)
     expect(bundle.estimate!.high).toBe(bom.sections.works.high)
@@ -68,23 +69,34 @@ describe('maker handoff — estimate comes from the real build', () => {
     expect(sum('works', 'low') + sum('goods', 'low')).toBeCloseTo(estimate!.withAppliances!.low, 0)
   })
 
-  test('no build, no lines: the budget-band stub has nothing to itemise', () => {
-    const { estimate } = buildHandoffBundle({ brief: { budgetRange: '15k_30k' } })
-    expect(estimate!.lines).toBeUndefined()
+  // IMP-01. Skipping the builder used to fall back to a USD scope-count table
+  // whose inputs no step sets any more, so it always said 12,000 ±20% —
+  // 9,600–14,400 € — on the wrap-up, the kitchen home, the dashboard and the
+  // maker's email subject. No build, no range.
+  test('brief WITHOUT builderState: no estimate at all', () => {
+    expect(buildHandoffBundle({ brief: {} }).estimate).toBeNull()
+    // Whatever else the journey holds — a scope, a stray old budget band from a
+    // saved snapshot — none of it is a price.
+    const legacy = { scope: { cabinets: true, installation: true }, budgetRange: '15k_30k' }
+    expect(buildHandoffBundle({ brief: legacy as never }).estimate).toBeNull()
   })
+})
 
-  // `budgetRange`, not `budgetBand` — the latter is not a LeadProfile field, so
-  // this case used to fall through to the scope-count fallback while claiming to
-  // test the budget band. Untyped JSON through the route hid it; the pure
-  // function's types did not. The midpoints below pin the path for good.
-  test('brief WITHOUT builderState: stub fallback, flagged as placeholder', () => {
-    const bundle = buildHandoffBundle({ brief: { budgetRange: '15k_30k' } })
-
-    expect(bundle.estimate!.placeholder).toBe(true)
-    expect(bundle.estimate!.bandPct).toBe(20)
-    expect(bundle.estimate!.low).toBeLessThan(bundle.estimate!.high)
-    // 22,500 midpoint ±20%.
-    expect(bundle.estimate!.low).toBe(18000)
-    expect(bundle.estimate!.high).toBe(27000)
+describe('no currency stand-ins in the source', () => {
+  // The stub was a table of USD midpoints shown with a € sign. Every price in
+  // the product is euros from a dated source; a USD constant means a made-up one.
+  test('no USD constant anywhere in src/', () => {
+    const src = resolve(__dirname, '..', 'src')
+    const files: string[] = []
+    const walk = (dir: string) => {
+      for (const entry of readdirSync(dir)) {
+        const full = join(dir, entry)
+        if (statSync(full).isDirectory()) walk(full)
+        else if (/\.(ts|tsx)$/.test(entry)) files.push(full)
+      }
+    }
+    walk(src)
+    const offenders = files.filter((f) => /\bUSD\b|_USD\b/.test(readFileSync(f, 'utf8')))
+    expect(offenders).toEqual([])
   })
 })

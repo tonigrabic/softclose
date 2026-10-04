@@ -1067,3 +1067,42 @@ Gate: 324 tests · tsc · eslint green.
   Silestone / Technistone / Quartzforms (sold in Croatia, Toni's call).
 
 Gate: 328 tests · tsc · eslint green. Browser-verified in the /builder harness.
+
+### 2026-10-03 — IMP-01: no build, no range
+Spec item 1 (IMPROVEMENTS.md). "Preskoči — pošalji samo osnovni brief" fell
+back to `buildStubEstimate`, a USD scope-count table keyed on `budgetRange` and
+`scope`, neither of which any step sets since 09-23. It always returned
+12,000 ±20%, printed as 9,600–14,400 € on the wrap-up, the kitchen home, the
+maker's list, the brief and the maker email subject — and on the maker's live
+view of every journey that had not finished the builder yet.
+
+- `src/lib/stub-estimate.ts` deleted. `buildHandoffBundle` returns
+  `estimate: null` without `builderState`; the type is now `HandoffEstimate`
+  (no `placeholder` flag).
+- Homeowner: wrap-up and kitchen home say "Raspon dobivaš kad sastaviš
+  kuhinju." with a "Sastavi kuhinju" button back to the builder
+  (`KitchenIntake startAt`, `WrapUpScreen onOpenBuilder`). A brief sent in this
+  visit makes the next send explicit (`sentInSession`), so going back to the
+  builder never mails the maker a second copy on mount; after building, the
+  wrap-up says the range shows once they send the changes (IMP-07 replaces
+  this with review-then-send).
+- Maker: the brief says "Raspon nije dostupan — kupac nije sastavio kuhinju"
+  (same words as the email row), the live view "Raspon još nije izračunat —
+  nastaje kad kupac sastavi kuhinju", the email subject "raspon nije dostupan".
+- Decision 3 (budget stays dropped): the dead "Budžet" brief row, its keys and
+  `budgetRange`/`budgetShared` are gone.
+- Migration `0006_null_stub_estimates.sql` clears the stub range from briefs
+  already stored (touch trigger held off, so nothing is flagged "changed after
+  the brief"). Applied to the local stack (6 briefs, 5 projects). Production
+  held none (7 briefs, all from a real build — read-only count), so it is a
+  no-op there; not applied. IMP-03's migration becomes 0007.
+
+Browser-verified on the local stack (mock AI): customer skips the builder →
+wrap-up line + button, brief and project store null range columns, maker brief
+explains why; kitchen-home "Sastavi kuhinju" opens the builder entry; building
+and sending the changes gives 4,824–6,332 € ±14% on the wrap-up, kitchen home
+and maker list; wrap-up → "Sastavi kuhinju" → skip → finish again in one visit
+leaves exactly one brief; the live view of an unfinished journey shows the
+not-yet line instead of a number.
+
+Gate: 360 tests · tsc · eslint · next build green.

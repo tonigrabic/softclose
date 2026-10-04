@@ -95,6 +95,9 @@ export interface KitchenIntakeProps {
   customerEmail?: string | null
   /** The name the maker invited them under — prefilled, still editable. */
   customerName?: string | null
+  /** Open the journey at this step instead of where it was left, e.g. the
+   *  builder for a customer whose brief went out without a range. */
+  startAt?: FlowStepId
 }
 
 export function KitchenIntake({
@@ -106,6 +109,7 @@ export function KitchenIntake({
   initialSnapshot = null,
   customerEmail = null,
   customerName = null,
+  startAt,
 }: KitchenIntakeProps = {}) {
   const { locale } = useTranslations()
   const [state, setState] = useState<IntakeFlowState>({
@@ -115,6 +119,10 @@ export function KitchenIntake({
   const [transcript, setTranscript] = useState<ClientMessage[]>([])
   const [isDone, setIsDone] = useState(false)
   const [wrapUpData, setWrapUpData] = useState<WrapUpData | null>(null)
+  // A brief went out during this visit. hasExistingBrief comes from the page
+  // load, so without this a return to the builder after sending would make the
+  // next wrap-up send again on mount — a second brief and a second email.
+  const [sentInSession, setSentInSession] = useState(false)
   const [isFinalising, setIsFinalising] = useState(false)
   const [finaliseError, setFinaliseError] = useState<string | null>(null)
 
@@ -197,6 +205,10 @@ export function KitchenIntake({
         else if (initialSnapshot) applySnapshot(initialSnapshot)
       } else if (worthResuming) {
         setResumeOffer(rec)
+      }
+      if (startAt) {
+        setState({ currentStepId: startAt })
+        setIsDone(false)
       }
       persistenceReady.current = true
     })
@@ -729,8 +741,17 @@ export function KitchenIntake({
           explorationRefs={[]}
           transcript={transcript}
           projectId={projectId}
-          hasExistingBrief={hasExistingBrief}
+          hasExistingBrief={hasExistingBrief || sentInSession}
           beforeSubmit={() => checkpoint.flush(snapshot)}
+          onSent={() => setSentInSession(true)}
+          onOpenBuilder={
+            readOnly
+              ? undefined
+              : () => {
+                  setIsDone(false)
+                  goTo('builder')
+                }
+          }
         />
       </AppShell>
     )

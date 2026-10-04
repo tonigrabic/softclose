@@ -10,7 +10,6 @@
  * which the route it came from no longer will be once it reads a session.
  */
 import { hasPlan, planFromProfile, renderFloorPlanSvg, validate } from '@/lib/floor-plan'
-import { buildStubEstimate } from '@/lib/stub-estimate'
 import { computeBom } from '@/lib/builder/bom'
 import { makerPricingEntryCount } from '@/lib/catalog/maker-pricing'
 import type { BuilderState } from '@/lib/builder/inventory'
@@ -19,6 +18,7 @@ import type {
   ConceptRender,
   ConceptVisualRef,
   HandoffBundle,
+  HandoffEstimate,
   LeadProfile,
   MoodBoardItem,
 } from '@/lib/types'
@@ -64,10 +64,11 @@ export function buildHandoffBundle(input: HandoffBundleInput): HandoffBundle {
     if (found) chosenRender = { ...found, conceptOnly: true as const }
   }
 
-  // Prefer the real BOM the homeowner built in Phase 2; fall back to the
-  // budget-band stub only if they never opened the builder.
-  let estimate = buildStubEstimate(brief)
-  if (estimate) estimate.bandPct = 20
+  // The range comes from the homeowner's build and from nothing else. Skip the
+  // builder and there is no range: a number derived from no inputs, shown as if
+  // it were ±20%, is exactly the dishonesty rule 6 rules out. Every surface
+  // renders the null case as "no range yet — build your kitchen to get one".
+  let estimate: HandoffEstimate | null = null
   if (brief.builderState) {
     const bom = computeBom(brief.builderState as BuilderState, undefined, { scope: brief.scope })
     // Headline range is kitchen-only (works); appliances + sink/tap (goods)
@@ -78,7 +79,6 @@ export function buildHandoffBundle(input: HandoffBundleInput): HandoffBundle {
       high: bom.sections.works.high,
       withAppliances: hasGoods ? { low: bom.total.low, high: bom.total.high } : null,
       basis: `Estimated from your build — ±${Math.round(bom.sections.works.bandWidthPct / 2)}%. An estimate your maker confirms, never a final quote.`,
-      placeholder: false,
       bandPct: Math.round(bom.sections.works.bandWidthPct / 2),
       lines: bom.lineItems,
     }

@@ -6,6 +6,7 @@ import { KitchenIntake } from '@/components/kitchen-intake'
 import { AuthShell } from '@/components/AuthShell'
 import { Button } from '@/components/ui/button'
 import { useTranslations } from '@/lib/i18n'
+import type { FlowStepId } from '@/lib/flow'
 import type { ProjectSnapshot } from '@/lib/project/snapshot'
 
 export interface KitchenHomeProps {
@@ -51,6 +52,7 @@ const ACTS = [
 export function KitchenHome(props: KitchenHomeProps) {
   const { t } = useTranslations()
   const [entered, setEntered] = useState(false)
+  const [startAt, setStartAt] = useState<FlowStepId | undefined>(undefined)
 
   if (entered) {
     return (
@@ -63,6 +65,7 @@ export function KitchenHome(props: KitchenHomeProps) {
         initialSnapshot={props.snapshot}
         customerEmail={props.customerEmail}
         customerName={props.customerName}
+        startAt={startAt}
       />
     )
   }
@@ -98,7 +101,26 @@ export function KitchenHome(props: KitchenHomeProps) {
               <p className="text-sm text-foreground">
                 {t('kitchen.home.status.range').replace('{range}', props.range)}
               </p>
-            ) : null}
+            ) : (
+              // Sent without a build, so without a range — there is no number
+              // to show until they build, and they can do that from here.
+              <div className="border-t border-border/60 pt-3">
+                <p className="text-sm text-foreground">{t('kitchen.home.status.noRange')}</p>
+                {!props.readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStartAt('builder')
+                      setEntered(true)
+                    }}
+                    className="mt-2 inline-flex items-center gap-1.5 text-sm font-medium text-primary underline-offset-4 hover:underline"
+                  >
+                    <Hammer className="size-3.5" aria-hidden />
+                    {t('kitchen.home.cta.build')}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         ) : (
           <>
