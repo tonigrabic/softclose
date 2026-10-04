@@ -808,6 +808,10 @@ export const hrHR = {
   'auth.login.invalidEmail': 'Upiši ispravnu e-mail adresu.',
   'auth.login.error': 'Trenutno ne možemo poslati link. Pokušaj ponovno za koju minutu.',
   'auth.login.notConfigured': 'Prijava još nije konfigurirana na ovom poslužitelju.',
+  // The provider refused the mail, or nothing is set up to send it (IMP-08).
+  // The invite link is a sign-in link too, so the maker can always send one.
+  'auth.login.notSent':
+    'Slanje nije uspjelo — link ti nije poslan. Zatraži link od svog izrađivača kuhinje ili pokušaj ponovno za koju minutu.',
   'auth.login.devLink': 'Razvojni način — e-pošta nije konfigurirana',
   'auth.verify.working': 'Prijavljujem te…',
   'auth.verify.submit': 'Nastavi prijavu',
@@ -855,6 +859,30 @@ export const hrHR = {
   'dashboard.invite.err.isMaker': 'Ta adresa već pripada izrađivaču.',
   'dashboard.invite.err.tooMany': 'Danas si poslao previše pozivnica. Pokušaj sutra.',
   'dashboard.invite.err.generic': 'Pozivnicu trenutno nije moguće stvoriti.',
+  // The invite exists and its link is on screen; only the email did not go
+  // out (IMP-08). Never a refusal — the maker sends the link themselves.
+  'dashboard.invite.notEmailed': 'E-mail s pozivnicom nije otišao — pošalji kupcu link ispod sam.',
+  // ---- Maker notification email (a new brief arrived) ----------------------
+  // The maker's inbox: every label here, every option id through its locale
+  // key (IMP-08). {headline} is the range line, or makerEmail.noRange.
+  'makerEmail.subject': 'Novi sažetak kuhinje — {name} · {headline}',
+  'makerEmail.heading': 'Novi sažetak kuhinje',
+  'makerEmail.eyebrow': 'softclose · novi sažetak',
+  'makerEmail.title': '{name} — kuhinja',
+  'makerEmail.anonymous': 'Nepoznato ime',
+  'makerEmail.noRange': 'raspon nije dostupan',
+  'makerEmail.noRange.noBuild': 'raspon nije dostupan — kupac nije sastavio kuhinju',
+  'makerEmail.layout.unsure': 'oblik još nije odlučen',
+  'makerEmail.row.customer': 'Kupac',
+  'makerEmail.row.layout': 'Raspored',
+  'makerEmail.row.kitchen': 'Kuhinja (izrada i montaža)',
+  'makerEmail.row.assumptions': 'Pretpostavke',
+  'makerEmail.row.timeline': 'Rok',
+  'makerEmail.cta.brief': 'Otvori sažetak',
+  'makerEmail.cta.project': 'Kuhinja kupca',
+  'makerEmail.priceBasis':
+    'Raspon je cijena za kupca, s PDV-om i zadanom maržom radionice — trošak i maržu vidiš u sažetku. Nikad konačna ponuda.',
+  'makerEmail.private': 'Linkovi su privatni; ne prosljeđuj ih.',
   // ---- The customer's project home (walkthrough + status) -----------------
   'kitchen.home.eyebrow': 'Tvoja kuhinja',
   'kitchen.home.readOnly.eyebrow': 'Kuhinja kupca',

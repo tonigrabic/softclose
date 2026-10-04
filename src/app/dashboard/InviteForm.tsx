@@ -26,7 +26,18 @@ function Submit() {
  * keep from them, and in this trade a link gets sent over WhatsApp far more
  * often than by email. Email is the convenience, not the mechanism.
  */
-function LinkBox({ url, emailed, customerName }: { url: string; emailed: boolean; customerName?: string }) {
+export function InviteLinkBox({
+  url,
+  emailed,
+  emailFailed = false,
+  customerName,
+}: {
+  url: string
+  emailed: boolean
+  /** The email did not go out (IMP-08): said once, calmly, with what to do. */
+  emailFailed?: boolean
+  customerName?: string
+}) {
   const { t } = useTranslations()
   const [copied, setCopied] = useState(false)
 
@@ -35,6 +46,11 @@ function LinkBox({ url, emailed, customerName }: { url: string; emailed: boolean
       <p className="text-sm font-medium text-foreground">
         {t(emailed ? 'dashboard.invite.sent' : 'dashboard.invite.ready').replace('{name}', customerName ?? '')}
       </p>
+      {emailFailed ? (
+        <p role="status" className="mt-1 text-xs font-medium text-amber-800 dark:text-amber-300">
+          {t('dashboard.invite.notEmailed')}
+        </p>
+      ) : null}
       <p className="mt-1 text-xs text-muted-foreground">{t('dashboard.invite.shareHint')}</p>
       <div className="mt-3 flex items-center gap-2">
         <code className="min-w-0 flex-1 truncate rounded-lg border border-border bg-card px-3 py-2 text-xs text-foreground">
@@ -122,7 +138,12 @@ export function InviteForm() {
       ) : null}
 
       {state.status === 'created' && state.link ? (
-        <LinkBox url={state.link} emailed={Boolean(state.emailed)} customerName={state.customerName} />
+        <InviteLinkBox
+          url={state.link}
+          emailed={Boolean(state.emailed)}
+          emailFailed={Boolean(state.emailFailed)}
+          customerName={state.customerName}
+        />
       ) : null}
     </div>
   )

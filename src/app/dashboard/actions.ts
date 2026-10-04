@@ -8,7 +8,7 @@ import { issueToken, recentTokenCount, revokeOpenInvites } from '@/lib/auth/magi
 import { createProject } from '@/lib/auth/projects'
 import { isEmail, magicLinkUrl, maskEmail, normalizeEmail } from '@/lib/auth/tokens'
 import { buildInviteEmail } from '@/lib/notify/auth-email'
-import { sendEmail } from '@/lib/notify/send'
+import { sendEmail, type SendResult } from '@/lib/notify/send'
 import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 
 export interface InviteState {
@@ -19,11 +19,35 @@ export interface InviteState {
   link?: string
   customerName?: string
   emailed?: boolean
+  /** The email was meant to go out and did not: the provider refused it, or
+   *  nothing is set up to send it. The invite still stands (Decision 4: never
+   *  refuse an invite) — the maker is told to send the link themselves. */
+  emailFailed?: boolean
   message?: string
 }
 
 const MAX_INVITES_PER_DAY = 20
 const DAY_MS = 24 * 60 * 60 * 1000
+
+/**
+ * What the invite email's send means for the maker, logged with what the
+ * provider said — never the address in full, never the link (IMP-08).
+ *
+ * `logged` is the development console provider: the link on the dashboard is
+ * the delivery there, as on the login page, so it is not a failure.
+ */
+function inviteEmailOutcome(result: SendResult, email: string, what: string): { emailed: boolean; emailFailed: boolean } {
+  const emailFailed = result.outcome === 'failed' || result.outcome === 'skipped'
+  const log = emailFailed ? console.warn : console.info
+  log(
+    `[auth] ${what}${emailFailed ? ' — email not sent' : ''}`,
+    maskEmail(email),
+    result.provider,
+    result.outcome,
+    result.status ?? ''
+  )
+  return { emailed: result.ok, emailFailed }
+}
 
 /**
  * Create an invite: a pending customer account, the one project it opens into,
@@ -89,10 +113,10 @@ export async function inviteCustomer(_prev: InviteState, formData: FormData): Pr
     customerName: name || null,
   })
   const result = await sendEmail({ to: customer.email, ...mail })
-  console.info('[auth] invite created', maskEmail(email), result.provider, result.outcome)
+  const sent = inviteEmailOutcome(result, email, 'invite created')
 
   revalidatePath('/dashboard')
-  return { status: 'created', link: url, customerName: name || customer.email, emailed: result.ok }
+  return { status: 'created', link: url, customerName: name || customer.email, ...sent }
 }
 
 export interface ResendState {
@@ -100,6 +124,8 @@ export interface ResendState {
   link?: string
   projectId?: string
   emailed?: boolean
+  /** As InviteState.emailFailed. */
+  emailFailed?: boolean
   message?: string
 }
 
@@ -148,7 +174,8 @@ export async function resendInvite(_prev: ResendState, formData: FormData): Prom
     customerName: (customer.name as string | null) ?? null,
   })
   const result = await sendEmail({ to: customer.email as string, ...mail })
+  const sent = inviteEmailOutcome(result, customer.email as string, 'invite re-sent')
 
   revalidatePath('/dashboard')
-  return { status: 'created', link: url, projectId, emailed: result.ok }
+  return { status: 'created', link: url, projectId, ...sent }
 }
