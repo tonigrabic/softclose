@@ -822,6 +822,10 @@ export const hrHR = {
   'auth.noProject.title': 'Nema aktivne kuhinje',
   'auth.noProject.body':
     'Tvoj izrađivač ti šalje link kojim otvaraš svoj projekt. Ako si ga izgubio, zatraži novi od njega.',
+  'auth.deleted.title': 'Tvoja kuhinja je izbrisana',
+  'auth.deleted.body':
+    'Izbrisali smo tvoje fotografije, odgovore, sažetke i spremljeni napredak, i kopiju u ovom pregledniku. Ako ti je to bila jedina kuhinja, izbrisan je i tvoj račun.',
+  'auth.deleted.signIn': 'Imaš još jednu kuhinju? Prijavi se',
   // ---- Maker dashboard ----------------------------------------------------
   'dashboard.subtitle': '{n} kupaca',
   'dashboard.refresh': 'Osvježi',
@@ -936,6 +940,17 @@ export const hrHR = {
   'kitchen.home.decision.pill.clarify': 'Treba pojašnjenje',
   'kitchen.home.decision.pill.declined': 'Zatvoreno',
   'kitchen.makerSees': '{maker} vidi tvoj napredak dok radiš.',
+  // ---- Delete my kitchen (IMP-09) — calm, two steps, no guilt copy ---------
+  'kitchen.delete.open': 'Izbriši moju kuhinju',
+  'kitchen.delete.title': 'Izbrisati tvoju kuhinju?',
+  'kitchen.delete.body':
+    'Brišemo tvoje fotografije, odgovore, AI koncepte, sažetke i spremljeni napredak, a {maker} ih više neće vidjeti. Ako ti je ovo jedina kuhinja, brišemo i tvoj račun. Ovo se ne može poništiti.',
+  'kitchen.delete.yourMaker': 'tvoj izrađivač',
+  'kitchen.delete.sentNote': 'Obavijest o sažetku koju je izrađivač možda već dobio e-poštom ostaje kod njega.',
+  'kitchen.delete.cancel': 'Odustani',
+  'kitchen.delete.confirm': 'Izbriši trajno',
+  'kitchen.delete.pending': 'Brišem…',
+  'kitchen.delete.failed': 'Brisanje nije dovršeno. Pokušaj ponovno za koju minutu — nastavit ćemo gdje je stalo.',
   'live.back': 'Natrag na popis',
   'live.banner.title': 'U TIJEKU — kupac još radi',
   'live.banner.body':

@@ -1,0 +1,165 @@
+'use client'
+
+import { useEffect, useRef, useState, useTransition } from 'react'
+import { unstable_rethrow } from 'next/navigation'
+import { Button } from '@/components/ui/button'
+import { useTranslations } from '@/lib/i18n'
+import { forgetLocalJourney } from '@/lib/project/forget-local'
+import { deleteMyKitchen } from './actions'
+
+/**
+ * "Izbriši moju kuhinju" on the kitchen home (IMP-09).
+ *
+ * Two steps, both calm (rule 7, and AGENTS.md's no-dark-patterns line): a
+ * quiet text link opens an inline panel that says exactly what goes and what
+ * stays, with "Odustani" first and the same size as "Izbriši trajno". No
+ * countdown, no checkbox, no guilt copy, and the destructive button is never
+ * pre-focused — the panel's heading is.
+ *
+ * The browser's own copies (IndexedDB snapshot, the builder's unload record)
+ * are forgotten BEFORE the action runs, because the action redirects away on
+ * success. On a failure the server copy still exists, so a journey whose local
+ * copy is gone resumes from the server; nothing is lost by clearing early.
+ */
+export function DeleteKitchen({
+  projectId,
+  makerName,
+  submitted,
+}: {
+  projectId: string
+  makerName: string | null
+  /** A brief went out: the maker may already hold an email notice about it. */
+  submitted: boolean
+}) {
+  const [asking, setAsking] = useState(false)
+  const [failed, setFailed] = useState(false)
+  const [pending, startTransition] = useTransition()
+
+  return (
+    <DeleteKitchenView
+      makerName={makerName}
+      submitted={submitted}
+      asking={asking}
+      pending={pending}
+      failed={failed}
+      onOpen={() => {
+        setFailed(false)
+        setAsking(true)
+      }}
+      onCancel={() => setAsking(false)}
+      onConfirm={() =>
+        startTransition(async () => {
+          setFailed(false)
+          await forgetLocalJourney(projectId)
+          try {
+            // Success never returns: the action redirects to /login?deleted=1.
+            const result = await deleteMyKitchen(projectId)
+            if (result && !result.ok) setFailed(true)
+          } catch (err) {
+            // The redirect arrives as a thrown Next error — hand it back.
+            unstable_rethrow(err)
+            setFailed(true)
+          }
+        })
+      }
+    />
+  )
+}
+
+/** The link and the panel for a given state — split from the hooks so each
+ *  state renders on its own (tests/delete-kitchen-ui.test.ts). */
+export function DeleteKitchenView({
+  makerName,
+  submitted,
+  asking,
+  pending,
+  failed,
+  onOpen,
+  onCancel,
+  onConfirm,
+}: {
+  makerName: string | null
+  submitted: boolean
+  asking: boolean
+  pending: boolean
+  failed: boolean
+  onOpen: () => void
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const { t } = useTranslations()
+  const headingRef = useRef<HTMLHeadingElement>(null)
+  const openRef = useRef<HTMLButtonElement>(null)
+  const wasAsking = useRef(asking)
+
+  // Focus follows the step: the panel's heading on open (never the delete
+  // button), the link again on cancel. Nothing moves on first render.
+  useEffect(() => {
+    if (asking && !wasAsking.current) headingRef.current?.focus()
+    if (!asking && wasAsking.current) openRef.current?.focus()
+    wasAsking.current = asking
+  }, [asking])
+
+  if (!asking) {
+    return (
+      <div className="mt-8 text-center">
+        <button
+          ref={openRef}
+          type="button"
+          onClick={onOpen}
+          data-delete-kitchen
+          className="text-xs text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline"
+        >
+          {t('kitchen.delete.open')}
+        </button>
+      </div>
+    )
+  }
+
+  // Mid-sentence, so the lower-case fallback ("…a tvoj izrađivač ih više…").
+  const maker = makerName || t('kitchen.delete.yourMaker')
+
+  return (
+    <section
+      aria-labelledby="delete-kitchen-title"
+      data-delete-kitchen-panel
+      className="mt-8 rounded-xl border border-border bg-muted/40 p-4"
+    >
+      <h2
+        id="delete-kitchen-title"
+        ref={headingRef}
+        tabIndex={-1}
+        className="text-sm font-semibold text-foreground outline-none"
+      >
+        {t('kitchen.delete.title')}
+      </h2>
+      <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+        {t('kitchen.delete.body').replace('{maker}', maker)}
+      </p>
+      {submitted ? (
+        <p className="mt-2 text-xs leading-relaxed text-muted-foreground" data-delete-sent-note>
+          {t('kitchen.delete.sentNote')}
+        </p>
+      ) : null}
+      {failed ? (
+        <p role="alert" className="mt-3 text-xs leading-relaxed text-destructive">
+          {t('kitchen.delete.failed')}
+        </p>
+      ) : null}
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <Button type="button" variant="outline" className="h-10 rounded-xl text-sm" onClick={onCancel} disabled={pending}>
+          {t('kitchen.delete.cancel')}
+        </Button>
+        <Button
+          type="button"
+          variant="destructive"
+          className="h-10 rounded-xl text-sm"
+          onClick={onConfirm}
+          disabled={pending}
+        >
+          {pending ? t('kitchen.delete.pending') : t('kitchen.delete.confirm')}
+        </Button>
+      </div>
+    </section>
+  )
+}

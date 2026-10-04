@@ -797,6 +797,10 @@ export const enUS: Record<TranslationKey, string> = {
   'auth.noProject.title': 'No active kitchen',
   'auth.noProject.body':
     'Your maker sends you the link that opens your project. If you lost it, ask them for a new one.',
+  'auth.deleted.title': 'Your kitchen has been deleted',
+  'auth.deleted.body':
+    'We deleted your photos, answers, summaries and saved progress, and the copy in this browser. If it was your only kitchen, your account is deleted too.',
+  'auth.deleted.signIn': 'Have another kitchen? Sign in',
   // ---- Maker dashboard ----------------------------------------------------
   'dashboard.subtitle': '{n} customers',
   'dashboard.refresh': 'Refresh',
@@ -898,6 +902,17 @@ export const enUS: Record<TranslationKey, string> = {
   'kitchen.home.decision.pill.clarify': 'Clarification needed',
   'kitchen.home.decision.pill.declined': 'Closed',
   'kitchen.makerSees': '{maker} can see your progress as you work.',
+  // ---- Delete my kitchen (IMP-09) ----------------------------------------
+  'kitchen.delete.open': 'Delete my kitchen',
+  'kitchen.delete.title': 'Delete your kitchen?',
+  'kitchen.delete.body':
+    'We delete your photos, answers, AI concepts, summaries and saved progress, and {maker} will no longer see them. If this is your only kitchen, we delete your account too. This cannot be undone.',
+  'kitchen.delete.yourMaker': 'your maker',
+  'kitchen.delete.sentNote': 'An email notice about your summary that your maker may already have received stays with them.',
+  'kitchen.delete.cancel': 'Cancel',
+  'kitchen.delete.confirm': 'Delete permanently',
+  'kitchen.delete.pending': 'Deleting…',
+  'kitchen.delete.failed': 'Deletion did not finish. Try again in a minute — it picks up where it stopped.',
   'live.back': 'Back to the list',
   'live.banner.title': 'IN PROGRESS — the customer is still working',
   'live.banner.body':
