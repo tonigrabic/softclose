@@ -1106,3 +1106,70 @@ leaves exactly one brief; the live view of an unfinished journey shows the
 not-yet line instead of a number.
 
 Gate: 360 tests · tsc · eslint · next build green.
+
+### 2026-10-03 — IMP-31: room first — one room from all photos, measured walls before the render
+Spec item 2. The order was photos → inspiration → render → confirm layout, with
+the layout read back from a render anchored to one photo: the testers' second
+wall was lost, and the AI's dimensions (320×240 / 360×260 / 420×260 from one
+photo) never had to be confirmed. Decision 2026-10-03: the homeowner measures.
+
+- **Vision joins the photos.** Each photo is labelled "Photo N of M" and gets
+  a view (`photoViews`: which wall or corner it shows, the counter walls in
+  it) in ONE plan frame. `reconcileCounterWalls` takes a counter wall seen in
+  any photo; H views (or every view once the homeowner corrected a label) are
+  kept past the shape label's limit. `normalizeVisionRead` makes the list
+  well-formed (one per photo, runs only on walls a photo can show — which also
+  caps an over-read) and owns the dim bands. Reads without views behave as
+  before. New `single_wall` shape; `emptyRoom` for a room with no kitchen yet.
+- **New step "Tvoj prostor danas"** (rail: "Oblik i mjere") right after the
+  photos. Screen 1: photo labels with tap-to-correct (a label says where the
+  camera points, never where cabinets are — a correction never adds or moves a
+  run; the shape card changes walls), six cards pre-selected from the read,
+  the intent chips. Screen 2: lettered plan (A top, B right, C bottom,
+  D left — fixed, so labels never reshuffle), one empty field per counter wall,
+  the photo estimate as a grey hint only, Continue off until every wall is
+  typed, optional ceiling ("nije izmjereno"), "Spremi i nastavi kasnije" that
+  says saved only when the checkpoint holds it (`flush` now returns a boolean).
+- **Provenance.** Typed walls carry `measuredLengthCm`; the room is H/homeowner
+  only when a wall on each axis was typed (a galley or single wall does not
+  pass a preset depth off as measured), and goes back to its estimate if a
+  measurement is taken back. Typed lengths scale positions reversibly and
+  clamp once on commit. `ceilingSource` for the ceiling.
+- **The room stays the room.** `existingFloorPlan` (never edited after the
+  step) vs the working `floorPlan` (+ island for "Dodaj otok"); the room step
+  edits its own `roomPlan`. `roomConfirmed` (stamped on commit) is the render's
+  gate and the resume rule — not the live plan, so a confirm-step layout edit
+  never "un-measures" the room. `seedConfirmPlan`: the confirm step never
+  rebuilds a measured room from the render (IMP-32's seam).
+- **Render gate.** ConceptRender neither auto-starts nor generates without a
+  completed room step and links back; builder re-renders are blocked the same
+  way for journeys saved before this.
+- **Resume.** Journeys saved at inspiration / render / confirm without a
+  completed room step resume at the room step (local, server and resume-offer
+  paths); the kitchen home's step label follows. Builder and later stay put.
+- Copy that the new order made untrue rewritten; "Pripremi" now asks for a
+  tape measure; galley is "U dva reda" everywhere.
+
+The testers' photos are not in the repo: the Done-when unit test uses a
+synthetic two-angle L in the model's raw tool shape, and the mock returns one
+view per photo through the same normaliser. Catalog open question 3 ("how hard
+to push for dimensions") is answered: always ask; no tape measure → save and
+come back.
+
+Adversarial review: 5 lenses, 26 confirmed findings (gate on the live plan,
+the room step editing the working plan, one-axis H stamp, per-keystroke
+rescaling, label relabels inventing runs, empty-room pre-selection, …). A
+re-verification pass found 22 fixed and 2 partial (relabels moving runs,
+lossy rescaling); both fixed in a second round with regression tests.
+
+Browser-verified on the local stack (mock AI, invited customer): 2 photos →
+"Zid A" / "Zid D" and an L with lettered walls; relabel photo 2 → "Zid B"
+moves the run; Continue off until an intent, then until both walls are typed;
+"3,2" → "= 320 cm · izmjereno", "90" refused, "4" mid-typing changes nothing;
+save-later → "Spremljeno…" with the snapshot on the server; reload resumes on
+the measure screen with 320/300; mock render → confirm step shows 320/300 and
+the L; "Dodaj otok" → Back → the room shows no island, "Zadrži raspored"
+re-commits without one; a snapshot rewritten to the old order at the render
+step (local copy cleared) resumes at "korak 2/8" on the room step.
+
+Gate: 433 tests · tsc · eslint · next build green.

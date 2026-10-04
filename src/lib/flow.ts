@@ -13,6 +13,7 @@
 
 export type FlowStepId =
   | 'space_photos'
+  | 'room'
   | 'inspiration'
   | 'concept_render'
   | 'confirm_look'
@@ -42,6 +43,15 @@ export const FLOW: FlowStepMeta[] = [
     why: 'Photos so we can read your existing kitchen.',
     group: 'space',
   },
+  // Room first (IMP-31, 2026-10-03): the photos are read as one room, the
+  // homeowner confirms its shape and measures every wall the kitchen stands on
+  // — before any render. The AI's dimensions are only a hint.
+  {
+    id: 'room',
+    label: 'Your room today',
+    why: 'The room as it is: its shape, and the walls measured by the homeowner.',
+    group: 'space',
+  },
   {
     id: 'inspiration',
     label: 'Inspiration',
@@ -61,7 +71,7 @@ export const FLOW: FlowStepMeta[] = [
   {
     id: 'confirm_look',
     label: 'Confirm layout & look',
-    why: 'The layout we read from your render — adjust it, see the plan, confirm.',
+    why: 'The measured room with the look applied — adjust it, see the plan, confirm.',
     group: 'look',
   },
   {
@@ -108,6 +118,25 @@ const RETIRED_STEPS: Record<string, FlowStepId> = {
 export function resolveStepId(id: string): FlowStepId | null {
   if (FLOW.some((s) => s.id === id)) return id as FlowStepId
   return RETIRED_STEPS[id] ?? null
+}
+
+/** Steps that come after the room in the old order and need it measured. */
+const NEEDS_MEASURED_ROOM: readonly FlowStepId[] = ['inspiration', 'concept_render', 'confirm_look']
+
+/**
+ * Where a saved journey resumes. A journey saved before the room step existed
+ * (or saved past it without a measured room) goes back to the room step
+ * instead of a step that leads to the render — the render is not reachable
+ * without typed wall lengths. A journey whose layout was already confirmed
+ * (it reached the builder) stays where it is.
+ */
+export function resumeStepId(
+  saved: string,
+  ctx: { roomMeasured: boolean; contractConfirmed: boolean }
+): FlowStepId {
+  const id = resolveStepId(saved) ?? 'space_photos'
+  if (!ctx.roomMeasured && !ctx.contractConfirmed && NEEDS_MEASURED_ROOM.includes(id)) return 'room'
+  return id
 }
 
 export function flowIndex(id: FlowStepId): number {

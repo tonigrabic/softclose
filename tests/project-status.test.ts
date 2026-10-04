@@ -120,6 +120,11 @@ describe('stepProgress', () => {
     expect(stepProgress('a_step_we_deleted')).toBeNull()
   })
 
+  it('the room step is step 2; inspiration follows it', () => {
+    expect(stepProgress('room')).toMatchObject({ current: 2 })
+    expect(stepProgress('inspiration')).toMatchObject({ current: 3 })
+  })
+
   it('counts every homeowner-visible step', () => {
     expect(stepProgress('space_photos')!.total).toBe(FLOW.filter((s) => s.id !== 'builder').length)
   })

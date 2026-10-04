@@ -25,8 +25,12 @@ const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve,
 
 export interface CheckpointApi {
   queue: (snapshot: ProjectSnapshot, opts?: { immediate?: boolean }) => void
-  /** Write `snapshot` now and resolve once it has landed (or failed, or timed out). */
-  flush: (snapshot: ProjectSnapshot) => Promise<void>
+  /**
+   * Write `snapshot` now and resolve once it has landed (or failed, or timed
+   * out): true only when the server holds exactly this snapshot — so a
+   * "Spremljeno" built on it is never a guess.
+   */
+  flush: (snapshot: ProjectSnapshot) => Promise<boolean>
   state: CheckpointState
 }
 
@@ -198,8 +202,9 @@ export function useProjectCheckpoint(opts: { projectId?: string; initialRevision
   // A save that fails or stalls must not block the submit: it degrades to the
   // old behaviour (a false "changed"), never to a lost brief.
   const flush = useCallback(
-    async (snapshot: ProjectSnapshot) => {
-      if (!projectId || halted.current) return
+    async (snapshot: ProjectSnapshot): Promise<boolean> => {
+      if (!projectId || halted.current) return false
+      const target = snapshotFingerprint(stripImages(snapshot))
       const write = (async () => {
         // A save already on the wire finishes first, so ours is the one that lands last.
         while (inFlight.current) await sleep(50)
@@ -208,6 +213,8 @@ export function useProjectCheckpoint(opts: { projectId?: string; initialRevision
         await send()
       })()
       await Promise.race([write, sleep(FLUSH_TIMEOUT_MS)])
+      // Landed now, or already there (an unchanged snapshot is a no-op send).
+      return lastSentFingerprint.current === target
     },
     [projectId, send]
   )

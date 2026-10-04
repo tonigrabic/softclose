@@ -105,7 +105,7 @@ function normalize(value: string): string {
 
 function layoutTile(value: string, locale?: Locale): string | null {
   const shape = normalize(value) as LayoutShape
-  const KNOWN: LayoutShape[] = ['galley', 'l_shape', 'u_shape', 'island', 'peninsula', 'open', 'unsure']
+  const KNOWN: LayoutShape[] = ['single_wall', 'galley', 'l_shape', 'u_shape', 'island', 'peninsula', 'open', 'unsure']
   if (!KNOWN.includes(shape)) return null
   const plan = fromShapePreset(shape, { hasIsland: shape === 'island' })
   const svg = renderFloorPlanSvg(plan, { showDimensions: false, showDisclaimer: false, locale })

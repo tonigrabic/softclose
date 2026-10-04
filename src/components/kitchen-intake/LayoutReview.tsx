@@ -4,6 +4,8 @@ import { motion } from 'framer-motion'
 import { useTranslations } from '@/lib/i18n'
 import type { FloorPlan } from '@/lib/floor-plan'
 import { FloorPlanEditor, ShapePicker } from './floor-plan-editor'
+import { LengthField } from './RoomStep'
+import { CEILING_MAX_CM, CEILING_MIN_CM, parseCeilingCm, withCeiling } from '@/lib/floor-plan'
 
 /**
  * Post-render layout review — the home of the floor-plan editor after the
@@ -75,35 +77,22 @@ export function LayoutReview({
         anchorPhotoUrl={anchorPhotoUrl}
         onChange={(p) => onFloorPlanChange(p)}
       />
-      {/* Ceiling height — drives tall-unit material in the BOM. */}
-      <div className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card/60 px-4 py-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">{t('space.ceiling.title')}</p>
-          <p className="text-[11px] text-muted-foreground">
-            {floorPlan.ceilingHeightCm ? t('space.ceiling.aiEstimate') : t('space.ceiling.prompt')}
-          </p>
-        </div>
-        <div className="flex items-center overflow-hidden rounded-lg border border-border bg-background focus-within:border-primary/60 focus-within:ring-1 focus-within:ring-primary/20">
-          <input
-            type="number"
-            inputMode="numeric"
-            min={220}
-            max={360}
-            placeholder="280"
-            value={floorPlan.ceilingHeightCm ?? ''}
-            onChange={(e) => {
-              const n = parseInt(e.target.value, 10)
-              onFloorPlanChange({
-                ...floorPlan,
-                ceilingHeightCm:
-                  Number.isFinite(n) && n > 0 ? Math.max(220, Math.min(360, n)) : undefined,
-              })
-            }}
-            className="w-20 bg-transparent px-2.5 py-1.5 text-right text-[13px] tabular-nums text-foreground placeholder:text-muted-foreground/40 focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-          />
-          <span className="shrink-0 pr-2.5 text-[11px] text-muted-foreground/60">cm</span>
-        </div>
-      </div>
+      {/* Ceiling height — drives tall-unit material in the BOM. Typed is the
+          homeowner's; nothing is clamped silently (a clamped number could not
+          honestly read "izmjereno"). */}
+      <LengthField
+        id="confirm-ceiling"
+        label={t('room.ceiling.label')}
+        initialCm={floorPlan.ceilingSource === 'homeowner' ? floorPlan.ceilingHeightCm : undefined}
+        hintCm={floorPlan.ceilingSource !== 'homeowner' && floorPlan.ceilingHeightCm ? floorPlan.ceilingHeightCm : null}
+        parse={parseCeilingCm}
+        rangeError={t('room.ceiling.range').replace('{min}', String(CEILING_MIN_CM)).replace('{max}', String(CEILING_MAX_CM))}
+        unmeasuredNote={t('room.ceiling.unmeasured')}
+        onValue={(cm) => {
+          if (cm == null && floorPlan.ceilingSource !== 'homeowner') return
+          onFloorPlanChange(cm == null ? { ...floorPlan, ceilingSource: undefined } : withCeiling(floorPlan, cm))
+        }}
+      />
     </div>
   )
 }

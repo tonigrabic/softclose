@@ -54,6 +54,14 @@ export interface ProjectSnapshot {
   dealBreakersText: string
   builderHypothesis: BuilderHypothesis | null
   builderStartedNoAI: boolean
+  /** Which screen of the room step (shape, then measure). Optional: older snapshots default to 'shape'. */
+  roomPhase?: 'shape' | 'measure'
+  /**
+   * The room as it is today, as the room step is editing it — kept apart from
+   * `floorPlan` (the kitchen being built), so going back to the room step
+   * never shows or saves the planned layout as the existing room.
+   */
+  roomPlan?: FloorPlan | null
 }
 
 type SnapshotRecord = Record<string, unknown>

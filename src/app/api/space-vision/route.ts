@@ -4,8 +4,8 @@ import { z } from 'zod'
 import { rateLimitKey } from '@/lib/rate-limit'
 import { apiAccount } from '@/lib/auth/dal'
 import { mockAiEnabled, mockDelay } from '@/lib/api/mock'
-import { MOCK_SPACE_VISION } from '@/lib/api/mock-fixtures/space-vision'
-import type { SpaceVisionResult } from '@/lib/types'
+import { mockSpaceVision } from '@/lib/api/mock-fixtures/space-vision'
+import { normalizeVisionRead } from '@/lib/floor-plan/vision-reconcile'
 import { providerFailure, unauthorized, AI_UNAVAILABLE } from '@/lib/api/errors'
 
 const MAX_PHOTOS = 4
@@ -14,6 +14,17 @@ const MAX_CALLS_PER_SESSION_WINDOW = 6
 const SESSION_WINDOW_MS = 30 * 60 * 1000 // 30 minutes — proxy for "session"
 
 const wallSideEnum = z.enum(['top', 'bottom', 'left', 'right'])
+const viewTargetEnum = z.enum([
+  'top',
+  'bottom',
+  'left',
+  'right',
+  'top_left',
+  'top_right',
+  'bottom_right',
+  'bottom_left',
+  'unclear',
+])
 const confidenceEnum = z.enum(['H', 'M', 'L'])
 
 const featurePositionSchema = z.object({
@@ -24,8 +35,28 @@ const featurePositionSchema = z.object({
 
 const visionResultSchema = z.object({
   layoutShape: z
-    .enum(['galley', 'l_shape', 'u_shape', 'island', 'peninsula', 'open', 'unsure'])
+    .enum(['single_wall', 'galley', 'l_shape', 'u_shape', 'island', 'peninsula', 'open', 'unsure'])
     .optional(),
+  emptyRoom: z
+    .boolean()
+    .optional()
+    .describe('True for a room meant for a kitchen with no cabinets in it yet (keep lookedLikeKitchen true, no wallRuns).'),
+  // No upper bound on `photo`: an out-of-range index must not invalidate the
+  // whole call — the normaliser drops it.
+  photoViews: z
+    .array(
+      z.object({
+        photo: z.number().int().min(1).describe('1-based; matches the "Photo N of M" label before each image.'),
+        shows: viewTargetEnum.describe(
+          'The wall this photo faces, or the corner it is centred on, in the ONE plan frame. "unclear" if neither.'
+        ),
+        counterWalls: z
+          .array(wallSideEnum)
+          .describe('Walls with base cabinets or a worktop visible IN THIS photo (only the walls it shows).'),
+        confidence: confidenceEnum,
+      })
+    )
+    .describe('Exactly one entry per photo, in upload order.'),
   hasIsland: z.boolean().optional(),
   lengthCm: z
     .number()
@@ -132,29 +163,6 @@ function approxBytesOfDataUrl(dataUrl: string): number {
   return Math.ceil((base64.length * 3) / 4)
 }
 
-/** Sanity bands per layout shape — see space-vision system prompt. */
-const DIM_BANDS: Record<string, { length: [number, number]; width: [number, number] }> = {
-  galley: { length: [180, 550], width: [130, 300] },
-  l_shape: { length: [220, 650], width: [180, 550] },
-  u_shape: { length: [220, 550], width: [220, 550] },
-  peninsula: { length: [220, 650], width: [220, 550] },
-  island: { length: [320, 850], width: [280, 650] },
-  open: { length: [220, 1000], width: [220, 800] },
-  unsure: { length: [120, 1100], width: [120, 1100] },
-}
-
-function dimsLookSane(shape: string | undefined, lengthCm: number, widthCm: number): boolean {
-  const band = DIM_BANDS[shape ?? 'unsure'] ?? DIM_BANDS.unsure
-  // Length is always the longer dimension; orient before checking.
-  const [longer, shorter] = lengthCm >= widthCm ? [lengthCm, widthCm] : [widthCm, lengthCm]
-  return (
-    longer >= band.length[0] &&
-    longer <= band.length[1] &&
-    shorter >= band.width[0] &&
-    shorter <= band.width[1]
-  )
-}
-
 function dataUrlToImagePart(dataUrl: string): {
   type: 'image'
   image: string
@@ -172,8 +180,10 @@ const SYSTEM = `You are a kitchen-trade vision assistant. Look carefully at the 
 Rules:
 - If the photos clearly are not a kitchen, set lookedLikeKitchen: false and leave most other fields empty.
 - Confidence is per-feature. Use 'H' only when you can clearly see and locate the feature. Use 'L' liberally — better dashed-with-? than wrong.
-- Positional fields use percentages along the room walls. Treat the longer wall run as 'top' (or 'bottom') and the shorter as 'left'/'right'.
-- wallRuns: list ONLY walls where you can actually SEE base cabinets / a worktop. Never add a wall you cannot see. The number of walls MUST agree with layoutShape: galley = 2 facing walls, l_shape = exactly 2 walls that meet at a corner, u_shape = 3 walls, island/open = the wall(s) you see. A single photo of an L-shaped kitchen shows two runs — do not infer a third or fourth.
+- All photos show the SAME room from different positions. Build ONE plan of it. Frame: the plan seen from above, with the longest wall that carries base cabinets at the TOP; 'left' and 'right' are the walls at the left and right end of the top wall as you face it; 'bottom' faces the top wall. Every positional field, whichever photo you saw it in, uses this one frame. Positional fields use percentages along the room walls.
+- photoViews: one entry per photo. 'shows' = the wall the camera faces, or the corner when the shot is centred where two walls meet. 'counterWalls' = the walls with base cabinets or a worktop visible in THAT photo. The same wall seen from two angles is still ONE wall: match the photos by the window, sink, hob, fridge and door. A counter wall seen in ANY photo belongs in wallRuns — wallRuns is the union across the photos, still bounded by layoutShape.
+- An empty room meant for a kitchen (no cabinets yet): lookedLikeKitchen true, emptyRoom true, no wallRuns.
+- wallRuns: list ONLY walls where you can actually SEE base cabinets / a worktop in at least one photo. Never add a wall you cannot see. The number of walls MUST agree with layoutShape: single_wall = 1 wall, galley = 2 facing walls, l_shape = exactly 2 walls that meet at a corner, u_shape = 3 walls, island/open = the wall(s) you see. A single photo of an L-shaped kitchen shows two runs — do not infer a third or fourth.
 - Keep features consistent with openings: a sink under a window sits on the SAME wall as that window.
 - Island: only when a free-standing island is clearly visible. Otherwise omit features.island entirely (do not send zeros) and set hasIsland:false.
 - Identify EVERY fixed appliance you can see — homeowners often forget these, so be thorough. In particular, report the OVEN and the extractor HOOD as their own features (do not fold them into the hob): the hob is the cooktop surface, the oven is the built-in baking unit (often below the hob or in a tall column), and the hood is the extractor above the hob. Place the hood at the hob's position along its wall.
@@ -190,6 +200,7 @@ Dimensions — be honest about what you can and cannot scale:
 - If no anchor is visible, omit lengthCm and widthCm. Add a short note in 'summary' explaining you couldn't scale it ("Hard to scale from these — let's set the size together.").
 - Do not output dimensions to feel complete. Wrong dimensions cost the homeowner trust in the maker downstream.
 - If you do output dimensions, sanity-check against typical room footprints:
+  · single_wall: 200–600 cm × 150–500 cm
   · galley:    200–500 cm × 150–280 cm
   · l_shape:   240–600 cm × 200–500 cm
   · u_shape:   240–500 cm × 240–500 cm
@@ -203,22 +214,6 @@ export async function POST(req: Request) {
   // is ~75 s of gpt-image-2) and were open to the internet until now.
   const session = await apiAccount()
   if (!session) return unauthorized()
-
-  // Mock-AI mode: canned fixture before rate limiting, so devs can spam freely.
-  if (mockAiEnabled()) {
-    await mockDelay()
-    return Response.json({ result: MOCK_SPACE_VISION })
-  }
-  const limit = rateLimitKey(session.accountId, 'space-vision', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
-  if (!limit.ok) {
-    return Response.json(
-      {
-        error: `Too many vision calls — please wait a moment.`,
-        retryAfterMs: limit.retryAfterMs,
-      },
-      { status: 429 }
-    )
-  }
 
   let body: { photos?: string[]; locale?: string }
   try {
@@ -249,6 +244,24 @@ export async function POST(req: Request) {
     }
   }
 
+  // Mock-AI mode: the canned read for this many photos, through the same
+  // normaliser as a live one, after the body is validated like a live call and
+  // before rate limiting, so devs can spam freely.
+  if (mockAiEnabled()) {
+    await mockDelay()
+    return Response.json({ result: normalizeVisionRead(mockSpaceVision(photos.length), photos.length) })
+  }
+  const limit = rateLimitKey(session.accountId, 'space-vision', MAX_CALLS_PER_SESSION_WINDOW, SESSION_WINDOW_MS)
+  if (!limit.ok) {
+    return Response.json(
+      {
+        error: `Too many vision calls — please wait a moment.`,
+        retryAfterMs: limit.retryAfterMs,
+      },
+      { status: 429 }
+    )
+  }
+
   const langNote =
     body.locale === 'hr-HR'
       ? "\n\nWrite the 'summary' sentence in Croatian (hr-HR); keep every other field in the schema's English enum values."
@@ -264,9 +277,13 @@ export async function POST(req: Request) {
           content: [
             {
               type: 'text',
-              text: 'Here are the photos of my kitchen. Please infer layout, dimensions, openings, fixed features, and style/material hints.',
+              text: `${photos.length} photo${photos.length === 1 ? '' : 's'} of ONE kitchen, taken from different positions. Build one plan of the room: layout, dimensions, openings, fixed features, which wall or corner each photo shows, and style/material hints.`,
             },
-            ...photos.map(dataUrlToImagePart),
+            // Labelled, so photoViews can say which photo shows what.
+            ...photos.flatMap((p, i) => [
+              { type: 'text' as const, text: `Photo ${i + 1} of ${photos.length}:` },
+              dataUrlToImagePart(p),
+            ]),
           ],
         },
       ],
@@ -283,25 +300,11 @@ export async function POST(req: Request) {
     if (!toolCall) {
       return Response.json({ error: 'No structured result returned' }, { status: 500 })
     }
-    const inferred = toolCall.input as SpaceVisionResult
-
-    // Defense-in-depth dimension validation. The model is also told to omit dims
-    // it can't anchor, but we don't trust it and drop anything outside per-shape
-    // sanity bands. The editor's "set the size" moment then takes over.
-    if (inferred.lengthCm && (inferred.lengthCm < 100 || inferred.lengthCm > 1200)) {
-      inferred.lengthCm = undefined
-    }
-    if (inferred.widthCm && (inferred.widthCm < 100 || inferred.widthCm > 1200)) {
-      inferred.widthCm = undefined
-    }
-    if (
-      inferred.lengthCm &&
-      inferred.widthCm &&
-      !dimsLookSane(inferred.layoutShape, inferred.lengthCm, inferred.widthCm)
-    ) {
-      inferred.lengthCm = undefined
-      inferred.widthCm = undefined
-    }
+    // One view per photo, counter walls only where a photo can show them,
+    // and dims outside the shape's band dropped (the model is told to omit
+    // dims it cannot anchor; we don't trust it). The room step then asks the
+    // homeowner to measure anyway — an AI number is only ever a hint.
+    const inferred = normalizeVisionRead(toolCall.input, photos.length)
 
     return Response.json({ result: inferred })
   } catch (err) {

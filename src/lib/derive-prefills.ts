@@ -45,15 +45,9 @@ export function derivePrefills(input: PrefillInput): Partial<LeadProfile> {
     out.hardwareTier = input.inspirationVision.hardwareTierGuess
   }
 
-  // Layout from space vision (high-confidence shapes only).
-  if (input.spaceVision?.layoutShape && input.spaceVision.layoutShape !== 'unsure') {
-    out.layoutShape = input.spaceVision.layoutShape
-  }
-  if (typeof input.spaceVision?.hasIsland === 'boolean') {
-    out.hasIsland = input.spaceVision.hasIsland
-  }
-  if (input.spaceVision?.lengthCm) out.spaceLengthCm = input.spaceVision.lengthCm
-  if (input.spaceVision?.widthCm) out.spaceWidthCm = input.spaceVision.widthCm
+  // No layout from the photo read here: the room step confirms the shape and
+  // the homeowner measures the walls (IMP-31). Copying the AI read into the
+  // profile after that would overwrite what they confirmed.
 
   return out
 }

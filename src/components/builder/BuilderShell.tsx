@@ -55,6 +55,8 @@ export interface BuilderShellProps {
   renderImageDataUrl?: string
   /** Anchor photo (Phase-1 space upload) shown when no render is available. */
   anchorPhotoDataUrl?: string
+  /** No paid re-render: the room was never measured (a journey saved before IMP-31). */
+  rerenderBlocked?: boolean
   /**
    * Read-only summary line about the room — layout shape + dimensions captured
    * in Phase 1. Shown under the persistent render preview so the user always
@@ -95,6 +97,7 @@ export function BuilderShell({
   unitEdits,
   renderImageDataUrl,
   anchorPhotoDataUrl,
+  rerenderBlocked = false,
   layoutSummary,
   profile,
   layoutPreconfirmed,
@@ -139,6 +142,7 @@ export function BuilderShell({
       unitEdits={unitEdits}
       renderImageDataUrl={renderImageDataUrl}
       anchorPhotoDataUrl={anchorPhotoDataUrl}
+      rerenderBlocked={rerenderBlocked}
       layoutSummary={layoutSummary}
       profile={profile}
       onComplete={onComplete}
@@ -186,6 +190,7 @@ function Shell({
   unitEdits,
   renderImageDataUrl,
   anchorPhotoDataUrl,
+  rerenderBlocked,
   layoutSummary,
   profile,
   onComplete,
@@ -200,6 +205,7 @@ function Shell({
   unitEdits?: UnitEdits | null
   renderImageDataUrl?: string
   anchorPhotoDataUrl?: string
+  rerenderBlocked: boolean
   layoutSummary?: string
   profile?: LeadProfile
   onComplete?: (state: BuilderState) => void
@@ -264,6 +270,7 @@ function Shell({
       <RerenderPanel
         state={state}
         anchorPhotoDataUrl={anchorPhotoDataUrl}
+        blocked={rerenderBlocked}
         currentRenderDataUrl={previewSrc ?? undefined}
         onRendered={(imageDataUrl, trigger) => dispatch({ type: 'push_rerender', imageDataUrl, trigger })}
       />

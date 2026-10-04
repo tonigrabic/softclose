@@ -1,6 +1,7 @@
 'use client'
 
 import { renderFloorPlanSvg, type FloorPlan, type SvgRenderMode } from '@/lib/floor-plan'
+import type { WallSide } from '@/lib/types'
 import { useTranslations } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
@@ -14,6 +15,9 @@ interface FloorPlanStaticProps {
   showDimensions?: boolean
   /** Hide the "your designer will measure on site" footer caption. Default false. */
   hideFooter?: boolean
+  /** Circled letters on these walls (the room step); filled for `wallLettersDone`. */
+  wallLetters?: Partial<Record<WallSide, string>>
+  wallLettersDone?: readonly WallSide[]
   className?: string
 }
 
@@ -27,10 +31,12 @@ export function FloorPlanStatic({
   showDisclaimer = true,
   showDimensions = true,
   hideFooter = false,
+  wallLetters,
+  wallLettersDone,
   className,
 }: FloorPlanStaticProps) {
   const { t, locale } = useTranslations()
-  const svg = renderFloorPlanSvg(plan, { mode, showDisclaimer, showDimensions, locale })
+  const svg = renderFloorPlanSvg(plan, { mode, showDisclaimer, showDimensions, locale, wallLetters, wallLettersDone })
   return (
     <div
       className={cn(

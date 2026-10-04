@@ -55,9 +55,39 @@ export {
   DEFAULT_COUNTER_DEPTH_CM,
   COUNTER_DEPTH_OPTIONS_CM,
   reconcileCounterWalls,
+  shapeFromCounterWalls,
+  wallsAdjacent,
 } from './model'
 
 export { renderFloorPlanSvg } from './svg'
+
+export { normalizeVisionRead, relabelPhotoView, wallsOf } from './vision-reconcile'
+
+export {
+  WALL_LETTER,
+  ROOM_CARDS,
+  TARGET_CARDS,
+  CEILING_MIN_CM,
+  CEILING_MAX_CM,
+  counterWalls,
+  isValidWallLength,
+  missingWalls,
+  isRoomMeasured,
+  hasAnyMeasuredWall,
+  wallEstimateCm,
+  parseWallLengthCm,
+  parseCeilingCm,
+  withMeasuredWall,
+  withCeiling,
+  cardForPlan,
+  withShape,
+  roomPlanFromVision,
+  reseedRoomPlan,
+  roomStepReady,
+  roomStepDone,
+} from './measure'
+export type { RoomCard } from './measure'
+export type { RawVisionRead, RawPhotoView } from './vision-reconcile'
 export type { SvgRenderMode } from './svg'
 
 export {

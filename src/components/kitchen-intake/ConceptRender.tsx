@@ -79,6 +79,14 @@ interface ConceptRenderProps {
    * homeowner can still iterate or skip after.
    */
   autoStart?: boolean
+  /**
+   * The room is measured (IMP-31). The render is made in the measured room, so
+   * without typed wall lengths nothing renders — not even by autoStart — and
+   * the step points back to the room step. Default true for callers that
+   * predate it.
+   */
+  roomMeasured?: boolean
+  onMeasureRoom?: () => void
 }
 
 export function ConceptRender({
@@ -93,6 +101,8 @@ export function ConceptRender({
   onChoose,
   onSkip,
   autoStart = false,
+  roomMeasured = true,
+  onMeasureRoom,
 }: ConceptRenderProps) {
   const { t } = useTranslations()
   const [anchorIndex, setAnchorIndex] = useState(0)
@@ -141,7 +151,7 @@ export function ConceptRender({
   const capped = remaining === 0
 
   async function generate() {
-    if (capped) return
+    if (capped || !roomMeasured) return
     setIsGenerating(true)
     setError(null)
     try {
@@ -218,7 +228,7 @@ export function ConceptRender({
   // performs lands outside the synchronous effect body (React's strict effects
   // rule rightly flags sync setState inside effects).
   useEffect(() => {
-    if (!autoStart) return
+    if (!autoStart || !roomMeasured) return
     if (autoStartedRef.current) return
     if (renders.length > 0) return
     if (anchorPhotos.length === 0) return
@@ -235,7 +245,27 @@ export function ConceptRender({
       void generate()
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoStart, anchorPhotos.length, renders.length])
+  }, [autoStart, anchorPhotos.length, renders.length, roomMeasured])
+
+  if (!roomMeasured) {
+    return (
+      <div className="space-y-3 rounded-2xl border border-amber-300/50 bg-amber-50/60 px-4 py-4 text-amber-950 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-100">
+        <div className="flex items-start gap-2">
+          <AlertCircle className="mt-0.5 size-4 shrink-0 stroke-[1.75]" aria-hidden />
+          <p className="text-sm leading-relaxed">{t('room.gate.render')}</p>
+        </div>
+        {onMeasureRoom && (
+          <button
+            type="button"
+            onClick={onMeasureRoom}
+            className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground hover:bg-accent/40"
+          >
+            {t('room.gate.measure')}
+          </button>
+        )}
+      </div>
+    )
+  }
 
   if (anchorPhotos.length === 0) {
     return (

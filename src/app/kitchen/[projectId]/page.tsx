@@ -5,6 +5,8 @@ import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import { DEFAULT_LOCALE, isLocale, tDynamic } from '@/lib/i18n/core'
 import { migrateSnapshot } from '@/lib/project/snapshot'
 import { stepProgress } from '@/lib/project/status'
+import { resumeStepId } from '@/lib/flow'
+import { roomStepDone } from '@/lib/floor-plan'
 import { KitchenHome } from './KitchenHome'
 
 export const dynamic = 'force-dynamic'
@@ -63,7 +65,16 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
     }
   }
 
-  const progress = stepProgress(project.step)
+  // Where the journey will actually resume — a journey saved past the room
+  // step without a measured room goes back to it (IMP-31), and the label on
+  // the continue button must say so.
+  const resumeStep = project.step
+    ? resumeStepId(project.step, {
+        roomMeasured: roomStepDone(snapshot?.profile),
+        contractConfirmed: Boolean(snapshot?.profile?.contractConfirmedAt),
+      })
+    : null
+  const progress = stepProgress(resumeStep)
   const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(locale) : null)
 
   return (

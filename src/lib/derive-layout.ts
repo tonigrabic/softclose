@@ -18,7 +18,7 @@
  */
 import type { SpaceVisionResult, SpaceFeatures, FeaturePosition, WallSide } from '@/lib/types'
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
-import { fromVision, type FloorPlan, type LayoutShape } from '@/lib/floor-plan'
+import { fromVision, isRoomMeasured, type FloorPlan, type LayoutShape } from '@/lib/floor-plan'
 
 /** A guessed feature position, anchored to the hob when we know it. */
 function anchoredFeature(anchor: FeaturePosition | undefined, primaryWall: WallSide): FeaturePosition {
@@ -95,4 +95,23 @@ export function renderDerivedFloorPlan(
   hypothesis: BuilderHypothesis | null | undefined
 ): FloorPlan {
   return fromVision(spaceVisionWithRenderLayout(photoVision, hypothesis))
+}
+
+/**
+ * The plan "Confirm layout & look" opens with. A plan already in hand (the
+ * homeowner's edits) always wins; otherwise the room measured on the room
+ * step; only for a journey that never measured (saved before the room step)
+ * the old render-derived seed. The measured room must never be rebuilt from a
+ * picture — that is how the testers' second wall was lost. Constraining the
+ * render by the room is IMP-32's seam.
+ */
+export function seedConfirmPlan(
+  current: FloorPlan | null | undefined,
+  measured: FloorPlan | null | undefined,
+  photoVision: SpaceVisionResult | null | undefined,
+  hypothesis: BuilderHypothesis | null | undefined
+): FloorPlan {
+  if (current) return current
+  if (measured && isRoomMeasured(measured)) return measured
+  return renderDerivedFloorPlan(photoVision, hypothesis)
 }

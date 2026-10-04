@@ -35,6 +35,7 @@ export interface Provenance {
 // ─── Layout shape (drives the cabinet hint background) ───────────────────────
 
 export type LayoutShape =
+  | 'single_wall'
   | 'galley'
   | 'l_shape'
   | 'u_shape'
@@ -97,6 +98,13 @@ export interface SideSpec {
    * this was editable. Set true from the per-wall contract card.
    */
   hasTall?: boolean
+  /**
+   * The wall's length as the homeowner measured it on the room step, in cm.
+   * Its presence is the provenance: set only by a typed value, never by a
+   * vision read or a preset. Opposite walls share one room dimension, so this
+   * also keeps both numbers when a galley's or a U's facing walls differ.
+   */
+  measuredLengthCm?: number
 }
 
 export interface RoomSides {
@@ -117,6 +125,8 @@ export interface RoomSpec {
   sides: RoomSides
   confidence: ConfidenceLevel
   source: ElementSource
+  /** Provenance before the homeowner measured it (room step) — restored if a measurement is taken back. */
+  estimate?: Provenance
 }
 
 export interface Opening {
@@ -175,6 +185,8 @@ export interface FloorPlan {
   hasIsland: boolean
   /** Ceiling height in cm (AI estimate / homeowner-confirmed). Undefined → standard default. */
   ceilingHeightCm?: number
+  /** Where `ceilingHeightCm` came from. Anything but 'homeowner' reads as "nije izmjereno". */
+  ceilingSource?: ElementSource
   room: RoomSpec
   openings: Opening[]
   features: Feature[]
@@ -211,6 +223,7 @@ export const OPENING_DEFAULTS: Record<
 
 /** Sensible default room sizes per layout shape. Used when AI declines to scale. */
 export const DEFAULT_ROOM_BY_SHAPE: Record<LayoutShape, { lengthCm: number; widthCm: number }> = {
+  single_wall: { lengthCm: 360, widthCm: 280 },
   galley: { lengthCm: 360, widthCm: 220 },
   l_shape: { lengthCm: 380, widthCm: 320 },
   u_shape: { lengthCm: 360, widthCm: 360 },
@@ -225,6 +238,7 @@ export const SHAPE_DIM_BANDS: Record<
   LayoutShape,
   { length: [number, number]; width: [number, number] }
 > = {
+  single_wall: { length: [180, 650], width: [120, 600] },
   galley: { length: [180, 550], width: [130, 300] },
   l_shape: { length: [220, 650], width: [180, 550] },
   u_shape: { length: [220, 550], width: [220, 550] },
@@ -263,6 +277,8 @@ export function wallAxis(wall: WallSide): 'h' | 'v' {
 /** Default counter presence per side based on layout shape (closed sides only). */
 export function defaultHasCounter(wall: WallSide, layoutShape: LayoutShape): boolean {
   switch (layoutShape) {
+    case 'single_wall':
+      return wall === 'top'
     case 'galley':
       return wall === 'top' || wall === 'bottom'
     case 'l_shape':
@@ -287,7 +303,7 @@ const ALL_WALLS: WallSide[] = ['top', 'bottom', 'left', 'right']
 
 /**
  * Which walls actually carry counter, reconciling the vision's `wallRuns` with
- * its own `layoutShape` label.
+ * its own `layoutShape` label and, when present, the per-photo views.
  *
  * Real-run finding (2026-09-19): from one photo of an L-shaped kitchen the
  * model labelled `l_shape` but listed runs on all FOUR walls; `fromVision`
@@ -299,12 +315,30 @@ const ALL_WALLS: WallSide[] = ['top', 'bottom', 'left', 'right']
  * wall the run spans). Fewer walls than the shape suggests are left alone —
  * never invent a run the model did not see. Ambiguous shapes (peninsula,
  * island, open, unsure) are never trimmed.
+ *
+ * Photo views (2026-10-03, IMP-31): each photo reports the walls with counter
+ * it shows. A counter wall seen in ANY photo is a candidate — the testers'
+ * two-angle L lost its second wall because nothing joined the photos. A wall a
+ * photo shows clearly (H) — or any view's wall once the homeowner corrected a
+ * label — is kept even past the label's limit: the label is the guess, the
+ * photo is not.
+ * Without views the behaviour is exactly the one above.
  */
 export function reconcileCounterWalls(vision: SpaceVisionResult): WallSide[] {
   const runs = vision.wallRuns ?? []
-  const listed = ALL_WALLS.filter((w) => runs.some((r) => r.wall === w))
+  const views = vision.photoViews ?? []
+  const inView = (w: WallSide) => views.some((v) => v.counterWalls.includes(w))
+  const listed = ALL_WALLS.filter((w) => runs.some((r) => r.wall === w) || inView(w))
+  // Once the homeowner corrected any label they have reviewed them all: every
+  // view's walls stand. Before that, only what a photo shows clearly (H) does.
+  const reviewed = views.some((v) => v.source === 'homeowner')
+  const pinned = ALL_WALLS.filter((w) =>
+    views.some((v) => v.counterWalls.includes(w) && (reviewed || v.confidence === 'H'))
+  )
   const shape = (vision.layoutShape as LayoutShape | undefined) ?? 'unsure'
-  const limit = shape === 'l_shape' || shape === 'galley' ? 2 : shape === 'u_shape' ? 3 : Infinity
+  const shapeLimit =
+    shape === 'single_wall' ? 1 : shape === 'l_shape' || shape === 'galley' ? 2 : shape === 'u_shape' ? 3 : Infinity
+  const limit = Math.max(shapeLimit, pinned.length)
   if (listed.length <= limit) return listed
 
   const CONF_WEIGHT: Record<ConfidenceLevel, number> = { H: 3, M: 2, L: 1 }
@@ -317,30 +351,45 @@ export function reconcileCounterWalls(vision: SpaceVisionResult): WallSide[] {
     for (const r of runs) {
       if (r.wall === w) s += (2 * Math.max(0, (r.spanPct?.end ?? 100) - (r.spanPct?.start ?? 0))) / 100
     }
+    for (const v of views) {
+      if (v.counterWalls.includes(w)) s += CONF_WEIGHT[v.confidence] ?? 1
+    }
     return s
   }
-  const ranked = [...listed].sort((a, b) => score(b) - score(a))
-  const first = ranked[0]
-  if (shape === 'u_shape') return ranked.slice(0, 3)
-  const partner = ranked.slice(1).find((w) => (shape === 'l_shape' ? wallsAdjacent(first, w) : !wallsAdjacent(first, w)))
+  const byScore = (a: WallSide, b: WallSide) => score(b) - score(a)
+  const keep = [...pinned].sort(byScore)
+  if (keep.length >= limit) return keep
+  const rest = listed.filter((w) => !keep.includes(w)).sort(byScore)
+  if (limit >= 3) return [...keep, ...rest].slice(0, limit)
+  const first = keep[0] ?? rest[0]
+  if (limit === 1) return [first]
+  const partner = rest
+    .filter((w) => w !== first)
+    .find((w) => (shape === 'galley' ? !wallsAdjacent(first, w) : wallsAdjacent(first, w)))
   return partner ? [first, partner] : [first]
 }
 
 /** Two walls are adjacent (share a corner) when one is horizontal, one vertical. */
-function wallsAdjacent(a: WallSide, b: WallSide): boolean {
+export function wallsAdjacent(a: WallSide, b: WallSide): boolean {
   const horizontal = (w: WallSide) => w === 'top' || w === 'bottom'
   return horizontal(a) !== horizontal(b)
 }
 
+/** Seeds whose one-wall reading is a single-wall kitchen, not a different layout. */
+const ONE_WALL_IS_SINGLE: ReadonlySet<LayoutShape> = new Set(['single_wall', 'galley', 'l_shape', 'u_shape'])
+
 /**
  * Derive the layout-shape LABEL from the set of counter-bearing walls:
- *   ≥3 walls → U-shape, 2 adjacent → L-shape, 2 opposite → galley, ≤1 → seed.
+ *   ≥3 walls → U-shape, 2 adjacent → L-shape, 2 opposite → galley,
+ *   1 wall → single wall when the seed was a wall layout, otherwise the seed.
  * Shape is a read-out of what the homeowner configured, never an authoritative
  * input — so it can never contradict the walls ("says L-oblik but it's wrong").
+ * An island or an unsure seed with one wall keeps its label.
  */
-function shapeFromCounterWalls(walls: WallSide[], fallback: LayoutShape): LayoutShape {
+export function shapeFromCounterWalls(walls: WallSide[], fallback: LayoutShape): LayoutShape {
   if (walls.length >= 3) return 'u_shape'
   if (walls.length === 2) return wallsAdjacent(walls[0], walls[1]) ? 'l_shape' : 'galley'
+  if (walls.length === 1 && ONE_WALL_IS_SINGLE.has(fallback)) return 'single_wall'
   return fallback
 }
 
@@ -622,9 +671,15 @@ export function fromVision(
   // conventional walls only when vision gave no runs. Storing explicit values
   // (rather than the old layout-shape default) is what lets `deriveShape` read
   // the layout back without circularity.
-  const visionCounterWalls = vision?.wallRuns?.length
-    ? new Set<WallSide>(reconcileCounterWalls(vision))
-    : null
+  // Photo views count as runs too: a read with views but no run list still
+  // joins its photos (IMP-31).
+  // A label the homeowner reviewed is evidence even with no runs left on it:
+  // better no counter wall (they pick the card) than a shape default invented.
+  const hasRunEvidence = Boolean(
+    vision?.wallRuns?.length ||
+      vision?.photoViews?.some((v) => v.counterWalls.length > 0 || v.source === 'homeowner')
+  )
+  const visionCounterWalls = hasRunEvidence ? new Set<WallSide>(reconcileCounterWalls(vision!)) : null
   const counterWalls: WallSide[] = []
   for (const w of ALL_WALLS) {
     if (sides[w].kind === 'open') continue
@@ -686,6 +741,7 @@ export function fromVision(
     layoutShape,
     hasIsland,
     ceilingHeightCm: vision?.ceilingHeightCm,
+    ceilingSource: vision?.ceilingHeightCm ? 'ai_vision' : undefined,
     room,
     openings,
     features,
@@ -854,7 +910,18 @@ export function validate(plan: FloorPlan): FloorPlan {
   const next: FloorPlan = { ...plan, room, openings, features, island, hasIsland: Boolean(island) }
   // Shape always follows the walls — recompute it here so no edit can leave a
   // stale label (the "still says L-oblik" bug).
-  return { ...next, layoutShape: deriveShape(next) }
+  const layoutShape = deriveShape(next)
+  if (layoutShape === next.layoutShape) return next
+  // A new label must never change which walls carry counter. Sides that were
+  // following the old label's default are pinned to it first — otherwise an L
+  // relabelled 'single_wall' would drop a run that relied on the L default.
+  const sides = { ...next.room.sides }
+  for (const w of ALL_WALLS) {
+    if (sides[w].kind !== 'open' && sides[w].hasCounter === undefined) {
+      sides[w] = { ...sides[w], hasCounter: defaultHasCounter(w, next.layoutShape) }
+    }
+  }
+  return { ...next, room: { ...next.room, sides }, layoutShape }
 }
 
 function isClosedSide(plan: FloorPlan, wall: WallSide): boolean {
