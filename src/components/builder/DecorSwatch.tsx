@@ -6,8 +6,13 @@ import { decorSwatch } from '@/lib/builder/swatches'
 
 /**
  * Renders a decor as a swatch tile: the real EGGER swatch when the manifest
- * has one (wood grain included), else the hexHint colour square. Labels read
- * the way makers quote a decor — name, then the Elgrad code under it.
+ * has one and the images are switched on (NEXT_PUBLIC_DECOR_IMAGES=1, see
+ * lib/builder/swatches), else the hexHint colour tile with a soft sheen so it
+ * reads as a material, not a flat error box. Labels read the way makers quote
+ * a decor — name, then the Elgrad code under it.
+ *
+ * When on, the image is hotlinked from EGGER's CDN, so it is fetched with no
+ * Referer: the homeowner's page address (a /kitchen/<id> URL) stays with us.
  */
 export function DecorSwatch({
   code,
@@ -56,15 +61,19 @@ export function DecorSwatch({
         )}
         style={{ backgroundColor: swatch.hexHint }}
       >
-        {showImage && (
+        {showImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={swatch.imagePath!}
             alt=""
             loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
             className="h-full w-full object-cover"
             onError={() => setImgFailed(true)}
           />
+        ) : (
+          <span aria-hidden className="absolute inset-0 bg-gradient-to-br from-white/20 via-transparent to-black/5" />
         )}
       </div>
       {showLabel && label && (
