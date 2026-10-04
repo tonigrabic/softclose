@@ -1832,3 +1832,49 @@ marža dok ne uneseš svoje cijene"). The stored brief carries
 `priceBasis: gross-margin-v1`; the customer response omits the maker fields.
 
 Gate: 804 tests · tsc · eslint · next build green.
+
+### 2026-10-03 — IMP-05: the wrap-up is the homeowner's; no maker link, no maker demo, no B2B cost
+Spec item 6 (IMPROVEMENTS.md). The wrap-up ended with "Otvori pogled
+izrađivača" (a /maker/<id> link, 404 for a customer) and "Demo: pogledaj što
+vidi izrađivač", which mounted the maker dashboard — B2B cost box included —
+inside the funnel. `buildHandoffBundle` attached `estimate.makerCost` at
+submit, so it was stored with the brief and (before IMP-04's
+`toCustomerBundle`) sent back to the homeowner.
+
+- Wrap-up: both controls gone. In project mode the one way on is "Natrag na
+  moju kuhinju" → `/kitchen/<projectId>` (a plain `<a>`: the wrap-up sits
+  inside KitchenHome at that same URL, and a soft navigation would keep it up).
+  The maker looking in read-only sees "Natrag na kuhinju kupca". The anonymous
+  funnel has no kitchen home and gets no link.
+- `makerCost` is no longer computed at submit. `makerCostFor(brief)` computes
+  it on the maker's brief page at view time; `toCustomerBundle` still strips
+  it as a guard. `makerPath` is gone from `HandoffBundle` and the route.
+- The maker demo lives in the `/builder` harness only: "Maker view (demo)",
+  enabled once a build is finished, opens `MakerDashboardPreview` over the
+  shell, so the builder keeps its state.
+- Tests: `handoff-customer-response` runs the real route with the maker price
+  list faked as filled in and asserts no `makerCost` / `/maker/` in the
+  response; `wrapup-controls` renders the wrap-up for customer, maker
+  read-only and anonymous and asserts no `/maker/` link or demo; a source
+  check pins `makerCostFor(` to the maker page.
+
+Not carried over: the maker's live project view (`/dashboard/project/[id]`)
+and the harness demo no longer show the B2B cost basis (the spec puts it on
+the brief page only; dormant while maker-pricing.json is empty — IMP-21 can
+add it to the live view with the per-maker rate card). Flagged, not fixed:
+the maker's read-only wrap-up of an unsent project still submits on mount
+and shows resend; both 404 for a maker.
+
+**Browser check** (local stack, mock AI): customer imp32-sanity → kitchen home
+→ "Izmijeni kuhinju" → wrap-up ends with "Preuzmi sažetak (JSON)" and "Natrag
+na moju kuhinju"; the only link on the page is `/kitchen/<id>`; no "Demo",
+"B2B" or "pogled izrađivača" text. "Pošalji izmjene" → `/api/handoff` 200,
+estimate keys `low, high, withAppliances, basis, bandPct, lines, assumptions,
+priceBasis` — no `makerCost`, no `maker`, no `makerPath`, no `/maker/`. The
+back link lands on the kitchen home (full load, new brief "još nije otvorio").
+Maker brief page unchanged (net cost 4.500–6.100 €, margin 30 %). `/builder`:
+finish the build → "Maker view (demo)" opens the maker view (cost without
+margin, margin, customer range) and "Natrag na prikaz kupca" returns to the
+same builder group.
+
+Gate: 821 tests (54 files) · tsc · eslint · next build green.

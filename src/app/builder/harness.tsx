@@ -16,12 +16,18 @@
  *
  * The fixture picker is a floating, collapsible panel so it never overlaps the
  * real app chrome — it's a dev tool, not part of the product.
+ *
+ * Finish a build and the panel's "Maker view (demo)" opens the maker's
+ * dashboard over it, from the brief that build would send. It lives here and
+ * only here (IMP-05): the homeowner's wrap-up offers no maker view.
  */
 'use client'
 
 import { useMemo, useRef, useState } from 'react'
-import { FlaskConical, X } from 'lucide-react'
+import { Eye, FlaskConical, X } from 'lucide-react'
 import { BuilderShell } from '@/components/builder/BuilderShell'
+import { MakerDashboardPreview } from '@/components/kitchen-intake/MakerDashboardPreview'
+import { buildHandoffBundle } from '@/lib/handoff/bundle'
 import { floorPlanToLayout, type LayoutContract } from '@/lib/contract/layout-contract'
 import { planFromProfile, renderFloorPlanSvg, validate } from '@/lib/floor-plan'
 import { CONTRACT_FIXTURES, fixtureById } from '@/lib/builder/fixtures'
@@ -47,9 +53,24 @@ export function BuilderHarness() {
   const [imported, setImported] = useState<ImportedSession | null>(null)
   const [importNonce, setImportNonce] = useState(0)
   const [importError, setImportError] = useState<string | null>(null)
+  /** The last finished build, tagged with the shell it came from, so a new
+   *  fixture or import does not demo the previous kitchen. */
+  const [completed, setCompleted] = useState<{ shellKey: string; state: BuilderState } | null>(null)
+  const [showMakerView, setShowMakerView] = useState(false)
   const pasteRef = useRef<HTMLTextAreaElement>(null)
   const fixture = fixtureById(fixtureId)
   const hypFixture = hypothesisFixtureById(hypId)
+  const shellKey = imported ? `import-${importNonce}` : `${fixture.id}·${hypFixture.id}`
+
+  // The brief this build would send, through the same function the handoff
+  // uses. The full bundle, maker-only money included: this is the maker's view.
+  const demoBundle = useMemo(
+    () =>
+      completed && completed.shellKey === shellKey
+        ? buildHandoffBundle({ brief: { builderState: completed.state } })
+        : null,
+    [completed, shellKey]
+  )
 
   const { contract, hypothesis, savedState, svg, summaryLabel } = useMemo(() => {
     if (imported) {
@@ -104,13 +125,24 @@ export function BuilderHarness() {
     <>
       {/* The real app, rendered purely from the selected contract (+hypothesis). */}
       <BuilderShell
-        key={`${imported ? `import-${importNonce}` : `${fixture.id}·${hypFixture.id}`}`}
+        key={shellKey}
         layoutContract={contract}
         hypothesis={hypothesis}
         savedState={savedState}
         layoutSummary={summaryLabel}
-        onComplete={(state) => console.log('Builder complete', state)}
+        onComplete={(state) => {
+          console.log('Builder complete', state)
+          setCompleted({ shellKey, state })
+        }}
       />
+
+      {/* The maker's view of this build, over the shell rather than instead of
+          it, so the builder keeps its state for the way back. */}
+      {showMakerView && demoBundle && (
+        <div className="fixed inset-0 z-[70] overflow-auto bg-background">
+          <MakerDashboardPreview bundle={demoBundle} onBack={() => setShowMakerView(false)} />
+        </div>
+      )}
 
       {/* ── Floating, collapsible dev harness (never overlaps the app) ──── */}
       {open ? (
@@ -132,6 +164,17 @@ export function BuilderHarness() {
           </div>
 
           <div className="flex flex-col gap-3 overflow-y-auto p-3">
+            <button
+              type="button"
+              onClick={() => setShowMakerView(true)}
+              disabled={!demoBundle}
+              title={demoBundle ? undefined : 'Finish the build first'}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-[11px] font-semibold text-foreground hover:bg-muted/60 disabled:opacity-50"
+            >
+              <Eye className="size-3.5 stroke-[2]" aria-hidden />
+              Maker view (demo)
+            </button>
+
             {imported ? (
               <div className="flex items-center justify-between gap-2 rounded-lg border border-primary/40 bg-primary/5 px-2.5 py-1.5 text-[11px]">
                 <span className="font-medium text-foreground">{imported.label}</span>

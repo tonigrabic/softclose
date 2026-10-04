@@ -949,11 +949,18 @@ export function KitchenIntake({
           transcript={transcript}
           projectId={projectId}
           makerName={makerName}
+          readOnly={readOnly}
           hasExistingBrief={hasExistingBrief || sentInSession}
-          beforeSubmit={async () => {
-            await checkpoint.flush(snapshot)
-          }}
-          onSent={() => setSentInSession(true)}
+          // The maker looking in never sends, so there is nothing to flush
+          // before a send and no send to remember.
+          beforeSubmit={
+            readOnly
+              ? undefined
+              : async () => {
+                  await checkpoint.flush(snapshot)
+                }
+          }
+          onSent={readOnly ? undefined : () => setSentInSession(true)}
           onOpenBuilder={
             readOnly
               ? undefined

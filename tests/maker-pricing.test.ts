@@ -15,6 +15,7 @@ import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import { hydrateFromHypothesis } from '@/lib/builder/state'
 import { computeBom } from '@/lib/builder/bom'
 import { makerPriceForSku, makerPricingEntryCount } from '@/lib/catalog/maker-pricing'
+import { makerCostFor } from '@/lib/handoff/bundle'
 
 describe('maker pricing override — dormant by default', () => {
   test('the pricelist ships empty', () => {
@@ -34,5 +35,11 @@ describe('maker pricing override — dormant by default', () => {
       expect(maker.total, f.id).toEqual(retail.total)
       expect(maker.sections.goods, f.id).toEqual(retail.sections.goods)
     }
+  })
+
+  test('no B2B cost basis on the maker page while the pricelist is empty', () => {
+    const f = CONTRACT_FIXTURES[0]
+    const state = hydrateFromHypothesis(null, { layoutContract: floorPlanToLayout(f.build()) })
+    expect(makerCostFor({ builderState: state })).toBeUndefined()
   })
 })

@@ -534,7 +534,8 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.moodboard.more': '+{n} more',
   'wrapup.actions.download': 'Download brief (JSON)',
   'wrapup.actions.preparing': 'Preparing…',
-  'wrapup.actions.makerDemo': 'Demo: see what the maker sees',
+  'wrapup.actions.backToKitchen': 'Back to my kitchen',
+  'wrapup.actions.backToKitchenMaker': "Back to the customer's kitchen",
   'builder.rerender.changedPrefix': 'You changed:',
   'builder.rerender.changedSuffix': '. The render above does not reflect this yet.',
   'builder.rerender.rendering': 'Re-rendering…',
@@ -557,7 +558,6 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.next.contact': 'The designer reviews your plan and range and gets back to you at {contact}.',
   'wrapup.next.ref': 'Brief reference: {id}',
   'wrapup.next.unsaved': 'This brief was not saved to a server (no database configured here). Download the JSON below and send it yourself.',
-  'wrapup.actions.openMaker': 'Open the maker view (saved brief)',
   'wrapup.yes': 'Yes',
   'wrapup.no': 'No',
 
@@ -865,6 +865,23 @@ export const enUS: Record<TranslationKey, string> = {
   'kitchen.home.decision.pill.clarify': 'Clarification needed',
   'kitchen.home.decision.pill.declined': 'Closed',
   'kitchen.makerSees': '{maker} can see your progress as you work.',
+  // The maker looking in at their customer's kitchen home: theirs to look at,
+  // the customer's to fill and edit.
+  'kitchen.home.readOnly.eyebrow': "The customer's kitchen",
+  'kitchen.home.readOnly.title': "The customer hasn't started yet",
+  'kitchen.home.readOnly.titleStarted': 'The customer is still describing the kitchen',
+  'kitchen.home.readOnly.titleSubmitted': 'The customer has sent the brief',
+  'kitchen.home.readOnly.notStarted': "Once they start, you'll see the kitchen here as they describe it.",
+  'kitchen.home.readOnly.lastSaved': 'Last saved: {step}.',
+  'kitchen.home.readOnly.cta': 'Look at the kitchen',
+  'kitchen.home.readOnly.note': 'Only for looking — the customer makes the changes.',
+  'kitchen.home.readOnly.status.seen': 'The customer can see you opened the brief on {date}.',
+  'kitchen.home.readOnly.status.notSeen': "You haven't opened the brief yet — open it from your list.",
+  'kitchen.home.readOnly.status.noRange': 'The range comes once the customer builds the kitchen.',
+  'kitchen.home.readOnly.decision.quotedNext': 'The customer reads here that the amount and terms come directly from you.',
+  'kitchen.home.readOnly.decision.clarifyNext':
+    'The customer reads here to reply by editing the kitchen, or to get in touch with you directly.',
+  'kitchen.home.readOnly.decision.declinedNext': 'The customer still sees their estimate here.',
   'live.back': 'Back to the list',
   'live.banner.title': 'IN PROGRESS — the customer is still working',
   'live.banner.body':
@@ -874,6 +891,18 @@ export const enUS: Record<TranslationKey, string> = {
     'Your maker already has a brief for this kitchen. Send your changes and they will be told something moved.',
   'wrapup.resubmit.cta': 'Send the changes',
   'wrapup.resubmit.sending': 'Sending…',
+  // The maker looking in at the wrap-up: sending is the customer's act.
+  // The header is theirs too — what this screen is, never the homeowner's
+  // thank-you or "fix anything that's off".
+  'wrapup.readOnly.title': "The customer's brief",
+  'wrapup.readOnly.lede': "This is how the customer sees it — you're only looking here.",
+  'wrapup.readOnly.notSent': "The customer hasn't sent the brief yet.",
+  'wrapup.readOnly.sent': 'The customer has sent the brief — open it from your list.',
+  'wrapup.readOnly.section.render': 'The concept the customer chose',
+  'wrapup.readOnly.render.note':
+    "AI concept anchored to a photo of the customer's space. The direction they want, not a binding spec.",
+  'wrapup.readOnly.section.space': "The customer's space",
+  'wrapup.readOnly.trades.movesOpen': 'moves — you agree the spot with the customer',
   'auth.logout': 'Sign out',
   'readback.led.yes': 'LED lighting',
   'readback.led.no': 'No LED lighting',
@@ -1046,6 +1075,8 @@ export const enUS: Record<TranslationKey, string> = {
   'floorPlan.svg.disclaimer': 'Schematic — not a survey',
   'floorPlan.static.deferred': 'You opted out of measuring — your designer will take dimensions on site.',
   'floorPlan.static.rough': 'Rough schematic from what you shared — your designer will confirm on site.',
+  'floorPlan.static.deferredMaker': 'The customer chose not to measure — you take the dimensions on site.',
+  'floorPlan.static.roughMaker': 'Rough schematic from what the customer shared — you confirm the dimensions on site.',
 
   // ---- Failed requests — shown instead of the server's English text -------
   'api.error.session': 'Your session has expired. Sign in again to continue.',

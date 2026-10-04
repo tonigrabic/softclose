@@ -9,10 +9,12 @@
  *    the band. Install and goods carry none.
  *  - The net cost and the margin are maker-only: computed, stored with the
  *    brief, and stripped from every response the homeowner's client receives.
+ *    The B2B cost basis is not computed at submit at all: only the maker's
+ *    brief page computes it (IMP-05).
  */
 import { describe, expect, test } from 'vitest'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { readFileSync, readdirSync } from 'node:fs'
+import { join, relative, resolve, sep } from 'node:path'
 import { CONTRACT_FIXTURES } from '@/lib/builder/fixtures'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import { hydrateFromHypothesis } from '@/lib/builder/state'
@@ -244,7 +246,8 @@ describe('maker-only money never reaches the homeowner client', () => {
     const bundle = buildHandoffBundle({ brief: { builderState: fixtureState('l-shape', true) } })
     expect(bundle.estimate!.maker).toBeDefined()
     expect(bundle.estimate!.priceBasis).toBe('gross-margin-v1')
-    // makerCost only exists once a maker pricelist is in; set it to prove the strip.
+    // No bundle built here carries makerCost any more (IMP-05: the maker page
+    // computes it). Set it by hand to prove the strip still guards.
     bundle.estimate!.makerCost = { low: 1, high: 2 }
 
     const customer = toCustomerBundle(bundle)
@@ -271,4 +274,23 @@ describe('maker-only money never reaches the homeowner client', () => {
     for (const r of responses) expect(r).toMatch(/^Response\.json\(toCustomerBundle\(/)
     expect(route).not.toMatch(/Response\.json\(\s*bundle\s*\)/)
   })
+
+  test('the B2B cost basis is computed on the maker’s brief page and nowhere else (IMP-05)', () => {
+    const callers = sourceFiles(resolve(ROOT, 'src'))
+      .filter((f) => readFileSync(f, 'utf8').includes('makerCostFor('))
+      .map((f) => relative(ROOT, f).split(sep).join('/'))
+      .sort()
+    expect(callers).toEqual(['src/app/maker/[id]/page.tsx', 'src/lib/handoff/bundle.ts'])
+    // Never attached at submit: whatever the bundle carries is stored and sent back.
+    const bundleSrc = readFileSync(resolve(ROOT, 'src/lib/handoff/bundle.ts'), 'utf8')
+    expect(bundleSrc).not.toMatch(/estimate\.makerCost\s*=/)
+  })
 })
+
+function sourceFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const full = join(dir, e.name)
+    if (e.isDirectory()) return sourceFiles(full)
+    return /\.tsx?$/.test(e.name) ? [full] : []
+  })
+}

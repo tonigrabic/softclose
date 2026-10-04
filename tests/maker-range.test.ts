@@ -66,7 +66,7 @@ describe('the brief', () => {
     expect(html).not.toContain('data-legacy-basis')
   })
 
-  test('the customer copy of the bundle renders no maker-only money (the funnel demo)', () => {
+  test('the customer copy of the bundle renders no maker-only money', () => {
     const html = brief(toCustomerBundle(stored))
     expect(html).not.toContain('data-maker-only-money')
     expect(text(html)).not.toContain(hrHR['maker.estimate.net'])

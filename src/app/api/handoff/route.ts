@@ -106,7 +106,6 @@ export async function POST(req: Request) {
         }
         if (decision.kind === 'reuse') {
           bundle.briefId = decision.id
-          bundle.makerPath = `/maker/${decision.id}`
           return Response.json(toCustomerBundle(bundle))
         }
 
@@ -179,7 +178,6 @@ export async function POST(req: Request) {
         // Same outcome as a reuse — no second project update, no second email.
         if (bErr?.code === '23505') {
           bundle.briefId = briefId
-          bundle.makerPath = `/maker/${briefId}`
           return Response.json(toCustomerBundle(bundle))
         }
         if (bErr) throw bErr
@@ -200,7 +198,6 @@ export async function POST(req: Request) {
           .eq('id', projectId)
 
         bundle.briefId = briefId
-        bundle.makerPath = `/maker/${briefId}`
 
         // Tell the maker — their own address once the brief has an owner.
         // MAKER_NOTIFY_EMAIL is only the pre-accounts fallback.
