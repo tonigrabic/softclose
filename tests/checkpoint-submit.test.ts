@@ -18,11 +18,16 @@
  *  2. A retry after a lost response sent the newer snapshot at the old base;
  *     when the first write had in fact landed, the 409 was taken for another
  *     device and autosave halted, silently, for the rest of the session.
+ *
+ * And round 3: the submit's snapshot must not go around the conflict halt. A
+ * laptop tab left open while the phone carried on in the builder submitted
+ * its stale snapshot over the phone's copy. Now a halted tab sends no
+ * snapshot, and the route stores one only over a copy the tab's claim knows.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { landedUnheard, snapshotFingerprint, stripImages } from '@/lib/project/checkpoint'
 import { createCheckpointClient, FLUSH_TIMEOUT_MS, type CheckpointState } from '@/lib/project/checkpoint-client'
-import { submitSnapshotFrom, submitSnapshotWrite } from '@/lib/project/submit-snapshot'
+import { submitClaimFrom, submitSnapshotFrom, submitSnapshotWrite, type SubmitClaim } from '@/lib/project/submit-snapshot'
 import { SNAPSHOT_VERSION, type ProjectSnapshot } from '@/lib/project/snapshot'
 
 /** A journey with a photo in it: the local copy has pixels, the server copy a marker. */
@@ -91,12 +96,16 @@ function modelServer(revision: number, copy: ProjectSnapshot) {
   })
 
   /** /api/handoff's effect on the project row, through the route's own helpers. */
-  function handoff(s: ProjectSnapshot): boolean {
+  function handoff(s: ProjectSnapshot | undefined, claim: SubmitClaim | null): boolean {
     if (m.offline) return false
-    const write = submitSnapshotWrite(
-      { revision: m.revision, snapshot: m.copy, snapshot_version: SNAPSHOT_VERSION },
-      submitSnapshotFrom(s)!
-    )
+    const write =
+      s && claim
+        ? submitSnapshotWrite(
+            { revision: m.revision, snapshot: m.copy, snapshot_version: SNAPSHOT_VERSION },
+            submitSnapshotFrom(s)!,
+            claim
+          )
+        : null
     m.clock += 1
     if (write) {
       m.revision = write.revision
@@ -143,13 +152,16 @@ function tab(server: Server) {
   return { client, states }
 }
 
-/** The wrap-up's submit: the intake's beforeSubmit (mark, flush), then the handoff. */
+/**
+ * The wrap-up's submit: the intake's beforeSubmit (flush, then the claim —
+ * none, and so no snapshot, once halted), then the handoff.
+ */
 async function submit(server: Server, client: ReturnType<typeof tab>['client'], s: ProjectSnapshot) {
-  client.submitting(s)
   const flushed = client.flush(s)
   await vi.advanceTimersByTimeAsync(0)
   const landed = await flushed
-  return { landed, sent: server.handoff(s) }
+  const claim = client.submitting(s)
+  return { landed, sent: server.handoff(claim ? s : undefined, claim) }
 }
 
 beforeEach(() => {
@@ -224,17 +236,44 @@ describe('the server copy is the brief’s snapshot, and nothing flags a brief t
     const S = snap(9)
 
     const release = server.holdRequests()
-    client.submitting(S)
     const flushed = client.flush(S)
     await vi.advanceTimersByTimeAsync(FLUSH_TIMEOUT_MS)
     expect(await flushed).toBe(false)
-    expect(server.handoff(S)).toBe(true)
+    expect(server.handoff(S, client.submitting(S))).toBe(true)
+    expect(snapshotFingerprint(server.m.copy)).toBe(print(S))
 
     release()
     await vi.advanceTimersByTimeAsync(0)
     expect(server.m.writes).toEqual([])
     expect(server.changedSinceBrief()).toBe(false)
     expect(states.at(-1)).toBe('saved')
+  })
+
+  it('a save still on the wire when the flush gave up is the tab’s own: the submit writes over it once it lands', async () => {
+    const server = modelServer(3, snap(1))
+    const { client, states } = tab(server)
+    const S = snap(9)
+
+    const release = server.holdRequests()
+    client.queue(snap(5))
+    await vi.advanceTimersByTimeAsync(2_500)
+    const flushed = client.flush(S)
+    await vi.advanceTimersByTimeAsync(FLUSH_TIMEOUT_MS)
+    expect(await flushed).toBe(false)
+    const claim = client.submitting(S)
+
+    // The slow save lands before the route reads the row.
+    release()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(server.m.writes).toEqual([{ picks: 5, base: 3 }])
+    expect(server.handoff(S, claim)).toBe(true)
+    expect(snapshotFingerprint(server.m.copy)).toBe(print(S))
+    expect(server.changedSinceBrief()).toBe(false)
+
+    client.queue(snap(10))
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(states).not.toContain('conflict')
+    expect(server.m.writes.at(-1)).toEqual({ picks: 10, base: 5 })
   })
 
   it('an edit after the brief, sent on the pre-submit revision, is recognised as following the submit — not another device', async () => {
@@ -263,11 +302,82 @@ describe('the server copy is the brief’s snapshot, and nothing flags a brief t
     const flushed = client.flush(S)
     await vi.advanceTimersByTimeAsync(0)
     expect(await flushed).toBe(false)
-    server.handoff(S)
+    server.handoff(S, { revision: 3, unheard: [], submitted: [] })
     client.queue(snap(10))
     await vi.advanceTimersByTimeAsync(70_000)
     expect(states.at(-1)).toBe('conflict')
     expect(server.m.writes).toEqual([])
+  })
+})
+
+describe('a tab behind another device never writes over it by submitting', () => {
+  /** The phone carries on in the builder: real saves through its own client. */
+  async function phoneWorks(phone: ReturnType<typeof tab>, from: number, count: number) {
+    for (let i = 0; i < count; i++) {
+      phone.client.queue(snap(from + i))
+      await vi.advanceTimersByTimeAsync(2_500)
+    }
+  }
+
+  it('the laptop halted on the phone’s work, then submitted: the phone’s copy stays, and the phone keeps saving', async () => {
+    const server = modelServer(4, snap(1))
+    const laptop = tab(server)
+    const phone = tab(server)
+    await phoneWorks(phone, 100, 5)
+    expect(server.m.revision).toBe(9)
+
+    // Back on the laptop tab, never reloaded: Continue queues a save that meets the phone's 409.
+    laptop.client.queue(snap(2))
+    await vi.advanceTimersByTimeAsync(2_500)
+    expect(laptop.states.at(-1)).toBe('conflict')
+
+    // The wrap-up mounts and submits on its own.
+    const S = snap(9)
+    expect(await submit(server, laptop.client, S)).toEqual({ landed: false, sent: true })
+    expect(laptop.client.submitting(S)).toBeNull()
+    expect(server.m.revision).toBe(9)
+    expect(snapshotFingerprint(server.m.copy)).toBe(print(snap(104)))
+
+    await phoneWorks(phone, 105, 1)
+    expect(phone.states).not.toContain('conflict')
+    expect(server.m.revision).toBe(10)
+    expect(snapshotFingerprint(server.m.copy)).toBe(print(snap(105)))
+  })
+
+  it('no earlier save: the pre-submit flush is what meets the phone’s 409, and the submit still leaves its copy alone', async () => {
+    const server = modelServer(3, snap(1))
+    const laptop = tab(server)
+    const phone = tab(server)
+    await phoneWorks(phone, 500, 1)
+
+    expect(await submit(server, laptop.client, snap(9))).toEqual({ landed: false, sent: true })
+    expect(laptop.states.at(-1)).toBe('conflict')
+    expect(server.m.revision).toBe(4)
+    expect(snapshotFingerprint(server.m.copy)).toBe(print(snap(500)))
+
+    await phoneWorks(phone, 501, 1)
+    expect(phone.states).not.toContain('conflict')
+    expect(snapshotFingerprint(server.m.copy)).toBe(print(snap(501)))
+  })
+
+  it('not halted — the flush failed before reaching the revision check — the route refuses on the claim alone', async () => {
+    const server = modelServer(4, snap(1))
+    const laptop = tab(server)
+    const phone = tab(server)
+    await phoneWorks(phone, 100, 5)
+
+    server.m.failNext = 1
+    const S = snap(9)
+    expect(await submit(server, laptop.client, S)).toEqual({ landed: false, sent: true })
+    expect(laptop.states).not.toContain('conflict')
+    expect(server.m.revision).toBe(9)
+    expect(snapshotFingerprint(server.m.copy)).toBe(print(snap(104)))
+
+    // The laptop's retry then meets the phone's 409 and halts, as any save would.
+    await vi.advanceTimersByTimeAsync(2_000)
+    expect(laptop.states.at(-1)).toBe('conflict')
+    await phoneWorks(phone, 105, 1)
+    expect(phone.states).not.toContain('conflict')
   })
 })
 
@@ -351,6 +461,32 @@ describe('a write that landed unheard is ours, even when something newer was pic
     await vi.advanceTimersByTimeAsync(60_000)
     expect(server.m.writes).toEqual([])
     expect(snapshotFingerprint(server.m.copy)).toBe(print(snap(77)))
+  })
+})
+
+describe('submitSnapshotWrite only writes over a copy the claim knows as the tab’s', () => {
+  const S = stripImages(snap(9))
+  const row = (revision: number, copy: ProjectSnapshot) => ({
+    revision,
+    snapshot: stripImages(copy),
+    snapshot_version: SNAPSHOT_VERSION,
+  })
+  const A = print(snap(5))
+  it('the revision the tab last saw, an unheard write of its at exactly the next one, or a snapshot it submitted', () => {
+    expect(submitSnapshotWrite(row(7, snap(1)), S, { revision: 7, unheard: [], submitted: [] })?.revision).toBe(8)
+    expect(submitSnapshotWrite(row(8, snap(5)), S, { revision: 7, unheard: [A], submitted: [] })?.revision).toBe(9)
+    expect(submitSnapshotWrite(row(12, snap(5)), S, { revision: 7, unheard: [], submitted: [A] })?.revision).toBe(13)
+  })
+  it('anything else is another device’s, and is left alone', () => {
+    expect(submitSnapshotWrite(row(8, snap(77)), S, { revision: 7, unheard: [A], submitted: [] })).toBeNull()
+    expect(submitSnapshotWrite(row(9, snap(5)), S, { revision: 7, unheard: [A], submitted: [] })).toBeNull()
+  })
+  it('a claim from the body is read strictly', () => {
+    expect(submitClaimFrom({ revision: 3, unheard: ['a'], submitted: [] })).toEqual({ revision: 3, unheard: ['a'], submitted: [] })
+    expect(submitClaimFrom({ revision: 3, unheard: ['a'] })).toBeNull()
+    expect(submitClaimFrom({ revision: '3', unheard: [], submitted: [] })).toBeNull()
+    expect(submitClaimFrom({ revision: 3, unheard: Array(65).fill('a'), submitted: [] })).toBeNull()
+    expect(submitClaimFrom(null)).toBeNull()
   })
 })
 

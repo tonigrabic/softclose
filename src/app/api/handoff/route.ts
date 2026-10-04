@@ -6,7 +6,12 @@ import { notifyMakerOfBrief } from '@/lib/notify/maker-email'
 import { buildHandoffBundle, toCustomerBundle } from '@/lib/handoff/bundle'
 import { decideBriefId, isBriefId } from '@/lib/handoff/brief-id'
 import { isProjectClosed } from '@/lib/project/decision'
-import { submitSnapshotFrom, submitSnapshotWrite } from '@/lib/project/submit-snapshot'
+import {
+  submitClaimFrom,
+  submitSnapshotFrom,
+  submitSnapshotWrite,
+  type SubmitClaim,
+} from '@/lib/project/submit-snapshot'
 import type { ClientMessage, LeadProfile, MoodBoardItem } from '@/lib/types'
 
 interface HandoffRequest {
@@ -28,33 +33,39 @@ interface HandoffRequest {
    *  project's copy in the same update that stamps the brief's time (see
    *  lib/project/submit-snapshot). Absent from older clients. */
   snapshot?: unknown
+  /** What the submitting tab knows the server copy to be (SubmitClaim). The
+   *  snapshot is stored only over a copy it claims; without one, never. */
+  snapshotClaim?: unknown
 }
 
 type Db = NonNullable<ReturnType<typeof supabaseAdmin>>
 
 /**
  * Point the project at its new brief — and, when the brief's snapshot came
- * along and the server copy is a different one, store it, in the same update
- * that sets `updated_at` to the brief's time. Written on the revision just
- * read, like a checkpoint: a checkpoint landing in between (a retry of the
- * failed pre-submit flush) moves the revision, and the read is repeated. If
- * it keeps moving, or anything goes wrong, the brief still gets its project
+ * along and the server copy is a different one that the submitting tab
+ * claims as its own, store it, in the same update that sets `updated_at` to
+ * the brief's time. Another device's newer copy is never written over: the
+ * tab would meet a 409 there itself (submitSnapshotWrite). Written on the
+ * revision just read: a write of the tab's own landing in between (a retry
+ * of the failed pre-submit flush) moves it, and the read is repeated. If it
+ * keeps moving, or anything goes wrong, the brief still gets its project
  * update, without the snapshot — the behaviour before the copy was stored.
  */
 async function updateSubmittedProject(
   db: Db,
   projectId: string,
   fields: Record<string, unknown>,
-  snapshot: ReturnType<typeof submitSnapshotFrom>
+  snapshot: ReturnType<typeof submitSnapshotFrom>,
+  claim: SubmitClaim | null
 ): Promise<void> {
-  for (let attempt = 0; snapshot && attempt < 3; attempt++) {
+  for (let attempt = 0; snapshot && claim && attempt < 3; attempt++) {
     const { data: row, error: readErr } = await db
       .from(TABLES.projects)
       .select('revision, snapshot, snapshot_version')
       .eq('id', projectId)
       .maybeSingle()
     if (readErr) break
-    const write = submitSnapshotWrite(row, snapshot)
+    const write = submitSnapshotWrite(row, snapshot, claim)
     if (!write) break
     const { data: updated, error: writeErr } = await db
       .from(TABLES.projects)
@@ -246,7 +257,8 @@ export async function POST(req: Request) {
           },
           // Only a project's own customer reaches here with a projectId; the
           // legacy insert above stores the profile and has no journey copy.
-          body.projectId ? submitSnapshotFrom(body.snapshot) : null
+          body.projectId ? submitSnapshotFrom(body.snapshot) : null,
+          submitClaimFrom(body.snapshotClaim)
         )
 
         bundle.briefId = briefId

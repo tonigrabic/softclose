@@ -7,7 +7,9 @@
  * copy, and the next visit wrote the real one, moving `updated_at` past a
  * brief nothing had changed since (the maker's "changed since the brief"
  * flag). Now the route writes the snapshot it is sent in that same update,
- * on the revision it read, so the copy and the brief always agree.
+ * on the revision it read, so the copy and the brief always agree — but only
+ * over a copy the submitting tab claims as its own (round 3): a tab left open
+ * on the laptop must not erase the phone's newer builder work by submitting.
  *
  * The route runs for real; only its edges are faked — the session, a database
  * that keeps one project row and applies conditional updates the way
@@ -134,12 +136,15 @@ const journey = (picks: number) => ({
   spacePhotos: ['data:image/jpeg;base64,AAAA'],
 })
 
-async function send(snapshot?: unknown) {
+/** The tab's claim: by default it last saw the row's own revision, 7. */
+const claim = (revision = 7, unheard: unknown[] = [], submitted: unknown[] = []) => ({ revision, unheard, submitted })
+
+async function send(snapshot?: unknown, snapshotClaim: unknown = snapshot === undefined ? undefined : claim()) {
   const res = await POST(
     new Request('http://localhost/api/handoff', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ brief: {}, projectId: PROJECT, locale: 'hr-HR', snapshot }),
+      body: JSON.stringify({ brief: {}, projectId: PROJECT, locale: 'hr-HR', snapshot, snapshotClaim }),
     })
   )
   expect(res.status).toBe(200)
@@ -188,12 +193,12 @@ describe('the submit stores the brief’s snapshot as the project’s copy', () 
     expect(project().updated_at).toBe(h.state.brief!.created_at)
   })
 
-  test('a checkpoint landing between the read and the write moves the revision: the route reads again and writes on top', async () => {
+  test('a write of the tab’s own landing between the read and the write moves the revision: the route reads again and writes on top', async () => {
     h.state.beforeConditionalWrite = () => {
-      // The retry of the failed flush, landing mid-submit.
+      // The tab's slow save, still on the wire when the flush gave up, landing mid-submit.
       Object.assign(h.state.project!, { revision: 8, snapshot: stripImages(journey(5)), updated_at: 'later' })
     }
-    await send(stripImages(journey(9)))
+    await send(stripImages(journey(9)), claim(7, [snapshotFingerprint(stripImages(journey(5)))]))
     expect(project().revision).toBe(9)
     expect(snapshotFingerprint(project().snapshot)).toBe(snapshotFingerprint(stripImages(journey(9))))
     expect(project().updated_at).toBe(h.state.brief!.created_at)
@@ -211,6 +216,41 @@ describe('the submit stores the brief’s snapshot as the project’s copy', () 
     expect(project().revision).toBe(7)
     expect(snapshotFingerprint(project().snapshot)).toBe(snapshotFingerprint(stripImages(journey(1))))
     expect(project().current_brief_id).toBe(out.briefId)
+  })
+
+  test('another device’s newer copy is not written over: the laptop’s claim is a revision the phone has moved past', async () => {
+    // The laptop last saw revision 4; the phone carried on in the builder up to 9.
+    const phone = stripImages({ ...journey(50), currentStepId: 'builder' })
+    Object.assign(h.state.project!, { revision: 9, snapshot: phone })
+    const out = await send(stripImages(journey(9)), claim(4, [snapshotFingerprint(stripImages(journey(9)))]))
+    expect(project().revision).toBe(9)
+    expect(snapshotFingerprint(project().snapshot)).toBe(snapshotFingerprint(phone))
+    expect(project().step).toBe('builder')
+    // The brief still gets its project update, with the brief's time.
+    expect(h.state.projectUpdates).toHaveLength(1)
+    expect(h.state.projectUpdates[0]).not.toHaveProperty('snapshot')
+    expect(project().current_brief_id).toBe(out.briefId)
+    expect(project().updated_at).toBe(h.state.brief!.created_at)
+  })
+
+  test('another device’s checkpoint landing between the read and the write is not written over on the re-read', async () => {
+    const phone = stripImages(journey(50))
+    h.state.beforeConditionalWrite = () => {
+      Object.assign(h.state.project!, { revision: 8, snapshot: phone, updated_at: 'later' })
+    }
+    await send(stripImages(journey(9)))
+    expect(project().revision).toBe(8)
+    expect(snapshotFingerprint(project().snapshot)).toBe(snapshotFingerprint(phone))
+    expect(project().updated_at).toBe(h.state.brief!.created_at)
+  })
+
+  test('a snapshot without a claim (a tab halted on a conflict sends none) is not stored', async () => {
+    for (const bad of [null, {}, claim(-1), claim(7.5), { revision: 7, unheard: [1], submitted: [] }]) {
+      h.state.projectUpdates = []
+      await send(stripImages(journey(9)), bad)
+      expect(h.state.projectUpdates.at(-1)).not.toHaveProperty('snapshot')
+      expect(project().revision).toBe(7)
+    }
   })
 
   test('an older client that sends no snapshot gets the update it always got', async () => {

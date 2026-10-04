@@ -31,6 +31,7 @@ import {
   stripImages,
 } from './checkpoint'
 import type { ProjectSnapshot } from './snapshot'
+import type { SubmitClaim } from './submit-snapshot'
 
 export type CheckpointState = 'idle' | 'saving' | 'saved' | 'pending' | 'conflict' | 'error' | 'disabled'
 
@@ -53,12 +54,16 @@ export interface CheckpointClient {
    */
   flush: (snapshot: ProjectSnapshot) => Promise<boolean>
   /**
-   * A brief is about to go out with `snapshot`. /api/handoff stores it as the
-   * project's copy whenever the server holds something else (a pre-submit
-   * flush that failed or timed out), at a revision this client never hears
-   * about; the 409 our next write then meets is recognised as ours.
+   * A brief is about to go out with `snapshot` (called after the pre-submit
+   * flush). /api/handoff stores it as the project's copy whenever the server
+   * holds something else of ours (a flush that failed or timed out), at a
+   * revision this client never hears about; the 409 our next write then
+   * meets is recognised as ours. Returns what this client knows the server
+   * copy to be, which the route checks so it never writes over another
+   * device's work — or null once halted (a conflict, a refusal, no
+   * database): the brief then goes without a snapshot, and the copy stays.
    */
-  submitting: (snapshot: ProjectSnapshot) => void
+  submitting: (snapshot: ProjectSnapshot) => SubmitClaim | null
   /** The tab is being hidden: send what is waiting now — unless backing off. */
   hide: () => void
   /** Clear every timer. Not terminal: StrictMode remounts the same client. */
@@ -106,6 +111,8 @@ export function createCheckpointClient(opts: CheckpointClientOptions): Checkpoin
   const submitted = new Set<string>()
   let pending: ProjectSnapshot | null = null
   let inFlight = false
+  // The write on the wire, sent on `revision`: unheard until it answers.
+  let inFlightFingerprint: string | null = null
   let attempt = 0
   // Set once a conflict is confirmed: we stop writing rather than race another
   // device. There is no defensible automatic merge of conceptRenders or
@@ -182,6 +189,7 @@ export function createCheckpointClient(opts: CheckpointClientOptions): Checkpoin
     }
 
     inFlight = true
+    inFlightFingerprint = fingerprint
     setState('saving')
     let res: Response | null = null
     let data: CheckpointReply = {}
@@ -196,6 +204,7 @@ export function createCheckpointClient(opts: CheckpointClientOptions): Checkpoin
       res = null // offline, DNS, an aborted request: retried below
     } finally {
       inFlight = false
+      inFlightFingerprint = null
     }
 
     if (res?.ok && data.ok) {
@@ -322,7 +331,15 @@ export function createCheckpointClient(opts: CheckpointClientOptions): Checkpoin
   }
 
   const submitting: CheckpointClient['submitting'] = (snapshot) => {
+    // Halted on another device's write: storing ours at submit would be the
+    // very overwrite the halt exists to prevent.
+    if (halted) return null
     submitted.add(snapshotFingerprint(stripImages(snapshot)))
+    return {
+      revision,
+      unheard: [...unheard.keys(), ...(inFlightFingerprint ? [inFlightFingerprint] : [])],
+      submitted: [...submitted],
+    }
   }
 
   const hide: CheckpointClient['hide'] = () => {

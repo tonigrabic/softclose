@@ -17,9 +17,14 @@
  * flush is a head start: when it landed, the copy already matches and the
  * route leaves snapshot and revision alone, so the client stays in step.
  *
+ * Only over a copy the submitting tab knows as its own (`SubmitClaim`). A tab
+ * left open on the laptop while the phone carried on in the builder must not
+ * erase the phone's work by submitting — the last-writer-wins overwrite the
+ * checkpoint client halts to prevent.
+ *
  * Pure — used by the client (building the body) and the route (checking it).
  */
-import { MAX_CHECKPOINT_BYTES, snapshotFingerprint, stripImages } from './checkpoint'
+import { landedUnheard, MAX_CHECKPOINT_BYTES, snapshotFingerprint, stripImages } from './checkpoint'
 import { SNAPSHOT_VERSION, type ProjectSnapshot } from './snapshot'
 
 /**
@@ -32,6 +37,37 @@ export function submitSnapshotFrom(raw: unknown): ProjectSnapshot | null {
   const stripped = stripImages(raw) as ProjectSnapshot
   if (JSON.stringify(stripped).length > MAX_CHECKPOINT_BYTES) return null
   return stripped
+}
+
+/**
+ * What the submitting tab knows the server copy to be (CheckpointClient
+ * ['submitting']). The route stores the brief's snapshot only over a copy the
+ * tab would itself take for its own — its revision, or one of its writes it
+ * never heard back about, the rule its 409s follow (`landedUnheard`) — and
+ * never over another device's newer work. A halted tab sends none.
+ */
+export interface SubmitClaim {
+  /** The revision the tab last confirmed (or loaded). */
+  revision: number
+  /** Writes sent on that revision whose outcome it has not heard: lost, a 5xx, still on the wire. */
+  unheard: string[]
+  /** Snapshots briefs went out with: stored at revisions the tab never hears about. */
+  submitted: string[]
+}
+
+/** More fingerprints than any tab holds: each list empties on a confirmed write or grows by one per brief. */
+const MAX_CLAIM_PRINTS = 64
+
+/** The claim a submit carries, or null for anything malformed — no snapshot is then stored. */
+export function submitClaimFrom(raw: unknown): SubmitClaim | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const { revision, unheard, submitted } = raw as Record<string, unknown>
+  if (typeof revision !== 'number' || !Number.isInteger(revision) || revision < 0) return null
+  const prints = (v: unknown) =>
+    Array.isArray(v) && v.length <= MAX_CLAIM_PRINTS && v.every((p) => typeof p === 'string') ? (v as string[]) : null
+  const u = prints(unheard)
+  const s = prints(submitted)
+  return u && s ? { revision, unheard: u, submitted: s } : null
 }
 
 /** The project columns the decision reads. */
@@ -50,17 +86,33 @@ export interface SubmitSnapshotWrite {
 
 /**
  * The fields a submit adds to its project update so the copy is the brief's
- * snapshot — written conditionally on `row.revision` by the caller, like any
- * checkpoint. Null when there is nothing to write:
+ * snapshot — written conditionally on `row.revision` by the caller. Null when
+ * there is nothing to write:
  *  - the copy already is this snapshot (the flush landed): no revision bump,
  *    which would only make the client's next save meet a 409;
+ *  - the copy is not one the claim knows as the tab's own: another device
+ *    wrote it, and a checkpoint from this tab would meet a 409 there too;
  *  - newer code wrote the copy: never clobbered, as in the checkpoint route;
  *  - the row is unreadable.
  */
-export function submitSnapshotWrite(row: ProjectCopyRow | null, snapshot: ProjectSnapshot): SubmitSnapshotWrite | null {
+export function submitSnapshotWrite(
+  row: ProjectCopyRow | null,
+  snapshot: ProjectSnapshot,
+  claim: SubmitClaim
+): SubmitSnapshotWrite | null {
   if (!row || typeof row.revision !== 'number' || !Number.isFinite(row.revision)) return null
   if (typeof row.snapshot_version === 'number' && row.snapshot_version > SNAPSHOT_VERSION) return null
-  if (row.snapshot && snapshotFingerprint(row.snapshot) === snapshotFingerprint(snapshot)) return null
+  const serverPrint = row.snapshot ? snapshotFingerprint(row.snapshot) : null
+  if (serverPrint === snapshotFingerprint(snapshot)) return null
+  const ours =
+    row.revision === claim.revision ||
+    landedUnheard(
+      serverPrint,
+      row.revision,
+      new Map(claim.unheard.map((p) => [p, claim.revision])),
+      new Set(claim.submitted)
+    )
+  if (!ours) return null
   return {
     snapshot,
     snapshot_version: SNAPSHOT_VERSION,

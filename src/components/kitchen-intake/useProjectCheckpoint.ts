@@ -21,7 +21,7 @@ export interface CheckpointApi {
 
 const disabledQueue: CheckpointClient['queue'] = () => {}
 const disabledFlush: CheckpointClient['flush'] = async () => false
-const disabledSubmitting: CheckpointClient['submitting'] = () => {}
+const disabledSubmitting: CheckpointClient['submitting'] = () => null
 
 /**
  * Mirror the journey to the server, alongside the existing IndexedDB save.

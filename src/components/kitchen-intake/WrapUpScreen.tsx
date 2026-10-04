@@ -53,8 +53,9 @@ interface WrapUpScreenProps {
   /** Runs before the brief is sent — the intake flushes its pending save and
    *  hands back the image-free snapshot the brief is built from, which the
    *  submit stores as the project's copy (lib/project/submit-snapshot), so the
-   *  brief never arrives flagged as edited. */
-  beforeSubmit?: () => Promise<{ snapshot?: unknown } | void>
+   *  brief never arrives flagged as edited — over a copy the claim says is
+   *  this tab's, never another device's. */
+  beforeSubmit?: () => Promise<{ snapshot?: unknown; snapshotClaim?: unknown } | void>
   /** Back to the builder, for a homeowner who skipped it and so has no range.
    *  Absent where nobody may edit (the maker looking in). */
   onOpenBuilder?: () => void
@@ -168,6 +169,7 @@ export function WrapUpScreen({
           projectId,
           briefId: sendId.current,
           snapshot: extras?.snapshot,
+          snapshotClaim: extras?.snapshotClaim,
         }),
       })
       const data = await readJson<HandoffBundle & { code?: string }>(res)
