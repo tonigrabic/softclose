@@ -948,6 +948,7 @@ export function KitchenIntake({
           explorationRefs={[]}
           transcript={transcript}
           projectId={projectId}
+          makerName={makerName}
           hasExistingBrief={hasExistingBrief || sentInSession}
           beforeSubmit={async () => {
             await checkpoint.flush(snapshot)
@@ -993,6 +994,7 @@ export function KitchenIntake({
         rerenderBlocked={!roomDone}
         layoutSummary={summariseLayoutFromProfile(profile, locale, floorPlan)}
         profile={profile}
+        makerName={makerName}
         layoutPreconfirmed
         onComplete={(builderState) => {
           patchProfile({ builderState })
@@ -1038,7 +1040,9 @@ export function KitchenIntake({
   const funnelRightRail =
     rightRailSteps.includes(state.currentStepId) && funnelRenderSrc ? (
       <div className="flex flex-col gap-5">
-        {funnelBuilderState && <LiveBOMPanel state={funnelBuilderState} scope={liveScope} />}
+        {funnelBuilderState && (
+          <LiveBOMPanel state={funnelBuilderState} scope={liveScope} makerName={makerName} />
+        )}
         <RenderAnchorCard
           src={funnelRenderSrc}
           summary={summariseLayoutFromProfile(profile, locale, floorPlan)}
@@ -1077,7 +1081,7 @@ export function KitchenIntake({
       mobilePillLabel={journeyPillLabel({ funnelStepId: state.currentStepId, profile, locale })}
       mobileDock={
         funnelBuilderState && rightRailSteps.includes(state.currentStepId) ? (
-          <MobileRangeDock state={funnelBuilderState} scope={liveScope} />
+          <MobileRangeDock state={funnelBuilderState} scope={liveScope} makerName={makerName} />
         ) : undefined
       }
       nav={

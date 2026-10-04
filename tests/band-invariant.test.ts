@@ -77,9 +77,29 @@ describe('reward loop — confirming tightens the band', () => {
   }
 })
 
+// The band floor (Decision 2, 2026-10-03): ±10% until a maker's own rates are
+// in. Default rates cannot honestly claim a tighter kitchen range, however
+// much the homeowner confirms. Fully confirmed is the tightest state the app
+// produces, so it is the one to hold to both bounds.
+const BAND_FLOOR_PCT = 10
+
+describe('band floor — confirming never claims more than ±10%', () => {
+  for (const f of CONTRACT_FIXTURES) {
+    test(`${f.id}: fully confirmed works band within ±${BAND_FLOOR_PCT}…${BAND_CAP_PCT}%`, () => {
+      const contract = floorPlanToLayout(f.build())
+      const confirmed = computeBom(confirmEverything(hydrateFromHypothesis(null, { layoutContract: contract })))
+      const displayed = Math.round(confirmed.sections.works.bandWidthPct / 2)
+      expect(displayed).toBeGreaterThanOrEqual(BAND_FLOOR_PCT)
+      expect(displayed).toBeLessThanOrEqual(BAND_CAP_PCT)
+    })
+  }
+})
+
 describe('estimate drift — totals per fixture', () => {
   // Any change to these numbers must be explained in WORKLOG.md. An estimate
   // that moves without a logged reason is a regression even if tsc is green.
+  // Last moved 2026-10-03 (IMP-04): gross price with the 30 % workshop margin
+  // on material + make, and the ±10% band floor.
   for (const f of CONTRACT_FIXTURES) {
     test(`${f.id}: total range snapshot`, () => {
       const bom = estimateForFixture(f.id)

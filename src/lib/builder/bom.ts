@@ -12,17 +12,25 @@
  * half-width, M = ×0.85, L = unchanged), so confirming choices tightens the
  * band and the unconfirmed total stays inside the ±20% promise. A line whose
  * catalog source is missing still widens hard (`widenByConfidence`).
+ *
+ * Price basis (IMP-04, Decision 1 2026-10-03): the range is what the homeowner
+ * will pay. Every catalog price already includes PDV (Elgrad's cjenik and
+ * webshop alike, `vatBasis: 'gross'`), so nothing is grossed up; the workshop
+ * margin from the rate card is added to the material and make lines. The net
+ * cost and the margin ride along in `makerOnly` for the maker's brief page.
  */
 
 import { decors as catalogDecors, services, doorPricePerM2, worktopPricePerM, findDecor } from '@/lib/catalog'
 import { makerPriceForSku } from '@/lib/catalog/maker-pricing'
 import { elgradTierBand } from '@/lib/catalog/hardware'
+import { DEFAULT_RATE_CARD, appliedMargin, type RateCard } from '@/lib/catalog/rate-card'
 import { PATTERN_SPECS, unitDrawerCount } from './cabinet-patterns'
 import { BACKSPLASH_HEIGHT_CM, type BuilderState, type CabinetUnit, type DrawerSystemTier, type FieldMeta } from './inventory'
 import { normalizeBuilderState } from './normalize'
 import { decorLabel } from './swatches'
 import type { LeadProfile } from '@/lib/types'
 import { tDynamic, DEFAULT_LOCALE, type Locale } from '@/lib/i18n/core'
+import { formatEUR, type BomAssumption } from './range'
 
 /**
  * Which scope toggle (from the scope step) controls each BOM line. A line is
@@ -123,9 +131,18 @@ export interface BomEstimate {
       low: number
       high: number
       bandWidthPct: number
-      /** True when the raw line spreads exceeded the ±20% promise and the range was narrowed to it. */
+      /**
+       * True when the raw line spreads exceeded the ±20% promise and the range
+       * was narrowed to it. The works lines are narrowed with it (each around
+       * its own midpoint), so they still add up to the range.
+       */
       bandCapped: boolean
-      /** Material + make + install — sums to the works range. */
+      /**
+       * True when the lines were tighter than the rate card's band floor (±10%
+       * by default) and the range was widened to it, the works lines with it.
+       */
+      bandFloored: boolean
+      /** Material + make + install (gross): the works lines summed by kind. Adds up to the range, to the euro. */
       breakdown: Record<'material' | 'make' | 'install', { low: number; high: number }>
     }
     goods: { low: number; high: number; allPicked: boolean }
@@ -133,7 +150,30 @@ export interface BomEstimate {
      * Wide by nature — shown alongside, never folded into the kitchen band. */
     project: { low: number; high: number }
   }
+  /**
+   * MAKER-ONLY. What the kitchen costs the shop and what the workshop margin
+   * adds. Never rendered on a homeowner surface; the handoff stores it for the
+   * brief page and strips it from the customer's response (toCustomerBundle).
+   */
+  makerOnly: BomMakerOnly
+  /**
+   * What the range assumes and leaves out (installation in; no demolition, no
+   * electrical or plumbing work; who buys the appliances; delivery and the
+   * final measure agreed with the maker). Keys, rendered through
+   * `range.assumption.<key>` next to the range on every surface.
+   */
+  assumptions: BomAssumption[]
   currency: 'EUR'
+}
+
+export interface BomMakerOnly {
+  /** Material + make + install before the margin: the works lines at cost. */
+  net: { low: number; high: number }
+  /** What the margin adds (material + make only). `net + margin` = the works
+   * range, to the euro (a capped or floored band scales the net lines too). */
+  margin: { low: number; high: number }
+  /** The applied margin in percent on cost (30 = 30 %). */
+  marginPct: number
 }
 
 /* ───────────────────────── Helpers ───────────────────────── */
@@ -258,6 +298,23 @@ export function capBand(
   return { range: { low: mid - half, high: mid + half }, capped: true }
 }
 
+/**
+ * Widen a range symmetrically around its midpoint so its full width is at least
+ * `minWidthPct` of that midpoint: the band floor (Decision 2, 2026-10-03: ±10%
+ * until a maker's own rates are in). Returns whether widening happened.
+ */
+export function floorBand(
+  r: { low: number; high: number },
+  minWidthPct: number
+): { range: { low: number; high: number }; floored: boolean } {
+  const mid = (r.low + r.high) / 2
+  if (mid <= 0 || minWidthPct <= 0) return { range: r, floored: false }
+  const widthPct = ((r.high - r.low) / mid) * 100
+  if (widthPct >= minWidthPct) return { range: r, floored: false }
+  const half = (mid * minWidthPct) / 200
+  return { range: { low: mid - half, high: mid + half }, floored: true }
+}
+
 const CONFIDENCE_HALF_WIDTH = [0.6, 0.85, 1] as const
 
 function effectiveConfidence(m: FieldMeta | undefined): 'H' | 'M' | 'L' {
@@ -341,30 +398,24 @@ const FRONT_RATE_M2: Record<'lacquered_mdf' | 'alu_glass', { low: number; high: 
 }
 const MDF_PROFILE_FACTOR: Record<'flat' | 'inset' | 'relief', number> = { flat: 1, inset: 1.2, relief: 1.35 }
 
-/**
- * Manual-work rates from the maker's real cost sheet (EUR). Each labour line is
- * driven by a concrete quantity — design hours, CNC positions, carcasses,
- * install metres — not a vague % of materials, so the estimate is tight.
- */
-const LABOUR_RATES = {
-  designPerHour: 30,
-  designHoursPerCarcass: 0.8,
-  cncPerPosition: 1,
-  positionsPerCarcass: 8,
-  assemblyPerCarcass: 15,
-  installPerMetre: 75,
-}
-
 /* ───────────────────────── Main calculator ───────────────────────── */
 
 export function computeBom(
   savedState: BuilderState,
   locale: Locale = DEFAULT_LOCALE,
-  opts: { scope?: LeadProfile['scope']; pricing?: 'retail' | 'maker' } = {}
+  opts: {
+    scope?: LeadProfile['scope']
+    pricing?: 'retail' | 'maker'
+    /** The maker's rate card (labour, workshop margin, band floor). IMP-21
+     * passes the owning maker's row; until then everyone gets the defaults. */
+    rates?: RateCard
+  } = {}
 ): BomEstimate {
   // Saved briefs outlive schema changes; price them in the current shape.
   const state = normalizeBuilderState(savedState)
   const lineItems: BomLineItem[] = []
+  const rates = opts.rates ?? DEFAULT_RATE_CARD
+  const labour = rates.labour
 
   // Retail (homeowner-facing) vs maker B2B cost. In 'maker' mode a picked SKU's
   // price is replaced by the maker's account price when supplied; otherwise it
@@ -922,8 +973,8 @@ export function computeBom(
      All four scale with the measured layout, so they widen by its confidence
      (homeowner-confirmed runs from the contract → no widening). */
   const labourMetas = [state.layout.meta.runs]
-  const designHours = Math.max(1, Math.round(carcassCount * LABOUR_RATES.designHoursPerCarcass))
-  const designCost = designHours * LABOUR_RATES.designPerHour
+  const designHours = Math.max(1, Math.round(carcassCount * labour.designHoursPerCarcass))
+  const designCost = designHours * labour.designPerHour
   const designRange = narrowByMeta(designCost * 0.9, designCost * 1.15, labourMetas)
   lineItems.push({
     key: 'design',
@@ -935,8 +986,8 @@ export function computeBom(
     high: round(designRange.high),
   })
 
-  const cncPositions = Math.round(carcassCount * LABOUR_RATES.positionsPerCarcass)
-  const cncCost = cncPositions * LABOUR_RATES.cncPerPosition
+  const cncPositions = Math.round(carcassCount * labour.positionsPerCarcass)
+  const cncCost = cncPositions * labour.cncPerPosition
   const cncRange = narrowByMeta(cncCost * 0.95, cncCost * 1.1, labourMetas)
   lineItems.push({
     key: 'cnc',
@@ -948,7 +999,7 @@ export function computeBom(
     high: round(cncRange.high),
   })
 
-  const assemblyCost = carcassCount * LABOUR_RATES.assemblyPerCarcass
+  const assemblyCost = carcassCount * labour.assemblyPerCarcass
   const assemblyRange = narrowByMeta(assemblyCost * 0.95, assemblyCost * 1.1, labourMetas)
   lineItems.push({
     key: 'assembly',
@@ -960,7 +1011,7 @@ export function computeBom(
     high: round(assemblyRange.high),
   })
 
-  const installCost = installM * LABOUR_RATES.installPerMetre
+  const installCost = installM * labour.installPerMetre
   const installRange = narrowByMeta(installCost * 0.9, installCost * 1.15, labourMetas)
   lineItems.push({
     key: 'install',
@@ -1006,36 +1057,70 @@ export function computeBom(
 
   // Drop line items the homeowner has put OUT of scope (e.g. no installation,
   // homeowner supplies appliances). Default (no scope yet) keeps everything.
-  const visibleLines = lineItems.filter((l) => lineInScope(l.key, opts.scope))
+  const netLines = lineItems.filter((l) => lineInScope(l.key, opts.scope))
+
+  // Cost → price (IMP-04). Every line above is at cost, and every cost already
+  // includes PDV, so the only thing added is the workshop margin, on material
+  // and make. Install is the maker's on-site labour at its own rate and goods
+  // are the homeowner's products at shelf price: neither carries it. ONE
+  // factor on both ends: the margin is the maker's choice, not uncertainty, so
+  // it must not widen the band (see rate-card.ts). Applied to the rounded net
+  // line, so each priced line is exactly round(net line × factor) until a cap
+  // or floor scales the works lines below.
+  const marginFraction = appliedMargin(rates)
+  const marginFactor = 1 + marginFraction
+  const takesMargin = (l: BomLineItem) =>
+    l.section === 'works' && (l.worksKind === 'material' || l.worksKind === 'make')
+  const visibleLines = netLines.map((l) =>
+    takesMargin(l) ? { ...l, low: round(l.low * marginFactor), high: round(l.high * marginFactor) } : l
+  )
 
   // Band width relative to the MIDPOINT, so displayed ±(bandWidthPct/2) reads
   // symmetrically; dividing by `low` overstated the band by ~3 points.
   const bandPct = (r: { low: number; high: number }) =>
     r.low + r.high > 0 ? Math.round(((r.high - r.low) / ((r.low + r.high) / 2)) * 100) : 0
 
+  const isWorks = (l: BomLineItem) => l.section === 'works'
+  const sumLines = (lines: BomLineItem[], pred: (l: BomLineItem) => boolean) =>
+    lines.filter(pred).reduce((acc, l) => ({ low: acc.low + l.low, high: acc.high + l.high }), { low: 0, high: 0 })
+
   // Homeowner-facing split: the kitchen (works) stays a range — the ±20%
   // promise applies to it; the goods (appliances, sink + tap) ride alongside
   // and collapse to an exact sum once every model is picked.
-  const sumWhere = (pred: (l: BomLineItem) => boolean) =>
-    visibleLines
-      .filter(pred)
-      .reduce((acc, l) => ({ low: acc.low + l.low, high: acc.high + l.high }), { low: 0, high: 0 })
-  const worksRaw = sumWhere((l) => l.section === 'works')
+  const worksRaw = sumLines(visibleLines, isWorks)
   // The ±20% promise is a product rule (foundations #6, LOOP B1): the kitchen
   // range never DISPLAYS wider than ±20%, whatever the line spreads sum to. A
   // real-path run (2026-09-19, 36-unit U read with every field at L) reached
   // ±22%, which the fixture gate could not see. Narrow symmetrically toward the
   // midpoint and flag it, so the maker dashboard can still say "capped".
-  const { range: works, capped: worksBandCapped } = capBand(worksRaw, MAX_WORKS_BAND_WIDTH_PCT)
+  const { range: worksCapped, capped: worksBandCapped } = capBand(worksRaw, MAX_WORKS_BAND_WIDTH_PCT)
+  // …and never NARROWER than the rate card's floor (±10% until a maker's own
+  // rates are in, Decision 2). Clamped to the cap so the two cannot cross.
+  const floorWidthPct = Math.min(rates.bandFloorHalfPct * 2, MAX_WORKS_BAND_WIDTH_PCT)
+  const { range: worksTarget, floored: worksBandFloored } = floorBand(worksCapped, floorWidthPct)
+
+  // The cap and the floor act on every works line, not only on the sum (IMP-04
+  // review): the floor fires on ordinary confirmed builds, and the wrap-up and
+  // the panel print the material / make / install subtotals right under the
+  // headline, so they must add up to it. The gross and the net lines scale by
+  // the same factor, so gross − net stays the margin on each line.
+  const clampLines = (lines: BomLineItem[]) =>
+    worksBandCapped || worksBandFloored ? clampWorksLines(lines, worksRaw, worksTarget) : lines
+  const pricedLines = clampLines(visibleLines)
+  const costLines = clampLines(netLines)
+
+  // The headline IS the sum of the works lines, so the breakdown, the grouped
+  // lines and the maker's net + margin all add up to it to the euro.
+  const sumWhere = (pred: (l: BomLineItem) => boolean) => sumLines(pricedLines, pred)
+  const works = sumWhere(isWorks)
+  // Maker-only: the same works lines at cost, and what the margin added.
+  const netWorks = sumLines(costLines, isWorks)
   const goods = sumWhere((l) => l.section === 'goods')
   const project = sumWhere((l) => l.section === 'project')
-  const goodsLines = visibleLines.filter((l) => l.section === 'goods')
-  const kind = (k: 'material' | 'make' | 'install') => {
-    const s = sumWhere((l) => l.worksKind === k)
-    return { low: round(s.low), high: round(s.high) }
-  }
+  const goodsLines = pricedLines.filter((l) => l.section === 'goods')
+  const kind = (k: 'material' | 'make' | 'install') => sumWhere((l) => l.worksKind === k)
 
-  // Total = (capped) works + goods + project, so the all-in figure agrees with
+  // Total = works + goods + project, so the figure with appliances agrees with
   // the headline it sits under.
   const total = {
     low: works.low + goods.low + project.low,
@@ -1044,7 +1129,7 @@ export function computeBom(
   const bandWidthPct = bandPct(total)
 
   return {
-    lineItems: visibleLines,
+    lineItems: pricedLines,
     total: { low: round(total.low), high: round(total.high) },
     bandWidthPct,
     sections: {
@@ -1053,6 +1138,7 @@ export function computeBom(
         high: round(works.high),
         bandWidthPct: bandPct(works),
         bandCapped: worksBandCapped,
+        bandFloored: worksBandFloored,
         breakdown: { material: kind('material'), make: kind('make'), install: kind('install') },
       },
       goods: {
@@ -1062,6 +1148,12 @@ export function computeBom(
       },
       project: { low: round(project.low), high: round(project.high) },
     },
+    makerOnly: {
+      net: { low: round(netWorks.low), high: round(netWorks.high) },
+      margin: { low: round(works.low - netWorks.low), high: round(works.high - netWorks.high) },
+      marginPct: Math.round(marginFraction * 1000) / 10,
+    },
+    assumptions: bomAssumptions(state, pricedLines, opts.scope),
     currency: 'EUR',
   }
 }
@@ -1070,14 +1162,65 @@ function round(n: number): number {
   return Math.round(n)
 }
 
-/** Format an EUR amount as "12.450 €" (Croatian convention: dot thousands). */
-export function formatEUR(amount: number, locale: 'hr-HR' | 'en-US' = 'hr-HR'): string {
-  return new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-  }).format(amount)
+/**
+ * Carry a capped or floored works band down to the lines (IMP-04 review).
+ * `raw` is the works sum the lines make; `target` is the same midpoint at the
+ * cap or the floor. Every works line keeps its own midpoint and its half-width
+ * scales by one factor, target half ÷ raw half, so the lines sum to `target`
+ * (to the euro, after each line is rounded) and keep their relative spreads.
+ * Goods and project lines are not part of the band and pass through. `lines`
+ * may be the priced or the net lines: the same factor on both keeps the margin
+ * between them. A works sum with no width at all (every line exact) has no
+ * spread to scale, so each line then takes the target's relative half-width.
+ */
+function clampWorksLines(
+  lines: BomLineItem[],
+  raw: { low: number; high: number },
+  target: { low: number; high: number }
+): BomLineItem[] {
+  const rawHalf = (raw.high - raw.low) / 2
+  const targetHalf = (target.high - target.low) / 2
+  const rawMid = (raw.low + raw.high) / 2
+  if (rawMid <= 0) return lines
+  return lines.map((l) => {
+    if (l.section !== 'works') return l
+    const mid = (l.low + l.high) / 2
+    const half = rawHalf > 0 ? ((l.high - l.low) / 2) * (targetHalf / rawHalf) : mid * (targetHalf / rawMid)
+    // A floor this wide never reaches zero on a real line; the clamp keeps a
+    // degenerate one from printing a negative euro.
+    return { ...l, low: round(Math.max(0, mid - half)), high: round(mid + half) }
+  })
 }
+
+/**
+ * What the range assumes, from the same inputs that priced it (IMP-04). Keys,
+ * in the fixed order of BOM_ASSUMPTIONS; every surface prints them next to the
+ * range through `range.assumption.<key>`.
+ */
+function bomAssumptions(
+  state: BuilderState,
+  lines: BomLineItem[],
+  scope: LeadProfile['scope'] | undefined
+): BomAssumption[] {
+  const out: BomAssumption[] = []
+  if (lines.some((l) => l.key === 'install')) out.push('installIncluded')
+  else if (scope?.installation === false) out.push('installExcluded')
+  if (scope?.demolitionDisposal !== true) out.push('noDemolition')
+  if (scope?.electricalWork !== true && scope?.plumbingRelocation !== true) out.push('noTrades')
+  // A legacy scope that took the supply out leaves it with the homeowner too.
+  // "Priced separately" only when there is an appliances row to point at: the
+  // maker supplying with nothing selected yet prices none (IMP-04 review).
+  if (state.appliances.supply === 'homeowner_supplies' || scope?.appliancesSupply === false) {
+    out.push('appliancesByHomeowner')
+  } else if (lines.some((l) => l.key === 'appliances' && l.high > 0)) out.push('appliancesSeparate')
+  else out.push('appliancesNotIncluded')
+  if (state.sinkTaps.supply === 'homeowner_supplies' || scope?.sinkTaps === false) out.push('sinkTapsByHomeowner')
+  out.push('siteCheckByMaker')
+  return out
+}
+
+/** Moved to ./range (server-safe, no catalog); re-exported for existing callers. */
+export { formatEUR }
 
 // Re-export the catalog count for the hypothesis route's logging if needed.
 export const CATALOG_DECOR_COUNT = catalogDecors.length

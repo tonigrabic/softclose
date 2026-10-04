@@ -5,6 +5,8 @@
     "pdfFile": "data/elgrad-cjenik-2026-03-30.pdf",
     "pdfPage": 12,
     "validFrom": "2026-03-26",
+    "vatBasis": "gross",
+    "vatBasisSource": "Toni 2026-10-03: cjenik i MPC uključuju PDV",
     "extractedAt": "2026-05-02"
   },
   "cutting": {

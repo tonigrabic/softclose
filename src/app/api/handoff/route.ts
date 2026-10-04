@@ -3,7 +3,7 @@ import { unauthorized } from '@/lib/api/errors'
 import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import { offloadMedia, storageUploader } from '@/lib/db/media'
 import { notifyMakerOfBrief } from '@/lib/notify/maker-email'
-import { buildHandoffBundle } from '@/lib/handoff/bundle'
+import { buildHandoffBundle, toCustomerBundle } from '@/lib/handoff/bundle'
 import { decideBriefId, isBriefId } from '@/lib/handoff/brief-id'
 import { isProjectClosed } from '@/lib/project/decision'
 import type { ClientMessage, LeadProfile, MoodBoardItem } from '@/lib/types'
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
         if (decision.kind === 'reuse') {
           bundle.briefId = decision.id
           bundle.makerPath = `/maker/${decision.id}`
-          return Response.json(bundle)
+          return Response.json(toCustomerBundle(bundle))
         }
 
         const briefId = decision.id
@@ -180,7 +180,7 @@ export async function POST(req: Request) {
         if (bErr?.code === '23505') {
           bundle.briefId = briefId
           bundle.makerPath = `/maker/${briefId}`
-          return Response.json(bundle)
+          return Response.json(toCustomerBundle(bundle))
         }
         if (bErr) throw bErr
 
@@ -218,7 +218,7 @@ export async function POST(req: Request) {
         console.error('[handoff] persist failed', persistErr)
       }
     }
-    return Response.json(bundle)
+    return Response.json(toCustomerBundle(bundle))
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Failed to build handoff bundle'
     return Response.json({ error: message }, { status: 500 })

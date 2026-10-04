@@ -507,17 +507,43 @@ export interface HandoffEstimate {
   /** Main range: kitchen only, excluding appliance supply. */
   low: number
   high: number
-  /** Range including appliance supply; null when appliance supply isn't in scope. */
+  /**
+   * The kitchen plus the goods the maker supplies (appliances, sink + tap, or
+   * both); null when the maker supplies none. The name is historical: label it
+   * by what the goods hold (`withGoodsKey(lines)`), never "with appliances"
+   * blindly — the homeowner may buy the appliances and leave the sink with the maker.
+   */
   withAppliances: { low: number; high: number } | null
   basis: string
   /** Half-width of the range in percent (e.g. 20 for ±20%), for localized display. */
   bandPct?: number
   /**
    * Maker-only B2B cost basis for the all-in figure (retail stays the
-   * homeowner number). Present only when the maker has supplied B2B prices
-   * (src/lib/catalog/maker-pricing.json); omitted otherwise.
+   * homeowner number), at cost: no workshop margin. Present only when the
+   * maker has supplied B2B prices (src/lib/catalog/maker-pricing.json);
+   * omitted otherwise. Stripped from the customer's response (toCustomerBundle).
    */
   makerCost?: { low: number; high: number }
+  /**
+   * MAKER-ONLY. The works at cost (material + make + install, before the
+   * margin), what the workshop margin adds, and the margin in percent. For the
+   * brief page; stored with the brief, stripped from the customer's response
+   * (toCustomerBundle). Absent on briefs priced before IMP-04.
+   */
+  maker?: import('@/lib/builder/bom').BomMakerOnly
+  /**
+   * How the range was priced. 'gross-margin-v1' (IMP-04): every line incl.
+   * PDV, workshop margin inside material + make. Absent ⇒ a brief priced
+   * before IMP-04, at net cost with no margin: flag it as the old calculation
+   * and keep it out of the ±20% hit rate (its quotes land high by design).
+   */
+  priceBasis?: 'gross-margin-v1'
+  /**
+   * What the range assumes and leaves out, as keys (`range.assumption.<key>`),
+   * copied from the same computeBom call. Absent on briefs sent before IMP-04:
+   * read it through `normalizeAssumptions`, which gives those the legacy list.
+   */
+  assumptions?: import('@/lib/builder/range').BomAssumption[]
   /**
    * The build line by line, priced by the same computeBom call as the totals
    * above so the two always agree. Stored at submit because prices and the

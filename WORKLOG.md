@@ -1368,3 +1368,467 @@ Migration 0007 applied to the local stack only — production pending (run the
 read-only pre-check in its header first).
 
 Gate: 673 tests · tsc · eslint · next build green.
+
+### 2026-10-03 — IMP-04 step 1: the range is a price — gross, workshop margin in, ±10% floor
+Spec item 5 (IMPROVEMENTS.md), Decisions 1 and 2. Until now the works range was
+the shop's cost sheet: Elgrad board prices plus raw labour hours, with no
+margin. It was shown to the homeowner as what the kitchen costs.
+
+- **Price basis.** Every Elgrad source includes PDV (Toni, 2026-10-03: the
+  veleprodajni cjenik and the webshop MPC alike), so nothing is grossed up.
+  `vatBasis: "gross"` plus `vatBasisSource: "Toni 2026-10-03: cjenik i MPC
+  uključuju PDV"` now sit in the `source` block of `elgrad-decors.json`,
+  `elgrad-decors-raw.json`, `elgrad-services.json` and `elgrad-products.json`,
+  and in what writes them: `parse-elgrad-cjenik.mjs` and
+  `build-elgrad-catalog.mjs` write them, and `refresh-elgrad-curated.mjs` carries them over
+  from the raw parse. Typed (`CatalogVatBasis`), and `elgrad-services.json`
+  now has a type instead of its cast.
+- **Rate card.** New `src/lib/catalog/rate-card.ts`: `RateCard`
+  (`workshopMargin {0.25, 0.35, markup_on_cost}`, `bandFloorHalfPct: 10`,
+  `labourVatBasis: 'gross'`, `labour`). `LABOUR_RATES` has moved there
+  unchanged. Also exports `DEFAULT_RATE_CARD`, `appliedMargin` (the midpoint)
+  and `withoutMargin`. `computeBom(…, { rates })` defaults to it. IMP-21 swaps
+  in the maker's row.
+- **Margin.** Every `works` line of kind material or make is multiplied by one
+  factor, 1.30, applied to the rounded net line. Install and goods carry no
+  margin. Using one factor on both ends keeps the margin from widening the
+  band: it is the maker's choice, not uncertainty. Using 25 % on `low` and 35 %
+  on `high` would have pushed l-shape and u-shape past ±21. The lines still add
+  up to the works range unless the band is clamped.
+- **Band floor.** `floorBand` sits next to `capBand` and is applied after it,
+  clamped so the two cannot cross. `sections.works.bandFloored` is set when it
+  fires. Decision 2 cites "LOOP Q6", which does not exist: LOOP.md:49 says "See
+  Q6", but there is no Q6 anywhere. The floor is implemented from the decision
+  text alone.
+- **Maker-only.** `BomEstimate.makerOnly = { net, margin, marginPct }`. `net` is
+  material + make + install at cost. `net + margin` equals the sum of the works
+  lines before any cap or floor. The bundle stores it as `estimate.maker`, next
+  to `priceBasis: 'gross-margin-v1'`. `makerCost` (the B2B basis) is now priced
+  `withoutMargin`. New `toCustomerBundle()` drops `maker` and `makerCost`, and
+  all three `Response.json(bundle)` calls in `/api/handoff` go through it. The
+  database row and the maker email keep the full bundle. This delivers half of
+  IMP-05's done-when early; IMP-05 still has its UI work. Side effect: the
+  wrap-up's "Demo: pogledaj što vidi izrađivač" button now renders without the
+  maker-only block. IMP-05 removes that button anyway.
+
+**Where the 30 % comes from: nowhere sourced, a placeholder for IMP-21.** No
+maker margin or overhead figure exists in context/, LOOP, PLAN, WORKLOG or
+data/. The only number in the repo is the 2026-10-02 audit's illustrative
+`marginPct: {low: 0.30, high: 0.45}` (context/audit-2026-10-02-findings.md:499,
+no source given). I apply its lower bound and keep the band's top (35 %) under
+its 45 %, for three reasons. Hardware, accessories and lighting are already
+retail prices with VAT, so margin on them stacks on a retailer's margin.
+Labour's VAT basis is unconfirmed. And IMP-21 replaces this with the maker's
+own figure.
+
+**Snapshots regenerated once (`vitest -u`, this step only).** Reason: gross
+pricing with 30 % on material + make, plus the ±10 floor. With zero margin the
+untouched totals reproduce the old snapshot exactly (`makerOnly.net` = old
+total on all six), so the margin is the only thing that moved the untouched
+figures.
+
+| fixture | old range € | new range € | ± untouched | ± confirmed |
+|---|---|---|---|---|
+| l-shape | 4,266–5,899 | 5,291–7,376 | 16 → 17 | 13 → 14 |
+| u-shape | 6,929–9,622 | 8,592–12,026 | 17 → 17 | 14 → 14 |
+| galley | 4,519–5,966 | 5,599–7,436 | 14 → 14 | 11 → 11 |
+| island | 3,696–4,678 | 4,564–5,803 | 12 → 12 | 9 → **10** (floor) |
+| peninsula | 5,173–6,665 | 6,384–8,271 | 13 → 13 | 10 → 10 (floor) |
+| single | 2,377–3,134 | 2,938–3,897 | 14 → 14 | 11 → 11 |
+
+Two results differ from the plan's table:
+- **l-shape confirmed is ±14, not 13.** Its full width went from 26 % to 27 %
+  through per-line rounding: the plan's "about +0.3 points" landing on a
+  rounding edge.
+- **The floor also fires on peninsula confirmed.** Its raw width was about 19 %,
+  so the displayed ± was already 10 and does not change. It is still a
+  floored band: `bandFloored = true`, and the lines no longer add up to the
+  headline.
+
+Band-invariant is still ≤ ±20 on every fixture.
+
+**Hit rate.** Briefs with no `priceBasis` were priced at net cost with no
+margin. The ±20% hit-rate query above (IMP-03) should add
+`and bundle->'estimate'->>'priceBasis' = 'gross-margin-v1'`, or flag the older
+briefs by date, so the old calculation does not bias the rate low.
+
+**Open questions for Toni.**
+1. *Labour VAT basis is unknown.* `LABOUR_RATES` come from the maker's cost
+   sheet (commit 4b56e21), and "all gross" covers Elgrad only. Labour is
+   treated as gross, following "nothing is grossed up"; `labourVatBasis`
+   records that assumption. If labour is actually net, the headline
+   understates it by 25 % of the labour lines, roughly 300–750 € on the
+   fixtures (single to u-shape, make lines with their margin). The
+   hard-coded carcass board rates (13 and 16 €/m²), the backsplash, plinth and
+   fallback rates have the same open question.
+2. *Margin on retail lines.* Hardware, accessories and lighting are already
+   retail prices with VAT, so 30 % on top stacks two margins. This follows the
+   decision as written. IMP-21 could set the margin per kind of line.
+3. *The default margin ships in client JS.* `computeBom` runs in the live
+   panel, so the 30 % can be read from the page code. That is fine for a
+   placeholder. IMP-21 should decide whether a maker's real margin may reach
+   customer clients.
+4. *Adjacent "ponuda" label.* `journey.act.offer` "Vaša ponuda" (hr-HR,
+   `JourneyNavRail.tsx:193`) labels the finished journey "ponuda". It is
+   outside IMP-04's files, so it is flagged here, not fixed.
+
+Tests: new `tests/price-basis.test.ts`, covering:
+- the rate card defaults;
+- each material/make line = round(net × 1.30), with install and goods
+  unchanged against a zero-margin run, on all six fixtures;
+- `makerOnly`: net = the works at cost, and net + margin = the lines;
+- the lines adding up to the headline unless capped or floored;
+- `vatBasis: 'gross'` in all four Elgrad files and in each script that writes
+  them;
+- `toCustomerBundle` stripping `maker` and `makerCost`, and the route answering
+  only through it.
+
+`floorBand` units are in band-cap. Band-invariant adds "fully confirmed works
+band within ±10…±20" for every fixture. 719 tests · tsc · eslint green.
+
+### 2026-10-03 — IMP-04 step 2: one range line and stated assumptions; live panel and dock
+Spec item 5. The panel printed the range to the euro with a bare ±, the dock
+the same in small, and neither said what the figure leaves out.
+
+- **`src/lib/builder/range.ts`** (server-safe: no React, no catalog, so the
+  email and the server pages can use it). `formatRange` rounds each end on its
+  own: 10 € below 2,500 €, 50 € up to 9,999 €, 100 € from 10,000 €. Half a step
+  is at most 1 % of any amount from 500 €, so the printed ends never move the
+  implied ± by more than a point (tested on a sweep and on all six fixtures,
+  untouched and confirmed). Equal ends print once. Exact sums (picked goods)
+  keep `formatEUR`, which moved here and is re-exported from `bom.ts`.
+- **Assumptions.** `BomEstimate.assumptions` holds keys, not prose, because the
+  handoff computes in hr-HR and three audiences read it. The order is fixed:
+  `installIncluded` | `installExcluded` (legacy scope), `noDemolition`,
+  `noTrades`, `appliancesByHomeowner` | `appliancesSeparate`,
+  `sinkTapsByHomeowner`, `siteCheckByMaker` (always: delivery and templating
+  are priced nowhere). A legacy scope with `appliancesSupply: false` or
+  `sinkTaps: false` counts as "the homeowner buys", since no row prices them.
+  The bundle copies the list to `estimate.assumptions`, and `toCustomerBundle`
+  keeps it. `normalizeAssumptions` gives briefs from before IMP-04
+  `LEGACY_ASSUMPTIONS` (install in, no demolition, no trades, site check) and
+  drops unknown keys.
+- **`src/components/range/RangeLine.tsx`.** The line reads `low – high · ±pct ·
+  "raspon koji {maker} potvrđuje"`, then the assumptions. In `lg` they are a
+  dotted list; in `compact` they are one truncated muted line, built from spans
+  only because the dock puts it inside its button. `range: null` renders
+  `fallback` (default nothing). A missing `bandPct` drops the ± rather than
+  guessing. It never reads maker-only fields.
+- **Panel and dock.** The headline is now `RangeLine`; every sub-range goes
+  through `formatRange`. The goods row and "Ukupno s uređajima" are hidden
+  when `goods.high === 0`, so a homeowner who supplies everything no longer
+  sees "0 € – 0 €". `makerName` is threaded from `KitchenIntake` through
+  `BuilderShell`. `builder.shell.bom.disclaimer` was removed: its second
+  sentence repeated "your maker confirms".
+
+Deviations from the plan:
+- The no-name fallback is a new `range.yourMaker` key ("tvoj izrađivač" /
+  "your maker") instead of `kitchen.home.yourMaker`. The latter is capitalised
+  and would read "raspon koji Tvoj izrađivač potvrđuje".
+- Added `range.assumptions.label` as the list's aria-label.
+- `range.band` in hr-HR uses a non-breaking space ("±14 %"), so the % never
+  wraps away from the number.
+
+No snapshot change: the band-invariant snapshot holds only totals and line
+keys. Tests: new `format-range` (steps, both locales, order, equal ends, ±
+within a point), `bom-assumptions` (each supply/scope combination, order, bundle
+round trip, legacy list, wording, no PDV/VAT/margin/"ponud" in `range.*`) and
+`range-line` (static render: figures, ±, maker named or "tvoj izrađivač",
+maker voice, null fallback, missing band, legacy assumptions, compact markup;
+panel without goods row when the homeowner supplies, with it when the maker
+does; dock). 756 tests · tsc · eslint green. Browser check is in step 4's gate.
+
+### 2026-10-03 — IMP-04 step 3: one range line on the wrap-up and kitchen home; lines grouped
+Spec item 5. The wrap-up printed the range to the euro under "Sve uključeno —
+s uređajima i radovima", added "raspon ±{pct}%" with a made-up 20 when the band
+was missing, and never showed the lines it stored. The kitchen home printed
+"Procjena: 5.291 – 7.376 €" with no ±, no maker and no exclusions.
+
+- **Wrap-up** (`WrapUpScreen.tsx`). The estimate card is now an exported
+  `WrapUpEstimate`. It renders:
+  - the shared `RangeLine`, labelled "Kuhinja — izrada i montaža", with the
+    maker's name. `makerName` is threaded from `KitchenIntake`
+    (`index.tsx`).
+  - "Kuhinja s uređajima" (was "Sve uključeno…") through `formatRange`, only
+    when the maker supplies the appliances.
+  - `estimate.lines`, grouped material → make → install → goods (→ legacy
+    project allowances). Each group has a subtotal range, and each line shows
+    name · quantity · range. There is no sum row.
+  - `fmtMoney`, `?? 20` and the `wrapup.estimate.basisBom` line are gone: the
+    ± is in the range line now, and only when the brief has one.
+- **`groupEstimateLines`** lives in `range.ts`, server-safe and typed
+  structurally so it doesn't pull in the BOM calculator. The brief and email
+  in step 4 can use it. It drops 0 € lines and empty groups, so a homeowner
+  who supplies everything never sees "0 € – 0 €". Picked-price groups print
+  their exact sum.
+- **Kitchen home.**
+  - `page.tsx` selects `band_pct` and `assumptions:bundle->estimate->assumptions`:
+    one JSON path, never the whole bundle.
+  - The server normalises the assumptions, so only known keys reach the
+    client and pre-IMP-04 briefs get the legacy list.
+  - `range` is `{low, high, bandPct, assumptions} | null`, and `money()` is
+    removed.
+  - `KitchenHome` renders `RangeLine`, labelled with
+    `kitchen.home.status.rangeLabel`. The old no-range block is its
+    `fallback`, which renders nothing on a closed project.
+  - `decisionNextKey(…, range != null)` means the same as before.
+- **New `tests/homeowner-copy.test.ts`.** It collects every locale key that
+  RangeLine, LiveBOMPanel, MobileRangeDock, WrapUpScreen and KitchenHome can
+  render: quoted keys and template prefixes. It asserts:
+  - no hr or en value matches
+    `/PDV|\bVAT\b|marž|margin|nabavn|B2B|Sve uključeno|all-in/i`.
+    `VAT` needs word boundaries because Croatian "-vati" verbs contain "vat".
+  - no `range.*` value says "ponud" or "quote".
+  - none of the five sources reads `estimate.maker`, `makerCost` or `makerOnly`.
+  - the scan finds a known key in each file, so a broken regex cannot pass
+    silently.
+
+Deviations from the plan:
+- *`KitchenHomeProps.makerName` is now `string | null`*, the maker's raw name.
+  - The capitalised "Tvoj izrađivač" fallback for headings is now worded on
+    the client.
+  - The intake also gets the raw name, so every range line in it says
+    "raspon koji tvoj izrađivač potvrđuje" in lower case when there is no
+    maker. The page used to pass the capitalised fallback, which step 2
+    warned about.
+  - Side effect: on a project with no maker, the intake's "{maker} vidi…"
+    line is now hidden. It had said "Tvoj izrađivač vidi…" when there was
+    nobody to see it.
+- *Key changes.*
+  - `kitchen.home.status.range` ("Procjena: {range}") is replaced by the slotless
+    label `kitchen.home.status.rangeLabel`.
+  - New keys: `wrapup.estimate.linesTitle`, plus `bom.lineItem.walls`, the
+    only line key that had no label.
+  - Removed: `wrapup.estimate.basisBom`.
+- *The wrap-up always shows the kitchen label* above the range. Before, it
+  appeared only when there was a figure with appliances. The assumptions
+  mention installation, so the label says what the figure covers.
+- *A fifth "project" group.* It renders only for legacy briefs whose old
+  scope priced allowances. Without it, those stored lines would be hidden.
+- *Kept `wrapup.estimate.makerConfirms`.* It explains that the maker turns the
+  range into a real quote in conversation, which the range line does not say.
+  Open item for copy review: it calls the maker "tvoj dizajner" / "your
+  designer", and it partly repeats the range line's "raspon koji … potvrđuje".
+
+No snapshot change, so no `-u`. Tests added:
+- `range-line` gains `groupEstimateLines` units, plus static renders of
+  `WrapUpEstimate` (range line, group order and subtotals, every line, no
+  goods group or 0 € row when the homeowner supplies, "Kuhinja s uređajima"
+  when the maker does, no invented ± on a legacy brief) and of `KitchenHome`
+  (range line, "tvoj izrađivač" with no maker, the builder fallback, nothing
+  on a closed project).
+- `homeowner-copy` is new.
+
+781 tests · tsc · eslint green. The browser check is in step 4's gate.
+
+### 2026-10-03 — IMP-04 step 4: range line on the dashboard, brief and email; net cost and margin on the brief
+Spec item 5, last step. The dashboard printed "5.291 – 7.376 €" with no ± and
+no exclusions. The brief headlined a compact "5k € – 7k €", printed its lines
+to the euro and repeated the ± in a basis sentence. The email sent
+"3.035 € – 4.286 € (±17%)" plus a "Sve uključeno" row. None of the three said
+what the range leaves out, and the maker never saw cost or margin.
+
+- **Dashboard** (`DashboardList.tsx`, `dashboard/page.tsx`, `lib/auth/projects.ts`).
+  - The brief query adds `assumptions:bundle->estimate->assumptions`. That is
+    one JSON path; the bundle itself is never read for the list.
+  - The page normalises the keys, so pre-IMP-04 briefs get the legacy list.
+    It passes `{low, high, bandPct, assumptions} | null`. `money()` is gone.
+  - The row renders `RangeLine` in the compact size with the maker voice:
+    rounded figures, ±, "raspon koji ti potvrđuješ", then one truncated
+    line of assumptions. It uses spans only, so it is valid inside the
+    row's link. Below `sm` it stays hidden, as before (the plan left this
+    optional).
+  - `Row` is exported as `DashboardListRow` for the static render test.
+- **Brief** (`MakerDashboardPreview.tsx`).
+  - `RangeLine` in the maker voice replaces the compact `fmtMoney` headline.
+    It is labelled "Kuhinja — bez nabave uređaja" when there is a figure
+    with appliances.
+  - `maker.estimate.basis` loses its `{pct}` and its "raspon koji ti
+    potvrđuješ", because the range line carries both now.
+  - The figure with appliances, the B2B cost box and every build line go
+    through `formatRange`. A picked (exact) line prints `formatEUR`. Both
+    `fmtMoney` and `fmtEur` are removed.
+  - New `MakerOnlyMoney` block, rendered only when the stored bundle carries
+    `estimate.maker`:
+    - "Trošak bez marže · materijal, izrada, montaža" (net)
+    - "Marža radionice · 30 % na materijal i izradu" (margin)
+    - "Raspon za kupca"
+    - the note "Zadana marža dok ne uneseš svoje cijene. Ovi iznosi uključuju PDV."
+
+    The customer copy (`toCustomerBundle`) has no `maker` field, so the
+    funnel demo of this page shows no maker-only block.
+  - A brief with no `priceBasis` (priced before IMP-04, at cost, no margin)
+    gets a "Stari izračun · bez marže" chip and a visible line saying its
+    range sits below what the homeowner would pay.
+- **Email** (`maker-email.ts`).
+  - The range prints through `formatRange` with `range.band` and
+    `range.confirms.maker`. A new "Pretpostavke" row lists the assumptions on
+    one line (legacy list when the brief has none).
+  - The "Sve uključeno" row is now "S uređajima".
+  - On `priceBasis: 'gross-margin-v1'` the footer says the range is the
+    homeowner's price, with PDV and the default margin, and that cost and
+    margin are on the brief.
+  - The copy is fixed to hr-HR, because every label in the email is Croatian.
+    `input.locale` is the homeowner's language, not the maker's.
+- **Locales.**
+  - New keys: `maker.estimate.makerOnly`, `net`, `margin` (`{pct}` in both
+    locales), `marginNote`, `homeownerRange`, `legacyBasis`,
+    `legacyBasisNote`.
+  - `maker.estimate.makerCostNote` no longer says "Sve uključeno" / "All-in".
+    It now says "Kuhinja i uređaji po tvojim cijenama, bez marže".
+
+Deviations from the plan:
+- *Extra keys beyond net / margin / marginNote:* the block title
+  (`makerOnly`), `homeownerRange`, and the chip text plus its explanation
+  (`legacyBasis`, `legacyBasisNote`). The explanation is a visible line rather
+  than a tooltip, so it can be read on touch.
+- *The email footer now states the price basis.* This was not in the plan. It
+  tells the maker what the figure is, without the maker-only numbers.
+- *The no-build subject check is stronger:* `/\d\s€/` instead of `/\d €/`. The
+  old pattern could never match once Intl put a non-breaking space before €.
+- *Build lines on the brief stay in the section groups* (works / goods /
+  project). The plan only moved their formatting, and the wrap-up's
+  material/make/install grouping was not asked for here.
+- *No `docs(spec): IMP-04 status → PR` commit.* This run must not edit
+  IMPROVEMENTS.md.
+- **No browser gate.** This run was not allowed to start a dev server, so the
+  browser pass in the plan was not done: the builder panel and dock at 375 px
+  and desktop, the wrap-up, the kitchen home, the dashboard, the brief, and
+  the `/api/handoff` body. Static renders stand in for it:
+  - `tests/maker-range.test.ts`: the brief and the dashboard row.
+  - `range-line` and `homeowner-copy`: the homeowner surfaces.
+  - `price-basis`: the route answers only through `toCustomerBundle`.
+
+  **Do the browser pass before marking IMP-04 done.**
+
+IMP-04 done-when, against the code:
+- *Every range carries the assumptions, with no VAT or margin line on the
+  homeowner side.* Covered: panel, dock, wrap-up, kitchen home, dashboard
+  (sm and up), brief and email. The margin and PDV wording is only on the
+  maker's brief, in its maker-only block, and in the maker email's footer.
+- *Every Elgrad source is marked gross in the catalog metadata.* Done in
+  step 1.
+- *The maker page shows net cost and margin.* Done in this step.
+- *Fixture snapshots regenerated once, with the reason logged.* Done in
+  step 1. No `-u` since.
+- *Band-invariant still ≤ ±20.* Holds, with the ±10 floor.
+
+Open questions for Toni are unchanged from step 1: labour's VAT basis, margin
+on retail lines, the default margin shipping in client JS, and "Vaša ponuda".
+
+Tests:
+- New `tests/maker-range.test.ts`:
+  - the brief: range line in the maker voice; net, margin and homeowner range
+    from the stored bundle; nothing from the customer copy; the legacy chip
+    and legacy assumptions; the figure with appliances; no build.
+  - the dashboard row: compact line, rounded, ±, maker voice, assumptions;
+    null renders nothing.
+- `maker-email.test.ts`:
+  - rounded figures, with the non-breaking space before €;
+  - the range line row and the assumptions row;
+  - legacy brief: no ±, legacy list, no margin claim;
+  - no build: no figures, no assumptions row.
+
+791 tests (52 files) · tsc · eslint green.
+
+### 2026-10-03 — IMP-04 review round: lines add up to the headline; the figure with goods says what it holds
+Three verified review findings on the IMP-04 branch, each fixed with a
+regression test.
+
+- **The floor and the cap now act on every works line** (`bom.ts`,
+  `clampWorksLines`). Before, `floorBand` / `capBand` widened or narrowed only
+  the summed works range, and the lines, `breakdown` and `makerOnly` stayed
+  un-clamped. The floor fires on ordinary confirmed builds (island,
+  peninsula), so the wrap-up's material / make / install subtotals and the
+  panel's breakdown sat ~100 € inside the headline at both ends, and the
+  maker's net + margin did not make "Raspon za kupca". Now:
+  - k = target half ÷ raw half of the works sum. Every works line keeps its
+    own midpoint and scales its half-width by k, on the priced lines and the
+    net lines alike (the margin factor is uniform, so gross − net stays the
+    margin). Goods and project lines pass through.
+  - The headline is the sum of those rounded lines, so lines, breakdown,
+    in-range groups and net + margin all add up to it to the euro. The
+    clamped band can sit a hair off ±10 / ±20 through per-line rounding
+    (island confirmed: 19.94 % full width) and still displays ±10.
+  - Island confirmed: headline 4,668–5,702 € (was 4,667–5,704, prints
+    4.650 € – 5.700 € either way). Groups now 2,936–3,678 + 940–1,081 +
+    792–943 = the headline; net 3,771–4,604 + margin 897–1,098 = the headline.
+    Peninsula confirmed: 6,595–8,059, lines likewise.
+  - The "lines no longer add up" caveats are gone from `bom.ts`, `range.ts`
+    and `MakerDashboardPreview.tsx`.
+  - **No snapshot change, so no `-u`.** The drift snapshot holds untouched
+    totals (none of the six is clamped untouched) and the confirmed ± (still
+    10 on island and peninsula).
+- **The figure with goods is labelled by what the goods hold.** Step 3 said
+  "Kuhinja s uređajima" shows only when the maker supplies the appliances; the
+  code showed it whenever any goods were priced, so a homeowner who buys the
+  appliances and leaves only the sink and tap with the maker read "uređaje
+  nabavlja kupac" right above "Kuhinja s uređajima 5.590 € – 7.820 €".
+  - New `goodsHeld(lines)` / `withGoodsKey(lines)` in `range.ts`, and one
+    label family for every surface: `range.withGoods.appliances` "Kuhinja s
+    uređajima", `.sinkTaps` "Kuhinja sa sudoperom i slavinom", `.both`
+    "Kuhinja s uređajima, sudoperom i slavinom" (en-US: "Kitchen with
+    appliances / sink and tap / appliances, sink and tap").
+  - Used by the wrap-up, the panel, the dock, the maker email and the brief.
+    They replace `wrapup.estimate.allInLabel`, `builder.shell.bom.totalWithGoods`
+    ("Ukupno s uređajima"), `maker.estimate.withAppliances` ("S nabavom
+    uređaja") and the email's hard-coded "S uređajima", which are removed.
+  - The brief's headline label `maker.estimate.kitchenOnly` was "Kuhinja — bez
+    nabave uređaja", wrong in the same case. It now reads "Kuhinja — izrada i
+    montaža", like the email row and the wrap-up.
+  - A brief stored before its lines were (no `lines`) keeps the
+    "s uređajima" label it was sent with.
+  - `withAppliances` keeps its name (it is the `estimate_all_in_*` columns);
+    its type doc now says to label it through `withGoodsKey`.
+- **"Priced separately" only when an appliances row is priced.** The maker
+  supplying with no appliance selected priced none, yet the range said
+  "uređaji se obračunavaju zasebno". New assumption key
+  `appliancesNotIncluded`: "bez uređaja" / "appliances not included", in the
+  canonical order right after `appliancesSeparate`.
+- **The wrap-up no longer says the goods make up the range.** "Od čega se
+  raspon sastoji" now holds material, make and install only, which add up to
+  the headline after the first fix. The goods group (and a legacy project
+  group) sits below under a new heading, `wrapup.estimate.outsideTitle`
+  "Izvan raspona kuhinje" / "Outside the kitchen range", closed by the
+  kitchen-with-goods row. `EstimateGroup` gains `inRange`.
+
+Deviation from the review's suggestions: for the goods label I took the
+"label by what goods holds" option, not "set withAppliances only when an
+appliances line exists". The second would change what the stored
+`withAppliances` and the `estimate_all_in_*` columns mean for briefs already
+sent.
+
+Tests:
+- `price-basis`: lines, breakdown, in-range groups and net + margin equal the
+  headline on every fixture, untouched and confirmed. It also checks:
+  - the floor fires on island and peninsula, and each line widens around its
+    own midpoint;
+  - a ±15 maker floor on galley;
+  - a capped u-shape (unknown decors, "other" cladding).
+
+  These five fail on the previous `bom.ts`.
+- `range-line`: sink-only in the panel, the dock and the wrap-up, the wrap-up's
+  in-range and outside blocks and their order, `goodsHeld` units, and `inRange`
+  on the groups.
+- `maker-email`: sink-only, appliances-only and both labels.
+- `maker-range`: the sink-only brief.
+- `bom-assumptions`: no selection gives `appliancesNotIncluded`; sink-only
+  leaves the appliances with the homeowner.
+- `homeowner-copy`: scans `range.withGoods.*` wherever `withGoodsKey(` is
+  called, and checks the wording of the label family and the outside heading.
+
+804 tests (52 files) · tsc · eslint green. Still no browser pass: this run may
+not start a dev server.
+
+**IMP-04 browser check** (local stack, mock AI, after the review round): the
+builder's live panel and mobile dock read "5.500 € – 7.700 € · ±17 % ·
+raspon koji Stolarija Render potvrđuje · montaža uključena · bez rušenja i
+odvoza · …"; after sending, the wrap-up, the kitchen home, the maker list and
+the brief all print "5.600 € – 7.600 € · ±16 %" with the same assumptions;
+the wrap-up groups the lines under Materijal / Izrada / Montaža; no PDV or
+margin text on any homeowner screen; the brief's maker-only box shows cost
+without margin 4.500–6.100 €, workshop margin 30 % 1.090–1.520 € ("zadana
+marža dok ne uneseš svoje cijene"). The stored brief carries
+`priceBasis: gross-margin-v1`; the customer response omits the maker fields.
+
+Gate: 804 tests · tsc · eslint · next build green.

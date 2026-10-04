@@ -134,6 +134,9 @@ async function main() {
       supplier: 'Elgrad d.o.o. webshop',
       url: 'https://webshop.elgrad.hr',
       priceBasis: 'Public retail price incl. VAT as shown on webshop.elgrad.hr; refreshed by scripts/scrape-elgrad-webshop.mjs → softclose_products → this file.',
+      // Webshop MPC includes PDV (Toni, 2026-10-03); computeBom grosses nothing up.
+      vatBasis: 'gross',
+      vatBasisSource: 'Toni 2026-10-03: cjenik i MPC uključuju PDV',
       generatedAt: new Date().toISOString().slice(0, 10),
     },
     bands,

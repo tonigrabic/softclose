@@ -13,6 +13,8 @@
 import { escapeHtml } from './html'
 import { emailSendingEnabled, sendEmail } from './send'
 import { contactChannels } from '@/lib/contact'
+import { assumptionKey, formatRange, normalizeAssumptions, withGoodsKey } from '@/lib/builder/range'
+import { t } from '@/lib/i18n/core'
 import type { HandoffBundle } from '@/lib/types'
 
 export interface MakerNotifyInput {
@@ -29,9 +31,8 @@ export function makerNotifyEnabled(): boolean {
   return emailSendingEnabled() && Boolean(process.env.MAKER_NOTIFY_EMAIL)
 }
 
-function eur(n: number | null | undefined): string {
-  return n == null ? '—' : `${Math.round(n).toLocaleString('hr-HR')} €`
-}
+/** The email is written in Croatian (its labels are), so its range copy is too. */
+const EMAIL_LOCALE = 'hr-HR' as const
 
 export function buildMakerEmail(input: MakerNotifyInput): { subject: string; html: string; text: string } {
   const { briefId, bundle, baseUrl } = input
@@ -44,14 +45,31 @@ export function buildMakerEmail(input: MakerNotifyInput): { subject: string; htm
   const dims = b.floorPlan?.room ? `${Math.round(b.floorPlan.room.lengthCm)} × ${Math.round(b.floorPlan.room.widthCm)} cm` : '—'
   // No build, no range: the homeowner skipped the builder. Say so in the
   // subject too — the maker triages from the inbox.
-  const range = e ? `${eur(e.low)} – ${eur(e.high)}${e.bandPct ? ` (±${e.bandPct}%)` : ''}` : 'raspon nije dostupan'
-  const allIn = e?.withAppliances ? `${eur(e.withAppliances.low)} – ${eur(e.withAppliances.high)}` : null
-  const subject = `Novi sažetak kuhinje — ${name} · ${range}`
+  // With a build: the one range line (IMP-04) — the same rounding, ± and
+  // "raspon koji ti potvrđuješ" as the brief, then what it leaves out.
+  const figures = e ? formatRange(e, EMAIL_LOCALE) : null
+  const band = e?.bandPct != null ? t('range.band', EMAIL_LOCALE).replace('{pct}', String(Math.round(e.bandPct))) : null
+  const headline = figures ? [figures, band].filter(Boolean).join(' · ') : 'raspon nije dostupan'
+  const assumptions = e
+    ? normalizeAssumptions(e.assumptions)
+        .map((a) => t(assumptionKey(a), EMAIL_LOCALE))
+        .join(' · ')
+    : null
+  // The kitchen with the goods the maker supplies, labelled by what they are:
+  // "with sink and tap" when the homeowner buys the appliances (IMP-04 review).
+  const withGoods: Array<[string, string]> = e?.withAppliances
+    ? [[t(withGoodsKey(e.lines), EMAIL_LOCALE), formatRange(e.withAppliances, EMAIL_LOCALE)]]
+    : []
+  const subject = `Novi sažetak kuhinje — ${name} · ${headline}`
   const rows: Array<[string, string]> = [
     ['Homeowner', `${name} · ${contact}`],
     ['Raspored', `${shape} · ${dims}`],
-    ['Kuhinja (izrada i montaža)', e ? range : 'raspon nije dostupan — kupac nije sastavio kuhinju'],
-    ...(allIn ? ([['Sve uključeno', allIn]] as Array<[string, string]>) : []),
+    [
+      'Kuhinja (izrada i montaža)',
+      e ? `${headline} · ${t('range.confirms.maker', EMAIL_LOCALE)}` : 'raspon nije dostupan — kupac nije sastavio kuhinju',
+    ],
+    ...(assumptions ? ([['Pretpostavke', assumptions]] as Array<[string, string]>) : []),
+    ...withGoods,
     ['Rok', b.timeline ?? '—'],
   ]
   const html = `<!doctype html><html><body style="font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#111;max-width:560px;margin:0 auto;padding:24px">
@@ -61,7 +79,7 @@ export function buildMakerEmail(input: MakerNotifyInput): { subject: string; htm
 ${rows.map(([k, v]) => `<tr><td style="padding:6px 0;color:#666;width:44%">${escapeHtml(k)}</td><td style="padding:6px 0">${escapeHtml(v)}</td></tr>`).join('')}
 </table>
 <p style="margin:20px 0"><a href="${link}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:10px 16px;border-radius:999px;font-weight:600">Otvori sažetak</a></p>
-<p style="font-size:12px;color:#666">Procjena je raspon koji izrađivač potvrđuje — nikad konačna ponuda. Ovaj link je privatan; ne prosljeđuj ga.</p>
+<p style="font-size:12px;color:#666">${e?.priceBasis === 'gross-margin-v1' ? 'Raspon je cijena za kupca, s PDV-om i zadanom maržom radionice — trošak i maržu vidiš u sažetku. Nikad konačna ponuda. ' : ''}Ovaj link je privatan; ne prosljeđuj ga.</p>
 </body></html>`
   const text = `Novi sažetak kuhinje\n\n${rows.map(([k, v]) => `${k}: ${v}`).join('\n')}\n\nOtvori: ${link}\n`
   return { subject, html, text }

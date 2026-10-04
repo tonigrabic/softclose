@@ -3,7 +3,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { ArrowLeft, Check, AlertTriangle, MessageCircle, X, Quote } from 'lucide-react'
 import type { HandoffBundle, LeadProfile, TranslatedField } from '@/lib/types'
-import type { BomLineItem } from '@/lib/builder/bom'
+import type { BomLineItem, BomMakerOnly } from '@/lib/builder/bom'
 import type { FloorPlan } from '@/lib/floor-plan'
 import {
   WALL_LETTER,
@@ -15,6 +15,8 @@ import {
 import { useTranslations, type Locale } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 import { contactChannels } from '@/lib/contact'
+import { formatEUR, formatRange, withGoodsKey } from '@/lib/builder/range'
+import { RangeLine } from '@/components/range/RangeLine'
 
 type Confidence = 'H' | 'M' | 'L' | null
 
@@ -40,15 +42,6 @@ interface MakerDashboardPreviewProps {
    * server action into the homeowner's bundle.
    */
   decisionSlot?: ReactNode
-}
-
-// EUR everywhere (AGENTS.md): the maker sees the same currency as the
-// homeowner. Compact (12k €) for the range headline; symbol-after per the
-// Croatian convention used by formatEUR elsewhere.
-function fmtMoney(n: number): string {
-  return n >= 1000
-    ? `${Math.round(n / 1000).toLocaleString('hr-HR')}k €`
-    : `${n.toLocaleString('hr-HR')} €`
 }
 
 type Source = 'homeowner' | 'ai_vision' | 'ai_inferred' | 'preset' | 'maker_catalog'
@@ -139,11 +132,6 @@ function FieldRow({
   )
 }
 
-/** Full-figure EUR for line items (the headline uses the compact fmtMoney). */
-function fmtEur(n: number): string {
-  return `${Math.round(n).toLocaleString('hr-HR')} €`
-}
-
 const LINE_GROUPS = [
   { section: 'works', titleKey: 'maker.build.group.works' },
   { section: 'goods', titleKey: 'builder.shell.bom.goods' },
@@ -156,7 +144,7 @@ const LINE_GROUPS = [
  * and range. Without it the maker gets a total and none of what it is made of.
  */
 function BuildLines({ lines }: { lines: BomLineItem[] }) {
-  const { t, tDynamic: td } = useTranslations()
+  const { t, tDynamic: td, locale } = useTranslations()
   const lineLabel = (key: string) => {
     const label = td(`bom.lineItem.${key}`)
     return label === `bom.lineItem.${key}` ? humanize(key) : label
@@ -190,7 +178,9 @@ function BuildLines({ lines }: { lines: BomLineItem[] }) {
                       </p>
                     </div>
                     <span className="shrink-0 font-mono text-[11px] tabular-nums text-slate-700">
-                      {line.low === line.high ? fmtEur(line.low) : `${fmtEur(line.low)} – ${fmtEur(line.high)}`}
+                      {/* The same rounding as every other range (IMP-04); a picked
+                          catalog price is exact and prints as is. */}
+                      {line.exact ? formatEUR(line.low, locale) : formatRange(line, locale)}
                     </span>
                   </li>
                 ))}
@@ -200,6 +190,48 @@ function BuildLines({ lines }: { lines: BomLineItem[] }) {
         })}
       </div>
     </section>
+  )
+}
+
+/**
+ * MAKER-ONLY (IMP-04): what the homeowner's range is made of. The works at
+ * cost (material + make + install, before the margin), the workshop margin on
+ * material and make, and the range the homeowner reads. Rendered only when
+ * the stored brief carries `estimate.maker`; the customer's copy of the bundle
+ * never does (toCustomerBundle), so the funnel demo shows nothing here.
+ *
+ * Net + margin = the homeowner's range to the euro (computeBom carries a
+ * capped or floored band down to the net lines too); each figure is rounded
+ * for display on its own, so the printed ends can differ by a rounding step.
+ */
+function MakerOnlyMoney({ maker, range }: { maker: BomMakerOnly; range: { low: number; high: number } }) {
+  const { t, locale } = useTranslations()
+  const rows: Array<[string, string]> = [
+    [t('maker.estimate.net'), formatRange(maker.net, locale)],
+    [t('maker.estimate.margin').replace('{pct}', String(Math.round(maker.marginPct))), formatRange(maker.margin, locale)],
+    [t('maker.estimate.homeownerRange'), formatRange(range, locale)],
+  ]
+  return (
+    <div className="mt-3 rounded border border-indigo-200 bg-indigo-50/60 p-2.5" data-maker-only-money>
+      <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-indigo-800">
+        {t('maker.estimate.makerOnly')}
+      </p>
+      <dl className="mt-1.5 space-y-1">
+        {rows.map(([label, value], i) => (
+          <div
+            key={label}
+            className={cn(
+              'flex items-baseline justify-between gap-3 text-[12px]',
+              i === rows.length - 1 && 'border-t border-indigo-200 pt-1 font-semibold'
+            )}
+          >
+            <dt className="min-w-0 text-slate-700">{label}</dt>
+            <dd className="shrink-0 font-mono tabular-nums text-slate-900">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-1.5 text-[10px] leading-relaxed text-indigo-800/80">{t('maker.estimate.marginNote')}</p>
+    </div>
   )
 }
 
@@ -310,47 +342,59 @@ export function MakerDashboardPreview({ bundle, onBack, hideActions = false, dec
         <div className="space-y-4">
           {/* Header row: estimate + action buttons */}
           <section className="rounded-lg border border-slate-300 bg-white p-4 shadow-sm">
-            <div className="mb-3 flex items-baseline justify-between">
+            <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-700">
                 {t('maker.estimate.title')}
               </h2>
+              {/* A brief priced before IMP-04 is the shop's cost with no margin:
+                  say so, so its range is not read as a price. */}
+              {summary && !summary.priceBasis ? (
+                <span
+                  className="rounded bg-amber-100 px-1.5 py-0.5 font-mono text-[10px] font-bold uppercase tracking-wide text-amber-900"
+                  data-legacy-basis
+                >
+                  {t('maker.estimate.legacyBasis')}
+                </span>
+              ) : null}
             </div>
             {summary ? (
               <>
-                {summary.withAppliances && (
-                  <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    {t('maker.estimate.kitchenOnly')}
-                  </p>
-                )}
-                <p className="font-mono text-2xl font-bold text-slate-900">
-                  {fmtMoney(summary.low)} <span className="text-slate-400">–</span> {fmtMoney(summary.high)}
-                </p>
+                {/* The one range line (IMP-04), in the maker's voice: the same
+                    figures, rounding, ± and assumptions the homeowner reads. */}
+                <RangeLine
+                  voice="maker"
+                  label={summary.withAppliances ? t('maker.estimate.kitchenOnly') : undefined}
+                  range={{
+                    low: summary.low,
+                    high: summary.high,
+                    bandPct: summary.bandPct,
+                    assumptions: summary.assumptions,
+                  }}
+                />
                 {/* The stored `basis` is homeowner-facing and in English; say it
                     to the maker, in their language. */}
-                <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">
-                  {summary.bandPct != null
-                    ? t('maker.estimate.basis').replace('{pct}', String(summary.bandPct))
-                    : summary.basis}
-                </p>
+                <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">{t('maker.estimate.basis')}</p>
+                {!summary.priceBasis ? (
+                  <p className="mt-1 text-[11px] leading-relaxed text-amber-800">{t('maker.estimate.legacyBasisNote')}</p>
+                ) : null}
                 {summary.withAppliances && (
                   <div className="mt-3 border-t border-slate-200 pt-3">
                     <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      {t('maker.estimate.withAppliances')}
+                      {t(withGoodsKey(summary.lines))}
                     </p>
-                    <p className="mt-0.5 font-mono text-base font-bold text-slate-700">
-                      {fmtMoney(summary.withAppliances.low)} <span className="text-slate-400">–</span>{' '}
-                      {fmtMoney(summary.withAppliances.high)}
+                    <p className="mt-0.5 font-mono text-base font-bold tabular-nums text-slate-700">
+                      {formatRange(summary.withAppliances, locale)}
                     </p>
                   </div>
                 )}
+                {summary.maker && <MakerOnlyMoney maker={summary.maker} range={summary} />}
                 {summary.makerCost && (
                   <div className="mt-3 rounded border border-emerald-300 bg-emerald-50 p-2.5">
                     <p className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-800">
                       {t('maker.estimate.makerCost')}
                     </p>
-                    <p className="mt-0.5 font-mono text-base font-bold text-emerald-900">
-                      {fmtMoney(summary.makerCost.low)} <span className="text-emerald-500">–</span>{' '}
-                      {fmtMoney(summary.makerCost.high)}
+                    <p className="mt-0.5 font-mono text-base font-bold tabular-nums text-emerald-900">
+                      {formatRange(summary.makerCost, locale)}
                     </p>
                     <p className="mt-1 text-[10px] leading-relaxed text-emerald-700">
                       {t('maker.estimate.makerCostNote')}

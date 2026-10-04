@@ -12,6 +12,8 @@
     "supplier": "Elgrad d.o.o.",
     "supplierWebsite": "https://www.elgrad.hr",
     "pricelist": "Veleprodajni cjenik",
+    "vatBasis": "gross",
+    "vatBasisSource": "Toni 2026-10-03: cjenik i MPC uključuju PDV",
     "pdfFile": "data/elgrad-cjenik-2026-09-09.pdf",
     "validFrom": "2026-09-09",
     "extractedAt": "2026-09-26",
