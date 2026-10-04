@@ -243,6 +243,12 @@ describe('nothing reaches /api/handoff before the button, at the source', () => 
     expect(mount![0]).toMatch(/onFileBriefId=\{sentBriefId \?\? currentBriefId\}/)
   })
 
+  test('right after a send, what happens next takes the send card’s place and is announced', () => {
+    expect(wrapUp).toMatch(/\{done && !bundle && nextSteps\}/)
+    expect(wrapUp).toMatch(/\{bundle && nextSteps\}\s*\{\/\* Send —/)
+    expect(wrapUp).toMatch(/role=\{bundle \? 'status' : undefined\}/)
+  })
+
   test('the summary is written for a review the homeowner has not sent yet', () => {
     const route = source('src/app/api/summarize-brief/route.ts')
     expect(route).toContain('shown above the review BEFORE the homeowner sends; never say it was sent')

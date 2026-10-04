@@ -299,6 +299,36 @@ export function WrapUpScreen({
   // brief on file, read on the click (the project's current brief).
   const canDownload = !readOnly && (bundle !== null || (state === 'sent' && Boolean(projectId)))
 
+  // What happens next — status visibility is a P0 (AGENTS.md rule 8). Only
+  // once the maker has this brief, and honest about persistence: "sent" only
+  // when the server said so. On a revisit it sits under the range; right after
+  // a send it takes the send card's place, where the homeowner just pressed
+  // the button, and is announced.
+  const nextSteps = (
+    <section
+      className="rounded-2xl border border-border bg-card p-5 text-left shadow-sm"
+      data-next
+      role={bundle ? 'status' : undefined}
+    >
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        {t('wrapup.next.title')}
+      </p>
+      {briefRef ? (
+        <ul className="space-y-1.5 text-sm text-foreground/85">
+          <li>{t('wrapup.next.saved')}</li>
+          {contact.length > 0 && (
+            <li>{t('wrapup.next.contact').replace('{contact}', contact.join(` ${t('common.or')} `))}</li>
+          )}
+          <li className="font-mono text-[11px] text-muted-foreground">
+            {t('wrapup.next.ref').replace('{id}', briefRef.slice(0, 8))}
+          </li>
+        </ul>
+      ) : (
+        <p className="text-sm text-amber-800 dark:text-amber-200">{t('wrapup.next.unsaved')}</p>
+      )}
+    </section>
+  )
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 24 }}
@@ -393,29 +423,8 @@ export function WrapUpScreen({
         ) : null}
       </section>
 
-      {/* What happens next — status visibility is a P0 (AGENTS.md rule 8).
-          Only once the maker has this brief, and honest about persistence:
-          "sent" only when the server said so. */}
-      {done && (
-        <section className="rounded-2xl border border-border bg-card p-5 text-left shadow-sm" data-next>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {t('wrapup.next.title')}
-          </p>
-          {briefRef ? (
-            <ul className="space-y-1.5 text-sm text-foreground/85">
-              <li>{t('wrapup.next.saved')}</li>
-              {contact.length > 0 && (
-                <li>{t('wrapup.next.contact').replace('{contact}', contact.join(` ${t('common.or')} `))}</li>
-              )}
-              <li className="font-mono text-[11px] text-muted-foreground">
-                {t('wrapup.next.ref').replace('{id}', briefRef.slice(0, 8))}
-              </li>
-            </ul>
-          ) : (
-            <p className="text-sm text-amber-800 dark:text-amber-200">{t('wrapup.next.unsaved')}</p>
-          )}
-        </section>
-      )}
+      {/* What happens next, on a revisit: right under the range. */}
+      {done && !bundle && nextSteps}
 
       {/* Chosen concept render */}
       {chosenRender && (
@@ -630,6 +639,9 @@ export function WrapUpScreen({
           </ul>
         </section>
       )}
+
+      {/* Just sent from here: what happens next, where the button was. */}
+      {bundle && nextSteps}
 
       {/* Send — after the whole brief, so it is read first (Pattern C). The
           one control on this screen that reaches the maker. */}
