@@ -937,6 +937,25 @@ export const hrHR = {
   'kitchen.home.decision.pill.clarify': 'Treba pojašnjenje',
   'kitchen.home.decision.pill.declined': 'Zatvoreno',
   'kitchen.makerSees': '{maker} vidi tvoj napredak dok radiš.',
+  // The maker looking in at their customer's kitchen home. It is the
+  // customer's to fill and edit, so no walkthrough addressed to them, no
+  // "Nastavi" or "Izmijeni": the maker only looks. No full stop after {date}:
+  // a Croatian date already ends in one.
+  'kitchen.home.readOnly.title': 'Kupac još nije počeo',
+  'kitchen.home.readOnly.titleStarted': 'Kupac još opisuje kuhinju',
+  'kitchen.home.readOnly.titleSubmitted': 'Kupac je poslao sažetak',
+  'kitchen.home.readOnly.notStarted': 'Kad počne, ovdje ćeš vidjeti kuhinju onako kako je opisuje.',
+  'kitchen.home.readOnly.lastSaved': 'Zadnje spremljeno: {step}.',
+  'kitchen.home.readOnly.cta': 'Pogledaj kuhinju',
+  'kitchen.home.readOnly.note': 'Samo za gledanje — kuhinju mijenja kupac.',
+  'kitchen.home.readOnly.status.seen': 'Kupac vidi da je sažetak otvoren {date}',
+  'kitchen.home.readOnly.status.notSeen': 'Sažetak još nije otvoren — otvori ga s popisa.',
+  'kitchen.home.readOnly.status.noRange': 'Raspon stiže kad kupac sastavi kuhinju.',
+  // Under the decision: what the customer reads next to it.
+  'kitchen.home.readOnly.decision.quotedNext': 'Kupac ovdje čita da iznos i uvjete dobiva izravno od tebe.',
+  'kitchen.home.readOnly.decision.clarifyNext':
+    'Kupac ovdje čita da odgovori izmjenom kuhinje ili ti se javi izravno.',
+  'kitchen.home.readOnly.decision.declinedNext': 'Kupac ovdje i dalje vidi svoju procjenu.',
   'live.back': 'Natrag na popis',
   'live.banner.title': 'U TIJEKU — kupac još radi',
   'live.banner.body':
@@ -958,6 +977,13 @@ export const hrHR = {
   'wrapup.readOnly.lede': 'Ovako ga vidi kupac — ti ga ovdje samo gledaš.',
   'wrapup.readOnly.notSent': 'Kupac još nije poslao sažetak.',
   'wrapup.readOnly.sent': 'Kupac je poslao sažetak — otvori ga s popisa.',
+  // The sections, where the homeowner's words say "tvoj": the render, the
+  // space, the sink "you agree with your maker".
+  'wrapup.readOnly.section.render': 'Koncept koji je kupac odabrao',
+  'wrapup.readOnly.render.note':
+    'AI koncept usidren na fotografiju kupčeva prostora. Smjer koji kupac želi, ne obvezujuća specifikacija.',
+  'wrapup.readOnly.section.space': 'Kupčev prostor',
+  'wrapup.readOnly.trades.movesOpen': 'seli se — mjesto dogovaraš s kupcem',
   'auth.logout': 'Odjava',
   'readback.led.yes': 'LED rasvjeta',
   'readback.led.no': 'Bez LED rasvjete',
@@ -1135,6 +1161,9 @@ export const hrHR = {
   'floorPlan.svg.disclaimer': 'Skica — nije izmjera',
   'floorPlan.static.deferred': 'Odlučio si ne mjeriti — tvoj dizajner uzet će mjere na licu mjesta.',
   'floorPlan.static.rough': 'Okvirna skica prema onome što si podijelio — dizajner će je potvrditi na licu mjesta.',
+  // The same captions for the maker looking in: the maker is the designer.
+  'floorPlan.static.deferredMaker': 'Kupac je odlučio ne mjeriti — mjere uzimaš na licu mjesta.',
+  'floorPlan.static.roughMaker': 'Okvirna skica prema onome što je kupac podijelio — mjere potvrđuješ na licu mjesta.',
 
   // ---- Failed requests — shown instead of the server's English text -------
   'api.error.session': 'Sesija je istekla. Prijavi se ponovno da nastaviš.',

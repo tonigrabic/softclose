@@ -2,7 +2,7 @@
 
 import { renderFloorPlanSvg, type FloorPlan, type SvgRenderMode } from '@/lib/floor-plan'
 import type { WallSide } from '@/lib/types'
-import { useTranslations } from '@/lib/i18n'
+import { useTranslations, type TranslationKey } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
 interface FloorPlanStaticProps {
@@ -15,6 +15,10 @@ interface FloorPlanStaticProps {
   showDimensions?: boolean
   /** Hide the "your designer will measure on site" footer caption. Default false. */
   hideFooter?: boolean
+  /** Who reads that caption: the homeowner ("what you shared — your designer
+   *  confirms"), or the maker looking in, who is the designer ("what the
+   *  customer shared — you confirm"). The picture itself is `mode`. */
+  voice?: 'homeowner' | 'maker'
   /** Circled letters on these walls (the room step); filled for `wallLettersDone`. */
   wallLetters?: Partial<Record<WallSide, string>>
   wallLettersDone?: readonly WallSide[]
@@ -31,12 +35,22 @@ export function FloorPlanStatic({
   showDisclaimer = true,
   showDimensions = true,
   hideFooter = false,
+  voice = 'homeowner',
   wallLetters,
   wallLettersDone,
   className,
 }: FloorPlanStaticProps) {
   const { t, locale } = useTranslations()
   const svg = renderFloorPlanSvg(plan, { mode, showDisclaimer, showDimensions, locale, wallLetters, wallLettersDone })
+  const deferred = plan.measurementMethod === 'deferred_to_designer'
+  const caption: TranslationKey =
+    voice === 'maker'
+      ? deferred
+        ? 'floorPlan.static.deferredMaker'
+        : 'floorPlan.static.roughMaker'
+      : deferred
+        ? 'floorPlan.static.deferred'
+        : 'floorPlan.static.rough'
   return (
     <div
       className={cn(
@@ -47,9 +61,7 @@ export function FloorPlanStatic({
     >
       <div className="w-full" dangerouslySetInnerHTML={{ __html: svg }} />
       {!hideFooter && (
-        <p className="mt-2 px-1 text-[11px] text-muted-foreground">
-          {t(plan.measurementMethod === 'deferred_to_designer' ? 'floorPlan.static.deferred' : 'floorPlan.static.rough')}
-        </p>
+        <p className="mt-2 px-1 text-[11px] text-muted-foreground">{t(caption)}</p>
       )}
     </div>
   )
