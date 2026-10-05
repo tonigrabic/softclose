@@ -2,6 +2,7 @@
 
 import type { ReactNode } from 'react'
 import { LanguageSwitcher } from '@/components/LanguageSwitcher'
+import { LegalFooter } from '@/components/LegalFooter'
 import { LogoutButton } from '@/components/LogoutButton'
 import { MockBadge } from '@/components/MockBadge'
 import { cn } from '@/lib/utils'
@@ -12,7 +13,8 @@ import { cn } from '@/lib/utils'
  *
  * Deliberately not AppShell: that one carries a progress bar and a journey nav
  * rail, which would be nonsense on a login form and actively misleading on the
- * maker's dashboard. One centred column, the language toggle, nothing else.
+ * maker's dashboard. One centred column, the language toggle, and a quiet
+ * footer with the privacy notice (IMP-09).
  */
 export function AuthShell({
   children,
@@ -38,6 +40,9 @@ export function AuthShell({
       <main className={cn('mx-auto flex w-full flex-1 flex-col px-5 pb-16 sm:px-8', wide ? 'max-w-5xl' : 'max-w-md justify-center')}>
         {children}
       </main>
+      <footer className="px-5 pb-6 sm:px-8">
+        <LegalFooter />
+      </footer>
     </div>
   )
 }

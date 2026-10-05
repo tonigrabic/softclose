@@ -64,7 +64,18 @@ describe('isPublicPath', () => {
     expect(isPublicPath('/auth/verify')).toBe(true)
   })
 
-  it.each(['/', '/dashboard', '/maker/abc', '/api/handoff', '/loginsomething'])(
+  it('the privacy notice is public, sub-paths too, and nothing that merely starts like it (IMP-09)', () => {
+    expect(isPublicPath('/privatnost')).toBe(true)
+    expect(isPublicPath('/privatnost/x')).toBe(true)
+    expect(isPublicPath('/privatnostx')).toBe(false)
+  })
+
+  it('a sign-in never bounces back to the privacy notice', () => {
+    // Public paths are refused as ?next=, like /login itself.
+    expect(safeNextPath('/privatnost')).toBe('/')
+  })
+
+  it.each(['/', '/dashboard', '/maker/abc', '/api/handoff', '/loginsomething', '/privatnostx'])(
     '%s is not public',
     (p) => {
       expect(isPublicPath(p)).toBe(false)

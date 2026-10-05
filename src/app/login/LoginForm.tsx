@@ -36,9 +36,9 @@ function errorKey(message: string | undefined): TranslationKey {
   }
 }
 
-export function LoginForm({ next }: { next?: string }) {
+export function LoginForm({ next, deleted = false }: { next?: string; deleted?: boolean | 'account' }) {
   const [state, formAction] = useActionState<LoginState, FormData>(requestLoginLink, { status: 'idle' })
-  return <LoginFormView state={state} formAction={formAction} next={next} />
+  return <LoginFormView state={state} formAction={formAction} next={next} deleted={deleted} />
 }
 
 /** The form for a given action state — split from the hook so each state can
@@ -47,12 +47,49 @@ export function LoginFormView({
   state,
   formAction,
   next,
+  deleted = false,
 }: {
   state: LoginState
   formAction: (formData: FormData) => void
   next?: string
+  /** Landed here from "Izbriši moju kuhinju" (/login?deleted=1, IMP-09), or
+   *  from "Izbriši moj račun" (/login?deleted=account). */
+  deleted?: boolean | 'account'
 }) {
   const { t } = useTranslations()
+
+  // After deleting an account (no kitchen was left on it): the same calm
+  // notice, without the link back — there is nothing left to sign in to.
+  if (deleted === 'account' && state.status === 'idle') {
+    return (
+      <AuthShell>
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm" data-account-deleted>
+          <h1 className="text-lg font-semibold text-foreground">{t('auth.deletedAccount.title')}</h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t('auth.deletedAccount.body')}</p>
+        </div>
+      </AuthShell>
+    )
+  }
+
+  // After deleting a kitchen: say it is done, calmly, instead of a sign-in
+  // form nobody came here for. The link back is for a homeowner with a second
+  // kitchen; it reloads /login without the parameter.
+  if (deleted && state.status === 'idle') {
+    return (
+      <AuthShell>
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm" data-kitchen-deleted>
+          <h1 className="text-lg font-semibold text-foreground">{t('auth.deleted.title')}</h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t('auth.deleted.body')}</p>
+          <a
+            href="/login"
+            className="mt-5 inline-block text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            {t('auth.deleted.signIn')}
+          </a>
+        </div>
+      </AuthShell>
+    )
+  }
 
   // Sent or not, this branch says the same thing. Whether an account exists for
   // that address is not something a stranger gets to learn from us.

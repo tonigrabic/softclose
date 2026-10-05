@@ -77,6 +77,31 @@ describe('buildInviteEmail', () => {
     expect(noName.subject).toContain('Tvoj izrađivač')
   })
 
+  it('says an AI assistant leads the steps and the maker reviews everything (IMP-09)', () => {
+    expect(mail.html).toContain('Kroz korake te vodi AI asistent. Stolarija Ana osobno pregledava sve što podijeliš.')
+    expect(mail.text).toContain('Kroz korake te vodi AI asistent. Stolarija Ana osobno pregledava sve što podijeliš.')
+    expect(mail.html).not.toMatch(/chatbot/i)
+  })
+
+  it('without a maker name the AI sentence still reads — "Tvoj izrađivač osobno pregledava"', () => {
+    const noName = buildInviteEmail({ url: URL_, makerName: '' })
+    expect(noName.html).toContain('Tvoj izrađivač osobno pregledava sve što podijeliš.')
+  })
+
+  it('links the privacy notice on the app origin, in both parts', () => {
+    expect(mail.html).toContain('href="https://softclose.example/privatnost"')
+    expect(mail.html).toContain('Kako postupamo s tvojim podacima')
+    expect(mail.text).toContain('Kako postupamo s tvojim podacima: https://softclose.example/privatnost')
+    // The magic link is still there exactly once — the notice link is separate.
+    expect(mail.html.split(URL_).length - 1).toBe(1)
+  })
+
+  it('leaves the privacy link out rather than guess when the link is not a URL', () => {
+    const odd = buildInviteEmail({ url: 'not a url', makerName: 'Stolarija Ana' })
+    expect(odd.html).not.toContain('/privatnost')
+    expect(odd.html).toContain('Kroz korake te vodi AI asistent.')
+  })
+
   it('escapes a hostile maker name instead of rendering it', () => {
     const hostile = buildInviteEmail({
       url: URL_,
@@ -86,6 +111,8 @@ describe('buildInviteEmail', () => {
     expect(hostile.html).not.toContain('<script>')
     expect(hostile.html).toContain('&lt;script&gt;')
     expect(hostile.html).not.toContain('onload="alert(2)"')
+    // Including in the AI sentence.
+    expect(hostile.html).toContain('Ana &lt;script&gt;alert(1)&lt;/script&gt; osobno pregledava')
   })
 })
 
@@ -97,6 +124,27 @@ describe('renderEmail', () => {
       cta: { label: 'go', url: 'https://e.example/"><script>alert(1)</script>' },
     })
     expect(html).not.toContain('<script>')
+  })
+
+  it('escapes the footer link url and label', () => {
+    const { html } = renderEmail({
+      eyebrow: 'x',
+      title: 'y',
+      footerLink: { label: '<b>privacy</b>', url: 'https://e.example/"><script>alert(1)</script>' },
+    })
+    expect(html).not.toContain('<script>')
+    expect(html).not.toContain('<b>')
+    expect(html).toContain('&lt;b&gt;privacy&lt;/b&gt;')
+  })
+
+  it('puts the footer link in the text part after the footnote', () => {
+    const { text } = renderEmail({
+      eyebrow: 'x',
+      title: 'y',
+      footnote: 'small print',
+      footerLink: { label: 'Privatnost', url: 'https://e.example/privatnost' },
+    })
+    expect(text.trim().split('\n').slice(-3)).toEqual(['small print', '', 'Privatnost: https://e.example/privatnost'])
   })
 
   it('omits empty sections rather than rendering empty tags', () => {

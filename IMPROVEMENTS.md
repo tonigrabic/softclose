@@ -17,7 +17,7 @@ _Audit of `main` @ 8dd7a69 on 2026-10-02. Nine code-reading passes (intake, buil
 | 7 | IMP-06 | Builder state autosaves | critical | M | main | pr: https://github.com/tonigrabic/softclose/pull/17 |
 | 8 | IMP-07 | Review before send; edits after submit are possible | high | M | IMP-06 | pr: https://github.com/tonigrabic/softclose/pull/18 |
 | 9 | IMP-08 | Maker email in Croatian; login reports a failed send honestly | medium | S | main | pr: https://github.com/tonigrabic/softclose/pull/19 |
-| 10 | IMP-09 | AI disclosure, photo notice, privacy page, delete-my-kitchen, EGGER flag | high | M | main | todo |
+| 10 | IMP-09 | AI disclosure, photo notice, privacy page, delete-my-kitchen, EGGER flag | high | M | main | pr: https://github.com/tonigrabic/softclose/pull/23 |
 | 11 | IMP-10 | Render cap and AI spend enforced per project | high | M | main | todo |
 | 12 | IMP-11 | Confidence and provenance tell the truth | high | M | main | todo |
 | 13 | IMP-12 | "Neka odluči izrađivač" in every builder group | high | M | IMP-11 | todo |

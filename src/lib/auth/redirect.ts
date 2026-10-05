@@ -13,7 +13,14 @@ import type { Role } from './session'
  *  the matcher also governs Server Function POSTs, so an exclusion there can
  *  silently drop authorization from a route (Next's own proxy docs warn about
  *  exactly this). A named, tested function is greppable; a regex is not. */
-export const PUBLIC_PATHS = ['/login', '/auth/verify', '/logout'] as const
+export const PUBLIC_PATHS = [
+  '/login',
+  '/auth/verify',
+  '/logout',
+  // The static privacy notice (IMP-09) must be readable signed out: the invite
+  // email links it, and someone deciding whether to start has no session yet.
+  '/privatnost',
+] as const
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`))

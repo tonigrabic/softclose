@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { requireSession } from '@/lib/auth/dal'
 import { currentProjectForCustomer } from '@/lib/auth/projects'
 import { AuthShell } from '@/components/AuthShell'
+import { DeleteAccount } from '@/app/kitchen/[projectId]/DeleteKitchen'
 // Server component: the i18n *core*, never @/lib/i18n (that one is 'use client').
 import { DEFAULT_LOCALE, isLocale, t } from '@/lib/i18n/core'
 
@@ -14,7 +15,9 @@ export const dynamic = 'force-dynamic'
  * a closed one too, so a declined customer reads the maker's answer there.
  * A customer with no project is a real state — their invite was revoked, or
  * their account outlived the project — so it gets an honest panel rather than
- * a 404 that reads like the product is broken.
+ * a 404 that reads like the product is broken. The account still holds an
+ * email address and a name, so the panel offers to erase it (IMP-09) — the
+ * only way back for a kitchen delete that stopped at the account step.
  */
 export default async function Home() {
   const session = await requireSession()
@@ -30,6 +33,7 @@ export default async function Home() {
       <div className="rounded-2xl border border-border bg-card p-6 shadow-sm">
         <h1 className="text-lg font-semibold text-foreground">{t('auth.noProject.title', locale)}</h1>
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t('auth.noProject.body', locale)}</p>
+        <DeleteAccount />
       </div>
     </AuthShell>
   )
