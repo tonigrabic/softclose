@@ -92,6 +92,8 @@ vi.mock('@/lib/auth/session', async (importOriginal) => ({
 }))
 
 vi.mock('@/lib/auth/accounts', async (importOriginal) => ({
+  // The real module, so the pure checks (accountAdmitsSession) stay real;
+  // only the lookup is faked.
   ...(await importOriginal<typeof import('@/lib/auth/accounts')>()),
   findAccountById: async (id: string) => (h.state.account?.id === id ? h.state.account : null),
 }))
