@@ -2148,3 +2148,40 @@ Not done or left as it was:
   deleted brief's `/maker/<id>` returns 404.
 
 Gate: 1264 tests (78 files) · tsc · eslint · next build green.
+
+### 2026-10-04 — IMP-02: CI gate on every PR and on main (moved up)
+Toni moved IMP-02 ahead of the rest of the stack. It is stacked on
+`imp/09-privacy-disclosure`, the last branch with a PR. IMP-10 had only
+started planning, with nothing committed, and resumes after this, stacked on
+`imp/02-ci-gate`.
+
+- `.github/workflows/gate.yml` runs on every `pull_request` (stacked ones too,
+  whatever their base) and on `push` to `main`: `npm ci`, `vitest run`,
+  `tsc --noEmit`, `eslint .`, on Node 22 with the npm cache, read-only
+  permissions and one run per ref. `next build` is left out: Vercel builds
+  every deployment, and `npm run gate` still runs it locally.
+- `package.json`: `typecheck` and `gate:fast` scripts; `gate` is now
+  `gate:fast && next build`; the package is renamed `softclose`, and only
+  the two name fields of the lockfile changed.
+- IMPROVEMENTS.md: IMP-02 moved to row 11, right after IMP-09, the last item
+  with a PR. Rows 12–30 and the section headings are renumbered, with
+  content unchanged (checked by script). Its "Stack on" is
+  `imp/09-privacy-disclosure`.
+- **Required check:** `main` now requires `gate` from GitHub Actions
+  (`gh api -X PUT …/branches/main/protection`). The repo is public and the
+  token has admin. It is not strict (branches need not be up to date),
+  admins are not enforced (direct pushes to `main` still work), and no
+  review is required. `main` had no protection and no rulesets before.
+
+Proof:
+- A clean clone without any `.env*` passes `npm ci` (14 s) and
+  `npm run gate:fast`: 1264 tests, tsc 0, eslint 0.
+- On PR #26 the gate passed in 70 s (run 37198511392).
+- A deliberately failing test (3d7c3a2) turned it red: run 37198592421,
+  `vitest run` failed, tsc and eslint skipped, PR check FAILURE. The test
+  was reverted in the next commit.
+
+Merging the stack: PRs below this one (#11–#23) don't contain the workflow,
+so a merge into `main` before this PR lands has no `gate` run and needs an
+admin bypass. Merging bottom-up through this PR, or merging the tip, is fine
+once `gate` reports on it.
