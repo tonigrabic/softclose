@@ -5,6 +5,7 @@ import { offloadMedia, storageUploader } from '@/lib/db/media'
 import { notifyMakerOfBrief } from '@/lib/notify/maker-email'
 import { buildHandoffBundle, toCustomerBundle } from '@/lib/handoff/bundle'
 import { decideBriefId, isBriefId } from '@/lib/handoff/brief-id'
+import { briefPrint } from '@/lib/handoff/review'
 import { isProjectClosed } from '@/lib/project/decision'
 import {
   submitClaimFrom,
@@ -97,6 +98,11 @@ export async function POST(req: Request) {
 
   try {
     const body = (await req.json()) as HandoffRequest
+    // The content print of the profile as the homeowner's journey holds it —
+    // before the session email below — so the checkpoint route can tell a
+    // save of this same kitchen from a change (0008, lib/project/status
+    // contentChangedAt).
+    const sentPrint = body.brief && typeof body.brief === 'object' ? briefPrint(body.brief) : null
     // A customer's contact email is the address they signed in with — taken
     // from the session, never from the client's copy. (A projectId that is not
     // theirs is refused below, before anything is stored.)
@@ -259,6 +265,9 @@ export async function POST(req: Request) {
             status: 'submitted',
             submitted_at: submittedAt,
             updated_at: submittedAt,
+            // The kitchen IS this brief: nothing has changed since (0008).
+            brief_print: sentPrint,
+            content_changed_at: null,
             est_low: estimate?.low ?? null,
             est_high: estimate?.high ?? null,
             est_band_pct: estimate?.bandPct ?? null,
@@ -271,15 +280,31 @@ export async function POST(req: Request) {
 
         bundle.briefId = briefId
 
-        // Tell the maker — their own address once the brief has an owner.
-        // MAKER_NOTIFY_EMAIL is only the pre-accounts fallback.
+        // Tell the maker — their own address once the brief has an owner, in
+        // their own locale (the homeowner's UI language is not theirs), with
+        // the project linked next to the brief (IMP-08). MAKER_NOTIFY_EMAIL is
+        // only the pre-accounts fallback, and gets the default locale.
         const baseUrl = process.env.APP_URL?.replace(/\/$/, '') || new URL(req.url).origin
         let to: string | null = null
+        let makerLocale: string | null = null
         if (makerId) {
-          const { data: maker } = await db.from(TABLES.accounts).select('email').eq('id', makerId).maybeSingle()
+          const { data: maker } = await db
+            .from(TABLES.accounts)
+            .select('email, locale')
+            .eq('id', makerId)
+            .maybeSingle()
           to = (maker?.email as string | null) ?? null
+          makerLocale = (maker?.locale as string | null) ?? null
         }
-        const notified = await notifyMakerOfBrief({ briefId, bundle, locale: body.locale, baseUrl, to })
+        const notified = await notifyMakerOfBrief({
+          briefId,
+          // An ownerless project opens for nobody, so it is not linked.
+          projectId: makerId ? projectId : null,
+          bundle,
+          locale: makerLocale,
+          baseUrl,
+          to,
+        })
         if (notified) {
           await db.from(TABLES.briefs).update({ maker_notified_at: new Date().toISOString() }).eq('id', briefId)
         }

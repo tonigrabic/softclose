@@ -18,6 +18,7 @@
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 import { OMITTED_IMAGE, snapshotFingerprint, stripImages } from '@/lib/project/checkpoint'
 import { SNAPSHOT_VERSION } from '@/lib/project/snapshot'
+import { briefPrint } from '@/lib/handoff/review'
 
 const h = vi.hoisted(() => {
   type Row = Record<string, unknown>
@@ -279,5 +280,25 @@ describe('the submit stores the brief’s snapshot as the project’s copy', () 
     expect(project().current_brief_id).toBe(out.briefId)
     expect(project().status).toBe('submitted')
     expect(project().updated_at).toBe(h.state.brief!.created_at)
+  })
+})
+
+describe('the brief’s print rides along, so later saves of the same kitchen are not a change (0008)', () => {
+  test('brief_print is the print of the profile the journey sent; content_changed_at is cleared', async () => {
+    h.state.project!.content_changed_at = '2026-10-04T08:00:00.000Z'
+    const brief = { name: 'Ana', timeline: 'asap', spacePhotos: ['data:image/jpeg;base64,AAAA'] }
+    const res = await POST(
+      new Request('http://localhost/api/handoff', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ brief, projectId: PROJECT, locale: 'hr-HR' }),
+      })
+    )
+    expect(res.status).toBe(200)
+    // Printed as the journey holds it: before the session email, images as markers.
+    expect(project().brief_print).toBe(briefPrint({ ...brief, spacePhotos: [OMITTED_IMAGE] }))
+    expect(project().brief_print).not.toBe(briefPrint({ ...brief, email: 'kupac@example.test' }))
+    expect(project().content_changed_at).toBeNull()
+    expect(h.state.projectUpdates).toHaveLength(1)
   })
 })

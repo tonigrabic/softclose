@@ -490,6 +490,14 @@ export interface WrapUpData {
    * rather than creating a second one. Absent on snapshots from before.
    */
   briefId?: string
+  /**
+   * The content print (lib/handoff/review `briefPrint`) of the profile this
+   * review was built from (IMP-07). Finishing again with the same print keeps
+   * this review and its `briefId`, so a walk back through the steps that
+   * changed nothing never becomes a second brief. Absent on snapshots from
+   * before: those are rebuilt once.
+   */
+  profilePrint?: string
 }
 
 export interface ClientMessage {

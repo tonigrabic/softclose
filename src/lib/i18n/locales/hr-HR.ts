@@ -17,6 +17,7 @@ export const hrHR = {
   'builder.shell.bom.project': 'Građevinski radovi (procjena)',
   'builder.shell.bom.goodsExact': 'točno — tvoj odabir',
   'builder.shell.bom.goodsEstimate': 'procjena — odaberi modele za točnu cijenu',
+  'builder.shell.bom.lines': 'Sve stavke ({n})',
   // ---- Range line (IMP-04) — one line for every range, on every surface ---
   // Never call the range a quote ("ponuda"): the maker sends that.
   'range.confirms.homeowner': 'raspon koji {maker} potvrđuje',
@@ -473,7 +474,7 @@ export const hrHR = {
   'funnel.builderEntry.cta': 'Započni gradnju',
   'funnel.builderEntry.loading': 'Čitam tvoj render…',
   'funnel.builderEntry.noAI': 'Bez AI prijedloga',
-  'funnel.builderEntry.skip': 'Preskoči — pošalji samo osnovni brief',
+  'funnel.builderEntry.skip': 'Preskoči — sažetak bez raspona',
   'funnel.finaliseError': 'Nismo uspjeli dohvatiti AI sažetak, ali tvoj je brief spremljen. Nastavljamo s pričuvnim sažetkom.',
   'fallback.projectType': 'Vrsta projekta: {v}.',
   'fallback.timeline': 'Rok: {v}.',
@@ -495,9 +496,8 @@ export const hrHR = {
   'wrapup.estimate.title': 'Okvirni raspon cijene',
   'wrapup.estimate.kitchenLabel': 'Kuhinja — izrada i montaža',
   'wrapup.estimate.bomBadge': 'Iz tvoje gradnje',
-  'wrapup.estimate.loading': 'Računamo okvirni raspon…',
-  'wrapup.estimate.unavailable': 'Procjena još nije dostupna.',
-  'wrapup.estimate.afterResend': 'Raspon iz tvoje gradnje vidiš kad pošalješ izmjene.',
+  // The range on a review the maker already has (IMP-07).
+  'wrapup.estimate.sentBadge': 'Poslano izrađivaču',
   'wrapup.estimate.noBuild': 'Raspon dobivaš kad sastaviš kuhinju.',
   'wrapup.estimate.openBuilder': 'Sastavi kuhinju',
   'wrapup.estimate.linesTitle': 'Od čega se raspon sastoji',
@@ -512,13 +512,15 @@ export const hrHR = {
   'wrapup.section.space': 'Tvoj prostor',
   'wrapup.section.basics': 'Osnove projekta',
   'wrapup.section.scope': 'Opseg radova',
-  'wrapup.section.style': 'Stil + materijali',
+  'wrapup.section.style': 'Stil',
+  'wrapup.section.materials': 'Materijali',
   'wrapup.section.trades': 'Instalacije i radovi',
   'wrapup.section.lighting': 'Rasvjeta',
   'wrapup.section.wishlist': 'Lista želja',
   'wrapup.section.logistics': 'Logistika',
   'wrapup.section.confidence': 'Sigurnost odluka',
   'wrapup.section.moodboard': 'Mood board',
+  'wrapup.section.contact': 'Kontakt',
   'wrapup.section.tldr': 'Dizajnerov TL;DR',
   'wrapup.row.projectType': 'Vrsta projekta',
   'wrapup.row.timeline': 'Vremenski okvir',
@@ -545,6 +547,8 @@ export const hrHR = {
   'wrapup.row.living': 'Stanovanje tijekom radova',
   'wrapup.row.phasing': 'Faze radova',
   'wrapup.row.permits': 'Dozvole',
+  'wrapup.row.name': 'Ime',
+  'wrapup.row.channels': 'E-pošta / telefon',
   'wrapup.light.task': 'radna',
   'wrapup.light.ambient': 'ambijentalna',
   'wrapup.light.accent': 'akcentna',
@@ -553,8 +557,11 @@ export const hrHR = {
   'wrapup.actions.preparing': 'Pripremam…',
   'wrapup.actions.backToKitchen': 'Natrag na moju kuhinju',
   'wrapup.actions.backToKitchenMaker': 'Natrag na kuhinju kupca',
+  // Editing from the review (IMP-07): back to the steps, and from the builder back to the review.
+  'wrapup.actions.backToSteps': 'Natrag na korake',
+  'nav.backToReview': 'Natrag na pregled',
   'builder.rerender.changedPrefix': 'Promijenio si:',
-  'builder.rerender.changedSuffix': '. Render iznad to još ne prikazuje.',
+  'builder.rerender.changedSuffix': '. Trenutni render to još ne prikazuje.',
   'builder.rerender.rendering': 'Renderiram ponovno…',
   'builder.rerender.button': 'Renderiraj ponovno s ovim odabirima (još {n})',
   'builder.rerender.change.door_decor': 'dekor vrata',
@@ -571,8 +578,8 @@ export const hrHR = {
   'resume.continue': 'Nastavi',
   'resume.restart': 'Počni ispočetka',
   'wrapup.next.title': 'Što slijedi',
-  'wrapup.next.saved': 'Tvoj sažetak je spremljen. Dizajner ga može otvoriti odmah — ti više ne moraš ništa.',
-  'wrapup.next.contact': 'Dizajner pregledava tvoj plan i raspon te ti se javlja na {contact}.',
+  'wrapup.next.saved': 'Sažetak je poslan izrađivaču i može ga otvoriti odmah — ti više ne moraš ništa.',
+  'wrapup.next.contact': 'Izrađivač pregledava tvoj plan i raspon te ti se javlja na {contact}.',
   'wrapup.next.ref': 'Oznaka sažetka: {id}',
   'wrapup.next.unsaved': 'Ovaj sažetak nije spremljen na poslužitelj (ovdje nema baze). Preuzmi JSON ispod i pošalji ga sam.',
   'wrapup.yes': 'Da',
@@ -600,7 +607,8 @@ export const hrHR = {
   'nav.continue': 'Nastavi',
   'nav.back': 'Natrag',
   'nav.skip': 'Preskoči',
-  'nav.send': 'Pošalji dizajneru',
+  // Contact's Continue opens the review (IMP-07): nothing is sent from it.
+  'nav.review': 'Pregledaj sažetak',
   'nav.working': 'Radim…',
 
   // ---- Project-type options ----------------------------------------------
@@ -801,6 +809,10 @@ export const hrHR = {
   'auth.login.invalidEmail': 'Upiši ispravnu e-mail adresu.',
   'auth.login.error': 'Trenutno ne možemo poslati link. Pokušaj ponovno za koju minutu.',
   'auth.login.notConfigured': 'Prijava još nije konfigurirana na ovom poslužitelju.',
+  // The provider refused the mail, or nothing is set up to send it (IMP-08).
+  // The invite link is a sign-in link too, so the maker can always send one.
+  'auth.login.notSent':
+    'Slanje nije uspjelo — link ti nije poslan. Zatraži link od svog izrađivača kuhinje ili pokušaj ponovno za koju minutu.',
   'auth.login.devLink': 'Razvojni način — e-pošta nije konfigurirana',
   'auth.verify.working': 'Prijavljujem te…',
   'auth.verify.submit': 'Nastavi prijavu',
@@ -848,12 +860,42 @@ export const hrHR = {
   'dashboard.invite.err.isMaker': 'Ta adresa već pripada izrađivaču.',
   'dashboard.invite.err.tooMany': 'Danas si poslao previše pozivnica. Pokušaj sutra.',
   'dashboard.invite.err.generic': 'Pozivnicu trenutno nije moguće stvoriti.',
+  // The invite exists and its link is on screen; only the email did not go
+  // out (IMP-08). Never a refusal — the maker sends the link themselves.
+  'dashboard.invite.notEmailed': 'E-mail s pozivnicom nije otišao — pošalji kupcu link ispod sam.',
+  // ---- Maker notification email (a new brief arrived) ----------------------
+  // The maker's inbox: every label here, every option id through its locale
+  // key (IMP-08). {headline} is the range line, or makerEmail.noRange.
+  'makerEmail.subject': 'Novi sažetak kuhinje — {name} · {headline}',
+  'makerEmail.heading': 'Novi sažetak kuhinje',
+  'makerEmail.eyebrow': 'softclose · novi sažetak',
+  'makerEmail.title': '{name} — kuhinja',
+  'makerEmail.anonymous': 'Nepoznato ime',
+  'makerEmail.noRange': 'raspon nije dostupan',
+  'makerEmail.noRange.noBuild': 'raspon nije dostupan — kupac nije sastavio kuhinju',
+  'makerEmail.layout.unsure': 'oblik još nije odlučen',
+  'makerEmail.row.customer': 'Kupac',
+  'makerEmail.row.layout': 'Raspored',
+  'makerEmail.row.kitchen': 'Kuhinja (izrada i montaža)',
+  'makerEmail.row.assumptions': 'Pretpostavke',
+  'makerEmail.row.timeline': 'Rok',
+  'makerEmail.cta.brief': 'Otvori sažetak',
+  'makerEmail.cta.project': 'Kuhinja kupca',
+  'makerEmail.priceBasis':
+    'Raspon je cijena za kupca, s PDV-om i zadanom maržom radionice — trošak i maržu vidiš u sažetku. Nikad konačna ponuda.',
+  'makerEmail.private': 'Linkovi su privatni; ne prosljeđuj ih.',
   // ---- The customer's project home (walkthrough + status) -----------------
   'kitchen.home.eyebrow': 'Tvoja kuhinja',
+  'kitchen.home.readOnly.eyebrow': 'Kuhinja kupca',
+  'kitchen.home.readOnly.lede': 'Ovako ovu stranicu vidi kupac — ti je ovdje samo gledaš.',
   'kitchen.home.yourMaker': 'Tvoj izrađivač',
   'kitchen.home.title': '{maker} te pozvao da opišeš svoju kuhinju',
   'kitchen.home.titleSubmitted': 'Tvoj sažetak je kod {maker}',
   'kitchen.home.titleClosed': 'Ovaj projekt je zatvoren',
+  // Finished, not sent (IMP-07): the review waits for an explicit send.
+  'kitchen.home.titleReady': 'Tvoj sažetak čeka da ga pošalješ',
+  'kitchen.home.status.ready': 'Sve je složeno — pregledaj sažetak i pošalji ga izrađivaču kad ti odgovara.',
+  'kitchen.home.cta.review': 'Pregledaj i pošalji',
   // Says plainly what this is NOT. The anxiety being reduced is "am I about to
   // commit to something" (product-foundations, principle 7).
   'kitchen.home.what':
@@ -870,13 +912,16 @@ export const hrHR = {
   'kitchen.home.cta.start': 'Počni',
   'kitchen.home.cta.continue': 'Nastavi · {step}',
   'kitchen.home.cta.edit': 'Izmijeni kuhinju',
+  'kitchen.home.cta.look': 'Pogledaj kupčevu kuhinju',
   'kitchen.home.cta.build': 'Sastavi kuhinju',
   'kitchen.home.status.sent': 'Poslano {date}.',
   'kitchen.home.status.seen': '{maker} je otvorio sažetak {date}.',
   'kitchen.home.status.notSeen': '{maker} ga još nije otvorio — javit ćemo ti kad ga otvori.',
   'kitchen.home.status.rangeLabel': 'Okvirni raspon — kuhinja, izrada i montaža',
   'kitchen.home.status.noRange': 'Raspon dobivaš kad sastaviš kuhinju.',
-  'kitchen.home.editNote': 'Ako nešto izmijeniš, {maker} dobiva obavijest o izmjeni.',
+  'kitchen.home.editNote': 'Izmjene odlaze izrađivaču tek kad ih pregledaš i pošalješ.',
+  'kitchen.home.status.unsent': 'Imaš izmjene koje još nisu poslane — {maker} ima raniju verziju sažetka.',
+  'kitchen.home.cta.reviewChanges': 'Pregledaj i pošalji izmjene',
   // The maker's decision (IMP-03). Led by "{maker}:" so a studio name never
   // has to be declined and nothing is masculine-only. The maker's real quote
   // IS a "ponuda"; the range stays "procjena" everywhere. No full stop after
@@ -896,7 +941,6 @@ export const hrHR = {
   // customer's to fill and edit, so no walkthrough addressed to them, no
   // "Nastavi" or "Izmijeni": the maker only looks. No full stop after {date}:
   // a Croatian date already ends in one.
-  'kitchen.home.readOnly.eyebrow': 'Kuhinja kupca',
   'kitchen.home.readOnly.title': 'Kupac još nije počeo',
   'kitchen.home.readOnly.titleStarted': 'Kupac još opisuje kuhinju',
   'kitchen.home.readOnly.titleSubmitted': 'Kupac je poslao sažetak',
@@ -916,11 +960,16 @@ export const hrHR = {
   'live.banner.title': 'U TIJEKU — kupac još radi',
   'live.banner.body':
     'Ovo nije poslani sažetak. Raspon je izračunat iz nedovršene kuhinje i još će se mijenjati — pričekaj da kupac pošalje prije nego što nudiš cijenu.',
-  'wrapup.resubmit.title': 'Izmijenio si nešto?',
-  'wrapup.resubmit.body':
-    'Tvoj izrađivač već ima sažetak ove kuhinje. Pošalji izmjene i dobit će obavijest da si nešto promijenio.',
-  'wrapup.resubmit.cta': 'Pošalji izmjene',
-  'wrapup.resubmit.sending': 'Šaljem…',
+  // Review, then send (IMP-07). Nothing reaches the maker before the button;
+  // {maker} heads its sentence, so the "Tvoj izrađivač" fallback stays capitalised.
+  'wrapup.send.title': 'Sve u redu?',
+  'wrapup.send.body': '{maker} dobiva sažetak i obavijest e-poštom čim ga pošalješ. I poslije ga možeš izmijeniti.',
+  'wrapup.send.cta': 'Pošalji izrađivaču',
+  'wrapup.send.sending': 'Šaljem…',
+  'wrapup.changes.title': 'Izmjene još nisu poslane',
+  'wrapup.changes.body': '{maker} ima raniju verziju ovog sažetka. Pošalji izmjene i dobit će obavijest o njima.',
+  'wrapup.changes.cta': 'Pošalji izmjene',
+  'wrapup.sent.line': '{maker} ima ovu verziju sažetka — nema ništa novo za slanje.',
   // The maker looking in at the wrap-up: sending is the customer's act.
   // The header is theirs too — what this screen is, never the homeowner's
   // thank-you or "ispravi sve što ne valja".
@@ -1124,7 +1173,7 @@ export const hrHR = {
   'funnel.wishlist.error': 'Nismo uspjeli spremiti listu želja.',
   'funnel.builderEntry.error': 'Nismo uspjeli pročitati tvoj render. Pokušaj ponovno ili započni bez AI prijedloga.',
   'funnel.thanksFallback': 'Hvala{name} — tvoj sažetak je spreman.',
-  'wrapup.error.bundle': 'Nismo uspjeli složiti tvoj sažetak.',
+  'wrapup.error.bundle': 'Sažetak nije poslan. Pokušaj ponovno.',
   'wrapup.error.export': 'Preuzimanje sažetka nije uspjelo.',
   'wrapup.fixAnything': 'Nešto ispraviti?',
   'concept.error.capReached':
