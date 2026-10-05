@@ -34,20 +34,33 @@ export async function createProject(input: CreateProjectInput): Promise<Project 
 }
 
 /**
- * Stamp the first open of an invite.
+ * Stamp the customer's first open of their kitchen.
  *
  * Mirrors what `/maker/[id]` already does with `maker_viewed_at`, and gives the
  * maker's list the distinction that actually matters to them: invited and never
  * opened (chase it) versus opened and stalled (something in the flow lost them).
+ *
+ * Two writes, each conditional on what it changes, never on a status read
+ * earlier — that read may be stale (a decline archives the project). Only an
+ * invited project moves to in_progress: a submitted one keeps its brief, an
+ * archived one stays closed. Best-effort: a stamp that fails is tried again on
+ * the next open.
  */
 export async function markProjectOpened(projectId: string): Promise<void> {
   const db = supabaseAdmin()
   if (!db) return
-  await db
+  const { error } = await db
     .from(TABLES.projects)
-    .update({ opened_at: new Date().toISOString(), status: 'in_progress' })
+    .update({ opened_at: new Date().toISOString() })
     .eq('id', projectId)
     .is('opened_at', null)
+  if (error) console.error('[auth] markProjectOpened failed', error.message)
+  const { error: statusError } = await db
+    .from(TABLES.projects)
+    .update({ status: 'in_progress' })
+    .eq('id', projectId)
+    .eq('status', 'invited')
+  if (statusError) console.error('[auth] invited → in_progress failed', statusError.message)
 }
 
 export async function listProjectsForMaker(makerId: string, limit = 100): Promise<Project[]> {

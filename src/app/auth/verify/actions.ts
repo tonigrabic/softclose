@@ -7,7 +7,6 @@ import { consumeToken } from '@/lib/auth/magic-link'
 import { homePathForRole, safeNextPath } from '@/lib/auth/redirect'
 import { SESSION_COOKIE, sessionCookieOptions, signSession } from '@/lib/auth/session'
 import { maskEmail } from '@/lib/auth/tokens'
-import { currentProjectForCustomer, markProjectOpened } from '@/lib/auth/projects'
 
 export interface VerifyState {
   failed: boolean
@@ -38,18 +37,10 @@ export async function completeSignIn(_prev: VerifyState, formData: FormData): Pr
   // A link that worked was opened from the account's own inbox — all an invite
   // proves, too. So either kind is the activation: pending → active. A customer
   // a maker invited who signs in at /login rather than through the invite is
-  // the same person proving the same address, and the kitchen they land on
-  // stops reading "invited" on the maker's list, as it would have via the
-  // invite.
-  const firstSignIn = found.status === 'pending'
-  if (firstSignIn) await activateAccount(found.id)
-  const opened =
-    claim.purpose === 'invite'
-      ? claim.projectId
-      : firstSignIn && found.role === 'customer'
-        ? ((await currentProjectForCustomer(found.id))?.id ?? null)
-        : null
-  if (opened) await markProjectOpened(opened)
+  // the same person proving the same address. The kitchen stops reading
+  // "invited" on the maker's list when they load it, not here: the kitchen
+  // page stamps it, whichever way they arrived.
+  if (found.status === 'pending') await activateAccount(found.id)
 
   // Read again, after activation, and ask the DAL's own question: a cookie
   // the DAL refuses would send every page to /login. Never hand one out.

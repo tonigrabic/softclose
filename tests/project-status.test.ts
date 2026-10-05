@@ -46,6 +46,13 @@ describe('projectDisplayStatus', () => {
     expect(projectDisplayStatus({ ...base, status: 'in_progress', openedAt: T0, step: 'builder' })).toBe('in_progress')
   })
 
+  it('a saved step is never "invited", even without the opened stamp', () => {
+    // A second invite signed into at /login used to leave opened_at null
+    // while the customer worked: the maker read "never opened".
+    expect(projectDisplayStatus({ ...base, status: 'in_progress', step: 'builder' })).toBe('in_progress')
+    expect(projectDisplayStatus({ ...base, status: 'in_progress', step: FLOW[0].id })).toBe('opened')
+  })
+
   it('submitted: a brief exists and nothing changed after it', () => {
     expect(
       projectDisplayStatus({
