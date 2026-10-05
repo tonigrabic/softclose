@@ -18,7 +18,11 @@ import { TABLES } from '@/lib/db/supabase'
  *
  *  1. close    The project is archived first. The handoff answers 409 for a
  *              closed project (isProjectClosed), so a send from another tab
- *              cannot add a brief or objects while we delete.
+ *              cannot add a brief or objects while we delete. If the erase
+ *              then stops while the row still exists, the status the caller
+ *              read is written back (best-effort, see reopen()): a failed
+ *              delete must not leave the kitchen closed for good — no send,
+ *              and "archived" on the maker's list as if declined.
  *  2. read     The project's briefs. The brief ids are the ONLY link from a
  *              project to its Storage folders (`briefs/<briefId>/NNN.ext`,
  *              the one path the app writes — tests/erase-storage-paths).
@@ -31,16 +35,22 @@ import { TABLES } from '@/lib/db/supabase'
  *  6. project  The row and its snapshot.
  *  7. account  Only when no other project names this customer:
  *              `projects.customer_id` is ON DELETE RESTRICT, so the account
- *              goes last, after its own login tokens.
+ *              goes last, after its own login tokens. This step runs after
+ *              the project row is gone, so a failure here cannot be retried
+ *              through the project (the action's guard 404s): it is exported
+ *              on its own as eraseCustomerAccount(), which deleteMyAccount
+ *              runs — from the same panel's retry, or from the no-kitchen
+ *              panel at /.
  *
  * Storage before rows: the rows are what point at the objects. Rows first and
  * a Storage failure would leave photos of someone's home with nothing pointing
  * at them and no way to retry — the project would be gone and the kitchen page
- * a 404. Storage first means a failure leaves every row in place: the kitchen
- * page still opens and the button retries. Removing a path that is already
- * gone is a no-op, and every row step is a delete by key, so a re-run picks up
- * where the last one stopped. The cost: a maker opening the brief mid-delete
- * sees broken images.
+ * a 404. Storage first means a failure up to step 6 leaves the project row in
+ * place, its status put back: the kitchen page still opens and the button
+ * retries. Removing a path that is already gone is a no-op, and every row step
+ * is a delete by key, so a re-run picks up where the last one stopped (a
+ * failure at step 7 picks up through eraseCustomerAccount). The cost: a maker
+ * opening the brief mid-delete sees broken images.
  *
  * NOT followed, on purpose: storage refs inside the snapshot. The checkpoint
  * accepts snapshot JSON from the client, so a crafted
@@ -57,6 +67,8 @@ export type EraseStep = 'close' | 'briefs-read' | 'storage' | 'briefs' | 'tokens
 export type EraseResult =
   | { ok: true; objects: number; briefs: number; accountDeleted: boolean }
   | { ok: false; failedAt: EraseStep }
+
+export type AccountEraseResult = { ok: true; accountDeleted: boolean } | { ok: false; failedAt: 'account' }
 
 export type EraseDb = Pick<SupabaseClient, 'from' | 'storage'>
 
@@ -98,9 +110,64 @@ async function listBriefObjects(db: EraseDb, briefId: string): Promise<string[]>
   }
 }
 
+/**
+ * Step 7: the account and its login tokens, only when no project names it.
+ * Returns whether the account went; false when a kitchen is on it (again — a
+ * new invite that lands in between trips RESTRICT, which is right).
+ */
+async function deleteAccountIfAlone(db: EraseDb, customerId: string): Promise<boolean> {
+  const { data, error } = await db.from(TABLES.projects).select('id').eq('customer_id', customerId).limit(1)
+  check('account', error)
+  if ((data ?? []).length) return false
+  const tokens = await db.from(TABLES.authTokens).delete().eq('account_id', customerId)
+  check('account', tokens.error)
+  const account = await db.from(TABLES.accounts).delete().eq('id', customerId).eq('role', 'customer')
+  if (account.error && codeOf(account.error) !== FK_VIOLATION) check('account', account.error)
+  return !account.error
+}
+
+/**
+ * Best-effort: write back the status step 1 replaced, while the row still
+ * reads 'archived'. Never throws — the erase already failed, and this only
+ * keeps that failure from closing the kitchen. Logs the code only.
+ */
+async function reopen(db: EraseDb, input: { projectId: string; customerId: string; status: string }): Promise<void> {
+  if (input.status === 'archived') return
+  try {
+    const { error } = await db
+      .from(TABLES.projects)
+      .update({ status: input.status })
+      .eq('id', input.projectId)
+      .eq('customer_id', input.customerId)
+      .eq('status', 'archived')
+    if (error) console.error('[erase] status not restored', codeOf(error))
+  } catch {
+    console.error('[erase] status not restored', 'thrown')
+  }
+}
+
+/**
+ * Step 7 on its own, for a customer whose last kitchen is already gone — the
+ * retry after eraseCustomerProject stopped at 'account', or an account that
+ * outlived its project. Deletes nothing while any project names the customer.
+ */
+export async function eraseCustomerAccount(db: EraseDb, input: { customerId: string }): Promise<AccountEraseResult> {
+  try {
+    return { ok: true, accountDeleted: await deleteAccountIfAlone(db, input.customerId) }
+  } catch (err) {
+    console.error('[erase] stopped at', 'account', err instanceof StepFailed ? err.code : 'thrown')
+    return { ok: false, failedAt: 'account' }
+  }
+}
+
 export async function eraseCustomerProject(
   db: EraseDb,
-  input: { projectId: string; customerId: string }
+  input: {
+    projectId: string
+    customerId: string
+    /** The project's status as the caller's guard read it — restored if the erase stops before the row goes. */
+    status: string
+  }
 ): Promise<EraseResult> {
   const { projectId, customerId } = input
   let step: EraseStep = 'close'
@@ -160,26 +227,17 @@ export async function eraseCustomerProject(
 
     // 7. the account, only when it has no other kitchen.
     step = 'account'
-    let accountDeleted = false
-    {
-      const { data, error } = await db.from(TABLES.projects).select('id').eq('customer_id', customerId).limit(1)
-      check(step, error)
-      if (!(data ?? []).length) {
-        const tokens = await db.from(TABLES.authTokens).delete().eq('account_id', customerId)
-        check(step, tokens.error)
-        const account = await db.from(TABLES.accounts).delete().eq('id', customerId).eq('role', 'customer')
-        // A new invite landed in between: RESTRICT kept the account, which is
-        // right — it has a kitchen again. This kitchen is still gone.
-        if (account.error && codeOf(account.error) !== FK_VIOLATION) check(step, account.error)
-        accountDeleted = !account.error
-      }
-    }
+    const accountDeleted = await deleteAccountIfAlone(db, customerId)
 
     return { ok: true, objects: paths.length, briefs: briefIds.length, accountDeleted }
   } catch (err) {
     const code = err instanceof StepFailed ? err.code : 'thrown'
     const failedAt = err instanceof StepFailed ? err.step : step
     console.error('[erase] stopped at', failedAt, code)
+    // Up to and including its own delete, the project row is still there:
+    // put its status back so the failure does not close the kitchen. A
+    // failed close changed nothing; at 'account' the row is gone.
+    if (failedAt !== 'close' && failedAt !== 'account') await reopen(db, input)
     return { ok: false, failedAt }
   }
 }

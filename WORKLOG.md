@@ -2083,3 +2083,105 @@ maker signing in.
   …/kitchen/<project>". The en-US version matches.
 
 Gate: 1153 tests (72 files) · tsc · eslint · next build green.
+
+### 2026-10-04 — IMP-09: AI disclosure, photo notice, privacy page, delete-my-kitchen, EGGER flag
+Spec item 10 (IMPROVEMENTS.md). Nothing user-facing said an AI reads the
+photos (EU AI Act Art. 50 is in force since August 2026). The photo step sent
+home photos to OpenAI with no notice. There was no privacy page and no way for
+a homeowner to delete their kitchen. EGGER swatches were hotlinked behind a
+compile-time `true` marked "testing only".
+
+- **Disclosure.** "Kroz korake te vodi AI asistent. {maker} osobno pregledava
+  sve što podijeliš." appears on the kitchen home on first load and in the
+  invite email. A calm line under the photo drop zone says "Fotografije čita
+  AI asistent (OpenAI) … Tvoj izrađivač ih dobiva sa sažetkom.", with a
+  "Privatnost" link. A `LegalFooter` ("Privatnost") sits in AuthShell and the
+  intake shell.
+- **`/privatnost`.** A static, public notice. It covers what is stored and
+  why, who sees it, and every processor the code uses: OpenAI (photos,
+  wishlist, summary incl. name/email/phone), Supabase, Vercel and Resend.
+  Product images load straight from Schachermayer/Elgrad, so their servers
+  see the browser's IP. Retention is as it really is: until the homeowner
+  deletes, no automatic expiry. The page also covers rights and how to
+  delete. Nothing is invented: the operator contact shows only when
+  `PRIVACY_CONTACT_EMAIL` is set, and a `TODO(Toni, before launch)` marks
+  where the operator identity and impressum go.
+- **"Izbriši moju kuhinju".** Customers only, own project only, with an
+  explicit two-step confirmation. It removes Storage objects first, then the
+  briefs, the project (snapshot), the customer's tokens, and the account when
+  no other project names it. Then it clears the session and the browser copy
+  and lands on "/login?deleted=1". A delete that stops part-way reopens the
+  kitchen. One that stops at the account step can be retried from the panel
+  or the "no kitchen" home (`deleteMyAccount`, account taken from the
+  session).
+- **EGGER.** `DECOR_IMAGES_ENABLED = NEXT_PUBLIC_DECOR_IMAGES === '1'`, off by
+  default. Decor and Schachermayer images get `referrerPolicy="no-referrer"`,
+  and colour tiles stand in when images are off. To see the swatches locally,
+  set `NEXT_PUBLIC_DECOR_IMAGES=1` in `.env.development.local` (not done here).
+- One review round (delete, compliance). Four verified findings were fixed:
+  the account step can be retried, a failed delete no longer leaves the
+  kitchen archived, Elgrad is now named, and "always marked as a concept"
+  was dropped because the render is not labelled everywhere.
+
+Not done or left as it was:
+- The operator identity, impressum and contact need Toni before launch.
+- The "AI koncept" badge is missing on the right rail, the builder confirm
+  screen and the carousel. The notice no longer claims "always".
+- A send racing the delete could add objects after the listing. Unlikely,
+  noted in code.
+
+**Browser check** (local stack, mock AI):
+- `/login` shows the "Privatnost" footer, and `/privatnost` returns 200 while
+  signed out. It names OpenAI, Supabase, Vercel, Resend, Elgrad and
+  Schachermayer, has no `mailto:` because the env is unset, and explains the
+  delete.
+- Customer imp32-sanity: the kitchen home shows the AI line on first load.
+  The photo step (awaiting) shows the processing note with its `/privatnost`
+  link. Builder Fronte: 33 decor swatches as colour tiles, 0 images from
+  egger.com.
+- Before the delete: 3 briefs, 6 Storage objects, 4 tokens and the account.
+  "Izbriši moju kuhinju" → the panel explains what goes → "Izbriši trajno" →
+  `/login?deleted=1` ("Tvoja kuhinja je izbrisana …"). After: project 0,
+  briefs 0, objects 0, tokens 0, account 0. Only tokens, briefs and projects
+  reference a project or account.
+- Maker imp32-maker: the dashboard lists one customer and loads fine, and the
+  deleted brief's `/maker/<id>` returns 404.
+
+Gate: 1264 tests (78 files) · tsc · eslint · next build green.
+
+### 2026-10-04 — IMP-02: CI gate on every PR and on main (moved up)
+Toni moved IMP-02 ahead of the rest of the stack. It is stacked on
+`imp/09-privacy-disclosure`, the last branch with a PR. IMP-10 had only
+started planning, with nothing committed, and resumes after this, stacked on
+`imp/02-ci-gate`.
+
+- `.github/workflows/gate.yml` runs on every `pull_request` (stacked ones too,
+  whatever their base) and on `push` to `main`: `npm ci`, `vitest run`,
+  `tsc --noEmit`, `eslint .`, on Node 22 with the npm cache, read-only
+  permissions and one run per ref. `next build` is left out: Vercel builds
+  every deployment, and `npm run gate` still runs it locally.
+- `package.json`: `typecheck` and `gate:fast` scripts; `gate` is now
+  `gate:fast && next build`; the package is renamed `softclose`, and only
+  the two name fields of the lockfile changed.
+- IMPROVEMENTS.md: IMP-02 moved to row 11, right after IMP-09, the last item
+  with a PR. Rows 12–30 and the section headings are renumbered, with
+  content unchanged (checked by script). Its "Stack on" is
+  `imp/09-privacy-disclosure`.
+- **Required check:** `main` now requires `gate` from GitHub Actions
+  (`gh api -X PUT …/branches/main/protection`). The repo is public and the
+  token has admin. It is not strict (branches need not be up to date),
+  admins are not enforced (direct pushes to `main` still work), and no
+  review is required. `main` had no protection and no rulesets before.
+
+Proof:
+- A clean clone without any `.env*` passes `npm ci` (14 s) and
+  `npm run gate:fast`: 1264 tests, tsc 0, eslint 0.
+- On PR #26 the gate passed in 70 s (run 37198511392).
+- A deliberately failing test (3d7c3a2) turned it red: run 37198592421,
+  `vitest run` failed, tsc and eslint skipped, PR check FAILURE. The test
+  was reverted in the next commit.
+
+Merging the stack: PRs below this one (#11–#23) don't contain the workflow,
+so a merge into `main` before this PR lands has no `gate` run and needs an
+admin bypass. Merging bottom-up through this PR, or merging the tip, is fine
+once `gate` reports on it.

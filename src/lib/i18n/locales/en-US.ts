@@ -17,6 +17,7 @@ export const enUS: Record<TranslationKey, string> = {
   'builder.shell.bom.project': 'Project work (allowance)',
   'builder.shell.bom.goodsExact': 'exact — your picks',
   'builder.shell.bom.goodsEstimate': 'estimate — pick models to pin it',
+  'builder.shell.bom.lines': 'All line items ({n})',
   // ---- Range line (IMP-04) ----------------------------------------------
   'range.confirms.homeowner': 'a range {maker} confirms',
   'range.confirms.maker': 'a range you confirm',
@@ -541,7 +542,7 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.actions.backToSteps': 'Back to the steps',
   'nav.backToReview': 'Back to the review',
   'builder.rerender.changedPrefix': 'You changed:',
-  'builder.rerender.changedSuffix': '. The render above does not reflect this yet.',
+  'builder.rerender.changedSuffix': '. The current render does not show this yet.',
   'builder.rerender.rendering': 'Re-rendering…',
   'builder.rerender.button': 'Re-render with these picks ({n} left)',
   'builder.rerender.change.door_decor': 'door decor',
@@ -803,6 +804,8 @@ export const enUS: Record<TranslationKey, string> = {
   'auth.deleted.body':
     'We deleted your photos, answers, summaries and saved progress, and the copy in this browser. If it was your only kitchen, your account is deleted too.',
   'auth.deleted.signIn': 'Have another kitchen? Sign in',
+  'auth.deletedAccount.title': 'Your account has been deleted',
+  'auth.deletedAccount.body': 'We deleted your account: your email address, name, language and sign-in links.',
   // ---- Maker dashboard ----------------------------------------------------
   'dashboard.subtitle': '{n} customers',
   'dashboard.refresh': 'Refresh',
@@ -861,7 +864,7 @@ export const enUS: Record<TranslationKey, string> = {
   'makerEmail.private': "These links are private; please don't forward them.",
   // ---- The customer's project home (walkthrough + status) -----------------
   'kitchen.home.eyebrow': 'Your kitchen',
-  'kitchen.home.readOnly.eyebrow': "Customer's kitchen",
+  'kitchen.home.readOnly.eyebrow': "The customer's kitchen",
   'kitchen.home.readOnly.lede': 'This is the page as your customer sees it — you can only look here.',
   'kitchen.home.yourMaker': 'Your maker',
   'kitchen.home.title': '{maker} invited you to describe your kitchen',
@@ -905,6 +908,7 @@ export const enUS: Record<TranslationKey, string> = {
   'kitchen.home.decision.pill.declined': 'Closed',
   'kitchen.makerSees': '{maker} can see your progress as you work.',
   'kitchen.home.ai': 'An AI assistant guides you through the steps. {maker} personally reviews everything you share.',
+  'kitchen.home.readOnly.ai': 'An AI assistant guides the customer through the steps. You review everything they share.',
   // ---- Delete my kitchen (IMP-09) ----------------------------------------
   'kitchen.delete.open': 'Delete my kitchen',
   'kitchen.delete.title': 'Delete your kitchen?',
@@ -916,6 +920,30 @@ export const enUS: Record<TranslationKey, string> = {
   'kitchen.delete.confirm': 'Delete permanently',
   'kitchen.delete.pending': 'Deleting…',
   'kitchen.delete.failed': 'Deletion did not finish. Try again in a minute — it picks up where it stopped.',
+  'kitchen.delete.failedAccount':
+    'Your kitchen is deleted, but your account is not yet. Try again in a minute — only the account is left.',
+  // ---- Delete my account (IMP-09) ----------------------------------------
+  'account.delete.open': 'Delete my account',
+  'account.delete.title': 'Delete your account?',
+  'account.delete.body':
+    'We delete your email address, your name, the language we remembered and your sign-in links. This cannot be undone.',
+  'account.delete.failed': 'Deletion did not finish. Try again in a minute.',
+  // The maker looking in at their customer's kitchen home: theirs to look at,
+  // the customer's to fill and edit.
+  'kitchen.home.readOnly.title': "The customer hasn't started yet",
+  'kitchen.home.readOnly.titleStarted': 'The customer is still describing the kitchen',
+  'kitchen.home.readOnly.titleSubmitted': 'The customer has sent the brief',
+  'kitchen.home.readOnly.notStarted': "Once they start, you'll see the kitchen here as they describe it.",
+  'kitchen.home.readOnly.lastSaved': 'Last saved: {step}.',
+  'kitchen.home.readOnly.cta': 'Look at the kitchen',
+  'kitchen.home.readOnly.note': 'Only for looking — the customer makes the changes.',
+  'kitchen.home.readOnly.status.seen': 'The customer can see you opened the brief on {date}.',
+  'kitchen.home.readOnly.status.notSeen': "You haven't opened the brief yet — open it from your list.",
+  'kitchen.home.readOnly.status.noRange': 'The range comes once the customer builds the kitchen.',
+  'kitchen.home.readOnly.decision.quotedNext': 'The customer reads here that the amount and terms come directly from you.',
+  'kitchen.home.readOnly.decision.clarifyNext':
+    'The customer reads here to reply by editing the kitchen, or to get in touch with you directly.',
+  'kitchen.home.readOnly.decision.declinedNext': 'The customer still sees their estimate here.',
   'live.back': 'Back to the list',
   'live.banner.title': 'IN PROGRESS — the customer is still working',
   'live.banner.body':
@@ -935,6 +963,11 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.readOnly.lede': "This is how the customer sees it — you're only looking here.",
   'wrapup.readOnly.notSent': "The customer hasn't sent the brief yet.",
   'wrapup.readOnly.sent': 'The customer has sent the brief — open it from your list.',
+  'wrapup.readOnly.section.render': 'The concept the customer chose',
+  'wrapup.readOnly.render.note':
+    "AI concept anchored to a photo of the customer's space. The direction they want, not a binding spec.",
+  'wrapup.readOnly.section.space': "The customer's space",
+  'wrapup.readOnly.trades.movesOpen': 'moves — you agree the spot with the customer',
   'auth.logout': 'Sign out',
   'readback.led.yes': 'LED lighting',
   'readback.led.no': 'No LED lighting',
@@ -1107,6 +1140,8 @@ export const enUS: Record<TranslationKey, string> = {
   'floorPlan.svg.disclaimer': 'Schematic — not a survey',
   'floorPlan.static.deferred': 'You opted out of measuring — your designer will take dimensions on site.',
   'floorPlan.static.rough': 'Rough schematic from what you shared — your designer will confirm on site.',
+  'floorPlan.static.deferredMaker': 'The customer chose not to measure — you take the dimensions on site.',
+  'floorPlan.static.roughMaker': 'Rough schematic from what the customer shared — you confirm the dimensions on site.',
 
   // ---- Failed requests — shown instead of the server's English text -------
   'api.error.session': 'Your session has expired. Sign in again to continue.',
@@ -1343,18 +1378,18 @@ export const enUS: Record<TranslationKey, string> = {
   'privacy.who.vercel': 'Vercel — the servers the app runs on; all traffic passes through them.',
   'privacy.who.resend': 'Resend — sends email: sign-in links, the invite, and the notice to your maker about your summary.',
   'privacy.who.productImages':
-    'Some product images (sinks, taps and appliances) load straight from the servers of the supplier Schachermayer, so your browser sends its IP address to that server when it loads them.',
+    'Some product images (sinks, taps and appliances) load straight from the servers of the suppliers Schachermayer and Elgrad, so your browser sends its IP address to those servers when it loads them.',
   'privacy.who.nobodyElse':
     'Beyond these, we give your data to no one. How long these services keep what we send them is set by their own terms.',
   'privacy.ai.title': 'What the AI assistant does',
   'privacy.ai.body':
-    'It reads your photos and inspiration, turns your wishes into trade terms, suggests materials, writes the summary and draws an AI concept of the kitchen in your space, always marked as a concept. The price range is calculated from the kitchen you put together — the AI does not guess it. None of this is a quote or a decision: your maker reviews everything personally.',
+    'It reads your photos and inspiration, turns your wishes into trade terms, suggests materials, writes the summary and draws an AI concept of the kitchen in your space. The price range is calculated from the kitchen you put together — the AI does not guess it. None of this is a quote or a decision: your maker reviews everything personally.',
   'privacy.retention.title': 'How long',
   'privacy.retention.body':
     "We keep it until you delete your kitchen or we remove it at your maker's request. There is no automatic deletion after a set time yet.",
   'privacy.delete.title': 'Deleting',
   'privacy.delete.body':
-    'You can delete your kitchen yourself: on your kitchen page choose “Delete my kitchen”. We delete your photos, answers, AI concepts, summaries and saved progress — and, if it is your only kitchen, your account.',
+    'You can delete your kitchen yourself: on your kitchen page choose “Delete my kitchen”. We delete your photos, answers, AI concepts, summaries and saved progress — and, if it is your only kitchen, your account. If your kitchen is gone but your account is still there, sign in and choose “Delete my account”.',
   'privacy.delete.leftovers':
     "What stays: an email notice your maker may already have received, what the outside services keep under their own terms, and the copy of your progress in other browsers you used — clear that in that browser's settings.",
   'privacy.contact.title': 'Questions',

@@ -10,10 +10,15 @@ import type { BuilderState } from '@/lib/builder/inventory'
 import type { LeadProfile } from '@/lib/types'
 
 /**
- * Sticky right-side panel with the live cost range. Updates on every
+ * The live cost range at the top of the right rail. Updates on every
  * BuilderState change. Always shows a range, never a single number — the
  * range is itself a signal of certainty. `scope` (once the homeowner sets it)
  * drops out-of-scope lines so the range reflects the actual project.
+ *
+ * Not sticky itself: the rail (AppShell) is the sticky, scrolling box. A
+ * sticky panel inside it stayed pinned over the cards below and swallowed
+ * the clicks meant for the re-render button. The line list folds away for
+ * the same reason — open, it is taller than a laptop screen.
  *
  * The headline is the shared RangeLine (IMP-04): what the homeowner pays, the
  * ±, who confirms it and what it leaves out. Every sub-range below prints
@@ -36,7 +41,7 @@ export function LiveBOMPanel({
   const hasGoods = bom.sections.goods.high > 0
 
   return (
-    <aside className="sticky top-6 flex h-fit w-80 shrink-0 flex-col gap-4 rounded-3xl border border-border bg-card/70 p-5 shadow-sm backdrop-blur">
+    <aside className="flex flex-col gap-4 rounded-3xl border border-border bg-card/70 p-5 shadow-sm backdrop-blur">
       <header>
         <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           {t('builder.shell.bom.title')}
@@ -103,23 +108,34 @@ export function LiveBOMPanel({
         </dl>
       </header>
 
-      <ul className="divide-y divide-border/50">
-        {bom.lineItems.map((item) => (
-          <li key={item.key} className="flex items-baseline justify-between gap-3 py-2 text-[12px]">
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-foreground">
-                {tDynamic(`bom.lineItem.${item.key}`, locale)}
-              </p>
-              <p className="truncate text-[10px] text-muted-foreground">
-                {item.detail} · {item.quantity}
-              </p>
-            </div>
-            <span className="shrink-0 tabular-nums text-muted-foreground">
-              {item.exact ? formatEUR(item.low, locale) : formatRange(item, locale)}
-            </span>
-          </li>
-        ))}
-      </ul>
+      {/* Closed by default: the sums above already add up to the headline,
+          and the dozen lines below them would push the render and the
+          re-render button off a laptop screen. */}
+      <details className="group border-t border-border/50 pt-3">
+        <summary className="cursor-pointer list-none text-[11.5px] text-muted-foreground transition-colors hover:text-foreground [&::-webkit-details-marker]:hidden">
+          <span className="mr-1 inline-block transition-transform group-open:rotate-90" aria-hidden>
+            ›
+          </span>
+          {t('builder.shell.bom.lines').replace('{n}', String(bom.lineItems.length))}
+        </summary>
+        <ul className="mt-1 divide-y divide-border/50">
+          {bom.lineItems.map((item) => (
+            <li key={item.key} className="flex items-baseline justify-between gap-3 py-2 text-[12px]">
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-foreground">
+                  {tDynamic(`bom.lineItem.${item.key}`, locale)}
+                </p>
+                <p className="truncate text-[10px] text-muted-foreground">
+                  {item.detail} · {item.quantity}
+                </p>
+              </div>
+              <span className="shrink-0 tabular-nums text-muted-foreground">
+                {item.exact ? formatEUR(item.low, locale) : formatRange(item, locale)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </details>
     </aside>
   )
 }

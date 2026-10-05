@@ -3,12 +3,17 @@
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
-import { requireProjectAccess } from '@/lib/auth/dal'
+import { requireProjectAccess, requireSession } from '@/lib/auth/dal'
 import { SESSION_COOKIE } from '@/lib/auth/session'
 import { supabaseAdmin } from '@/lib/db/supabase'
-import { eraseCustomerProject } from '@/lib/project/erase'
+import { eraseCustomerAccount, eraseCustomerProject } from '@/lib/project/erase'
 
-export type DeleteKitchenResult = { ok: false; error: 'incomplete' | 'unavailable' }
+/**
+ * 'account': the kitchen is gone but the account step stopped. The project
+ * row no longer exists, so this action would now 404 — the retry is
+ * deleteMyAccount().
+ */
+export type DeleteKitchenResult = { ok: false; error: 'incomplete' | 'unavailable' | 'account' }
 
 /**
  * "Izbriši moju kuhinju" — the homeowner erases their own kitchen (IMP-09).
@@ -26,9 +31,11 @@ export type DeleteKitchenResult = { ok: false; error: 'incomplete' | 'unavailabl
  * the order Next's mutating-data guide gives — and the redirect stays outside
  * any try, since it works by throwing.
  *
- * A deletion that stops part-way keeps the cookie: the rows that point at
- * anything still left are still there (lib/project/erase deletes Storage
- * first), so the kitchen page still opens and the same button retries.
+ * A deletion that stops part-way keeps the cookie. Up to the project row, the
+ * rows that point at anything still left are still there (lib/project/erase
+ * deletes Storage first and puts the project's status back), so the kitchen
+ * page still opens and the same button retries. Past it — only the account
+ * left — the answer is 'account', and the panel retries with deleteMyAccount.
  */
 export async function deleteMyKitchen(projectId: unknown): Promise<DeleteKitchenResult> {
   const { session, project } = await requireProjectAccess(typeof projectId === 'string' ? projectId : '')
@@ -38,11 +45,41 @@ export async function deleteMyKitchen(projectId: unknown): Promise<DeleteKitchen
   const db = supabaseAdmin()
   if (!db) return { ok: false, error: 'unavailable' }
 
-  const result = await eraseCustomerProject(db, { projectId: project.id, customerId: session.accountId })
-  // Cookie kept: the page still works for a retry.
-  if (!result.ok) return { ok: false, error: 'incomplete' }
+  const result = await eraseCustomerProject(db, {
+    projectId: project.id,
+    customerId: session.accountId,
+    status: project.status,
+  })
+  // Cookie kept: the session is still valid for a retry.
+  if (!result.ok) return { ok: false, error: result.failedAt === 'account' ? 'account' : 'incomplete' }
 
   ;(await cookies()).delete(SESSION_COOKIE)
   revalidatePath('/dashboard')
   redirect('/login?deleted=1')
+}
+
+/**
+ * "Izbriši moj račun" — a homeowner's account once no kitchen is left on it
+ * (IMP-09): the retry when deleteMyKitchen stopped at the account step, and
+ * the no-kitchen panel at / (an account that outlived its project).
+ *
+ * Customers only, and only their own account — the session names it; there
+ * is no argument to forge. The erase deletes nothing while any project names
+ * the customer (and the FK is RESTRICT behind it); if one does — a new invite
+ * landed — the account stays and / takes them to that kitchen.
+ */
+export async function deleteMyAccount(): Promise<DeleteKitchenResult> {
+  const session = await requireSession()
+  if (session.role !== 'customer') notFound()
+
+  const db = supabaseAdmin()
+  if (!db) return { ok: false, error: 'unavailable' }
+
+  const result = await eraseCustomerAccount(db, { customerId: session.accountId })
+  if (!result.ok) return { ok: false, error: 'incomplete' }
+  if (!result.accountDeleted) redirect('/')
+
+  ;(await cookies()).delete(SESSION_COOKIE)
+  revalidatePath('/dashboard')
+  redirect('/login?deleted=account')
 }

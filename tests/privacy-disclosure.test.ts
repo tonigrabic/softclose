@@ -19,6 +19,8 @@ import { SpaceCapture } from '@/components/kitchen-intake/SpaceCapture'
 import { AuthShell } from '@/components/AuthShell'
 import { AppShell } from '@/components/AppShell'
 import { PrivacyNotice } from '@/app/privatnost/PrivacyNotice'
+import { SchachermayerBrowse } from '@/components/builder/SchachermayerBrowse'
+import { appliancesForType, sinksFromCatalog, tapsFromCatalog } from '@/lib/catalog/hardware'
 import PrivacyPage from '@/app/privatnost/page'
 import type { ProjectSnapshot } from '@/lib/project/snapshot'
 import { hrHR } from '@/lib/i18n/locales/hr-HR'
@@ -34,6 +36,8 @@ const text = (html: string) =>
     .replace(/\s+/g, ' ')
 
 const AI_LINE = 'Kroz korake te vodi AI asistent. Stolarija Horvat osobno pregledava sve što podijeliš.'
+/** The maker looking in: the same disclosure, worded for them, never their own name. */
+const READ_ONLY_AI_LINE = 'Kupca kroz korake vodi AI asistent. Sve što podijeli pregledavaš ti.'
 
 const home = (props: Partial<KitchenHomeProps> = {}) =>
   renderToStaticMarkup(
@@ -84,9 +88,15 @@ describe('the kitchen home says an AI assistant leads, and the maker reviews', (
       },
     ],
     ['closed', { closed: true, submittedAt: '3. 10. 2026.', briefId: 'b1', started: true }],
-    ['the maker looking in', { readOnly: true }],
   ])('and in every later state: %s', (_label, props) => {
     expect(text(home(props))).toContain(AI_LINE)
+  })
+
+  test('the maker looking in: the disclosure worded for them, never their own name', () => {
+    const out = text(home({ readOnly: true }))
+    expect(out).toContain(READ_ONLY_AI_LINE)
+    expect(out).not.toContain(AI_LINE)
+    expect(out).not.toContain('Stolarija Horvat')
   })
 
   test('without a maker name the sentence still starts with a capital', () => {
@@ -150,6 +160,45 @@ describe('the privacy notice', () => {
     expect(out).toContain(hrHR['kitchen.delete.open'])
   })
 
+  test('names the supplier behind every host the builder loads product images from', () => {
+    // What the homeowner's browser fetches: the sink, tap and appliance lists
+    // the builder renders (SchachermayerBrowse), all suppliers merged. A new
+    // scrape that adds a host fails here until the notice names it.
+    const SUPPLIER_BY_HOST: Record<string, string> = {
+      'webshop.schachermayer.com': 'Schachermayer',
+      'webshop.elgrad.hr': 'Elgrad',
+    }
+    const types = ['hob', 'oven', 'extractor', 'fridge', 'dishwasher', 'microwave'] as const
+    const rendered = [...sinksFromCatalog(), ...tapsFromCatalog(), ...types.flatMap((ty) => appliancesForType(ty))]
+    const hosts = new Set(rendered.flatMap((p) => (p.imageUrl ? [new URL(p.imageUrl).host] : [])))
+    expect([...hosts].sort()).toEqual(['webshop.elgrad.hr', 'webshop.schachermayer.com'])
+    for (const host of hosts) {
+      const supplier = SUPPLIER_BY_HOST[host]
+      expect(supplier, host).toBeDefined()
+      expect(hrHR['privacy.who.productImages']).toContain(supplier)
+      expect(enUS['privacy.who.productImages']).toContain(supplier)
+    }
+    expect(text(notice(null))).toContain(hrHR['privacy.who.productImages'])
+  })
+
+  test('supplier product images go out without a referrer', () => {
+    const html = renderToStaticMarkup(
+      createElement(SchachermayerBrowse, {
+        products: [{ name: 'Sudoper', supplier: 'elgrad', imageUrl: 'https://webshop.elgrad.hr/assets/files/x.jpg' }],
+      })
+    )
+    expect(html).toMatch(/<img[^>]*src="https:\/\/webshop\.elgrad\.hr[^>]*referrerpolicy="no-referrer"/i)
+  })
+
+  test('claims no AI label the code does not show everywhere — no "always marked"', () => {
+    // The concept is badged where it is drawn (ConceptRender, the wrap-up),
+    // not on every later surface (the rail card, the builder): the notice may
+    // not say "always".
+    expect(hrHR['privacy.ai.body']).not.toMatch(/uvijek/i)
+    expect(enUS['privacy.ai.body']).not.toMatch(/always/i)
+    expect(hrHR['privacy.ai.body']).toContain('AI koncept')
+  })
+
   test('says what the code does with contact details: OpenAI sees them in the summary', () => {
     expect(hrHR['privacy.who.openai']).toContain('s imenom, e-mail adresom i telefonom')
   })
@@ -180,7 +229,7 @@ describe('the privacy notice', () => {
 
   test('"AI asistent", never "chatbot", in either language', () => {
     const keys = Object.keys(hrHR).filter(
-      (k) => k.startsWith('privacy.') || k.startsWith('legal.') || k === 'kitchen.home.ai' || k === 'space.processingNote'
+      (k) => k.startsWith('privacy.') || k.startsWith('legal.') || k === 'kitchen.home.ai' || k === 'kitchen.home.readOnly.ai' || k === 'space.processingNote'
     ) as (keyof typeof hrHR)[]
     expect(keys.length).toBeGreaterThan(20)
     for (const k of keys) {

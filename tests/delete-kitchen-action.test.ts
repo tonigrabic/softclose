@@ -6,7 +6,9 @@
  * and the database client that returns the project row. The erase itself is
  * mocked — tests/erase-project.test.ts covers what it deletes; this file
  * covers that only the project's own customer ever reaches it, and what the
- * action does with the outcome.
+ * action does with the outcome. deleteMyAccount — the retry once the kitchen
+ * is gone and only the account step stopped, and the no-kitchen panel at / —
+ * is covered the same way.
  */
 import { beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -39,6 +41,8 @@ const h = vi.hoisted(() => {
     revalidated: [] as string[],
     queries: 0,
     erase: vi.fn(),
+    eraseAccount: vi.fn(),
+    currentProject: null as null | { id: string },
   }
   const db = {
     from: () => {
@@ -87,7 +91,10 @@ vi.mock('@/lib/auth/session', async (importOriginal) => ({
   verifySession: async (token: string | undefined) => (token ? h.state.claims : null),
 }))
 
-vi.mock('@/lib/auth/accounts', () => ({
+vi.mock('@/lib/auth/accounts', async (importOriginal) => ({
+  // The real module, so the pure checks (accountAdmitsSession) stay real;
+  // only the lookup is faked.
+  ...(await importOriginal<typeof import('@/lib/auth/accounts')>()),
   findAccountById: async (id: string) => (h.state.account?.id === id ? h.state.account : null),
 }))
 
@@ -98,9 +105,17 @@ vi.mock('@/lib/db/supabase', async (importOriginal) => ({
 
 vi.mock('@/lib/project/erase', () => ({
   eraseCustomerProject: h.state.erase,
+  eraseCustomerAccount: h.state.eraseAccount,
 }))
 
-import { deleteMyKitchen } from '@/app/kitchen/[projectId]/actions'
+vi.mock('@/lib/auth/projects', () => ({
+  currentProjectForCustomer: async () => h.state.currentProject,
+}))
+
+import { renderToStaticMarkup } from 'react-dom/server'
+import { deleteMyAccount, deleteMyKitchen } from '@/app/kitchen/[projectId]/actions'
+import Home from '@/app/page'
+import { hrHR } from '@/lib/i18n/locales/hr-HR'
 
 const MAKER = '11111111-1111-4111-8111-111111111111'
 const CUSTOMER = '33333333-3333-4333-8333-333333333333'
@@ -146,6 +161,9 @@ beforeEach(() => {
   h.state.queries = 0
   h.state.erase.mockReset()
   h.state.erase.mockResolvedValue({ ok: true, objects: 5, briefs: 2, accountDeleted: true })
+  h.state.eraseAccount.mockReset()
+  h.state.eraseAccount.mockResolvedValue({ ok: true, accountDeleted: true })
+  h.state.currentProject = null
 })
 
 describe('deleteMyKitchen — who may erase', () => {
@@ -194,7 +212,8 @@ describe('deleteMyKitchen — the customer erases their own kitchen', () => {
     const err = await deleteMyKitchen(PROJECT).catch((e) => e)
 
     expect(h.state.erase).toHaveBeenCalledTimes(1)
-    expect(h.state.erase).toHaveBeenCalledWith(h.db, { projectId: PROJECT, customerId: CUSTOMER })
+    // With the status the guard read, so a failed erase can put it back.
+    expect(h.state.erase).toHaveBeenCalledWith(h.db, { projectId: PROJECT, customerId: CUSTOMER, status: 'submitted' })
     expect(h.state.deletedCookies).toEqual(['sc_session'])
     expect(h.state.revalidated).toEqual(['/dashboard'])
     expect(err).toBeInstanceOf(h.RedirectSentinel)
@@ -208,5 +227,83 @@ describe('deleteMyKitchen — the customer erases their own kitchen', () => {
     expect(r).toEqual({ ok: false, error: 'incomplete' })
     expect(h.state.deletedCookies).toEqual([])
     expect(h.state.revalidated).toEqual([])
+  })
+
+  test('stopped at the account step (the kitchen is gone) → "account"; cookie kept', async () => {
+    signInAs(CUSTOMER, 'customer')
+    h.state.erase.mockResolvedValue({ ok: false, failedAt: 'account' })
+    expect(await deleteMyKitchen(PROJECT)).toEqual({ ok: false, error: 'account' })
+    expect(h.state.deletedCookies).toEqual([])
+  })
+})
+
+describe('deleteMyAccount — who may erase an account', () => {
+  test('signed out → redirected to login; nothing erased', async () => {
+    const err = await deleteMyAccount().catch((e) => e)
+    expect(err).toBeInstanceOf(h.RedirectSentinel)
+    expect((err as InstanceType<typeof h.RedirectSentinel>).url).toMatch(/^\/login/)
+    expect(h.state.eraseAccount).not.toHaveBeenCalled()
+  })
+
+  test('a maker → notFound; nothing erased', async () => {
+    signInAs(MAKER, 'maker')
+    await expect(deleteMyAccount()).rejects.toBeInstanceOf(h.NotFoundSentinel)
+    expect(h.state.eraseAccount).not.toHaveBeenCalled()
+    expect(h.state.deletedCookies).toEqual([])
+  })
+
+  test('the customer: their own account (from the session), signed out, /login?deleted=account', async () => {
+    signInAs(CUSTOMER, 'customer')
+    const err = await deleteMyAccount().catch((e) => e)
+    expect(h.state.eraseAccount).toHaveBeenCalledWith(h.db, { customerId: CUSTOMER })
+    expect(h.state.deletedCookies).toEqual(['sc_session'])
+    expect((err as InstanceType<typeof h.RedirectSentinel>).url).toBe('/login?deleted=account')
+  })
+
+  test('a kitchen is on the account (a new invite landed) → kept; / takes them to it', async () => {
+    signInAs(CUSTOMER, 'customer')
+    h.state.eraseAccount.mockResolvedValue({ ok: true, accountDeleted: false })
+    const err = await deleteMyAccount().catch((e) => e)
+    expect((err as InstanceType<typeof h.RedirectSentinel>).url).toBe('/')
+    expect(h.state.deletedCookies).toEqual([])
+  })
+
+  test('the erase fails → "incomplete"; cookie kept so the retry still works', async () => {
+    signInAs(CUSTOMER, 'customer')
+    h.state.eraseAccount.mockResolvedValue({ ok: false, failedAt: 'account' })
+    expect(await deleteMyAccount()).toEqual({ ok: false, error: 'incomplete' })
+    expect(h.state.deletedCookies).toEqual([])
+  })
+})
+
+describe('stopped at the account step, then retried', () => {
+  test('the kitchen action 404s on the gone project; deleteMyAccount finishes the account', async () => {
+    signInAs(CUSTOMER, 'customer')
+    h.state.erase.mockResolvedValue({ ok: false, failedAt: 'account' })
+    expect(await deleteMyKitchen(PROJECT)).toEqual({ ok: false, error: 'account' })
+
+    // The project row went in that first click.
+    h.state.project = null
+    await expect(deleteMyKitchen(PROJECT)).rejects.toBeInstanceOf(h.NotFoundSentinel)
+
+    const err = await deleteMyAccount().catch((e) => e)
+    expect(h.state.eraseAccount).toHaveBeenCalledWith(h.db, { customerId: CUSTOMER })
+    expect(h.state.deletedCookies).toEqual(['sc_session'])
+    expect((err as InstanceType<typeof h.RedirectSentinel>).url).toBe('/login?deleted=account')
+  })
+
+  test('after a reload, the no-kitchen panel at / offers the account delete', async () => {
+    signInAs(CUSTOMER, 'customer')
+    h.state.currentProject = null
+    const html = renderToStaticMarkup(await Home())
+    expect(html).toContain(hrHR['auth.noProject.title'])
+    expect(html).toContain(hrHR['account.delete.open'])
+  })
+
+  test('a customer with a kitchen is sent to it, not shown the account delete', async () => {
+    signInAs(CUSTOMER, 'customer')
+    h.state.currentProject = { id: PROJECT }
+    const err = await Home().catch((e) => e)
+    expect((err as InstanceType<typeof h.RedirectSentinel>).url).toBe(`/kitchen/${PROJECT}`)
   })
 })

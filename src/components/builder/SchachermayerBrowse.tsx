@@ -79,12 +79,16 @@ function ProductCard({
       )}
     >
       {product.imageUrl && (
+        // Hotlinked from the supplier's webshop (Schachermayer, Elgrad — both
+        // named on /privatnost): the IP goes with the request, the page we are
+        // on does not. Same as DecorSwatch.
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={product.imageUrl}
           alt=""
           className="h-20 w-full rounded-md object-contain"
           loading="lazy"
+          referrerPolicy="no-referrer"
         />
       )}
       <div className="flex-1 min-w-0">

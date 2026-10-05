@@ -17,6 +17,7 @@ export const hrHR = {
   'builder.shell.bom.project': 'Građevinski radovi (procjena)',
   'builder.shell.bom.goodsExact': 'točno — tvoj odabir',
   'builder.shell.bom.goodsEstimate': 'procjena — odaberi modele za točnu cijenu',
+  'builder.shell.bom.lines': 'Sve stavke ({n})',
   // ---- Range line (IMP-04) — one line for every range, on every surface ---
   // Never call the range a quote ("ponuda"): the maker sends that.
   'range.confirms.homeowner': 'raspon koji {maker} potvrđuje',
@@ -560,7 +561,7 @@ export const hrHR = {
   'wrapup.actions.backToSteps': 'Natrag na korake',
   'nav.backToReview': 'Natrag na pregled',
   'builder.rerender.changedPrefix': 'Promijenio si:',
-  'builder.rerender.changedSuffix': '. Render iznad to još ne prikazuje.',
+  'builder.rerender.changedSuffix': '. Trenutni render to još ne prikazuje.',
   'builder.rerender.rendering': 'Renderiram ponovno…',
   'builder.rerender.button': 'Renderiraj ponovno s ovim odabirima (još {n})',
   'builder.rerender.change.door_decor': 'dekor vrata',
@@ -829,6 +830,8 @@ export const hrHR = {
   'auth.deleted.body':
     'Izbrisali smo tvoje fotografije, odgovore, sažetke i spremljeni napredak, i kopiju u ovom pregledniku. Ako ti je to bila jedina kuhinja, izbrisan je i tvoj račun.',
   'auth.deleted.signIn': 'Imaš još jednu kuhinju? Prijavi se',
+  'auth.deletedAccount.title': 'Tvoj račun je izbrisan',
+  'auth.deletedAccount.body': 'Izbrisali smo tvoj račun: e-mail adresu, ime, jezik i linkove za prijavu.',
   // ---- Maker dashboard ----------------------------------------------------
   'dashboard.subtitle': '{n} kupaca',
   'dashboard.refresh': 'Osvježi',
@@ -946,6 +949,8 @@ export const hrHR = {
   'kitchen.makerSees': '{maker} vidi tvoj napredak dok radiš.',
   // AI disclosure (EU AI Act Art. 50, IMP-09) — "AI asistent", never "chatbot".
   'kitchen.home.ai': 'Kroz korake te vodi AI asistent. {maker} osobno pregledava sve što podijeliš.',
+  // The same disclosure for the maker looking in: worded for them, never their own name.
+  'kitchen.home.readOnly.ai': 'Kupca kroz korake vodi AI asistent. Sve što podijeli pregledavaš ti.',
   // ---- Delete my kitchen (IMP-09) — calm, two steps, no guilt copy ---------
   'kitchen.delete.open': 'Izbriši moju kuhinju',
   'kitchen.delete.title': 'Izbrisati tvoju kuhinju?',
@@ -957,6 +962,33 @@ export const hrHR = {
   'kitchen.delete.confirm': 'Izbriši trajno',
   'kitchen.delete.pending': 'Brišem…',
   'kitchen.delete.failed': 'Brisanje nije dovršeno. Pokušaj ponovno za koju minutu — nastavit ćemo gdje je stalo.',
+  'kitchen.delete.failedAccount':
+    'Kuhinja je izbrisana, ali račun još nije. Pokušaj ponovno za koju minutu — ostao je samo račun.',
+  // ---- Delete my account (IMP-09) — once no kitchen is left on it ----------
+  'account.delete.open': 'Izbriši moj račun',
+  'account.delete.title': 'Izbrisati tvoj račun?',
+  'account.delete.body':
+    'Brišemo tvoju e-mail adresu, ime i jezik koji smo zapamtili te linkove za prijavu. Ovo se ne može poništiti.',
+  'account.delete.failed': 'Brisanje nije dovršeno. Pokušaj ponovno za koju minutu.',
+  // The maker looking in at their customer's kitchen home. It is the
+  // customer's to fill and edit, so no walkthrough addressed to them, no
+  // "Nastavi" or "Izmijeni": the maker only looks. No full stop after {date}:
+  // a Croatian date already ends in one.
+  'kitchen.home.readOnly.title': 'Kupac još nije počeo',
+  'kitchen.home.readOnly.titleStarted': 'Kupac još opisuje kuhinju',
+  'kitchen.home.readOnly.titleSubmitted': 'Kupac je poslao sažetak',
+  'kitchen.home.readOnly.notStarted': 'Kad počne, ovdje ćeš vidjeti kuhinju onako kako je opisuje.',
+  'kitchen.home.readOnly.lastSaved': 'Zadnje spremljeno: {step}.',
+  'kitchen.home.readOnly.cta': 'Pogledaj kuhinju',
+  'kitchen.home.readOnly.note': 'Samo za gledanje — kuhinju mijenja kupac.',
+  'kitchen.home.readOnly.status.seen': 'Kupac vidi da je sažetak otvoren {date}',
+  'kitchen.home.readOnly.status.notSeen': 'Sažetak još nije otvoren — otvori ga s popisa.',
+  'kitchen.home.readOnly.status.noRange': 'Raspon stiže kad kupac sastavi kuhinju.',
+  // Under the decision: what the customer reads next to it.
+  'kitchen.home.readOnly.decision.quotedNext': 'Kupac ovdje čita da iznos i uvjete dobiva izravno od tebe.',
+  'kitchen.home.readOnly.decision.clarifyNext':
+    'Kupac ovdje čita da odgovori izmjenom kuhinje ili ti se javi izravno.',
+  'kitchen.home.readOnly.decision.declinedNext': 'Kupac ovdje i dalje vidi svoju procjenu.',
   'live.back': 'Natrag na popis',
   'live.banner.title': 'U TIJEKU — kupac još radi',
   'live.banner.body':
@@ -978,6 +1010,13 @@ export const hrHR = {
   'wrapup.readOnly.lede': 'Ovako ga vidi kupac — ti ga ovdje samo gledaš.',
   'wrapup.readOnly.notSent': 'Kupac još nije poslao sažetak.',
   'wrapup.readOnly.sent': 'Kupac je poslao sažetak — otvori ga s popisa.',
+  // The sections, where the homeowner's words say "tvoj": the render, the
+  // space, the sink "you agree with your maker".
+  'wrapup.readOnly.section.render': 'Koncept koji je kupac odabrao',
+  'wrapup.readOnly.render.note':
+    'AI koncept usidren na fotografiju kupčeva prostora. Smjer koji kupac želi, ne obvezujuća specifikacija.',
+  'wrapup.readOnly.section.space': 'Kupčev prostor',
+  'wrapup.readOnly.trades.movesOpen': 'seli se — mjesto dogovaraš s kupcem',
   'auth.logout': 'Odjava',
   'readback.led.yes': 'LED rasvjeta',
   'readback.led.no': 'Bez LED rasvjete',
@@ -1155,6 +1194,9 @@ export const hrHR = {
   'floorPlan.svg.disclaimer': 'Skica — nije izmjera',
   'floorPlan.static.deferred': 'Odlučio si ne mjeriti — tvoj dizajner uzet će mjere na licu mjesta.',
   'floorPlan.static.rough': 'Okvirna skica prema onome što si podijelio — dizajner će je potvrditi na licu mjesta.',
+  // The same captions for the maker looking in: the maker is the designer.
+  'floorPlan.static.deferredMaker': 'Kupac je odlučio ne mjeriti — mjere uzimaš na licu mjesta.',
+  'floorPlan.static.roughMaker': 'Okvirna skica prema onome što je kupac podijelio — mjere potvrđuješ na licu mjesta.',
 
   // ---- Failed requests — shown instead of the server's English text -------
   'api.error.session': 'Sesija je istekla. Prijavi se ponovno da nastaviš.',
@@ -1400,18 +1442,18 @@ export const hrHR = {
   'privacy.who.resend':
     'Resend — šalje e-poštu: linkove za prijavu, pozivnicu i obavijest izrađivaču o sažetku.',
   'privacy.who.productImages':
-    'Slike nekih proizvoda (sudopera, slavina i uređaja) učitavaju se izravno s poslužitelja dobavljača Schachermayer, pa tvoj preglednik tom poslužitelju pritom šalje svoju IP adresu.',
+    'Slike nekih proizvoda (sudopera, slavina i uređaja) učitavaju se izravno s poslužitelja dobavljača Schachermayer i Elgrad, pa tvoj preglednik tim poslužiteljima pritom šalje svoju IP adresu.',
   'privacy.who.nobodyElse':
     'Osim navedenog, tvoje podatke nikome ne dajemo. Koliko dugo te usluge čuvaju ono što im pošaljemo, određuju njihovi uvjeti.',
   'privacy.ai.title': 'Što radi AI asistent',
   'privacy.ai.body':
-    'Čita tvoje fotografije i inspiraciju, prevodi tvoje želje u stručne pojmove, predlaže materijale, piše sažetak i crta AI koncept kuhinje u tvom prostoru, uvijek označen kao koncept. Raspon cijene računa se iz kuhinje koju složiš — ne pogađa ga AI. Ništa od toga nije ponuda ni odluka: izrađivač sve pregledava osobno.',
+    'Čita tvoje fotografije i inspiraciju, prevodi tvoje želje u stručne pojmove, predlaže materijale, piše sažetak i crta AI koncept kuhinje u tvom prostoru. Raspon cijene računa se iz kuhinje koju složiš — ne pogađa ga AI. Ništa od toga nije ponuda ni odluka: izrađivač sve pregledava osobno.',
   'privacy.retention.title': 'Koliko dugo',
   'privacy.retention.body':
     'Čuvamo ih dok ne izbrišeš kuhinju ili dok je ne uklonimo na zahtjev tvog izrađivača. Automatskog brisanja nakon nekog roka zasad nema.',
   'privacy.delete.title': 'Brisanje',
   'privacy.delete.body':
-    'Kuhinju možeš izbrisati sam: na stranici svoje kuhinje odaberi „Izbriši moju kuhinju“. Brišemo fotografije, odgovore, AI koncepte, sažetke i spremljeni napredak, a ako ti je to jedina kuhinja, i tvoj račun.',
+    'Kuhinju možeš izbrisati sam: na stranici svoje kuhinje odaberi „Izbriši moju kuhinju“. Brišemo fotografije, odgovore, AI koncepte, sažetke i spremljeni napredak, a ako ti je to jedina kuhinja, i tvoj račun. Ako kuhinje više nema, a račun je ostao, prijavi se i odaberi „Izbriši moj račun“.',
   'privacy.delete.leftovers':
     'Što ostaje: obavijest koju je izrađivač možda već dobio e-poštom, ono što vanjske usluge čuvaju prema svojim uvjetima, i kopija napretka u drugim preglednicima u kojima si radio — nju obriši u postavkama tog preglednika.',
   'privacy.contact.title': 'Pitanja',

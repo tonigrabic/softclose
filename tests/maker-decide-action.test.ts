@@ -132,7 +132,8 @@ vi.mock('@/lib/auth/session', async (importOriginal) => ({
   verifySession: async (token: string | undefined) => (token ? h.state.claims : null),
 }))
 
-vi.mock('@/lib/auth/accounts', () => ({
+vi.mock('@/lib/auth/accounts', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/lib/auth/accounts')>()),
   findAccountById: async (id: string) => (h.state.account?.id === id ? h.state.account : null),
 }))
 

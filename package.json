@@ -1,5 +1,5 @@
 {
-  "name": "home-designer",
+  "name": "softclose",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -9,7 +9,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "gate": "vitest run && tsc --noEmit && eslint . && next build",
+    "typecheck": "tsc --noEmit",
+    "gate:fast": "vitest run && tsc --noEmit && eslint .",
+    "gate": "npm run gate:fast && next build",
     "maker": "node scripts/maker.mjs"
   },
   "dependencies": {
