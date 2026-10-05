@@ -236,7 +236,7 @@ _As built, the kitchen-home string is the gender-neutral `{maker}: ponuda je pos
 
 ### 28. IMP-24 — Croatian copy pack
 **Problem.** The rail labels act 3 "Vaša ponuda" while the app insists it is not a quote; those are also the only Vi-form strings. Seventeen strings call the maker "dizajner"; the glossary says izrađivač. Sixteen past-tense verbs are masculine-only ("Promijenio si"). Wrong terms: "Šolja ručke", "Paralelne klupe", "Filtrirana voda (3-pute)", "Sintetizirani kamen", "Fragranite" as a material; "{n} kupaca" for 1–4; "+{n} više". The tab title is "Kitchen Studio — Project intake" on every page.
-**Fix.** One locale PR: "Tvoj sažetak i raspon", izrađivač everywhere, gender-neutral phrasing, corrected trade terms, a plural helper, root metadata `softclose` with per-page titles. Add a test that no hr value contains "ponuda" or "dizajner" outside the explicit disclaimer keys. Have one Croatian maker read the diff.
+**Fix.** Decision 2026-10-04 (Toni): the rail reads "Tvoj sažetak · Tvoj prostor · Gradnja · Logistika i kontakt" (en "Your brief · Your space · Build it · Logistics & contact"), and the pill on the wrap-up "Logistika i kontakt ✓". The third act is named by what it holds: the wishlist is the last step of Gradnja, and "Tvoj sažetak i raspon" would echo the rail's own heading. Done on branch fix/wrapup-readonly-rail, with tests/journey-rail-readonly.test.ts pinning the lines. The rest is one locale PR: izrađivač everywhere, gender-neutral phrasing, corrected trade terms, a plural helper, root metadata `softclose` with per-page titles. Add a test that no hr value contains "ponuda" or "dizajner" outside the explicit disclaimer keys. Have one Croatian maker read the diff.
 **Files.** src/lib/i18n/locales/hr-HR.ts, en-US.ts, src/app/layout.tsx, page metadata, tests/i18n-homeowner-strings.test.ts.
 **Done when.** The string test passes; every page has a Croatian title.
 **Stack on.** main.
@@ -288,7 +288,7 @@ _As built, the kitchen-home string is the gender-neutral `{maker}: ponuda je pos
 - **Media at capture time (photos uploaded as taken).** Right fix for cross-device resume, L effort; IMP-17 ships the short-term guard first.
 - **Splitting the three god files.** Mechanical, low value until the items above settle; IMP-29 touches the editor anyway.
 
-## Decisions (Toni, 2026-10-03)
+## Decisions (Toni, from 2026-10-03)
 
 1. **Price basis (IMP-04): decided.** The homeowner sees what they will pay: VAT included, workshop margin included, no VAT or margin line anywhere on their side. All Elgrad prices, webshop and veleprodajni cjenik alike, include PDV; nothing is grossed up. The maker sees net cost and margin on the brief page.
 2. **Rate card (IMP-21): decided, per maker in the database from the start**, with a default row seeded from today's constants and a settings page. Band floor (LOOP Q6): ±10% until a maker's own rates are in.
@@ -296,3 +296,4 @@ _As built, the kitchen-home string is the gender-neutral `{maker}: ponuda je pos
 4. **Invites and the customer home (IMP-18): decided.** Never refuse an invite. `/` for a customer is a home page with the instructions and the list of their kitchens, one or many.
 5. **inspiration-vision (IMP-23): decided, drop the call.** Keep the tagged styles and the reference images for the render.
 6. **Confidence pills: decided, none for the homeowner.** Provenance words only ("procjena", "izmjereno", "prepušteno izrađivaču").
+7. **Journey rail (IMP-24, IMP-05): decided 2026-10-04.** The homeowner reads "Tvoj sažetak · Tvoj prostor · Gradnja · Logistika i kontakt": informal like the rest of the product, and never "ponuda". The maker looking in reads "Kupčev sažetak · Kupčev prostor · Gradnja · Logistika i kontakt". The third act has the same name for both, because it holds Logistika and Kontakt only.

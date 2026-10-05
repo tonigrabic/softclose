@@ -69,7 +69,9 @@ describe('the review’s rail', () => {
   test('without expandDone the done journey shows no step at all (the original bug)', () => {
     const out = html({ journeyDone: true, onStepSelect: () => {} })
     expect(buttons(out)).toBe(0)
-    for (const s of FUNNEL) expect(out, s.id).not.toContain(t(`flow.${s.id}.label`))
+    // The step's own label element: the act above it may contain the word
+    // ("Logistika i kontakt" holds "Logistika").
+    for (const s of FUNNEL) expect(out, s.id).not.toContain(`>${t(`flow.${s.id}.label`)}</span>`)
     // The acts themselves still show, all done.
     expect(out).toContain(t('journey.act.space'))
     expect(out).toContain(t('journey.act.offer'))
@@ -162,7 +164,7 @@ describe('editing from the review: the journey stays done (IMP-07 review)', () =
   test('the intake and the builder keep the bar full and pass `reviewed` while editing', () => {
     const intake = readFileSync(join(__dirname, '..', 'src/components/kitchen-intake/index.tsx'), 'utf8')
     expect(intake).toMatch(/editing \? 100 : Math\.round/)
-    expect(intake).toMatch(/journeyPillLabel\(\{ funnelStepId: state\.currentStepId, profile, reviewed: editing, locale \}\)/)
+    expect(intake).toMatch(/journeyPillLabel\(\{ funnelStepId: state\.currentStepId, profile, voice: railVoice, reviewed: editing, locale \}\)/)
     expect((intake.match(/reviewed=\{editing\}/g) ?? []).length).toBe(2) // the funnel rail and BuilderShell
     const shell = readFileSync(join(__dirname, '..', 'src/components/builder/BuilderShell.tsx'), 'utf8')
     expect(shell).toMatch(/const progressPercent = reviewed \? 100 :/)

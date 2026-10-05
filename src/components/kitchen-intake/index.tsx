@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowLeft, ArrowRight, RotateCcw } from 'lucide-react'
-import { JourneyNavRail, journeyPillLabel } from '@/components/JourneyNavRail'
+import { JourneyNavRail, journeyPillLabel, type RailVoice } from '@/components/JourneyNavRail'
 import { RenderAnchorCard } from '@/components/RenderAnchorCard'
 import { LiveBOMPanel } from '@/components/builder/LiveBOMPanel'
 import { MobileRangeDock } from '@/components/builder/MobileRangeDock'
@@ -18,6 +18,7 @@ import { FloorPlanStatic } from './FloorPlanStatic'
 import { VisualScale } from './VisualScale'
 import { ContactForm, type ContactValue } from './ContactForm'
 import { WrapUpScreen } from './WrapUpScreen'
+import { KitchenLookOnly } from './LookOnly'
 import { RoomStep, type RoomPhase, type RoomStepProps, type SaveLaterResult } from './RoomStep'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
@@ -128,7 +129,8 @@ export interface KitchenIntakeProps {
   /** The project row's current revision, for optimistic-concurrency writes. */
   initialRevision?: number
   /** True when the viewer is the maker looking in. The brief's whole value is
-   *  that it is the homeowner's own answers, so the maker never writes to it. */
+   *  that it is the homeowner's own answers, so the maker never writes to it:
+   *  they get KitchenLookOnly, built from `initialSnapshot`, not the steps. */
   readOnly?: boolean
   /** The project's current brief, from the page load. The review compares
    *  itself with it: the brief the maker already has is not sent again. */
@@ -170,6 +172,9 @@ export function KitchenIntake({
   startAt,
 }: KitchenIntakeProps = {}) {
   const { locale } = useTranslations()
+  // The journey rail and its mobile pill: the maker looking in reads the
+  // customer's journey ("Kupčev sažetak"), not "Tvoj sažetak".
+  const railVoice: RailVoice = readOnly ? 'maker' : 'homeowner'
   const [state, setState] = useState<IntakeFlowState>({
     currentStepId: 'space_photos',
   })
@@ -311,6 +316,11 @@ export function KitchenIntake({
   useEffect(() => subscribePageHide(() => builderGuard.writeNow()), [builderGuard])
 
   useEffect(() => {
+    // The maker looking in never touches this browser's copy. Their page is
+    // built from the server's (KitchenLookOnly): a copy kept here would win
+    // over the customer's later progress on the next look. And with nothing
+    // loaded, persistence never opens, so nothing they see is saved here.
+    if (readOnly) return
     let cancelled = false
     void loadSnapshot<IntakeSnapshot>(projectId).then((loaded) => {
       if (cancelled) return
@@ -517,7 +527,7 @@ export function KitchenIntake({
   )
 
   useEffect(() => {
-    if (!persistenceReady.current) return
+    if (readOnly || !persistenceReady.current) return
     const hasSomething =
       snapshot.currentStepId !== 'space_photos' ||
       Object.keys(snapshot.profile).length > 0 ||
@@ -1195,13 +1205,13 @@ export function KitchenIntake({
   // longer feeds the plan or the tally, so nothing on this step waits for it.
   // Synchronises with an external system (the vision API) on step entry.
   useEffect(() => {
-    if (state.currentStepId !== 'confirm_look') return
+    if (readOnly || state.currentStepId !== 'confirm_look') return
     if (!chosenRender) return
     if (builderHypothesis || isLoadingHypothesis || hypothesisError) return
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadHypothesis()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.currentStepId, chosenRender, builderHypothesis, isLoadingHypothesis, hypothesisError])
+  }, [state.currentStepId, chosenRender, builderHypothesis, isLoadingHypothesis, hypothesisError, readOnly])
 
   // Seed the floor plan for the confirm step from the plan, never the render:
   // the measured room (IMP-31), a legacy journey's plan as it is, or — with
@@ -1242,6 +1252,21 @@ export function KitchenIntake({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.currentStepId, spaceVision, isReadingRoom, roomReadFailed, realPhotos.length, readOnly])
 
+  // ── The maker looking in: one page to look at, finished or not, from the
+  // server's copy. Never the steps: their controls edit the customer's answers
+  // and their buttons call AI routes (a render, a translation, a summary).
+  // The read-only guards below stay as a second line.
+  if (readOnly) {
+    return (
+      <KitchenLookOnly
+        snapshot={initialSnapshot}
+        projectId={projectId}
+        makerName={makerName}
+        onFileBriefId={currentBriefId}
+      />
+    )
+  }
+
   // ── Wrap-up / offer — still inside the one shell: the journey rail stays,
   // with every act marked done (status visibility to the very last screen).
   if (isDone && wrapUpData) {
@@ -1252,6 +1277,7 @@ export function KitchenIntake({
           funnelStepId: 'contact',
           profile,
           journeyDone: true,
+          voice: railVoice,
           locale,
         })}
         nav={
@@ -1274,6 +1300,7 @@ export function KitchenIntake({
               funnelStepId="contact"
               profile={profile}
               journeyDone
+              voice={railVoice}
               expandDone={readOnly ? undefined : true}
               onStepSelect={readOnly ? undefined : openStep}
               locale={locale}
@@ -1382,6 +1409,7 @@ export function KitchenIntake({
         layoutSummary={summariseLayoutFromProfile(profile, locale, floorPlan)}
         profile={profile}
         makerName={makerName}
+        railVoice={railVoice}
         layoutPreconfirmed
         // The maker looking in never writes the homeowner's build.
         onStateChange={readOnly ? undefined : saveBuilderProgress}
@@ -1485,7 +1513,7 @@ export function KitchenIntake({
     <AppShell
       progressPercent={progress}
       rightRail={funnelRightRail}
-      mobilePillLabel={journeyPillLabel({ funnelStepId: state.currentStepId, profile, reviewed: editing, locale })}
+      mobilePillLabel={journeyPillLabel({ funnelStepId: state.currentStepId, profile, voice: railVoice, reviewed: editing, locale })}
       mobileDock={
         funnelBuilderState && rightRailSteps.includes(state.currentStepId) ? (
           <MobileRangeDock state={funnelBuilderState} scope={liveScope} makerName={makerName} />
@@ -1511,6 +1539,7 @@ export function KitchenIntake({
           <JourneyNavRail
             funnelStepId={state.currentStepId}
             profile={profile}
+            voice={railVoice}
             locale={locale}
             // Done steps reopen; once the review was reached, the done acts
             // show theirs too (IMP-07).
@@ -1520,7 +1549,13 @@ export function KitchenIntake({
             // reopened is current, none is "to do" (IMP-07).
             reviewed={editing}
           />
-          {projectId && makerName ? (
+          {/* "{maker} vidi tvoj napredak" is for the customer; the maker
+              looking in reads that the kitchen is theirs to look at only. */}
+          {readOnly ? (
+            <p className="mt-5 text-[10px] leading-relaxed text-muted-foreground">
+              {tDynamic('kitchen.home.readOnly.note', locale)}
+            </p>
+          ) : projectId && makerName ? (
             <p className="mt-5 text-[10px] leading-relaxed text-muted-foreground">
               {tDynamic('kitchen.makerSees', locale).replace('{maker}', makerName)}
             </p>

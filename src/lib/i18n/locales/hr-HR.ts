@@ -71,10 +71,20 @@ export const hrHR = {
   'appliances.included': 'Uključeno',
   'appliances.notIncluded': 'Nije u ovoj kuhinji',
   'appliances.fromLayout': 'Iz tlocrta',
-  'journey.brief': 'Vaš sažetak',
-  'journey.act.space': 'Vaš prostor',
+  // The journey rail. "Tvoj" like the rest of the product, and the third act
+  // by what it holds (logistika, kontakt; the wishlist ends Gradnja) — never
+  // "ponuda": the range is not a quote, the maker sends that. Not "Završni
+  // detalji" either: that is a builder group in the act above.
+  'journey.brief': 'Tvoj sažetak',
+  'journey.act.space': 'Tvoj prostor',
   'journey.act.build': 'Gradnja',
-  'journey.act.offer': 'Vaša ponuda',
+  'journey.act.offer': 'Logistika i kontakt',
+  // The same rail for the maker looking in (readOnly): the customer's
+  // journey, not theirs.
+  'journey.readOnly.brief': 'Kupčev sažetak',
+  'journey.readOnly.act.space': 'Kupčev prostor',
+  'journey.readOnly.act.build': 'Gradnja',
+  'journey.readOnly.act.offer': 'Logistika i kontakt',
   'nav.startOver': 'Počni ispočetka',
 
   // Layout-counts confirmation gate
@@ -1010,6 +1020,9 @@ export const hrHR = {
   'wrapup.readOnly.lede': 'Ovako ga vidi kupac — ti ga ovdje samo gledaš.',
   'wrapup.readOnly.notSent': 'Kupac još nije poslao sažetak.',
   'wrapup.readOnly.sent': 'Kupac je poslao sažetak — otvori ga s popisa.',
+  'wrapup.readOnly.ledeSoFar': 'Ono što je kupac dosad unio — ti ovdje samo gledaš.',
+  'wrapup.readOnly.inProgress': 'Kupac još opisuje kuhinju — zadnje spremljeno: {step}, {label}.',
+  'wrapup.readOnly.render.notStored': 'Slika koncepta stiže sa sažetkom — ovdje se ne sprema.',
   // The sections, where the homeowner's words say "tvoj": the render, the
   // space, the sink "you agree with your maker".
   'wrapup.readOnly.section.render': 'Koncept koji je kupac odabrao',
