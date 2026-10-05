@@ -386,29 +386,35 @@ function Shell({
     />
   )
 
-  // Right rail: live price range first (always visible), then render anchor.
-  // The carousel and the re-render change the build, so they hold still with
-  // the screen while the review is built (a disabled fieldset disables every
-  // control inside it).
+  // Right rail: live price range first, then the re-render offer, then the
+  // render it would replace and its carousel. The offer sits high so it is on
+  // screen without scrolling the rail at laptop heights (1280×800): it only
+  // appears after a visible change, and it spends one of the five renders. The
+  // carousel and the re-render change the build, so they hold still with the
+  // screen while the review is built (a disabled fieldset disables every
+  // control inside it). `empty:hidden`: no offer, no box, no double gap.
   const rightRail = (
     <div className="flex flex-col gap-5">
       <LiveBOMPanel state={state} makerName={makerName} />
-      {previewSrc && <RenderAnchorCard src={previewSrc} summary={layoutSummary} locale={locale} />}
 
-      <fieldset disabled={busy} className="flex min-w-0 flex-col gap-5">
-        <RenderCarousel
-          state={state}
-          originalImageDataUrl={renderImageDataUrl}
-          anchorPhotoDataUrl={anchorPhotoDataUrl}
-          onSetActive={(id) => dispatch({ type: 'set_active_render', id })}
-        />
-
+      <fieldset disabled={busy} className="min-w-0 empty:hidden">
         <RerenderPanel
           state={state}
           anchorPhotoDataUrl={anchorPhotoDataUrl}
           blocked={rerenderBlocked}
           currentRenderDataUrl={previewSrc ?? undefined}
           onRendered={(imageDataUrl, trigger) => dispatch({ type: 'push_rerender', imageDataUrl, trigger })}
+        />
+      </fieldset>
+
+      {previewSrc && <RenderAnchorCard src={previewSrc} summary={layoutSummary} locale={locale} />}
+
+      <fieldset disabled={busy} className="min-w-0 empty:hidden">
+        <RenderCarousel
+          state={state}
+          originalImageDataUrl={renderImageDataUrl}
+          anchorPhotoDataUrl={anchorPhotoDataUrl}
+          onSetActive={(id) => dispatch({ type: 'set_active_render', id })}
         />
       </fieldset>
     </div>

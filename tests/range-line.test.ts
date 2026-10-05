@@ -127,6 +127,19 @@ describe('live panel and dock', () => {
     expect(text(html)).toContain('uređaje nabavlja kupac')
   })
 
+  // The rail (AppShell) is the sticky, scrolling box. A sticky panel inside it
+  // stayed pinned over the cards below and took the re-render button's clicks,
+  // and the open line list alone was taller than a laptop screen.
+  test('the panel is not sticky in the rail, and its lines fold away under their count', () => {
+    const html = panel(lShape())
+    expect(html.match(/<aside[^>]*>/)![0]).not.toMatch(/\bsticky\b/)
+    const details = html.match(/<details\b[^>]*>[\s\S]*<\/details>/)![0]
+    expect(details).not.toMatch(/^<details[^>]*\bopen\b/)
+    const lines = (details.match(/<li\b/g) ?? []).length
+    expect(lines).toBeGreaterThan(0)
+    expect(text(details)).toContain(hrHR['builder.shell.bom.lines'].replace('{n}', String(lines)))
+  })
+
   test('homeowner buys the appliances: no goods row, no "0 € – 0 €", no total with appliances', () => {
     const out = text(panel(lShape()))
     expect(out).not.toContain(hrHR['builder.shell.bom.goods'])
