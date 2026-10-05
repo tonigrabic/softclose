@@ -948,6 +948,8 @@ export const hrHR = {
   'kitchen.makerSees': '{maker} vidi tvoj napredak dok radiš.',
   // AI disclosure (EU AI Act Art. 50, IMP-09) — "AI asistent", never "chatbot".
   'kitchen.home.ai': 'Kroz korake te vodi AI asistent. {maker} osobno pregledava sve što podijeliš.',
+  // The same disclosure for the maker looking in: worded for them, never their own name.
+  'kitchen.home.readOnly.ai': 'Kupca kroz korake vodi AI asistent. Sve što podijeli pregledavaš ti.',
   // ---- Delete my kitchen (IMP-09) — calm, two steps, no guilt copy ---------
   'kitchen.delete.open': 'Izbriši moju kuhinju',
   'kitchen.delete.title': 'Izbrisati tvoju kuhinju?',

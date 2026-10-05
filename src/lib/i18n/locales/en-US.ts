@@ -908,6 +908,7 @@ export const enUS: Record<TranslationKey, string> = {
   'kitchen.home.decision.pill.declined': 'Closed',
   'kitchen.makerSees': '{maker} can see your progress as you work.',
   'kitchen.home.ai': 'An AI assistant guides you through the steps. {maker} personally reviews everything you share.',
+  'kitchen.home.readOnly.ai': 'An AI assistant guides the customer through the steps. You review everything they share.',
   // ---- Delete my kitchen (IMP-09) ----------------------------------------
   'kitchen.delete.open': 'Delete my kitchen',
   'kitchen.delete.title': 'Delete your kitchen?',
