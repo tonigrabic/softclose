@@ -50,21 +50,30 @@ export interface KitchenHomeProps {
   customerName: string | null
 }
 
-const DECISION_COPY: Record<MakerDecision, { pill: TranslationKey; line: TranslationKey; tone: string }> = {
+const DECISION_COPY: Record<
+  MakerDecision,
+  { pill: TranslationKey; line: TranslationKey; next: TranslationKey; nextReadOnly: TranslationKey; tone: string }
+> = {
   quoted: {
     pill: 'kitchen.home.decision.pill.quoted',
     line: 'kitchen.home.decision.quoted',
+    next: 'kitchen.home.decision.quotedNext',
+    nextReadOnly: 'kitchen.home.readOnly.decision.quotedNext',
     tone: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
   },
   clarify: {
     pill: 'kitchen.home.decision.pill.clarify',
     line: 'kitchen.home.decision.clarify',
+    next: 'kitchen.home.decision.clarifyNext',
+    nextReadOnly: 'kitchen.home.readOnly.decision.clarifyNext',
     tone: 'bg-amber-50 text-amber-800 ring-amber-200',
   },
   // Calm, not alarming (rule 7): a decline reads as "closed", not as an error.
   declined: {
     pill: 'kitchen.home.decision.pill.declined',
     line: 'kitchen.home.decision.declined',
+    next: 'kitchen.home.decision.declinedNext',
+    nextReadOnly: 'kitchen.home.readOnly.decision.declinedNext',
     tone: 'bg-muted text-muted-foreground ring-border',
   },
 }
@@ -74,11 +83,35 @@ const DECISION_COPY: Record<MakerDecision, { pill: TranslationKey; line: Transla
  * what this screen shows. A closed project has no way into its summary any
  * more, so a decline mentions the estimate only when there is one on screen
  * below — and says nothing when the brief went out without a range.
+ *
+ * The maker looking in reads what the customer is told there, in their own
+ * words ("the amount and terms come directly from you").
  */
-export function decisionNextKey(status: MakerDecision, hasRange: boolean): TranslationKey | null {
-  if (status === 'quoted') return 'kitchen.home.decision.quotedNext'
-  if (status === 'clarify') return 'kitchen.home.decision.clarifyNext'
-  return hasRange ? 'kitchen.home.decision.declinedNext' : null
+export function decisionNextKey(status: MakerDecision, hasRange: boolean, readOnly = false): TranslationKey | null {
+  if (status === 'declined' && !hasRange) return null
+  return readOnly ? DECISION_COPY[status].nextReadOnly : DECISION_COPY[status].next
+}
+
+/**
+ * The heading. The customer's names the maker who invited them; the maker
+ * looking in gets where the customer is: not started, still describing, sent.
+ * A closed project reads the same to both.
+ */
+export function homeTitleKey(p: {
+  closed: boolean
+  submitted: boolean
+  started: boolean
+  readOnly: boolean
+  /** The review is done but the brief is not sent yet (IMP-07). */
+  awaitingSend?: boolean
+}): TranslationKey {
+  if (p.closed) return 'kitchen.home.titleClosed'
+  if (p.readOnly) {
+    if (p.submitted) return 'kitchen.home.readOnly.titleSubmitted'
+    return p.started ? 'kitchen.home.readOnly.titleStarted' : 'kitchen.home.readOnly.title'
+  }
+  if (p.awaitingSend) return 'kitchen.home.titleReady'
+  return p.submitted ? 'kitchen.home.titleSubmitted' : 'kitchen.home.title'
 }
 
 const ACTS = [
@@ -99,6 +132,11 @@ const ACTS = [
  * Deliberately not a guided tour over the real UI: AGENTS.md rule 7 asks for
  * calm, not flashy, and coach marks are the opposite of calm on a screen whose
  * job is to reduce anxiety about spending €15,000.
+ *
+ * The maker can look in (readOnly). The kitchen is the customer's to fill and
+ * edit, so the maker gets no walkthrough addressed to the customer and no
+ * "continue" or "edit": the heading says where the customer is, and the one
+ * button opens the kitchen to look at — once there is something to look at.
  */
 export function KitchenHome(props: KitchenHomeProps) {
   const { t } = useTranslations()
@@ -127,6 +165,7 @@ export function KitchenHome(props: KitchenHomeProps) {
     )
   }
 
+  const { readOnly } = props
   const submitted = Boolean(props.submittedAt)
   // Changed since the brief went out, not sent (IMP-07): the maker has the
   // earlier version. Not for the maker looking in (sending is the customer's
@@ -142,7 +181,7 @@ export function KitchenHome(props: KitchenHomeProps) {
     ? {
         ...props.decision,
         copy: DECISION_COPY[props.decision.status],
-        next: decisionNextKey(props.decision.status, props.range != null),
+        next: decisionNextKey(props.decision.status, props.range != null, readOnly),
       }
     : null
 
@@ -150,7 +189,7 @@ export function KitchenHome(props: KitchenHomeProps) {
     <AuthShell signedIn>
       <div className="w-full py-6">
         <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
-          {t(props.readOnly ? 'kitchen.home.readOnly.eyebrow' : 'kitchen.home.eyebrow')}
+          {t(readOnly ? 'kitchen.home.readOnly.eyebrow' : 'kitchen.home.eyebrow')}
         </p>
         {/* The maker looking in reads the customer's page, in the customer's
             voice: say so once, so "tvoj" is not read as addressed to them. */}
@@ -160,15 +199,10 @@ export function KitchenHome(props: KitchenHomeProps) {
           </p>
         ) : null}
         <h1 className="mt-2 text-xl font-semibold leading-snug tracking-tight text-foreground">
-          {t(
-            props.closed
-              ? 'kitchen.home.titleClosed'
-              : submitted
-                ? 'kitchen.home.titleSubmitted'
-                : awaitingSend
-                  ? 'kitchen.home.titleReady'
-                  : 'kitchen.home.title'
-          ).replace('{maker}', makerLabel)}
+          {t(homeTitleKey({ closed: props.closed, submitted, started: props.started, readOnly, awaitingSend })).replace(
+            '{maker}',
+            makerLabel
+          )}
         </h1>
 
         {submitted ? (
@@ -184,13 +218,19 @@ export function KitchenHome(props: KitchenHomeProps) {
               </p>
             ) : null}
             {/* Only claims the maker opened it when they actually did — the
-                stamp now comes from a maker-authenticated page load. */}
+                stamp now comes from a maker-authenticated page load. The maker
+                looking in reads it about themselves: what the customer sees,
+                or where to open it. */}
             <p className="text-sm text-muted-foreground">
-              {props.makerViewedAt
-                ? t('kitchen.home.status.seen')
-                    .replace('{maker}', makerLabel)
-                    .replace('{date}', props.makerViewedAt)
-                : t('kitchen.home.status.notSeen').replace('{maker}', makerLabel)}
+              {readOnly
+                ? props.makerViewedAt
+                  ? t('kitchen.home.readOnly.status.seen').replace('{date}', props.makerViewedAt)
+                  : t('kitchen.home.readOnly.status.notSeen')
+                : props.makerViewedAt
+                  ? t('kitchen.home.status.seen')
+                      .replace('{maker}', makerLabel)
+                      .replace('{date}', props.makerViewedAt)
+                  : t('kitchen.home.status.notSeen').replace('{maker}', makerLabel)}
             </p>
             {/* The maker's answer (rule 8): the homeowner learns the outcome
                 here, without chasing anyone. */}
@@ -225,7 +265,7 @@ export function KitchenHome(props: KitchenHomeProps) {
                 the ±, who confirms it and what it leaves out. */}
             <RangeLine
               className="border-t border-border/60 pt-3"
-              voice="homeowner"
+              voice={readOnly ? 'maker' : 'homeowner'}
               makerName={props.makerName}
               label={t('kitchen.home.status.rangeLabel')}
               range={props.range}
@@ -235,8 +275,10 @@ export function KitchenHome(props: KitchenHomeProps) {
                   // number to show until they build, and they can do that from
                   // here. (Not on a closed project: there is no building any more.)
                   <div className="border-t border-border/60 pt-3">
-                    <p className="text-sm text-foreground">{t('kitchen.home.status.noRange')}</p>
-                    {!props.readOnly && (
+                    <p className="text-sm text-foreground">
+                      {t(readOnly ? 'kitchen.home.readOnly.status.noRange' : 'kitchen.home.status.noRange')}
+                    </p>
+                    {!readOnly && (
                       <button
                         type="button"
                         onClick={() => {
@@ -254,7 +296,19 @@ export function KitchenHome(props: KitchenHomeProps) {
               }
             />
           </div>
-        ) : props.closed ? null : awaitingSend ? (
+        ) : props.closed ? null : readOnly ? (
+          // The walkthrough is the customer's instructions; the maker gets
+          // where the customer got to, or what will appear here.
+          props.started ? (
+            props.stepLabel ? (
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                {t('kitchen.home.readOnly.lastSaved').replace('{step}', props.stepLabel)}
+              </p>
+            ) : null
+          ) : (
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{t('kitchen.home.readOnly.notStarted')}</p>
+          )
+        ) : awaitingSend ? (
           <div className="mt-5 rounded-2xl border border-border bg-card p-5 shadow-sm" data-awaiting-send>
             <p className="flex items-start gap-2 text-sm text-foreground">
               <ListChecks className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
@@ -292,7 +346,21 @@ export function KitchenHome(props: KitchenHomeProps) {
             into the intake or its summary: a re-send would be refused, and an
             edit nobody receives is worse than none. A question (clarify)
             keeps editing open — changing the kitchen is one way to answer. */}
-        {!props.closed ? (
+        {/* The maker looking in can only look (the intake is read-only), and
+            only once the customer has started: before that there is nothing
+            of theirs to see. */}
+        {props.closed ? null : readOnly ? (
+          props.started || submitted ? (
+            <>
+              <Button size="lg" className="mt-6 h-11 w-full rounded-xl text-sm" onClick={() => setEntered(true)}>
+                {t('kitchen.home.readOnly.cta')}
+              </Button>
+              <p className="mt-3 text-center text-[0.6875rem] text-muted-foreground">
+                {t('kitchen.home.readOnly.note')}
+              </p>
+            </>
+          ) : null
+        ) : (
           <>
             <Button
               size="lg"
@@ -306,9 +374,7 @@ export function KitchenHome(props: KitchenHomeProps) {
                 setEntered(true)
               }}
             >
-              {props.readOnly
-                ? t('kitchen.home.cta.look')
-                : unsent
+              {unsent
                 ? t('kitchen.home.cta.reviewChanges')
                 : submitted
                   ? t('kitchen.home.cta.edit')
@@ -329,7 +395,7 @@ export function KitchenHome(props: KitchenHomeProps) {
               </p>
             )}
           </>
-        ) : null}
+        )}
       </div>
     </AuthShell>
   )

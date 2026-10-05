@@ -393,12 +393,14 @@ describe('the kitchen home: finished, not sent', () => {
     expect(out).not.toMatch(/pošalj/i)
   })
 
-  test('the maker looking in is told it is the customer’s page, gets a look-only button and no edit note', () => {
+  test('the maker looking in is told it is the customer’s page, gets a look-only button once there is something to look at, and no edit note', () => {
     for (const props of [{ readOnly: true }, { readOnly: true, submittedAt: '3. 10. 2026.', briefId: 'b1' }]) {
       const out = home(props)
       expect(out).toContain(hrHR['kitchen.home.readOnly.eyebrow'])
       expect(out).toContain(hrHR['kitchen.home.readOnly.lede'])
-      expect(out).toContain(hrHR['kitchen.home.cta.look'])
+      // The look-only button (this fixture is a started kitchen; before the
+      // customer starts there is none — tests/kitchen-home-readonly).
+      expect(out).toContain(hrHR['kitchen.home.readOnly.cta'])
       expect(out).not.toContain(hrHR['kitchen.home.cta.edit'])
       expect(out).not.toContain(hrHR['kitchen.home.editNote'])
       expect(out).not.toMatch(/pošalj/i)
