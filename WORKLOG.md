@@ -1878,3 +1878,310 @@ margin, margin, customer range) and "Natrag na prikaz kupca" returns to the
 same builder group.
 
 Gate: 821 tests (54 files) · tsc · eslint · next build green.
+
+### 2026-10-04 — IMP-06: the build autosaves; a reload keeps picks, re-renders and the group
+Spec item 7 (IMPROVEMENTS.md). `BuilderShell` kept the whole build in a local
+reducer and handed it out only on the last Continue or "Uredi raspored", so a
+reload, a closed tab or a second device anywhere in the eight groups lost every
+pick and every paid re-render.
+
+- **Autosave.** `BuilderShell onStateChange`, debounced 500 ms
+  (`useDebouncedCallback` over the pure `createDebouncer`, lib/debounce.ts),
+  patches `profile.builderState` and `builderGroupId` into the snapshot that
+  the IndexedDB copy and the server checkpoint already carry. A save gate
+  (`builderSaveKey`, lib/builder/autosave.ts) passes only real changes:
+  opening a saved build, re-tapping a pick or re-confirming a group writes
+  nothing.
+- **Re-renders** keep their pixels in the local copy. The server copy holds
+  `omitted://image` markers, so a second device or the maker's read-only view
+  gets the picks and the group with the re-renders hidden (images across
+  devices: IMP-17). The cap is `5 − rerenders.length` from the saved build
+  (lib/builder/rerender-cap.ts), so a reload no longer offers five more.
+- **The last moment before leaving.** A pending save is flushed when the tab
+  is hidden or left. Because an IndexedDB write started while leaving never
+  lands, a small synchronous localStorage record (lib/builder/unload-save.ts)
+  holds the build until IndexedDB does. On load it is merged over the
+  IndexedDB copy if newer.
+- **No invented activity.** A visit that changes nothing writes no checkpoint,
+  so resuming never moves `updated_at` past the brief. `/api/handoff` stores
+  the brief's image-free snapshot in the same project update that stamps the
+  brief's time. It does that only over a server copy the submitting tab can
+  claim as its own (`SubmitClaim`), never over another device's newer work.
+  The snapshot step can never cost the brief its project update or its maker
+  email.
+- **Checkpoint client** (lib/project/checkpoint-client.ts): one retry timer;
+  a 429 honours `Retry-After`; a write whose answer was lost and that landed
+  is recognised as its own instead of halting as a conflict.
+  `CHECKPOINT_RATE_LIMIT` moved from 240/hour to 180 per 5 minutes: per-pick
+  saves made the old limit reachable in normal use, and one tab sends at most
+  ~120 per 5 minutes after the 2.5 s idle debounce.
+- Three review rounds (data loss, side effects, restore, checkpoint,
+  simplicity, then the submit path), each finding verified and fixed with a
+  regression test.
+
+Not done or left as it was:
+- The Done-when's "hook test" tests the debounce engine the hook wraps
+  (tests/debounced-callback.test.ts, fake timers), plus the hook's wiring via
+  the pure helpers. Vitest has no React environment yet to run the hook
+  itself; IMP-28 adds one.
+- A device that comes back with an older local copy still wins over a newer
+  server copy from another device. This predates IMP-06 and is IMP-17's.
+- "Izmijeni kuhinju" after a finished build reopens the builder at its last
+  group.
+- Flagged separately: at 1280×900 the sticky live-estimate panel covers the
+  "Renderiraj ponovno" button in the right rail, so a real click misses it.
+  This has been there since the Phase 2 builder.
+
+**Browser check** (local stack, mock AI, desktop viewport). Customer
+imp31-kupac, project "Lana Soba":
+- Room → builder. Picked "U boji", Halifax hrast fronts, Kristalni mramor
+  worktop and Staklo backsplash at group 4. The server copy held group
+  `backsplash` with those picks.
+- Reload → the kitchen home offers "Nastavi · korak 5/8" → the builder opens
+  at Zidna obloga 4/9 with every pick and "Staklo" selected. The revision
+  stayed 34: resuming wrote nothing.
+- Picked "Pločice" and reloaded 80 ms later → a localStorage record was
+  written (7.4 KB) and "Pločice" came back.
+- With a real local photo: a re-render (R1 — dekor vrata, POST
+  /api/render-concept 200), then a reload → back at Fronte 2/9 with R1 and
+  its pixels, and the button reads "(još 4)".
+- On the final commit: restored again, then finished the build, logistics and
+  contact and sent. The project's `updated_at` equals the brief's
+  `created_at` (changed flag false), and the server copy is at the contact
+  step. A reload after sending leaves the revision at 63 and the flag false.
+
+Gate: 913 tests (61 files) · tsc · eslint · next build green.
+
+### 2026-10-04 — IMP-07: review, then send; edits after a send are possible
+Spec item 8 (IMPROVEMENTS.md). The wrap-up said "Pregledaj što šaljemo —
+ispravi sve što ne valja", but it posted to `/api/handoff` on mount. The brief
+was stored and the maker emailed before the homeowner read a line, and no
+section could be fixed. "Izmijeni kuhinju" landed on the done screen, whose
+only control re-sent an identical brief. A revisit showed "Procjena još nije
+dostupna".
+
+- **Review first.** Nothing reaches the maker before "Pošalji izrađivaču" (or
+  "Pošalji izmjene" once a brief exists). The IMP-06 flush, claim and briefId
+  idempotency stay on that click. A closed project offers no send. A failed
+  send says "Sažetak nije poslan. Pokušaj ponovno." and the button retries
+  with the same brief id.
+- **No identical brief.** The snapshot keeps `sentReview`, the print of the
+  brief the maker has. It is trusted only while it matches the project's
+  current brief, and briefs sent before IMP-07 are recognised. An unchanged
+  kitchen, or a change undone, offers nothing to send.
+- **Fix anything.** Each section has "Nešto ispraviti?", which jumps to its
+  step: Stil → inspiration, Materijali → the builder's doors group, and so on.
+  "Natrag na korake" goes back from the review, and done rail steps are
+  navigable on desktop and on the mobile pill. Steps a change must pass
+  through (room → confirm → builder) are owed (`owedSteps`), so the review
+  waits for them. "Izmijeni kuhinju" opens at the contact step, whose button
+  is now "Pregledaj sažetak".
+- **Revisit.** The review shows the saved range ("Poslano izrađivaču"), "Što
+  slijedi" and the JSON download from the project's current brief (GET
+  `/api/projects/[id]/brief`, own customer only, customer-safe). A kitchen
+  changed but not sent says so on the kitchen home ("Imaš izmjene koje još
+  nisu poslane…") and offers "Pregledaj i pošalji izmjene".
+- **The maker's flag follows the kitchen.** Migration
+  `0008_content_changed_at.sql` adds `projects.brief_print` and
+  `content_changed_at`. The checkpoint route sets `content_changed_at` only
+  when the saved kitchen's print differs from the brief, and clears it when
+  it matches again. The handoff clears it. "izmijenjeno" / "· v2" read
+  `content_changed_at > brief.created_at` through the shared
+  `changedSinceBrief`, so walking back through unchanged steps never raises
+  it. The backfill keeps every existing flag as it was. Applied to the local
+  stack. **Production needs 0006, 0007 and 0008 applied before this code is
+  deployed.**
+- **Maker looking in.** The read-only review has no send or fix controls. The
+  kitchen home now reads "Kuhinja kupca — Ovako ovu stranicu vidi kupac — ti
+  je ovdje samo gledaš", with a "Pogledaj kupčevu kuhinju" button.
+- Two review rounds (send flow, navigation, then flag/DB, send state,
+  navigation). Each verified finding was fixed with a regression test.
+  `tests/wrapup-readonly.test.ts` was ported from the parallel session's
+  `fix/wrapup-readonly-header` branch.
+
+Not done or left as it was:
+- An edit left on a step by closing the tab (not Back or the rail) is not
+  owed.
+- Reloading in the middle of a build started from the review brings back the
+  all-done rail.
+- `brief_print` carries no version, so changing `briefPrint` later would
+  flag every sent project once.
+- No focus management after a jump from the review.
+
+**Browser check** (local stack, mock AI). Customer imp31-kupac, project "Lana
+Soba", sent before IMP-07:
+- The kitchen home says changes go out only once reviewed and sent.
+  "Izmijeni kuhinju" → contact → "Pregledaj sažetak" → the review shows
+  "Poslano izrađivaču 5.850–7.850 €" and "nema ništa novo za slanje", with
+  eight fix buttons and zero handoff calls. The walk back saved the step
+  (revision 63→65) with `content_changed_at` null, so the flag stayed down.
+- "Natrag na korake" → contact; the review again → unchanged.
+- "Materijali" fix → builder Fronte with "Natrag na pregled". A new decor →
+  the review shows 5.750–7.800 € and "Pošalji izmjene", still zero calls.
+  The flag went up (unsent change).
+- Send → exactly one `/api/handoff`, and "Što slijedi" takes the button's
+  place. Second brief stored, `content_changed_at` null, `brief_print` set.
+- Reload → the kitchen home shows 5.750–7.800 €. The review shows the saved
+  range and no send. The download route returns 200 with no maker fields.
+- Maker overlap-test: the dashboard reads "poslano" and older projects keep
+  "izmijenjeno". `/kitchen/<id>` is framed as the customer's page; the
+  read-only review has only "Natrag na kuhinju kupca" and makes no handoff or
+  checkpoint calls.
+- On the final commit: a change, then leaving without sending → the kitchen
+  home shows the unsent line and "Pregledaj i pošalji izmjene" → review →
+  zero calls before the button, one after. Third brief stored, flag cleared.
+
+Gate: 1129 tests (70 files) · tsc · eslint · next build green.
+
+### 2026-10-04 — IMP-08: the maker's email in their language; a mail that did not go out says so
+Spec item 9 (IMPROVEMENTS.md). The maker's "Novi sažetak kuhinje" email had an
+English "Homeowner" row and raw ids (`l_shape`, `3_6_months`).
+`requestLoginLink` said "link is on its way" whatever the provider answered.
+(As the spec notes, the audit was wrong that Resend was unconfigured: it was
+set on Vercel on 2026-10-02.)
+
+- **Maker email** (`lib/notify/maker-email.ts`): every label comes from the
+  new `makerEmail.*` keys in the maker account's locale. The handoff now reads
+  it from the account instead of passing the homeowner's UI locale.
+  Layout and timeline go through `layout.shape.*` / `option.timeline.*`, and
+  an unknown value prints "—", never the id. The email now carries the
+  project link "Kuhinja kupca" → `/kitchen/<projectId>`, the maker's
+  read-only view of the customer's page, next to the brief link. It is not
+  `/dashboard/project/<id>`, whose "U TIJEKU … nije poslani sažetak" banner is
+  wrong once a brief exists, and an ownerless project gets no link.
+  `<html lang>` is set and links are escaped.
+- **Login**: with no provider at all, every address gets "notSent" before
+  the account lookup, so it can't be used to enumerate accounts. When the
+  provider refuses one message, the form says "Slanje nije uspjelo, zatraži
+  link od izrađivača". The log carries the masked address, provider, outcome
+  and HTTP status, never the link. In development the on-screen link is the
+  delivery, so no error there. `LoginFormView` is exported so each state
+  renders in a test.
+- **Invites** are never refused (Decision 4). If the email does not go out,
+  the link box adds "E-mail s pozivnicom nije otišao — pošalji kupcu link
+  ispod sam." and the provider status is logged.
+- Tests: `maker-email` (no `_` ids, no "Homeowner", hr-HR and en-US, project
+  link, unknown enums), `login-send-honest` (mocked failed and skipped sends
+  in production → the form's error state; dev link kept in development) and
+  `invite-email-honest`.
+
+One adversarial review. Its one serious claim (enumeration) was rejected:
+the no-provider case is uniform, and a single refused message only signals
+during an outage, which is documented in the action. Nit not changed: "ask
+your maker for a link" is the spec's copy, though it reads oddly for a
+maker signing in.
+
+**Browser check** (local stack, mock AI):
+- `/login` as imp31-kupac still shows "Provjeri poštu" plus the
+  development link, and the server log shows the console send.
+- Signed in, changed a decor from the review and sent: `/api/handoff` 200.
+  The dev server has no real provider, so the maker email is not sent
+  locally. Rendering `buildMakerEmail` on the brief just stored gives
+  "Novi sažetak kuhinje — Lana Soba · 5.800 € – 7.800 € · ±15 %", "Kupac:",
+  "Raspored: L-oblik · 420 × 300 cm", the range line with its assumptions,
+  "Rok: 3–6 mjeseci", "Otvori sažetak: …/maker/<brief>" and "Kuhinja kupca:
+  …/kitchen/<project>". The en-US version matches.
+
+Gate: 1153 tests (72 files) · tsc · eslint · next build green.
+
+### 2026-10-04 — IMP-09: AI disclosure, photo notice, privacy page, delete-my-kitchen, EGGER flag
+Spec item 10 (IMPROVEMENTS.md). Nothing user-facing said an AI reads the
+photos (EU AI Act Art. 50 is in force since August 2026). The photo step sent
+home photos to OpenAI with no notice. There was no privacy page and no way for
+a homeowner to delete their kitchen. EGGER swatches were hotlinked behind a
+compile-time `true` marked "testing only".
+
+- **Disclosure.** "Kroz korake te vodi AI asistent. {maker} osobno pregledava
+  sve što podijeliš." appears on the kitchen home on first load and in the
+  invite email. A calm line under the photo drop zone says "Fotografije čita
+  AI asistent (OpenAI) … Tvoj izrađivač ih dobiva sa sažetkom.", with a
+  "Privatnost" link. A `LegalFooter` ("Privatnost") sits in AuthShell and the
+  intake shell.
+- **`/privatnost`.** A static, public notice. It covers what is stored and
+  why, who sees it, and every processor the code uses: OpenAI (photos,
+  wishlist, summary incl. name/email/phone), Supabase, Vercel and Resend.
+  Product images load straight from Schachermayer/Elgrad, so their servers
+  see the browser's IP. Retention is as it really is: until the homeowner
+  deletes, no automatic expiry. The page also covers rights and how to
+  delete. Nothing is invented: the operator contact shows only when
+  `PRIVACY_CONTACT_EMAIL` is set, and a `TODO(Toni, before launch)` marks
+  where the operator identity and impressum go.
+- **"Izbriši moju kuhinju".** Customers only, own project only, with an
+  explicit two-step confirmation. It removes Storage objects first, then the
+  briefs, the project (snapshot), the customer's tokens, and the account when
+  no other project names it. Then it clears the session and the browser copy
+  and lands on "/login?deleted=1". A delete that stops part-way reopens the
+  kitchen. One that stops at the account step can be retried from the panel
+  or the "no kitchen" home (`deleteMyAccount`, account taken from the
+  session).
+- **EGGER.** `DECOR_IMAGES_ENABLED = NEXT_PUBLIC_DECOR_IMAGES === '1'`, off by
+  default. Decor and Schachermayer images get `referrerPolicy="no-referrer"`,
+  and colour tiles stand in when images are off. To see the swatches locally,
+  set `NEXT_PUBLIC_DECOR_IMAGES=1` in `.env.development.local` (not done here).
+- One review round (delete, compliance). Four verified findings were fixed:
+  the account step can be retried, a failed delete no longer leaves the
+  kitchen archived, Elgrad is now named, and "always marked as a concept"
+  was dropped because the render is not labelled everywhere.
+
+Not done or left as it was:
+- The operator identity, impressum and contact need Toni before launch.
+- The "AI koncept" badge is missing on the right rail, the builder confirm
+  screen and the carousel. The notice no longer claims "always".
+- A send racing the delete could add objects after the listing. Unlikely,
+  noted in code.
+
+**Browser check** (local stack, mock AI):
+- `/login` shows the "Privatnost" footer, and `/privatnost` returns 200 while
+  signed out. It names OpenAI, Supabase, Vercel, Resend, Elgrad and
+  Schachermayer, has no `mailto:` because the env is unset, and explains the
+  delete.
+- Customer imp32-sanity: the kitchen home shows the AI line on first load.
+  The photo step (awaiting) shows the processing note with its `/privatnost`
+  link. Builder Fronte: 33 decor swatches as colour tiles, 0 images from
+  egger.com.
+- Before the delete: 3 briefs, 6 Storage objects, 4 tokens and the account.
+  "Izbriši moju kuhinju" → the panel explains what goes → "Izbriši trajno" →
+  `/login?deleted=1` ("Tvoja kuhinja je izbrisana …"). After: project 0,
+  briefs 0, objects 0, tokens 0, account 0. Only tokens, briefs and projects
+  reference a project or account.
+- Maker imp32-maker: the dashboard lists one customer and loads fine, and the
+  deleted brief's `/maker/<id>` returns 404.
+
+Gate: 1264 tests (78 files) · tsc · eslint · next build green.
+
+### 2026-10-04 — IMP-02: CI gate on every PR and on main (moved up)
+Toni moved IMP-02 ahead of the rest of the stack. It is stacked on
+`imp/09-privacy-disclosure`, the last branch with a PR. IMP-10 had only
+started planning, with nothing committed, and resumes after this, stacked on
+`imp/02-ci-gate`.
+
+- `.github/workflows/gate.yml` runs on every `pull_request` (stacked ones too,
+  whatever their base) and on `push` to `main`: `npm ci`, `vitest run`,
+  `tsc --noEmit`, `eslint .`, on Node 22 with the npm cache, read-only
+  permissions and one run per ref. `next build` is left out: Vercel builds
+  every deployment, and `npm run gate` still runs it locally.
+- `package.json`: `typecheck` and `gate:fast` scripts; `gate` is now
+  `gate:fast && next build`; the package is renamed `softclose`, and only
+  the two name fields of the lockfile changed.
+- IMPROVEMENTS.md: IMP-02 moved to row 11, right after IMP-09, the last item
+  with a PR. Rows 12–30 and the section headings are renumbered, with
+  content unchanged (checked by script). Its "Stack on" is
+  `imp/09-privacy-disclosure`.
+- **Required check:** `main` now requires `gate` from GitHub Actions
+  (`gh api -X PUT …/branches/main/protection`). The repo is public and the
+  token has admin. It is not strict (branches need not be up to date),
+  admins are not enforced (direct pushes to `main` still work), and no
+  review is required. `main` had no protection and no rulesets before.
+
+Proof:
+- A clean clone without any `.env*` passes `npm ci` (14 s) and
+  `npm run gate:fast`: 1264 tests, tsc 0, eslint 0.
+- On PR #26 the gate passed in 70 s (run 37198511392).
+- A deliberately failing test (3d7c3a2) turned it red: run 37198592421,
+  `vitest run` failed, tsc and eslint skipped, PR check FAILURE. The test
+  was reverted in the next commit.
+
+Merging the stack: PRs below this one (#11–#23) don't contain the workflow,
+so a merge into `main` before this PR lands has no `gate` run and needs an
+admin bypass. Merging bottom-up through this PR, or merging the tip, is fine
+once `gate` reports on it.

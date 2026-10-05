@@ -8,13 +8,15 @@ import { safeNextPath } from '@/lib/auth/redirect'
 import { authSecretConfigured } from '@/lib/auth/session'
 import { isEmail, magicLinkUrl, maskEmail, normalizeEmail } from '@/lib/auth/tokens'
 import { buildLoginEmail } from '@/lib/notify/auth-email'
-import { sendEmail } from '@/lib/notify/send'
+import { emailProvider, sendEmail } from '@/lib/notify/send'
 import { rateLimit } from '@/lib/rate-limit'
 
 export interface LoginState {
   status: 'idle' | 'sent' | 'error'
   /** What we echo back — never a statement about whether the account exists. */
   email?: string
+  /** invalidEmail | notConfigured | sendFailed | notSent (the mail did not go
+   *  out: the provider refused it, or nothing is set up to send it). */
   message?: string
   /** Development only, and only when nothing sent the mail. See dev-link.ts. */
   devLink?: string | null
@@ -36,6 +38,18 @@ const HOUR_MS = 60 * 60 * 1000
  * (There is a timing difference left — the no-account path skips a database
  * write and an HTTP call. Closing it fully would mean padding the response;
  * the signal is small enough to accept, and worth knowing about.)
+ *
+ * "Sent" must be true, though (IMP-08): when the mail does not go out the form
+ * says so — "Slanje nije uspjelo, zatraži link od izrađivača" — instead of
+ * promising a link that is not coming. Nothing set up to send at all is
+ * answered before the account lookup, the same for every address, so a server
+ * without a provider cannot be used to tell registered addresses from the
+ * rest. A provider refusing one message (quota, outage, a bad from-address)
+ * can only be known after the send, so while it lasts an existing account
+ * reads "not sent" where an unknown one reads "sent" — a signal tied to an
+ * outage, accepted for the same reason as the timing one. In development the
+ * link on screen (dev-link.ts) is the delivery, so no mail is not an error
+ * there.
  */
 export async function requestLoginLink(_prev: LoginState, formData: FormData): Promise<LoginState> {
   const raw = String(formData.get('email') ?? '')
@@ -49,6 +63,13 @@ export async function requestLoginLink(_prev: LoginState, formData: FormData): P
   if (!authSecretConfigured()) {
     console.error('[auth] AUTH_SECRET is not set — refusing to issue sign-in links')
     return { status: 'error', email: raw, message: 'notConfigured' }
+  }
+
+  // Production with no provider: no address gets a mail, so none is told one
+  // is on its way (and no token is issued for a link nobody can receive).
+  if (emailProvider() === 'none') {
+    console.error('[auth] no email provider configured — sign-in links cannot be sent')
+    return { status: 'error', email: raw, message: 'notSent' }
   }
 
   // Stops someone cycling addresses to send mail from us. Per instance, so it
@@ -85,7 +106,21 @@ export async function requestLoginLink(_prev: LoginState, formData: FormData): P
   const url = magicLinkUrl(origin, issued.raw)
   const mail = buildLoginEmail({ url })
   const result = await sendEmail({ to: account.email, ...mail })
+  const devLink = devLinkIfAllowed(url, result.ok)
 
-  console.info('[auth] login link issued', maskEmail(email), result.provider, result.outcome)
-  return { status: 'sent', email: raw, devLink: devLinkIfAllowed(url, result.ok) }
+  // Not accepted and not on screen: the link reaches nobody. Logged with what
+  // the provider said — never the address in full, never the link.
+  if (!result.ok && !devLink) {
+    console.error(
+      '[auth] login link not sent',
+      maskEmail(email),
+      result.provider,
+      result.outcome,
+      result.status ?? 'no status'
+    )
+    return { status: 'error', email: raw, message: 'notSent' }
+  }
+
+  console.info('[auth] login link issued', maskEmail(email), result.provider, result.outcome, result.status ?? '')
+  return { status: 'sent', email: raw, devLink }
 }

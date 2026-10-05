@@ -1,5 +1,8 @@
 import { describe, expect, test } from 'vitest'
 import { buildMakerEmail } from '@/lib/notify/maker-email'
+import { escapeHtml } from '@/lib/notify/html'
+import { hrHR } from '@/lib/i18n/locales/hr-HR'
+import { enUS } from '@/lib/i18n/locales/en-US'
 import { buildHandoffBundle } from '@/lib/handoff/bundle'
 import { formatRange } from '@/lib/builder/range'
 import { CONTRACT_FIXTURES } from '@/lib/builder/fixtures'
@@ -72,7 +75,7 @@ describe('maker email', () => {
       brief: { name: 'Ana', email: 'ana@example.com', phone: '+385 91 123 4567' },
     } as unknown as HandoffBundle
     const m = buildMakerEmail({ briefId: 'abc-123', bundle: signedIn, baseUrl: 'https://app.example' })
-    expect(m.text).toContain('Homeowner: Ana · ana@example.com · +385 91 123 4567')
+    expect(m.text).toContain('Kupac: Ana · ana@example.com · +385 91 123 4567')
   })
 
   test('a brief sent without a build says there is no range — subject and body', () => {
@@ -111,5 +114,128 @@ describe('maker email', () => {
       sinkTaps: { ...s.sinkTaps, supply: 'maker_supplies' },
     })
     expect(both.m.text).toContain(`Kuhinja s uređajima, sudoperom i slavinom: ${formatRange(both.e.withAppliances!)}`)
+  })
+})
+
+// IMP-08: the maker reads their own language end to end — no English row
+// label in the Croatian email, no stored option id anywhere — and the email
+// links the customer's kitchen next to the brief.
+describe('maker email speaks the maker\'s language', () => {
+  /** A stored option id: lower-case words joined by underscores (l_shape,
+   *  3_6_months, single_wall). */
+  const RAW_ID = /\b[a-z0-9]+(?:_[a-z0-9]+)+\b/
+  const PROJECT_ID = '55555555-5555-4555-8555-555555555555'
+  const withPlan = {
+    ...bundle,
+    brief: {
+      ...bundle.brief,
+      layoutShape: 'galley',
+      floorPlan: { layoutShape: 'single_wall', room: { lengthCm: 380.4, widthCm: 259.6 } },
+    },
+  } as unknown as HandoffBundle
+  const all = (m: { subject: string; html: string; text: string }) => `${m.subject}\n${m.html}\n${m.text}`
+
+  test.each([
+    ['hr-HR', undefined],
+    ['hr-HR', 'hr-HR'],
+    ['en-US', 'en-US'],
+  ] as const)('%s (locale %s): no raw ids, no "Homeowner"', (_, locale) => {
+    for (const b of [bundle, withPlan]) {
+      const m = buildMakerEmail({ briefId: 'abc-123', projectId: PROJECT_ID, bundle: b, baseUrl: 'https://app.example', locale })
+      expect(all(m)).not.toMatch(RAW_ID)
+      expect(all(m)).not.toMatch(/homeowner/i)
+    }
+  })
+
+  test('hr-HR: Croatian labels, the layout and the timeline in words', () => {
+    const m = buildMakerEmail({ briefId: 'abc-123', bundle, baseUrl: 'https://app.example' })
+    expect(m.text).toContain(`${hrHR['makerEmail.row.customer']}: Ana <Test> · ana@example.com`)
+    expect(m.text).toContain(`Raspored: ${hrHR['layout.shape.l_shape']}`)
+    expect(m.text).toContain(`Rok: ${hrHR['option.timeline.3_6_months']}`)
+    expect(m.html).toContain('<td style="padding:6px 0;color:#666;width:44%">Kupac</td>')
+    expect(m.html).toContain('lang="hr"')
+    // The drawn plan wins over the profile's pick, with its measured room.
+    const planned = buildMakerEmail({ briefId: 'abc-123', bundle: withPlan, baseUrl: 'https://app.example' })
+    expect(planned.text).toContain(`Raspored: ${hrHR['layout.shape.single_wall']} · 380 × 260 cm`)
+  })
+
+  test('en-US: every label and value in English, nothing Croatian left over', () => {
+    const m = buildMakerEmail({
+      briefId: 'abc-123',
+      projectId: PROJECT_ID,
+      bundle: withPlan,
+      baseUrl: 'https://app.example',
+      locale: 'en-US',
+    })
+    expect(m.subject).toContain(`${enUS['makerEmail.subject'].split(' — ')[0]} — Ana <Test>`)
+    expect(m.subject).toContain(`€3,050 – €4,300 · ±17%`)
+    expect(m.text).toContain(`${enUS['makerEmail.row.customer']}: Ana <Test>`)
+    expect(m.text).toContain(`${enUS['makerEmail.row.layout']}: ${enUS['layout.shape.single_wall']} · 380 × 260 cm`)
+    expect(m.text).toContain(`${enUS['makerEmail.row.timeline']}: ${enUS['option.timeline.3_6_months']}`)
+    expect(m.text).toContain(`${enUS['makerEmail.row.kitchen']}: €3,050 – €4,300 · ±17% · ${enUS['range.confirms.maker']}`)
+    expect(m.text).toContain(`${enUS['makerEmail.row.assumptions']}: ${enUS['range.assumption.installIncluded']}`)
+    expect(m.text).toContain(`${enUS['range.withGoods.appliances']}: €5,100 – €7,500`)
+    expect(m.html).toContain(escapeHtml(enUS['makerEmail.cta.brief']))
+    expect(m.html).toContain(escapeHtml(enUS['makerEmail.cta.project']))
+    expect(m.html).toContain(escapeHtml(enUS['makerEmail.priceBasis']))
+    // Not one Croatian label from the hr-HR email.
+    for (const key of [
+      'makerEmail.row.customer',
+      'makerEmail.row.layout',
+      'makerEmail.row.timeline',
+      'makerEmail.row.kitchen',
+      'makerEmail.row.assumptions',
+      'makerEmail.cta.brief',
+      'makerEmail.heading',
+      'range.confirms.maker',
+    ] as const) {
+      expect(all(m)).not.toContain(hrHR[key])
+    }
+  })
+
+  test('an unknown locale falls back to Croatian', () => {
+    const m = buildMakerEmail({ briefId: 'abc-123', bundle, baseUrl: 'https://app.example', locale: 'de-DE' })
+    expect(m.text).toContain('Kupac: Ana <Test>')
+  })
+
+  test('an option id the locale does not know is left out, never printed', () => {
+    const odd = {
+      ...bundle,
+      brief: { ...bundle.brief, layoutShape: 'z_shape', timeline: 'next_decade' },
+    } as unknown as HandoffBundle
+    const m = buildMakerEmail({ briefId: 'abc-123', bundle: odd, baseUrl: 'https://app.example' })
+    expect(all(m)).not.toMatch(/z_shape|next_decade|layout\.shape|option\.timeline/)
+    expect(m.text).toContain('Raspored: —')
+    expect(m.text).toContain('Rok: —')
+  })
+
+  test('"unsure" reads as an open question to the maker, not the homeowner\'s "Nisam siguran"', () => {
+    const unsure = { ...bundle, brief: { ...bundle.brief, layoutShape: 'unsure' } } as unknown as HandoffBundle
+    const m = buildMakerEmail({ briefId: 'abc-123', bundle: unsure, baseUrl: 'https://app.example' })
+    expect(m.text).toContain(`Raspored: ${hrHR['makerEmail.layout.unsure']}`)
+    expect(m.text).not.toContain(hrHR['layout.shape.unsure'])
+  })
+
+  test('the customer\'s kitchen is linked next to the brief, absolute, when the brief has a project', () => {
+    const m = buildMakerEmail({ briefId: 'abc-123', projectId: PROJECT_ID, bundle, baseUrl: 'https://app.example' })
+    const brief = 'https://app.example/maker/abc-123'
+    const project = `https://app.example/kitchen/${PROJECT_ID}`
+    expect(m.html).toContain(`href="${brief}"`)
+    expect(m.html).toContain(`href="${project}"`)
+    // Side by side: the project link follows the brief button in one paragraph.
+    expect(m.html).toMatch(new RegExp(`href="${brief}"[^]*?</a> <a href="${project}"`))
+    expect(m.text).toContain(`${hrHR['makerEmail.cta.brief']}: ${brief}\n${hrHR['makerEmail.cta.project']}: ${project}`)
+
+    // No project (a legacy, ownerless brief): only the brief.
+    const legacy = buildMakerEmail({ briefId: 'abc-123', bundle, baseUrl: 'https://app.example' })
+    expect(legacy.html).not.toContain('/kitchen/')
+    expect(legacy.text).not.toContain(hrHR['makerEmail.cta.project'])
+    expect(legacy.text).toContain(`${hrHR['makerEmail.cta.brief']}: ${brief}`)
+  })
+
+  test('a "$&" in a name is kept as typed in the subject', () => {
+    const dollar = { ...bundle, brief: { ...bundle.brief, name: 'Ana $& Ivo' } } as unknown as HandoffBundle
+    const m = buildMakerEmail({ briefId: 'abc-123', bundle: dollar, baseUrl: 'https://app.example' })
+    expect(m.subject).toContain('Ana $& Ivo')
   })
 })

@@ -6,6 +6,9 @@
  * one transition that is both easy to miss in a list and expensive to miss in
  * a business. It is derived from timestamps rather than stored, so it is also
  * the one most likely to break silently when the checkpoint logic changes.
+ * Since 0008 the timestamp is `content_changed_at` — when the kitchen last
+ * differed from the brief — not every save's `updated_at` (see the
+ * contentChangedAt block below).
  */
 import { describe, expect, it } from 'vitest'
 import { FLOW } from '@/lib/flow'
@@ -25,7 +28,7 @@ const base = {
   status: 'invited',
   openedAt: null,
   step: null,
-  updatedAt: T0,
+  contentChangedAt: null,
   currentBriefCreatedAt: null,
 }
 
@@ -50,7 +53,7 @@ describe('projectDisplayStatus', () => {
         status: 'submitted',
         openedAt: T0,
         step: 'contact',
-        updatedAt: T1,
+        contentChangedAt: null,
         currentBriefCreatedAt: T1,
       })
     ).toBe('submitted')
@@ -63,7 +66,7 @@ describe('projectDisplayStatus', () => {
         status: 'submitted',
         openedAt: T0,
         step: 'contact',
-        updatedAt: T2,
+        contentChangedAt: T2,
         currentBriefCreatedAt: T1,
       })
     ).toBe('changed_since_submit')
@@ -78,7 +81,7 @@ describe('projectDisplayStatus', () => {
         status: 'submitted',
         openedAt: T0,
         step: 'contact',
-        updatedAt: T0,
+        contentChangedAt: T0,
         currentBriefCreatedAt: T1,
       })
     ).toBe('submitted')
@@ -86,13 +89,13 @@ describe('projectDisplayStatus', () => {
 
   it('treats a brief as submitted even if the row status lags behind', () => {
     expect(
-      projectDisplayStatus({ ...base, status: 'in_progress', openedAt: T0, updatedAt: T1, currentBriefCreatedAt: T1 })
+      projectDisplayStatus({ ...base, status: 'in_progress', openedAt: T0, contentChangedAt: T1, currentBriefCreatedAt: T1 })
     ).toBe('submitted')
   })
 
   it('archived wins over everything', () => {
     expect(
-      projectDisplayStatus({ ...base, status: 'archived', openedAt: T0, updatedAt: T2, currentBriefCreatedAt: T1 })
+      projectDisplayStatus({ ...base, status: 'archived', openedAt: T0, contentChangedAt: T2, currentBriefCreatedAt: T1 })
     ).toBe('archived')
   })
 })

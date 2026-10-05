@@ -2,12 +2,12 @@
 
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { activateAccount, findAccountById, touchLastLogin } from '@/lib/auth/accounts'
+import { accountAdmitsSession, activateAccount, findAccountById, touchLastLogin } from '@/lib/auth/accounts'
 import { consumeToken } from '@/lib/auth/magic-link'
 import { homePathForRole, safeNextPath } from '@/lib/auth/redirect'
 import { SESSION_COOKIE, sessionCookieOptions, signSession } from '@/lib/auth/session'
 import { maskEmail } from '@/lib/auth/tokens'
-import { markProjectOpened } from '@/lib/auth/projects'
+import { currentProjectForCustomer, markProjectOpened } from '@/lib/auth/projects'
 
 export interface VerifyState {
   failed: boolean
@@ -32,14 +32,31 @@ export async function completeSignIn(_prev: VerifyState, formData: FormData): Pr
     return { failed: true }
   }
 
-  const account = await findAccountById(claim.accountId)
-  if (!account || account.status === 'disabled') return { failed: true }
+  const found = await findAccountById(claim.accountId)
+  if (!found || found.status === 'disabled') return { failed: true }
 
-  // An invite is also the account's activation: pending → active, and the
-  // project stops being merely "invited".
-  if (claim.purpose === 'invite') {
-    await activateAccount(account.id)
-    if (claim.projectId) await markProjectOpened(claim.projectId)
+  // A link that worked was opened from the account's own inbox — all an invite
+  // proves, too. So either kind is the activation: pending → active. A customer
+  // a maker invited who signs in at /login rather than through the invite is
+  // the same person proving the same address, and the kitchen they land on
+  // stops reading "invited" on the maker's list, as it would have via the
+  // invite.
+  const firstSignIn = found.status === 'pending'
+  if (firstSignIn) await activateAccount(found.id)
+  const opened =
+    claim.purpose === 'invite'
+      ? claim.projectId
+      : firstSignIn && found.role === 'customer'
+        ? ((await currentProjectForCustomer(found.id))?.id ?? null)
+        : null
+  if (opened) await markProjectOpened(opened)
+
+  // Read again, after activation, and ask the DAL's own question: a cookie
+  // the DAL refuses would send every page to /login. Never hand one out.
+  const account = await findAccountById(found.id)
+  if (!account || !accountAdmitsSession(account, account.sessionEpoch)) {
+    console.error('[auth] sign-in refused: account not active after activation', maskEmail(found.email), found.status)
+    return { failed: true }
   }
   await touchLastLogin(account.id)
 

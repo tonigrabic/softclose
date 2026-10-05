@@ -16,7 +16,9 @@ const summarySchema = z.object({
     .string()
     .min(8)
     .max(160)
-    .describe('Warm, brief send-off line. No quoting, no AI references, no emojis.'),
+    .describe(
+      'Warm, brief line shown above the review BEFORE the homeowner sends; never say it was sent or that the maker has it. No quoting, no AI references, no emojis.'
+    ),
   summaryLines: z
     .array(z.string().min(4).max(140))
     .min(3)
@@ -29,7 +31,7 @@ const summarySchema = z.object({
 const SYSTEM = `You write a short wrap-up summary of a homeowner kitchen brief.
 
 Output two things:
-1. thankYouMessage — one warm sentence to the homeowner, no fluff, no emojis, no AI references.
+1. thankYouMessage — one warm sentence to the homeowner, no fluff, no emojis, no AI references. It is shown above the review BEFORE the homeowner sends; never say it was sent or that the maker has it.
 2. summaryLines — 3–6 short bullets the maker reads to know what they're walking into. Each bullet is trade-grade, single-sentence, fact-based.
 
 Rules:

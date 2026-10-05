@@ -4,11 +4,11 @@ import { findAccountById } from '@/lib/auth/accounts'
 import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import { DEFAULT_LOCALE, isLocale, tDynamic } from '@/lib/i18n/core'
 import { migrateSnapshot } from '@/lib/project/snapshot'
-import { stepProgress } from '@/lib/project/status'
+import { changedSinceBrief, stepProgress } from '@/lib/project/status'
 import { formatDecisionDate, isDecided, isProjectClosed } from '@/lib/project/decision'
 import { resumeStepId } from '@/lib/flow'
 import { roomStepDone } from '@/lib/floor-plan'
-import { normalizeAssumptions } from '@/lib/builder/range'
+import { savedEstimate } from '@/lib/handoff/saved-estimate'
 import { KitchenHome, type KitchenHomeProps } from './KitchenHome'
 
 export const dynamic = 'force-dynamic'
@@ -49,15 +49,15 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
   // IMP-03 it carries the maker's decision. `quoted_eur` is deliberately not
   // read: it is the maker's number for the works only, kept to measure the
   // range against, and the real quote with its terms comes from the maker.
-  // Of the stored bundle only the assumptions are read (one JSON path, never
-  // the whole bundle): the range line states them next to the figures.
+  // Of the stored bundle only the estimate is read (one JSON path, never the
+  // whole bundle): the range line states its assumptions next to the figures,
+  // and a revisit of the review shows it with its lines (IMP-07). It holds
+  // the maker-only money too, so it reaches the client only through
+  // savedEstimate, which builds the customer's copy from known fields.
   let brief: {
     createdAt: string
     makerViewedAt: string | null
-    low: number | null
-    high: number | null
-    bandPct: number | null
-    assumptions: unknown
+    estimate: KitchenHomeProps['savedEstimate']
     makerStatus: string
     decidedAt: string | null
     makerNote: string | null
@@ -66,7 +66,7 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
     const { data } = await db
       .from(TABLES.briefs)
       .select(
-        'created_at, maker_viewed_at, estimate_low, estimate_high, band_pct, assumptions:bundle->estimate->assumptions, maker_status, decided_at, maker_note'
+        'created_at, maker_viewed_at, estimate_low, estimate_high, estimate_all_in_low, estimate_all_in_high, band_pct, estimate:bundle->estimate, maker_status, decided_at, maker_note'
       )
       .eq('id', project.currentBriefId)
       .maybeSingle()
@@ -74,10 +74,13 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
       brief = {
         createdAt: data.created_at as string,
         makerViewedAt: (data.maker_viewed_at as string | null) ?? null,
-        low: (data.estimate_low as number | null) ?? null,
-        high: (data.estimate_high as number | null) ?? null,
-        bandPct: (data.band_pct as number | null) ?? null,
-        assumptions: data.assumptions ?? null,
+        estimate: savedEstimate(data.estimate, {
+          low: (data.estimate_low as number | null) ?? null,
+          high: (data.estimate_high as number | null) ?? null,
+          bandPct: (data.band_pct as number | null) ?? null,
+          allInLow: (data.estimate_all_in_low as number | null) ?? null,
+          allInHigh: (data.estimate_all_in_high as number | null) ?? null,
+        }),
         makerStatus: data.maker_status as string,
         decidedAt: (data.decided_at as string | null) ?? null,
         makerNote: (data.maker_note as string | null) ?? null,
@@ -115,17 +118,17 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
   // The works range as the brief stored it — the same figures the maker sees —
   // printed by the shared RangeLine. Null when the brief went out without a
   // build (IMP-01): the home then offers the builder instead of a number.
-  const range: KitchenHomeProps['range'] =
-    brief && brief.low != null && brief.high != null
-      ? {
-          low: brief.low,
-          high: brief.high,
-          bandPct: brief.bandPct,
-          // Only known keys reach the client; a brief from before IMP-04 gets
-          // the legacy list (installation in, no demolition, no trades, …).
-          assumptions: normalizeAssumptions(brief.assumptions),
-        }
-      : null
+  const estimate = brief?.estimate ?? null
+  const range: KitchenHomeProps['range'] = estimate
+    ? {
+        low: estimate.low,
+        high: estimate.high,
+        bandPct: estimate.bandPct ?? null,
+        // Only known keys reach the client; a brief from before IMP-04 gets
+        // the legacy list (installation in, no demolition, no trades, …).
+        assumptions: estimate.assumptions,
+      }
+    : null
 
   return (
     <KitchenHome
@@ -142,7 +145,11 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
       submittedAt={date(project.submittedAt)}
       makerViewedAt={date(brief?.makerViewedAt ?? null)}
       briefId={project.currentBriefId}
+      // The kitchen changed since the brief went out, and the changes were
+      // not sent: the same test as the maker's "izmijenjeno" (0008).
+      unsentChanges={changedSinceBrief(project.contentChangedAt, brief?.createdAt ?? null)}
       range={range}
+      savedEstimate={estimate}
       decision={decision}
       closed={closed}
       revision={project.revision}

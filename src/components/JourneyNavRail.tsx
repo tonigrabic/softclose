@@ -9,6 +9,7 @@ import {
 } from '@/lib/builder/inventory'
 import { t, tDynamic, DEFAULT_LOCALE, type Locale, type TranslationKey } from '@/lib/i18n'
 import { JourneyRail, type RailAct, type RailStatus, type RailStep } from '@/components/JourneyRail'
+import type { ReviewTarget } from '@/lib/review-nav'
 import { readbackFor } from './kitchen-intake/readbacks'
 import { GROUP_MODULES } from './builder/groups/registry'
 
@@ -27,7 +28,12 @@ import { GROUP_MODULES } from './builder/groups/registry'
  *
  * The Build act expands into the builder's component groups (between
  * `confirm_look` and `wishlist`); everything else maps from `FLOW`. Only the
- * active act expands, so the groups are only visible once you're actually building.
+ * active act expands, so the groups are only visible once you're actually building
+ * — unless `expandDone` asks for the done acts too (IMP-07): on the review, and
+ * while editing from it, every done step is a way back (`onStepSelect`).
+ * While editing from the review (`reviewed`) every step is done — the review
+ * covers them all — and only the one reopened is current: the steps after it
+ * are not "to do" again, and stay a click away.
  */
 
 type Entry =
@@ -83,6 +89,9 @@ export function JourneyNavRail({
   onBuilderNavigate,
   journeyDone,
   voice = 'homeowner',
+  expandDone,
+  onStepSelect,
+  reviewed,
   locale = DEFAULT_LOCALE,
 }: {
   funnelStepId: FlowStepId
@@ -97,6 +106,14 @@ export function JourneyNavRail({
   journeyDone?: boolean
   /** Whose words: 'maker' when the maker looks in at the customer's kitchen. */
   voice?: RailVoice
+  /** Show the done acts' steps as well as the current act's (IMP-07). */
+  expandDone?: boolean
+  /** Reopen a done step — a funnel step, or a builder group (which opens the
+   *  builder there). Outside the builder only; inside it, groups navigate
+   *  through `onBuilderNavigate`. Absent where nobody may edit. */
+  onStepSelect?: (target: ReviewTarget) => void
+  /** The review has been reached (IMP-07): every step but the current one is done. */
+  reviewed?: boolean
   locale?: Locale
 }) {
   const copy = RAIL_COPY[voice]
@@ -110,6 +127,10 @@ export function JourneyNavRail({
   const currentIndex = journeyDone
     ? linear.length
     : currentLinearIndex(linear, funnelStepId, builderGroupId)
+  // Positional on the walk; once the review was reached, everything but the
+  // step on screen is done.
+  const statusAt = (i: number): RailStatus =>
+    i === currentIndex ? 'current' : reviewed || i < currentIndex ? 'done' : 'todo'
 
   const acts: RailAct[] = ACTS.map((act) => {
     const indices = linear
@@ -117,14 +138,14 @@ export function JourneyNavRail({
       .filter(({ e }) => entryAct(e) === act.id)
 
     const status: RailStatus =
-      indices.every(({ i }) => i < currentIndex)
+      indices.every(({ i }) => statusAt(i) === 'done')
         ? 'done'
         : indices.some(({ i }) => i === currentIndex)
           ? 'current'
           : 'todo'
 
     const steps: RailStep[] = indices.map(({ e, i }) => {
-      const st: RailStatus = i < currentIndex ? 'done' : i === currentIndex ? 'current' : 'todo'
+      const st = statusAt(i)
       return {
         id: e.id,
         label: e.label,
@@ -133,9 +154,12 @@ export function JourneyNavRail({
         // groups stay dot-marked sub-items.
         num: e.kind === 'funnel' ? stepNumber(e.id) : undefined,
         readback: st === 'done' ? e.readback : null,
-        onSelect:
-          inBuilder && e.kind === 'builder' && onBuilderNavigate
+        onSelect: inBuilder
+          ? e.kind === 'builder' && onBuilderNavigate
             ? () => onBuilderNavigate(e.id)
+            : undefined
+          : st === 'done' && onStepSelect
+            ? () => onStepSelect(e.kind === 'funnel' ? { step: e.id } : { step: 'builder', group: e.id })
             : undefined,
       }
     })
@@ -147,9 +171,10 @@ export function JourneyNavRail({
       status,
       count:
         status === 'current'
-          ? { done: indices.filter(({ i }) => i < currentIndex).length, total: indices.length }
+          ? { done: indices.filter(({ i }) => statusAt(i) === 'done').length, total: indices.length }
           : undefined,
       steps,
+      expanded: status === 'done' && Boolean(expandDone),
     }
   })
 
@@ -210,7 +235,9 @@ const entryAct = (e: Entry): ActId =>
 /**
  * Compact "where am I" label for the mobile progress pill, e.g.
  * "Gradnja · Korpusi ormarića · 2/12". Mirrors the rail's model exactly so the
- * pill and the bottom-sheet rail can never disagree.
+ * pill and the bottom-sheet rail can never disagree. Editing from the review
+ * (`reviewed`), the step without the count: "1/5" would read as a journey
+ * started over.
  */
 export function journeyPillLabel(opts: {
   funnelStepId: FlowStepId
@@ -218,9 +245,10 @@ export function journeyPillLabel(opts: {
   builderGroupId?: BuilderScreenId | null
   journeyDone?: boolean
   voice?: RailVoice
+  reviewed?: boolean
   locale?: Locale
 }): string {
-  const { funnelStepId, profile, builderGroupId, journeyDone, voice = 'homeowner', locale = DEFAULT_LOCALE } = opts
+  const { funnelStepId, profile, builderGroupId, journeyDone, reviewed, voice = 'homeowner', locale = DEFAULT_LOCALE } = opts
   const copy = RAIL_COPY[voice]
   if (journeyDone) return `${t(copy.offer, locale)} ✓`
   const builderStateForReadbacks =
@@ -230,6 +258,7 @@ export function journeyPillLabel(opts: {
   const current = linear[currentIndex]
   if (!current) return t(copy.brief, locale)
   const act = entryAct(current)
+  if (reviewed) return `${tDynamic(`journey.act.${act}`, locale)} · ${current.label}`
   const actSteps = linear.filter((e) => entryAct(e) === act)
   const pos = actSteps.findIndex((e) => e === current) + 1
   return `${t(copy[act], locale)} · ${current.label} · ${pos}/${actSteps.length}`

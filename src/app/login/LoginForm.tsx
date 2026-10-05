@@ -4,7 +4,7 @@ import { useActionState } from 'react'
 import { useFormStatus } from 'react-dom'
 import { AuthShell } from '@/components/AuthShell'
 import { Button } from '@/components/ui/button'
-import { useTranslations } from '@/lib/i18n'
+import { useTranslations, type TranslationKey } from '@/lib/i18n'
 import { requestLoginLink, type LoginState } from './actions'
 
 const inputClass =
@@ -20,9 +20,76 @@ function SubmitButton() {
   )
 }
 
-export function LoginForm({ next }: { next?: string }) {
-  const { t } = useTranslations()
+/** The words for an error state: what went wrong, said so the reader can act. */
+function errorKey(message: string | undefined): TranslationKey {
+  switch (message) {
+    case 'invalidEmail':
+      return 'auth.login.invalidEmail'
+    case 'notConfigured':
+      return 'auth.login.notConfigured'
+    // The mail did not go out (IMP-08): said plainly, with the way in that
+    // still works — the maker's link.
+    case 'notSent':
+      return 'auth.login.notSent'
+    default:
+      return 'auth.login.error'
+  }
+}
+
+export function LoginForm({ next, deleted = false }: { next?: string; deleted?: boolean | 'account' }) {
   const [state, formAction] = useActionState<LoginState, FormData>(requestLoginLink, { status: 'idle' })
+  return <LoginFormView state={state} formAction={formAction} next={next} deleted={deleted} />
+}
+
+/** The form for a given action state — split from the hook so each state can
+ *  be rendered on its own (tests/login-send-honest.test.ts). */
+export function LoginFormView({
+  state,
+  formAction,
+  next,
+  deleted = false,
+}: {
+  state: LoginState
+  formAction: (formData: FormData) => void
+  next?: string
+  /** Landed here from "Izbriši moju kuhinju" (/login?deleted=1, IMP-09), or
+   *  from "Izbriši moj račun" (/login?deleted=account). */
+  deleted?: boolean | 'account'
+}) {
+  const { t } = useTranslations()
+
+  // After deleting an account (no kitchen was left on it): the same calm
+  // notice, without the link back — there is nothing left to sign in to.
+  if (deleted === 'account' && state.status === 'idle') {
+    return (
+      <AuthShell>
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm" data-account-deleted>
+          <h1 className="text-lg font-semibold text-foreground">{t('auth.deletedAccount.title')}</h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t('auth.deletedAccount.body')}</p>
+        </div>
+      </AuthShell>
+    )
+  }
+
+  // After deleting a kitchen: say it is done, calmly, instead of a sign-in
+  // form nobody came here for. The link back is for a homeowner with a second
+  // kitchen; it reloads /login without the parameter.
+  if (deleted && state.status === 'idle') {
+    return (
+      <AuthShell>
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-sm" data-kitchen-deleted>
+          <h1 className="text-lg font-semibold text-foreground">{t('auth.deleted.title')}</h1>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{t('auth.deleted.body')}</p>
+          <a
+            href="/login"
+            className="mt-5 inline-block text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
+          >
+            {t('auth.deleted.signIn')}
+          </a>
+        </div>
+      </AuthShell>
+    )
+  }
 
   // Sent or not, this branch says the same thing. Whether an account exists for
   // that address is not something a stranger gets to learn from us.
@@ -72,13 +139,7 @@ export function LoginForm({ next }: { next?: string }) {
           />
           {state.status === 'error' ? (
             <p role="alert" className="text-xs text-destructive">
-              {t(
-                state.message === 'invalidEmail'
-                  ? 'auth.login.invalidEmail'
-                  : state.message === 'notConfigured'
-                    ? 'auth.login.notConfigured'
-                    : 'auth.login.error'
-              )}
+              {t(errorKey(state.message))}
             </p>
           ) : null}
           <SubmitButton />

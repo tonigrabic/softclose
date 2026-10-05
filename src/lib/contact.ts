@@ -14,3 +14,15 @@ export function contactChannels(p: Pick<LeadProfile, 'email' | 'phone' | 'contac
   const legacy = p.contactValue?.trim()
   return legacy ? [legacy] : []
 }
+
+type ContactFields = Pick<LeadProfile, 'name' | 'email' | 'phone' | 'contactValue'>
+
+/**
+ * The contact step's patch says something the profile does not already: a
+ * new name or channel. Passing the step unchanged — every walk back from the
+ * review goes through it (IMP-07) — logs no second "Contact: …" turn into the
+ * transcript the maker reads.
+ */
+export function contactPatchChanges(patch: Partial<ContactFields>, profile: ContactFields): boolean {
+  return (Object.keys(patch) as (keyof ContactFields)[]).some((k) => (patch[k] ?? undefined) !== (profile[k] ?? undefined))
+}

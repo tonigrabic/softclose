@@ -61,7 +61,8 @@ export interface KitchenLookOnlyProps {
   snapshot: ProjectSnapshot | null
   projectId?: string
   makerName?: string | null
-  hasExistingBrief?: boolean
+  /** The brief on file, by id (IMP-07): with it the maker reads "sent". */
+  onFileBriefId?: string | null
 }
 
 /**
@@ -72,7 +73,7 @@ export interface KitchenLookOnlyProps {
  * or the handoff: the kitchen is the customer's to fill, and a render or a
  * summary the maker set off would be spent on a kitchen nobody asked about.
  */
-export function KitchenLookOnly({ snapshot, projectId, makerName, hasExistingBrief = false }: KitchenLookOnlyProps) {
+export function KitchenLookOnly({ snapshot, projectId, makerName, onFileBriefId = null }: KitchenLookOnlyProps) {
   const { locale, tDynamic } = useTranslations()
   const view = lookOnlyView(snapshot)
   return (
@@ -108,7 +109,7 @@ export function KitchenLookOnly({ snapshot, projectId, makerName, hasExistingBri
         projectId={projectId}
         makerName={makerName}
         readOnly
-        hasExistingBrief={hasExistingBrief}
+        onFileBriefId={onFileBriefId}
         progress={view.progress}
       />
     </AppShell>

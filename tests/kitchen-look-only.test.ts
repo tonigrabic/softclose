@@ -121,7 +121,7 @@ function expectNothingToOperate(html: string) {
   // The one button in the shell is the language switch, outside <main>.
   const main = html.slice(html.indexOf('<main'))
   expect(main).not.toMatch(/<button\b/)
-  for (const key of ['nav.continue', 'nav.back', 'nav.send', 'nav.skip'] as const) {
+  for (const key of ['nav.continue', 'nav.back', 'wrapup.send.cta', 'nav.skip'] as const) {
     expect(html).not.toContain(`>${hrHR[key]}<`)
   }
 }
@@ -194,7 +194,7 @@ describe('the maker looking in mid-journey gets one page to look at', () => {
   })
 
   test('a customer back from a sent brief, editing again: "sent — open it from your list"', () => {
-    const html = intake({ hasExistingBrief: true })
+    const html = intake({ currentBriefId: 'b1' })
     expect(html).toContain(hrHR['wrapup.readOnly.sent'])
     expect(html).not.toContain(inProgressLine(6, 'wishlist'))
     expectNothingToOperate(html)
@@ -284,7 +284,7 @@ describe('the customer keeps their steps', () => {
         explorationRefs: [],
         transcript: [],
         projectId: 'p1',
-        hasExistingBrief: true,
+        onFileBriefId: 'b1',
       })
     )
     expect(html).not.toContain(OMITTED_IMAGE)

@@ -5,7 +5,14 @@ import { offloadMedia, storageUploader } from '@/lib/db/media'
 import { notifyMakerOfBrief } from '@/lib/notify/maker-email'
 import { buildHandoffBundle, toCustomerBundle } from '@/lib/handoff/bundle'
 import { decideBriefId, isBriefId } from '@/lib/handoff/brief-id'
+import { briefPrint } from '@/lib/handoff/review'
 import { isProjectClosed } from '@/lib/project/decision'
+import {
+  submitClaimFrom,
+  submitSnapshotFrom,
+  submitSnapshotWrite,
+  type SubmitClaim,
+} from '@/lib/project/submit-snapshot'
 import type { ClientMessage, LeadProfile, MoodBoardItem } from '@/lib/types'
 
 interface HandoffRequest {
@@ -23,6 +30,66 @@ interface HandoffRequest {
   /** Client-minted id for this send (lib/handoff/brief-id): a repeat of the same
    *  send gets the brief it already made. Absent from older clients. */
   briefId?: string
+  /** The image-free journey snapshot this brief was built from. Stored as the
+   *  project's copy in the same update that stamps the brief's time (see
+   *  lib/project/submit-snapshot). Absent from older clients. */
+  snapshot?: unknown
+  /** What the submitting tab knows the server copy to be (SubmitClaim). The
+   *  snapshot is stored only over a copy it claims; without one, never. */
+  snapshotClaim?: unknown
+}
+
+type Db = NonNullable<ReturnType<typeof supabaseAdmin>>
+
+/**
+ * Point the project at its new brief — and, when the brief's snapshot came
+ * along and the server copy is a different one that the submitting tab
+ * claims as its own, store it, in the same update that sets `updated_at` to
+ * the brief's time. Another device's newer copy is never written over: the
+ * tab would meet a 409 there itself (submitSnapshotWrite). Written on the
+ * revision just read: a write of the tab's own landing in between (a retry
+ * of the failed pre-submit flush) moves it, and the read is repeated. If it
+ * keeps moving, or anything goes wrong, the brief still gets its project
+ * update, without the snapshot — the behaviour before the copy was stored.
+ */
+async function updateSubmittedProject(
+  db: Db,
+  projectId: string,
+  fields: Record<string, unknown>,
+  rawSnapshot: unknown,
+  rawClaim: unknown
+): Promise<void> {
+  // The snapshot is a nicety; the project update and the maker's email after
+  // it are the brief going out. Nothing here may throw past the plain update.
+  try {
+    const snapshot = submitSnapshotFrom(rawSnapshot)
+    const claim: SubmitClaim | null = submitClaimFrom(rawClaim)
+    for (let attempt = 0; snapshot && claim && attempt < 3; attempt++) {
+      const { data: row, error: readErr } = await db
+        .from(TABLES.projects)
+        .select('revision, snapshot, snapshot_version')
+        .eq('id', projectId)
+        .maybeSingle()
+      if (readErr) break
+      const write = submitSnapshotWrite(row, snapshot, claim)
+      if (!write) break
+      const { data: updated, error: writeErr } = await db
+        .from(TABLES.projects)
+        .update({ ...fields, ...write })
+        .eq('id', projectId)
+        .eq('revision', row!.revision)
+        .select('revision')
+        .maybeSingle()
+      if (writeErr) {
+        console.error('[handoff] snapshot write failed', writeErr.message)
+        break
+      }
+      if (updated) return
+    }
+  } catch (err) {
+    console.error('[handoff] snapshot write skipped', err instanceof Error ? err.message : err)
+  }
+  await db.from(TABLES.projects).update(fields).eq('id', projectId)
 }
 
 export async function POST(req: Request) {
@@ -31,6 +98,11 @@ export async function POST(req: Request) {
 
   try {
     const body = (await req.json()) as HandoffRequest
+    // The content print of the profile as the homeowner's journey holds it —
+    // before the session email below — so the checkpoint route can tell a
+    // save of this same kitchen from a change (0008, lib/project/status
+    // contentChangedAt).
+    const sentPrint = body.brief && typeof body.brief === 'object' ? briefPrint(body.brief) : null
     // A customer's contact email is the address they signed in with — taken
     // from the session, never from the client's copy. (A projectId that is not
     // theirs is refused below, before anything is stored.)
@@ -183,31 +255,56 @@ export async function POST(req: Request) {
         if (bErr) throw bErr
 
         // Point the project at its current brief and denormalise the range, so
-        // the maker's list never has to load a snapshot to show a number.
-        await db
-          .from(TABLES.projects)
-          .update({
+        // the maker's list never has to load a snapshot to show a number. The
+        // journey copy is the brief's own snapshot from here on (above).
+        await updateSubmittedProject(
+          db,
+          projectId,
+          {
             current_brief_id: briefId,
             status: 'submitted',
             submitted_at: submittedAt,
             updated_at: submittedAt,
+            // The kitchen IS this brief: nothing has changed since (0008).
+            brief_print: sentPrint,
+            content_changed_at: null,
             est_low: estimate?.low ?? null,
             est_high: estimate?.high ?? null,
             est_band_pct: estimate?.bandPct ?? null,
-          })
-          .eq('id', projectId)
+          },
+          // Only a project's own customer reaches here with a projectId; the
+          // legacy insert above stores the profile and has no journey copy.
+          body.projectId ? body.snapshot : null,
+          body.snapshotClaim
+        )
 
         bundle.briefId = briefId
 
-        // Tell the maker — their own address once the brief has an owner.
-        // MAKER_NOTIFY_EMAIL is only the pre-accounts fallback.
+        // Tell the maker — their own address once the brief has an owner, in
+        // their own locale (the homeowner's UI language is not theirs), with
+        // the project linked next to the brief (IMP-08). MAKER_NOTIFY_EMAIL is
+        // only the pre-accounts fallback, and gets the default locale.
         const baseUrl = process.env.APP_URL?.replace(/\/$/, '') || new URL(req.url).origin
         let to: string | null = null
+        let makerLocale: string | null = null
         if (makerId) {
-          const { data: maker } = await db.from(TABLES.accounts).select('email').eq('id', makerId).maybeSingle()
+          const { data: maker } = await db
+            .from(TABLES.accounts)
+            .select('email, locale')
+            .eq('id', makerId)
+            .maybeSingle()
           to = (maker?.email as string | null) ?? null
+          makerLocale = (maker?.locale as string | null) ?? null
         }
-        const notified = await notifyMakerOfBrief({ briefId, bundle, locale: body.locale, baseUrl, to })
+        const notified = await notifyMakerOfBrief({
+          briefId,
+          // An ownerless project opens for nobody, so it is not linked.
+          projectId: makerId ? projectId : null,
+          bundle,
+          locale: makerLocale,
+          baseUrl,
+          to,
+        })
         if (notified) {
           await db.from(TABLES.briefs).update({ maker_notified_at: new Date().toISOString() }).eq('id', briefId)
         }

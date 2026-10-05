@@ -6,16 +6,24 @@
  * manifest (code + structure → URLs); a decor without an entry falls back to
  * its hexHint colour square.
  *
- * TESTING ONLY: the URLs hotlink EGGER's image server (Toni, 2026-09-26).
- * EGGER's photos are copyrighted — before launch, get their permission and
- * serve fixed sizes from our own storage (their image ids change with each
- * collection). Flip DECOR_IMAGES_ENABLED to fall back to colour squares.
+ * TESTING ONLY until EGGER says yes (Toni, 2026-09-26): the URLs hotlink
+ * EGGER's image server, and EGGER's photos are copyrighted. Before launch, get
+ * their permission and serve fixed sizes from our own storage (their image ids
+ * change with each collection).
+ *
+ * So the images are OFF unless `NEXT_PUBLIC_DECOR_IMAGES=1` is set where the
+ * dev server starts or the build runs (local and preview only — never in
+ * Production until EGGER gives permission). Off, every decor is its hexHint
+ * colour tile. The literal `process.env.NEXT_PUBLIC_…` reference is what lets
+ * Next inline the value into the client bundle; a computed lookup would read
+ * undefined in the browser. tests/decor-images-flag.test.ts pins the default.
  */
 
 import { findDecor } from '@/lib/catalog'
 import decorImages from '@/lib/catalog/decor-images.json'
 
-const DECOR_IMAGES_ENABLED = true
+/** Only the exact string '1' turns the hotlinked EGGER images on. */
+export const DECOR_IMAGES_ENABLED = process.env.NEXT_PUBLIC_DECOR_IMAGES === '1'
 
 export interface DecorSwatch {
   code: string

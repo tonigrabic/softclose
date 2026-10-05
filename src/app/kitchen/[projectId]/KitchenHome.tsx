@@ -7,10 +7,12 @@ import { AuthShell } from '@/components/AuthShell'
 import { Button } from '@/components/ui/button'
 import { RangeLine, type RangeLineValue } from '@/components/range/RangeLine'
 import { useTranslations, type TranslationKey } from '@/lib/i18n'
-import type { FlowStepId } from '@/lib/flow'
 import type { MakerDecision } from '@/lib/project/decision'
 import type { ProjectSnapshot } from '@/lib/project/snapshot'
+import type { HandoffEstimate } from '@/lib/types'
+import { editEntryStep, type EntryStep } from '@/lib/review-nav'
 import { cn } from '@/lib/utils'
+import { DeleteKitchen } from './DeleteKitchen'
 
 export interface KitchenHomeProps {
   projectId: string
@@ -21,9 +23,17 @@ export interface KitchenHomeProps {
   submittedAt: string | null
   makerViewedAt: string | null
   briefId: string | null
+  /** The kitchen changed after the brief went out and the changes were not
+   *  sent (`changedSinceBrief`, the maker's "izmijenjeno"): the home says so
+   *  and opens their review, so neither side waits on the other (rule 8). */
+  unsentChanges?: boolean
   /** The works range the current brief stored, with its ± and assumptions.
    *  Null when the brief went out without a build (no range to show). */
   range: RangeLineValue | null
+  /** The current brief's estimate as the customer may see it (savedEstimate:
+   *  no maker-only money), lines included, so a revisit of the review shows
+   *  the range the maker has (IMP-07). Null without a brief or a range. */
+  savedEstimate: HandoffEstimate | null
   /** The maker's answer on the current brief (IMP-03). Never the quoted
    *  amount: that is the maker's to send, with its terms. */
   decision: { status: MakerDecision; date: string | null; note: string | null } | null
@@ -88,12 +98,20 @@ export function decisionNextKey(status: MakerDecision, hasRange: boolean, readOn
  * looking in gets where the customer is: not started, still describing, sent.
  * A closed project reads the same to both.
  */
-export function homeTitleKey(p: { closed: boolean; submitted: boolean; started: boolean; readOnly: boolean }): TranslationKey {
+export function homeTitleKey(p: {
+  closed: boolean
+  submitted: boolean
+  started: boolean
+  readOnly: boolean
+  /** The review is done but the brief is not sent yet (IMP-07). */
+  awaitingSend?: boolean
+}): TranslationKey {
   if (p.closed) return 'kitchen.home.titleClosed'
   if (p.readOnly) {
     if (p.submitted) return 'kitchen.home.readOnly.titleSubmitted'
     return p.started ? 'kitchen.home.readOnly.titleStarted' : 'kitchen.home.readOnly.title'
   }
+  if (p.awaitingSend) return 'kitchen.home.titleReady'
   return p.submitted ? 'kitchen.home.titleSubmitted' : 'kitchen.home.title'
 }
 
@@ -124,7 +142,7 @@ const ACTS = [
 export function KitchenHome(props: KitchenHomeProps) {
   const { t } = useTranslations()
   const [entered, setEntered] = useState(false)
-  const [startAt, setStartAt] = useState<FlowStepId | undefined>(undefined)
+  const [startAt, setStartAt] = useState<EntryStep | undefined>(undefined)
   // Heads a sentence ("Tvoj izrađivač je otvorio…"), so capitalised. The
   // range lines (here and in the intake) get the raw name and word their own
   // lower-case fallback mid-sentence ("raspon koji tvoj izrađivač potvrđuje").
@@ -137,7 +155,9 @@ export function KitchenHome(props: KitchenHomeProps) {
         makerName={props.makerName}
         initialRevision={props.revision}
         readOnly={props.readOnly}
-        hasExistingBrief={Boolean(props.briefId)}
+        currentBriefId={props.briefId}
+        savedEstimate={props.savedEstimate}
+        closed={props.closed}
         initialSnapshot={props.snapshot}
         customerEmail={props.customerEmail}
         customerName={props.customerName}
@@ -148,6 +168,16 @@ export function KitchenHome(props: KitchenHomeProps) {
 
   const { readOnly } = props
   const submitted = Boolean(props.submittedAt)
+  // Changed since the brief went out, not sent (IMP-07): the maker has the
+  // earlier version. Not for the maker looking in (sending is the customer's
+  // act), and not on a closed project, which takes no send.
+  const unsent = submitted && !props.readOnly && !props.closed && Boolean(props.unsentChanges)
+  // Finished, never sent (IMP-07): the review waits for the homeowner's own
+  // "Pošalji izrađivaču". Entering restores the review as it was left. Not
+  // for the maker looking in: sending is the customer's act, and the
+  // read-only review they would open has no send.
+  const awaitingSend =
+    !props.readOnly && !submitted && !props.closed && Boolean(props.snapshot?.isDone && props.snapshot?.wrapUpData)
   const decision = props.decision
     ? {
         ...props.decision,
@@ -162,12 +192,27 @@ export function KitchenHome(props: KitchenHomeProps) {
         <p className="text-[0.6875rem] font-semibold uppercase tracking-wide text-muted-foreground">
           {t(readOnly ? 'kitchen.home.readOnly.eyebrow' : 'kitchen.home.eyebrow')}
         </p>
+        {/* The maker looking in reads the customer's page, in the customer's
+            voice: say so once, so "tvoj" is not read as addressed to them. */}
+        {props.readOnly ? (
+          <p className="mt-1 text-sm text-muted-foreground" data-readonly-lede>
+            {t('kitchen.home.readOnly.lede')}
+          </p>
+        ) : null}
         <h1 className="mt-2 text-xl font-semibold leading-snug tracking-tight text-foreground">
-          {t(homeTitleKey({ closed: props.closed, submitted, started: props.started, readOnly })).replace(
+          {t(homeTitleKey({ closed: props.closed, submitted, started: props.started, readOnly, awaitingSend })).replace(
             '{maker}',
             makerLabel
           )}
         </h1>
+        {/* AI disclosure (EU AI Act Art. 50, IMP-09): said once, on first
+            load and in every state after, before anything is shared. The
+            maker looking in reads it worded for them — never their own name
+            as a third party on their own page. */}
+        <p data-ai-disclosure className="mt-2 flex items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
+          <Sparkles className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+          <span>{readOnly ? t('kitchen.home.readOnly.ai') : t('kitchen.home.ai').replace('{maker}', makerLabel)}</span>
+        </p>
 
         {submitted ? (
           <div className="mt-5 space-y-3 rounded-2xl border border-border bg-card p-5 shadow-sm">
@@ -175,6 +220,12 @@ export function KitchenHome(props: KitchenHomeProps) {
               <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />
               {t('kitchen.home.status.sent').replace('{date}', props.submittedAt!)}
             </p>
+            {unsent ? (
+              <p className="flex items-start gap-2 text-sm text-foreground" data-unsent-changes>
+                <ListChecks className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                {t('kitchen.home.status.unsent').replace('{maker}', makerLabel)}
+              </p>
+            ) : null}
             {/* Only claims the maker opened it when they actually did — the
                 stamp now comes from a maker-authenticated page load. The maker
                 looking in reads it about themselves: what the customer sees,
@@ -266,6 +317,13 @@ export function KitchenHome(props: KitchenHomeProps) {
           ) : (
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{t('kitchen.home.readOnly.notStarted')}</p>
           )
+        ) : awaitingSend ? (
+          <div className="mt-5 rounded-2xl border border-border bg-card p-5 shadow-sm" data-awaiting-send>
+            <p className="flex items-start gap-2 text-sm text-foreground">
+              <ListChecks className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+              {t('kitchen.home.status.ready')}
+            </p>
+          </div>
         ) : (
           <>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{t('kitchen.home.what')}</p>
@@ -313,17 +371,32 @@ export function KitchenHome(props: KitchenHomeProps) {
           ) : null
         ) : (
           <>
-            <Button size="lg" className="mt-6 h-11 w-full rounded-xl text-sm" onClick={() => setEntered(true)}>
-              {submitted
-                ? t('kitchen.home.cta.edit')
-                : props.started
-                  ? t('kitchen.home.cta.continue').replace('{step}', props.stepLabel ?? '')
-                  : t('kitchen.home.cta.start')}
+            <Button
+              size="lg"
+              className="mt-6 h-11 w-full rounded-xl text-sm"
+              onClick={() => {
+                // "Izmijeni kuhinju" opens at the last step, never the done
+                // screen: Back walks the steps, Continue opens the review
+                // (IMP-07); with changes not sent, the review of them.
+                // Everyone else resumes where they left off.
+                setStartAt(editEntryStep({ submitted, readOnly: props.readOnly, unsentChanges: unsent }))
+                setEntered(true)
+              }}
+            >
+              {unsent
+                ? t('kitchen.home.cta.reviewChanges')
+                : submitted
+                  ? t('kitchen.home.cta.edit')
+                  : awaitingSend
+                    ? t('kitchen.home.cta.review')
+                    : props.started
+                      ? t('kitchen.home.cta.continue').replace('{step}', props.stepLabel ?? '')
+                      : t('kitchen.home.cta.start')}
             </Button>
 
-            {props.briefId ? (
+            {props.readOnly ? null : props.briefId ? (
               <p className="mt-3 text-center text-[0.6875rem] text-muted-foreground">
-                {t('kitchen.home.editNote').replace('{maker}', makerLabel)}
+                {t('kitchen.home.editNote')}
               </p>
             ) : (
               <p className="mt-3 text-center text-[0.6875rem] text-muted-foreground">
@@ -332,6 +405,13 @@ export function KitchenHome(props: KitchenHomeProps) {
             )}
           </>
         )}
+
+        {/* "Izbriši moju kuhinju" (IMP-09): the customer's own act, so never on
+            the maker's read-only view — and on a closed project too: a
+            declined kitchen is still theirs to erase. */}
+        {!props.readOnly ? (
+          <DeleteKitchen projectId={props.projectId} makerName={props.makerName} submitted={submitted} />
+        ) : null}
       </div>
     </AuthShell>
   )

@@ -17,6 +17,7 @@ export const enUS: Record<TranslationKey, string> = {
   'builder.shell.bom.project': 'Project work (allowance)',
   'builder.shell.bom.goodsExact': 'exact — your picks',
   'builder.shell.bom.goodsEstimate': 'estimate — pick models to pin it',
+  'builder.shell.bom.lines': 'All line items ({n})',
   // ---- Range line (IMP-04) ----------------------------------------------
   'range.confirms.homeowner': 'a range {maker} confirms',
   'range.confirms.maker': 'a range you confirm',
@@ -460,7 +461,7 @@ export const enUS: Record<TranslationKey, string> = {
   'funnel.builderEntry.cta': 'Begin building',
   'funnel.builderEntry.loading': 'Reading your render…',
   'funnel.builderEntry.noAI': 'Without the AI suggestion',
-  'funnel.builderEntry.skip': 'Skip — send just the basic brief',
+  'funnel.builderEntry.skip': 'Skip — a brief without a range',
   'funnel.finaliseError': "Couldn't fetch the AI summary, but your brief is saved. Continuing with a fallback summary.",
   'fallback.projectType': 'Project type: {v}.',
   'fallback.timeline': 'Timeline: {v}.',
@@ -482,9 +483,7 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.estimate.title': 'Rough estimate range',
   'wrapup.estimate.kitchenLabel': 'Kitchen — made & installed',
   'wrapup.estimate.bomBadge': 'From your build',
-  'wrapup.estimate.loading': 'Crunching a rough range…',
-  'wrapup.estimate.unavailable': 'Estimate not available yet.',
-  'wrapup.estimate.afterResend': 'You see the range from your build once you send the changes.',
+  'wrapup.estimate.sentBadge': 'Sent to your maker',
   'wrapup.estimate.noBuild': 'You get a range once you build your kitchen.',
   'wrapup.estimate.openBuilder': 'Build your kitchen',
   'wrapup.estimate.linesTitle': 'What makes up the range',
@@ -499,13 +498,15 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.section.space': 'Your space',
   'wrapup.section.basics': 'Project basics',
   'wrapup.section.scope': 'Scope of work',
-  'wrapup.section.style': 'Style + materials',
+  'wrapup.section.style': 'Style',
+  'wrapup.section.materials': 'Materials',
   'wrapup.section.trades': 'Trades & utilities',
   'wrapup.section.lighting': 'Lighting',
   'wrapup.section.wishlist': 'Wishlist',
   'wrapup.section.logistics': 'Logistics',
   'wrapup.section.confidence': 'Decision confidence',
   'wrapup.section.moodboard': 'Mood board',
+  'wrapup.section.contact': 'Contact',
   'wrapup.section.tldr': "Designer's TL;DR",
   'wrapup.row.projectType': 'Project type',
   'wrapup.row.timeline': 'Timeline',
@@ -532,6 +533,8 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.row.living': 'Living during build',
   'wrapup.row.phasing': 'Phasing',
   'wrapup.row.permits': 'Permits',
+  'wrapup.row.name': 'Name',
+  'wrapup.row.channels': 'Email / phone',
   'wrapup.light.task': 'task',
   'wrapup.light.ambient': 'ambient',
   'wrapup.light.accent': 'accent',
@@ -540,8 +543,10 @@ export const enUS: Record<TranslationKey, string> = {
   'wrapup.actions.preparing': 'Preparing…',
   'wrapup.actions.backToKitchen': 'Back to my kitchen',
   'wrapup.actions.backToKitchenMaker': "Back to the customer's kitchen",
+  'wrapup.actions.backToSteps': 'Back to the steps',
+  'nav.backToReview': 'Back to the review',
   'builder.rerender.changedPrefix': 'You changed:',
-  'builder.rerender.changedSuffix': '. The render above does not reflect this yet.',
+  'builder.rerender.changedSuffix': '. The current render does not show this yet.',
   'builder.rerender.rendering': 'Re-rendering…',
   'builder.rerender.button': 'Re-render with these picks ({n} left)',
   'builder.rerender.change.door_decor': 'door decor',
@@ -558,8 +563,8 @@ export const enUS: Record<TranslationKey, string> = {
   'resume.continue': 'Continue',
   'resume.restart': 'Start over',
   'wrapup.next.title': 'What happens next',
-  'wrapup.next.saved': 'Your brief is saved. Your designer can open it right now — nothing more for you to do.',
-  'wrapup.next.contact': 'The designer reviews your plan and range and gets back to you at {contact}.',
+  'wrapup.next.saved': 'Your brief is with your maker, who can open it right away — nothing more for you to do.',
+  'wrapup.next.contact': 'Your maker reviews your plan and range and gets back to you at {contact}.',
   'wrapup.next.ref': 'Brief reference: {id}',
   'wrapup.next.unsaved': 'This brief was not saved to a server (no database configured here). Download the JSON below and send it yourself.',
   'wrapup.yes': 'Yes',
@@ -587,7 +592,7 @@ export const enUS: Record<TranslationKey, string> = {
   'nav.continue': 'Continue',
   'nav.back': 'Back',
   'nav.skip': 'Skip',
-  'nav.send': 'Send to designer',
+  'nav.review': 'Review your brief',
   'nav.working': 'Working…',
 
   // ---- Project-type options ----------------------------------------------
@@ -668,6 +673,8 @@ export const enUS: Record<TranslationKey, string> = {
   'space.photoThumbnail': 'Your kitchen photo',
   'space.error.tooLarge': 'is over 5MB — please pick a smaller photo.',
   'space.error.analyzeFailed': 'Could not analyze photos',
+  'space.processingNote':
+    'An AI assistant (OpenAI) reads your photos to find the layout and draw an AI concept of the kitchen in your space. Your maker receives them with your summary.',
   'space.removePhoto': 'Remove photo',
 
   // ---- Confirm the look (chip rows) --------------------------------------
@@ -785,6 +792,8 @@ export const enUS: Record<TranslationKey, string> = {
   'auth.login.invalidEmail': 'Enter a valid email address.',
   'auth.login.error': "We can't send the link right now. Try again in a minute.",
   'auth.login.notConfigured': 'Sign-in is not configured on this server yet.',
+  'auth.login.notSent':
+    "Sending failed — the link was not sent. Ask your kitchen maker for a link, or try again in a minute.",
   'auth.login.devLink': 'Development mode — no email provider configured',
   'auth.verify.working': 'Signing you in…',
   'auth.verify.submit': 'Continue',
@@ -795,6 +804,12 @@ export const enUS: Record<TranslationKey, string> = {
   'auth.noProject.title': 'No active kitchen',
   'auth.noProject.body':
     'Your maker sends you the link that opens your project. If you lost it, ask them for a new one.',
+  'auth.deleted.title': 'Your kitchen has been deleted',
+  'auth.deleted.body':
+    'We deleted your photos, answers, summaries and saved progress, and the copy in this browser. If it was your only kitchen, your account is deleted too.',
+  'auth.deleted.signIn': 'Have another kitchen? Sign in',
+  'auth.deletedAccount.title': 'Your account has been deleted',
+  'auth.deletedAccount.body': 'We deleted your account: your email address, name, language and sign-in links.',
   // ---- Maker dashboard ----------------------------------------------------
   'dashboard.subtitle': '{n} customers',
   'dashboard.refresh': 'Refresh',
@@ -832,12 +847,36 @@ export const enUS: Record<TranslationKey, string> = {
   'dashboard.invite.err.isMaker': 'That address already belongs to a maker.',
   'dashboard.invite.err.tooMany': "You've sent a lot of invites today. Try again tomorrow.",
   'dashboard.invite.err.generic': "The invite can't be created right now.",
+  'dashboard.invite.notEmailed': "The invite email didn't go out — send the customer the link below yourself.",
+  'makerEmail.subject': 'New kitchen brief — {name} · {headline}',
+  'makerEmail.heading': 'New kitchen brief',
+  'makerEmail.eyebrow': 'softclose · new brief',
+  'makerEmail.title': '{name} — kitchen',
+  'makerEmail.anonymous': 'Name not given',
+  'makerEmail.noRange': 'no range available',
+  'makerEmail.noRange.noBuild': "no range available — the customer didn't build the kitchen",
+  'makerEmail.layout.unsure': 'shape not decided yet',
+  'makerEmail.row.customer': 'Customer',
+  'makerEmail.row.layout': 'Layout',
+  'makerEmail.row.kitchen': 'Kitchen (made & installed)',
+  'makerEmail.row.assumptions': 'Assumptions',
+  'makerEmail.row.timeline': 'Timeline',
+  'makerEmail.cta.brief': 'Open the brief',
+  'makerEmail.cta.project': "Customer's kitchen",
+  'makerEmail.priceBasis':
+    "The range is the customer's price, VAT and the workshop's default margin included — cost and margin are in the brief. Never a final quote.",
+  'makerEmail.private': "These links are private; please don't forward them.",
   // ---- The customer's project home (walkthrough + status) -----------------
   'kitchen.home.eyebrow': 'Your kitchen',
+  'kitchen.home.readOnly.eyebrow': "The customer's kitchen",
+  'kitchen.home.readOnly.lede': 'This is the page as your customer sees it — you can only look here.',
   'kitchen.home.yourMaker': 'Your maker',
   'kitchen.home.title': '{maker} invited you to describe your kitchen',
   'kitchen.home.titleSubmitted': 'Your brief is with {maker}',
   'kitchen.home.titleClosed': 'This project is closed',
+  'kitchen.home.titleReady': 'Your brief is waiting for you to send it',
+  'kitchen.home.status.ready': "Everything's in place — review your brief and send it to your maker when it suits you.",
+  'kitchen.home.cta.review': 'Review and send',
   'kitchen.home.what':
     "We'll describe your kitchen together. At the end your maker gets a clean brief and you get a price range (±20%). It is not a quote and nothing is charged.",
   'kitchen.home.act.space':
@@ -852,13 +891,16 @@ export const enUS: Record<TranslationKey, string> = {
   'kitchen.home.cta.start': 'Start',
   'kitchen.home.cta.continue': 'Continue · {step}',
   'kitchen.home.cta.edit': 'Edit your kitchen',
+  'kitchen.home.cta.look': "View the customer's kitchen",
   'kitchen.home.cta.build': 'Build your kitchen',
   'kitchen.home.status.sent': 'Sent {date}.',
   'kitchen.home.status.seen': '{maker} opened it on {date}.',
   'kitchen.home.status.notSeen': "{maker} hasn't opened it yet — we'll tell you when they do.",
   'kitchen.home.status.rangeLabel': 'Rough range — kitchen, made & installed',
   'kitchen.home.status.noRange': 'You get a range once you build your kitchen.',
-  'kitchen.home.editNote': 'If you change anything, {maker} is notified of the change.',
+  'kitchen.home.editNote': 'Changes reach your maker only when you review and send them.',
+  'kitchen.home.status.unsent': "You have changes that aren't sent yet — {maker} has the earlier version of your brief.",
+  'kitchen.home.cta.reviewChanges': 'Review and send the changes',
   'kitchen.home.decision.quoted': '{maker}: quote sent {date}.',
   'kitchen.home.decision.quotedNext': 'The amount and terms come to you directly from the maker.',
   'kitchen.home.decision.clarify': '{maker}: needs a clarification ({date}).',
@@ -869,9 +911,29 @@ export const enUS: Record<TranslationKey, string> = {
   'kitchen.home.decision.pill.clarify': 'Clarification needed',
   'kitchen.home.decision.pill.declined': 'Closed',
   'kitchen.makerSees': '{maker} can see your progress as you work.',
+  'kitchen.home.ai': 'An AI assistant guides you through the steps. {maker} personally reviews everything you share.',
+  'kitchen.home.readOnly.ai': 'An AI assistant guides the customer through the steps. You review everything they share.',
+  // ---- Delete my kitchen (IMP-09) ----------------------------------------
+  'kitchen.delete.open': 'Delete my kitchen',
+  'kitchen.delete.title': 'Delete your kitchen?',
+  'kitchen.delete.body':
+    'We delete your photos, answers, AI concepts, summaries and saved progress, and {maker} will no longer see them. If this is your only kitchen, we delete your account too. This cannot be undone.',
+  'kitchen.delete.yourMaker': 'your maker',
+  'kitchen.delete.sentNote': 'An email notice about your summary that your maker may already have received stays with them.',
+  'kitchen.delete.cancel': 'Cancel',
+  'kitchen.delete.confirm': 'Delete permanently',
+  'kitchen.delete.pending': 'Deleting…',
+  'kitchen.delete.failed': 'Deletion did not finish. Try again in a minute — it picks up where it stopped.',
+  'kitchen.delete.failedAccount':
+    'Your kitchen is deleted, but your account is not yet. Try again in a minute — only the account is left.',
+  // ---- Delete my account (IMP-09) ----------------------------------------
+  'account.delete.open': 'Delete my account',
+  'account.delete.title': 'Delete your account?',
+  'account.delete.body':
+    'We delete your email address, your name, the language we remembered and your sign-in links. This cannot be undone.',
+  'account.delete.failed': 'Deletion did not finish. Try again in a minute.',
   // The maker looking in at their customer's kitchen home: theirs to look at,
   // the customer's to fill and edit.
-  'kitchen.home.readOnly.eyebrow': "The customer's kitchen",
   'kitchen.home.readOnly.title': "The customer hasn't started yet",
   'kitchen.home.readOnly.titleStarted': 'The customer is still describing the kitchen',
   'kitchen.home.readOnly.titleSubmitted': 'The customer has sent the brief',
@@ -890,11 +952,14 @@ export const enUS: Record<TranslationKey, string> = {
   'live.banner.title': 'IN PROGRESS — the customer is still working',
   'live.banner.body':
     'This is not a submitted brief. The range is computed from an unfinished kitchen and will still move — wait for them to send it before you quote.',
-  'wrapup.resubmit.title': 'Changed something?',
-  'wrapup.resubmit.body':
-    'Your maker already has a brief for this kitchen. Send your changes and they will be told something moved.',
-  'wrapup.resubmit.cta': 'Send the changes',
-  'wrapup.resubmit.sending': 'Sending…',
+  'wrapup.send.title': 'All good?',
+  'wrapup.send.body': '{maker} gets the brief and an email as soon as you send it. You can still change it afterwards.',
+  'wrapup.send.cta': 'Send to your maker',
+  'wrapup.send.sending': 'Sending…',
+  'wrapup.changes.title': "Your changes aren't sent yet",
+  'wrapup.changes.body': "{maker} has an earlier version of this brief. Send the changes and they'll be told about them.",
+  'wrapup.changes.cta': 'Send the changes',
+  'wrapup.sent.line': '{maker} has this version of your brief — nothing new to send.',
   // The maker looking in at the wrap-up: sending is the customer's act.
   // The header is theirs too — what this screen is, never the homeowner's
   // thank-you or "fix anything that's off".
@@ -1093,7 +1158,7 @@ export const enUS: Record<TranslationKey, string> = {
   'funnel.wishlist.error': 'Could not save your wishlist.',
   'funnel.builderEntry.error': 'Could not read your render. Try again, or start without the AI suggestion.',
   'funnel.thanksFallback': 'Thanks{name} — your brief is ready.',
-  'wrapup.error.bundle': 'Could not put your brief together.',
+  'wrapup.error.bundle': "Your brief wasn't sent. Try again.",
   'wrapup.error.export': 'Could not download the brief.',
   'wrapup.fixAnything': 'Fix anything?',
   'concept.error.capReached':
@@ -1292,4 +1357,49 @@ export const enUS: Record<TranslationKey, string> = {
   'maker.transcript.user': 'homeowner',
   'maker.transcript.assistant': 'assistant',
   'maker.transcript.images': 'images: {n}',
+  // ---- Legal footer + privacy notice (IMP-09) ---------------------------
+  'legal.privacy': 'Privacy',
+  'legal.nav': 'Legal',
+  'privacy.title': 'Privacy',
+  'privacy.current': 'Current privacy notice · updated 4 Oct 2026',
+  'privacy.intro':
+    'softclose is a tool kitchen makers use to collect a description of your kitchen. An AI assistant guides you through the steps, and your maker personally reviews everything you share. This page says what we keep, who sees it and how to delete it.',
+  'privacy.collect.title': 'What we keep and why',
+  'privacy.collect.account': 'Email address and name — to sign you in by link and so your maker can reach you.',
+  'privacy.collect.phone': 'Phone number, if you add one — so your maker can call you.',
+  'privacy.collect.photos':
+    'Photos of your space — so the AI assistant can read the layout and draw an AI concept of the kitchen in your space.',
+  'privacy.collect.inspiration': 'Inspiration images — to suggest a style.',
+  'privacy.collect.answers':
+    'Your answers — measurements, choices, wishes and timing — for the summary and the rough price range your maker receives.',
+  'privacy.collect.progress':
+    'Your progress, so you can continue on another device. On our server we keep it without photos; photos and AI concepts are stored only once you send the summary, and until then only this browser keeps them.',
+  'privacy.collect.cookie':
+    'One sign-in cookie — without it you cannot sign in. Your browser also remembers your language and a copy of your progress. We use no advertising or analytics cookies.',
+  'privacy.who.title': 'Who sees your data',
+  'privacy.who.maker': 'Your maker — everything you send, and your progress while you are still working.',
+  'privacy.who.services': 'Outside services that process data for us:',
+  'privacy.who.openai':
+    'OpenAI (AI models) — reads your space and inspiration photos, turns your wishes into trade terms, writes the summary from your answers (without photos, but with your name, email address and phone if you added one), draws the AI concept and suggests materials from it.',
+  'privacy.who.supabase': 'Supabase — database and photo storage.',
+  'privacy.who.vercel': 'Vercel — the servers the app runs on; all traffic passes through them.',
+  'privacy.who.resend': 'Resend — sends email: sign-in links, the invite, and the notice to your maker about your summary.',
+  'privacy.who.productImages':
+    'Some product images (sinks, taps and appliances) load straight from the servers of the suppliers Schachermayer and Elgrad, so your browser sends its IP address to those servers when it loads them.',
+  'privacy.who.nobodyElse':
+    'Beyond these, we give your data to no one. How long these services keep what we send them is set by their own terms.',
+  'privacy.ai.title': 'What the AI assistant does',
+  'privacy.ai.body':
+    'It reads your photos and inspiration, turns your wishes into trade terms, suggests materials, writes the summary and draws an AI concept of the kitchen in your space. The price range is calculated from the kitchen you put together — the AI does not guess it. None of this is a quote or a decision: your maker reviews everything personally.',
+  'privacy.retention.title': 'How long',
+  'privacy.retention.body':
+    "We keep it until you delete your kitchen or we remove it at your maker's request. There is no automatic deletion after a set time yet.",
+  'privacy.delete.title': 'Deleting',
+  'privacy.delete.body':
+    'You can delete your kitchen yourself: on your kitchen page choose “Delete my kitchen”. We delete your photos, answers, AI concepts, summaries and saved progress — and, if it is your only kitchen, your account. If your kitchen is gone but your account is still there, sign in and choose “Delete my account”.',
+  'privacy.delete.leftovers':
+    "What stays: an email notice your maker may already have received, what the outside services keep under their own terms, and the copy of your progress in other browsers you used — clear that in that browser's settings.",
+  'privacy.contact.title': 'Questions',
+  'privacy.contact.maker': 'For your kitchen and the data in it, your maker is the quickest person to ask.',
+  'privacy.contact.operator': 'About this service and privacy, write to us at {email}.',
 }

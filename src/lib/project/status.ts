@@ -13,12 +13,17 @@
  *                          after you quoted it. The one state that is easy to
  *                          miss and expensive to miss.
  *
- * `changed_since_submit` is derived from `updated_at > brief.created_at` rather
- * than stored, which is why checkpoints must not write when nothing changed: a
- * no-op save that bumped updated_at would invent customer activity that never
- * happened.
+ * `changed_since_submit` is `content_changed_at > brief.created_at` (0008):
+ * the checkpoint route moves `content_changed_at` only when the saved
+ * kitchen differs from the brief the maker has (`contentChangedAt`), not on
+ * every write. `updated_at` is every write — a walk back through the steps
+ * from the review (IMP-07), a sign-off re-stamped — and stays the list's
+ * "last activity". Flagging those would invent a change the homeowner, whose
+ * review offers nothing to send, could never clear.
  */
 import { FLOW, resolveStepId, stepNumber, type FlowStepId } from '@/lib/flow'
+import { briefPrint } from '@/lib/handoff/review'
+import type { ProjectSnapshot } from './snapshot'
 
 export type ProjectDisplayStatus =
   | 'invited'
@@ -32,18 +37,31 @@ export interface StatusInput {
   status: string
   openedAt: string | null
   step: string | null
-  updatedAt: string
+  /** When the kitchen last differed from the current brief; null while it is that brief (0008). */
+  contentChangedAt: string | null
   /** created_at of the project's current brief, when there is one. */
   currentBriefCreatedAt: string | null
+}
+
+/**
+ * The kitchen differs from the brief on file, and has since that brief went
+ * out (0008): the maker's "izmijenjeno", and on the kitchen home the
+ * homeowner's "changes not sent yet" — one test, so the two sides never
+ * disagree about it.
+ */
+export function changedSinceBrief(contentChangedAt: string | null, briefCreatedAt: string | null): boolean {
+  return (
+    briefCreatedAt !== null &&
+    contentChangedAt !== null &&
+    Date.parse(contentChangedAt) > Date.parse(briefCreatedAt)
+  )
 }
 
 export function projectDisplayStatus(p: StatusInput): ProjectDisplayStatus {
   if (p.status === 'archived') return 'archived'
 
   if (p.status === 'submitted' || p.currentBriefCreatedAt) {
-    const changed =
-      p.currentBriefCreatedAt !== null && Date.parse(p.updatedAt) > Date.parse(p.currentBriefCreatedAt)
-    return changed ? 'changed_since_submit' : 'submitted'
+    return changedSinceBrief(p.contentChangedAt, p.currentBriefCreatedAt) ? 'changed_since_submit' : 'submitted'
   }
 
   if (!p.openedAt) return 'invited'
@@ -51,6 +69,35 @@ export function projectDisplayStatus(p: StatusInput): ProjectDisplayStatus {
   // which reads very differently from "working through it".
   if (!p.step || p.step === FLOW[0].id) return 'opened'
   return 'in_progress'
+}
+
+/**
+ * The `content_changed_at` a checkpoint stores with `snapshot` (0008):
+ *  - null while the saved kitchen IS the brief the maker has — a look, a walk
+ *    back through the steps, a sign-off re-stamped, a change undone. Those
+ *    saves still land (a resume needs them); they are not a change.
+ *  - `now` once it differs, or when the brief's print is unknown: a brief
+ *    sent before 0008 whose journey keeps no record of it either — every
+ *    save then counts, as before.
+ *  - null without a brief: the flag needs one.
+ * The brief's print is the project's `brief_print` (the handoff's, from the
+ * profile it was sent); for an older brief, the journey's own record of it
+ * (`sentReview`) when that names the current brief.
+ */
+export function contentChangedAt(
+  project: { currentBriefId: string | null; briefPrint: string | null },
+  snapshot: unknown,
+  now: string
+): string | null {
+  if (!project.currentBriefId) return null
+  const snap = (snapshot && typeof snapshot === 'object' ? snapshot : {}) as Partial<ProjectSnapshot>
+  const sent = snap.sentReview
+  const onFile =
+    project.briefPrint ??
+    (sent?.briefId === project.currentBriefId && typeof sent.profilePrint === 'string' ? sent.profilePrint : null)
+  const profile = snap.profile
+  if (onFile && profile && typeof profile === 'object' && briefPrint(profile) === onFile) return null
+  return now
 }
 
 /** True for the states a maker should act on. Drives the top group of the list. */

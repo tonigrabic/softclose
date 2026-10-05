@@ -14,6 +14,7 @@
  * matching entry to `MIGRATIONS` below.
  */
 import type { BuilderHypothesis } from '@/lib/builder/hypothesis'
+import type { BuilderScreenId } from '@/lib/builder/inventory'
 import type { UnitEdits } from '@/lib/builder/unit-assembly'
 import type { FloorPlan } from '@/lib/floor-plan'
 import type { FlowStepId } from '@/lib/flow'
@@ -62,6 +63,44 @@ export interface ProjectSnapshot {
    * never shows or saves the planned layout as the existing room.
    */
   roomPlan?: FloorPlan | null
+  /**
+   * The builder group the homeowner was on (IMP-06), so a reload reopens the
+   * builder there. A screen cursor, not brief content — which is why it lives
+   * here and not on `profile.builderState`, which rides into the handoff.
+   * Optional: older snapshots, and journeys that never reached the builder,
+   * open at the first group. Kept `undefined` rather than null when unset, so
+   * an older snapshot fingerprints the same.
+   */
+  builderGroupId?: BuilderScreenId
+  /**
+   * The typed wishlist the profile's lists were translated from (IMP-07,
+   * lib/review-nav `wishlistSource`). Passing the wishlist step with the same
+   * text then keeps the lists instead of asking the AI to word them afresh —
+   * which would make an unchanged kitchen a new brief. Optional: older
+   * snapshots translate once more. `undefined` when unset, so they
+   * fingerprint the same.
+   */
+  wishlistSource?: string
+  /**
+   * The review the brief on file went out from (IMP-07): its summary, its id
+   * and the print of the profile actually sent. A finish whose profile prints
+   * the same shows this review again — the brief the maker has, nothing to
+   * send — even after a change was made and undone, or the review was rebuilt
+   * in between. Trusted only while its id is the project's current brief
+   * (lib/handoff/review `sentReviewFrom`). Optional: older snapshots derive it
+   * from their review; `undefined` when unset, so they fingerprint the same.
+   */
+  sentReview?: WrapUpData
+  /**
+   * While editing from the review (IMP-07): the steps still owed their
+   * Continue before the review is built again, in flow order (lib/review-nav
+   * `owedAfterCommit`, `owedAfterLeave`) — a new room on its way through the
+   * confirm step and the builder, an edit left on a step by Back or the rail.
+   * Kept across a reload, so "Izmijeni kuhinju" cannot reach the review past
+   * them. Optional: `undefined` when none is owed, so older snapshots
+   * fingerprint the same.
+   */
+  owedSteps?: FlowStepId[]
 }
 
 type SnapshotRecord = Record<string, unknown>

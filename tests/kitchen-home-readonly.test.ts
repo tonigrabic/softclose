@@ -33,6 +33,7 @@ const NOT_STARTED: KitchenHomeProps = {
   makerViewedAt: null,
   briefId: null,
   range: null,
+  savedEstimate: null,
   decision: null,
   closed: false,
   started: false,

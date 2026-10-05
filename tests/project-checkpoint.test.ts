@@ -21,6 +21,7 @@ import {
   MAX_CHECKPOINT_BYTES,
   OMITTED_IMAGE,
   classifyConflict,
+  isPermanentRefusal,
   nextBackoffMs,
   snapshotFingerprint,
   stripImages,
@@ -121,5 +122,65 @@ describe('nextBackoffMs', () => {
     expect(nextBackoffMs(2)).toBe(15_000)
     expect(nextBackoffMs(3)).toBe(60_000)
     expect(nextBackoffMs(99)).toBe(60_000)
+  })
+})
+
+describe('a visit that changes nothing writes nothing (IMP-06)', () => {
+  // The hook is seeded with the fingerprint of the stripped server snapshot.
+  // These are the properties that make that seed match the first queue of an
+  // unchanged resume — otherwise every visit would write, and every visit
+  // after a send would flag the brief as changed.
+  const restored = {
+    currentStepId: 'builder',
+    profile: {
+      builderState: {
+        doors: { decorCode: 'U702' },
+        rerenders: [{ id: 'render-1', trigger: 'door decor', imageDataUrl: OMITTED_IMAGE }],
+        activeRenderId: 'render-1',
+      },
+    },
+    spacePhotos: [OMITTED_IMAGE],
+    builderGroupId: 'backsplash',
+  }
+
+  it('stripping a server-restored snapshot again leaves its fingerprint alone (markers stay markers)', () => {
+    expect(stripImages(restored)).toEqual(restored)
+    expect(snapshotFingerprint(stripImages(restored))).toBe(snapshotFingerprint(restored))
+  })
+
+  it('the same journey with its pixels (the local copy) fingerprints like the server copy once stripped', () => {
+    const local = {
+      ...restored,
+      profile: {
+        builderState: {
+          ...restored.profile.builderState,
+          rerenders: [{ id: 'render-1', trigger: 'door decor', imageDataUrl: JPG }],
+        },
+      },
+      spacePhotos: [PNG],
+    }
+    expect(snapshotFingerprint(stripImages(local))).toBe(snapshotFingerprint(restored))
+  })
+
+  it('an unset builder group is undefined, not null: an older snapshot then fingerprints the same', () => {
+    const older: Record<string, unknown> = { ...restored }
+    delete older.builderGroupId
+    expect(snapshotFingerprint({ ...older, builderGroupId: undefined })).toBe(snapshotFingerprint(older))
+    expect(snapshotFingerprint({ ...older, builderGroupId: null })).not.toBe(snapshotFingerprint(older))
+  })
+})
+
+describe('isPermanentRefusal', () => {
+  it('stops on a refusal no retry changes', () => {
+    for (const status of [400, 401, 403, 404, 413]) expect(isPermanentRefusal(status)).toBe(true)
+  })
+
+  it('backs off on a rate limit or a timeout instead of halting the session', () => {
+    expect(isPermanentRefusal(429)).toBe(false)
+    expect(isPermanentRefusal(408)).toBe(false)
+  })
+
+  it('leaves 5xx to the backoff, as before', () => {
+    for (const status of [500, 502, 503]) expect(isPermanentRefusal(status)).toBe(false)
   })
 })

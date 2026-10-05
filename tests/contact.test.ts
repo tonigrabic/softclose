@@ -4,8 +4,10 @@
  * surface reads it through contactChannels, so these pin that both shapes —
  * and a brief from before sign-in — still show the maker a way to reach them.
  */
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { contactChannels } from '@/lib/contact'
+import { contactChannels, contactPatchChanges } from '@/lib/contact'
 import { readbackFor } from '@/components/kitchen-intake/readbacks'
 
 describe('contactChannels', () => {
@@ -44,5 +46,26 @@ describe('contact read-back', () => {
 
   test('empty until something is captured', () => {
     expect(readbackFor('contact', {})).toBeNull()
+  })
+})
+
+describe('contactPatchChanges: a pass through the contact step that changes nothing logs no turn', () => {
+  const profile = { name: 'Ana', email: 'ana@example.test', phone: undefined, contactValue: undefined }
+
+  test('the same name and channels — a walk back from the review (IMP-07): unchanged', () => {
+    expect(contactPatchChanges({ name: 'Ana', email: 'ana@example.test', phone: undefined, contactValue: undefined }, profile)).toBe(false)
+    expect(contactPatchChanges({ name: 'Ana', contactValue: 'x' }, { name: 'Ana', contactValue: 'x' })).toBe(false)
+  })
+
+  test('a new name, a phone added or removed, another channel: changed', () => {
+    expect(contactPatchChanges({ name: 'Anna', email: 'ana@example.test' }, profile)).toBe(true)
+    expect(contactPatchChanges({ name: 'Ana', phone: '+385 91 000 0000' }, profile)).toBe(true)
+    expect(contactPatchChanges({ name: 'Ana', phone: undefined }, { ...profile, phone: '+385 91 000 0000' })).toBe(true)
+    expect(contactPatchChanges({ name: 'Ana', contactValue: 'y' }, { name: 'Ana', contactValue: 'x' })).toBe(true)
+  })
+
+  test('the intake logs the contact turn only then', () => {
+    const intake = readFileSync(join(__dirname, '..', 'src/components/kitchen-intake/index.tsx'), 'utf8')
+    expect(intake).toMatch(/const changed = contactPatchChanges\(patch, profile\)[\s\S]{0,80}if \(changed\) logTurn\('user', `Contact: /)
   })
 })

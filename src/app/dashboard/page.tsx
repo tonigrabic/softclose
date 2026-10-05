@@ -41,7 +41,7 @@ export default async function DashboardPage() {
       status: project.status,
       openedAt: project.openedAt,
       step: project.step,
-      updatedAt: project.updatedAt,
+      contentChangedAt: project.contentChangedAt,
       currentBriefCreatedAt: brief?.createdAt ?? null,
     })
     const progress = display === 'in_progress' ? stepProgress(project.step) : null

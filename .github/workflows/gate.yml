@@ -1,0 +1,36 @@
+# The fast gate (IMP-02): tests, types and lint on every pull request — the
+# stacked ones included, whatever their base — and on every push to main.
+# `next build` is left out on purpose: Vercel builds every deployment anyway,
+# and the full local gate (`npm run gate`) still runs it.
+name: gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    name: gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: vitest run
+        run: npx vitest run
+      - name: tsc --noEmit
+        run: npx tsc --noEmit
+      - name: eslint .
+        run: npx eslint .

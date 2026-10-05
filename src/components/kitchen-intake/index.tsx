@@ -25,7 +25,6 @@ import { cn } from '@/lib/utils'
 import {
   FLOW,
   flowIndex,
-  nextStepId,
   prevStepId,
   resolveStepId,
   resumeStepId,
@@ -35,7 +34,7 @@ import {
 import { BuilderShell } from '@/components/builder/BuilderShell'
 import { LayoutConfirm } from '@/components/builder/LayoutConfirm'
 import { decorHypothesis, type BuilderHypothesis } from '@/lib/builder/hypothesis'
-import type { BuilderState } from '@/lib/builder/inventory'
+import { isBuilderScreenId, type BuilderScreenId, type BuilderState } from '@/lib/builder/inventory'
 import type { UnitEdits } from '@/lib/builder/unit-assembly'
 import { builderPickLabels } from '@/lib/builder/pick-labels'
 import { derivePrefills } from '@/lib/derive-prefills'
@@ -43,6 +42,9 @@ import { seedConfirmPlan } from '@/lib/derive-layout'
 import { clearSnapshot, loadSnapshot, saveSnapshot, type StoredSnapshot } from '@/lib/session-store'
 import type { ProjectSnapshot as IntakeSnapshot } from '@/lib/project/snapshot'
 import { useProjectCheckpoint } from './useProjectCheckpoint'
+import { useDebouncedCallback } from '@/lib/use-debounced-callback'
+import { subscribePageHide } from '@/lib/page-hide'
+import { createBuilderUnloadGuard, pendingBuilderKey } from '@/lib/builder/unload-save'
 import type { UploadedReference } from './ImageSelect'
 import type { FloorPlan } from '@/lib/floor-plan'
 import {
@@ -62,12 +64,14 @@ import {
   workingPlanFromRoom,
   type TradeMove,
 } from '@/lib/floor-plan'
-import { OMITTED_IMAGE, snapshotFingerprint } from '@/lib/project/checkpoint'
+import { OMITTED_IMAGE, snapshotFingerprint, stripImages } from '@/lib/project/checkpoint'
+import { submitSnapshotFrom } from '@/lib/project/submit-snapshot'
 import { requestSpaceVision } from '@/lib/api/space-vision-client'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import type {
   ClientMessage,
   ConceptRender,
+  HandoffEstimate,
   LeadProfile,
   SpaceVisionResult,
   WrapUpData,
@@ -76,8 +80,22 @@ import type { InspirationVisionResult } from '@/app/api/inspiration-vision/route
 import { ApiError, apiErrorKey, readJson } from '@/lib/api/client'
 import { decorProfileHints } from '@/lib/api/decor-profile-hints'
 import { roomConstraintsFor } from '@/lib/render/room-constraints'
-import { contactChannels } from '@/lib/contact'
+import { contactChannels, contactPatchChanges } from '@/lib/contact'
 import { mintBriefId } from '@/lib/handoff/brief-id'
+import { briefPrint, keptReview, legacyReviewPrint, sentReviewFrom } from '@/lib/handoff/review'
+import {
+  afterCommit,
+  continueKey,
+  needsTranslate,
+  owedAfterCommit,
+  owedAfterLeave,
+  restoredWishlistSource,
+  spacePhotosChanged,
+  stepDraftPrint,
+  wishlistSource,
+  type EntryStep,
+  type ReviewTarget,
+} from '@/lib/review-nav'
 
 /** Sign-off timestamp, read through a module-level helper so the React purity
  * lint doesn't flag `Date.now()` in the component's event handlers. */
@@ -114,8 +132,14 @@ export interface KitchenIntakeProps {
    *  that it is the homeowner's own answers, so the maker never writes to it:
    *  they get KitchenLookOnly, built from `initialSnapshot`, not the steps. */
   readOnly?: boolean
-  /** The project already has a brief: re-submitting becomes explicit. */
-  hasExistingBrief?: boolean
+  /** The project's current brief, from the page load. The review compares
+   *  itself with it: the brief the maker already has is not sent again. */
+  currentBriefId?: string | null
+  /** The current brief's estimate, customer copy (lib/handoff/saved-estimate):
+   *  a revisit of the review shows the range the maker has. */
+  savedEstimate?: HandoffEstimate | null
+  /** The maker closed the project (IMP-03): the review offers no send. */
+  closed?: boolean
   /**
    * The journey as the server last saw it. Image-free by design (checkpoints
    * strip inline images), so it restores everything structural and nothing
@@ -129,8 +153,9 @@ export interface KitchenIntakeProps {
   /** The name the maker invited them under — prefilled, still editable. */
   customerName?: string | null
   /** Open the journey at this step instead of where it was left, e.g. the
-   *  builder for a customer whose brief went out without a range. */
-  startAt?: FlowStepId
+   *  builder for a customer whose brief went out without a range — or at the
+   *  review, for changes made since the brief went out and not sent. */
+  startAt?: EntryStep
 }
 
 export function KitchenIntake({
@@ -138,7 +163,9 @@ export function KitchenIntake({
   makerName,
   initialRevision = 0,
   readOnly = false,
-  hasExistingBrief = false,
+  currentBriefId = null,
+  savedEstimate = null,
+  closed = false,
   initialSnapshot = null,
   customerEmail = null,
   customerName = null,
@@ -155,12 +182,30 @@ export function KitchenIntake({
   const [transcript, setTranscript] = useState<ClientMessage[]>([])
   const [isDone, setIsDone] = useState(false)
   const [wrapUpData, setWrapUpData] = useState<WrapUpData | null>(null)
-  // A brief went out during this visit. hasExistingBrief comes from the page
-  // load, so without this a return to the builder after sending would make the
-  // next wrap-up send again on mount — a second brief and a second email.
-  const [sentInSession, setSentInSession] = useState(false)
+  // The review the brief on file went out from (snapshot `sentReview`): set
+  // by a send from the review in this visit, or restored when it names the
+  // page load's currentBriefId. Its id is the brief the maker has — without it
+  // a return to the review after sending would offer the very brief the maker
+  // just got — and its print takes a finish back to it whenever the kitchen
+  // is that brief again (lib/handoff/review keptReview).
+  const [sentReview, setSentReview] = useState<WrapUpData | undefined>(undefined)
   const [isFinalising, setIsFinalising] = useState(false)
   const [finaliseError, setFinaliseError] = useState<string | null>(null)
+  // Single-flight for finalise: a second Continue while the summary loads
+  // must not build a second review.
+  const finalising = useRef(false)
+  // The print a restored review from before IMP-07 was built from, when the
+  // snapshot vouches for it (lib/handoff/review legacyReviewPrint), so walking
+  // back through an unchanged kitchen keeps it there too. Memory only.
+  const legacyPrint = useRef<string | null>(null)
+  // Set when a step's Continue leads to the review; the effect below runs
+  // finalise once that event's patches have rendered (see goNext).
+  const [reviewQueued, setReviewQueued] = useState(false)
+  // Editing from the review: the steps still owed their Continue before the
+  // review is built again, in flow order (lib/review-nav owedAfterCommit,
+  // owedAfterLeave) — a new room on its way to the builder, an edit left on a
+  // step by Back or the rail. Continue leads to the first of them.
+  const [owedSteps, setOwedSteps] = useState<FlowStepId[]>([])
 
   // Per-step transient state lifted to the parent so Back navigation preserves work.
   const [spacePhotos, setSpacePhotos] = useState<string[]>([])
@@ -208,6 +253,9 @@ export function KitchenIntake({
   const [dealBreakersText, setDealBreakersText] = useState('')
   const [isTranslating, setIsTranslating] = useState(false)
   const [translateError, setTranslateError] = useState<TranslationKey | null>(null)
+  // The typed wishlist the profile's lists were translated from (snapshot
+  // `wishlistSource`), so passing the step unchanged keeps them (IMP-07).
+  const [wishlistTranslatedFrom, setWishlistTranslatedFrom] = useState<string | undefined>(undefined)
 
   // Phase-2 Builder state — populated lazily on entry to the builder step.
   const [builderHypothesis, setBuilderHypothesis] = useState<BuilderHypothesis | null>(null)
@@ -215,6 +263,10 @@ export function KitchenIntake({
   const [hypothesisError, setHypothesisError] = useState<TranslationKey | null>(null)
   // True once the user explicitly starts building without the AI suggestion.
   const [builderStartedNoAI, setBuilderStartedNoAI] = useState(false)
+  // The builder group the homeowner is on (IMP-06), so a reload reopens the
+  // builder there. Undefined, never null, until the builder first saves: an
+  // older snapshot then fingerprints the same.
+  const [builderGroupId, setBuilderGroupId] = useState<BuilderScreenId | undefined>(undefined)
 
   // ── Session persistence (AGENTS.md rule 7/8: reload must not wipe the journey).
   // Everything `resetAll` clears is snapshotted to IndexedDB (debounced) and
@@ -224,10 +276,44 @@ export function KitchenIntake({
   const persistenceReady = useRef(false)
   // Dual write: IndexedDB stays the fast local cache, the server copy is what
   // survives a different device and what the maker's dashboard reads.
-  const checkpoint = useProjectCheckpoint({
+  // Seeded with what the server holds, so a visit that changes nothing — a
+  // resume into the builder, a look at the wrap-up — writes nothing.
+  const [initialFingerprint] = useState(() =>
+    initialSnapshot ? snapshotFingerprint(stripImages(initialSnapshot)) : null
+  )
+  // Both stable for the component's life, so the save effect below runs per
+  // snapshot, not per render.
+  const {
+    queue: queueCheckpoint,
+    flush: flushCheckpoint,
+    submitting: checkpointSubmitting,
+  } = useProjectCheckpoint({
     projectId: readOnly ? undefined : projectId,
     initialRevision,
+    initialFingerprint,
   })
+
+  // The builder's last change, held in localStorage from the moment the page
+  // is hidden or left until an IndexedDB write that holds it lands (IMP-06).
+  // An IndexedDB write started while the page is being left never lands, so
+  // without it a reload or a closed tab within a second of a pick, a Continue
+  // or a paid re-render brought back the build from before it.
+  const [builderGuard] = useState(() => {
+    let storage: Storage | null = null
+    try {
+      storage = typeof window === 'undefined' ? null : window.localStorage
+    } catch {
+      storage = null // blocked storage: the guard is a no-op, IndexedDB still saves
+    }
+    return createBuilderUnloadGuard(storage, pendingBuilderKey(projectId))
+  })
+  // Set when the next snapshot must reach IndexedDB at once rather than after
+  // the 800 ms debounce: a builder change (already debounced by the builder),
+  // or a restore that merged one in.
+  const localSaveNow = useRef(false)
+  // The restored journey had the unload record merged in (see adoptMergedBuild).
+  const mergedOffer = useRef(false)
+  useEffect(() => subscribePageHide(() => builderGuard.writeNow()), [builderGuard])
 
   useEffect(() => {
     // The maker looking in never touches this browser's copy. Their page is
@@ -236,8 +322,12 @@ export function KitchenIntake({
     // loaded, persistence never opens, so nothing they see is saved here.
     if (readOnly) return
     let cancelled = false
-    void loadSnapshot<IntakeSnapshot>(projectId).then((rec) => {
+    void loadSnapshot<IntakeSnapshot>(projectId).then((loaded) => {
       if (cancelled) return
+      // A builder change the last visit closed on, merged over the IndexedDB
+      // copy when it is newer (re-render pixels kept from either).
+      const { rec, merged } = builderGuard.restore(loaded)
+      mergedOffer.current = merged
       const d = rec?.data
       const worthResuming =
         d && (d.currentStepId !== 'space_photos' || Object.keys(d.profile ?? {}).length > 0 || d.spacePhotos?.length > 0)
@@ -251,13 +341,25 @@ export function KitchenIntake({
       // journey WITH its photos — the server copy is image-free. On a second
       // device there is no local copy, and the server snapshot restores
       // everything except the pictures.
+      let applied: IntakeSnapshot | null = null
       if (projectId) {
-        if (worthResuming) applySnapshot(d)
-        else if (initialSnapshot) applySnapshot(initialSnapshot)
+        if (worthResuming) {
+          applySnapshot(d)
+          if (merged) adoptMergedBuild(d)
+          applied = d
+        } else if (initialSnapshot) {
+          applySnapshot(initialSnapshot)
+          applied = initialSnapshot
+        }
       } else if (worthResuming) {
         setResumeOffer(rec)
       }
-      if (startAt) {
+      if (startAt === 'review') {
+        // Changes not sent yet: their review — built from the restored
+        // journey, unless it was left on its review already. Queued, so it is
+        // built from the restored state, and through any step still owed.
+        if (!(applied?.isDone && applied.wrapUpData)) setReviewQueued(true)
+      } else if (startAt) {
         setState({ currentStepId: startAt })
         setIsDone(false)
       }
@@ -316,16 +418,44 @@ export function KitchenIntake({
     setDealBreakersText(d.dealBreakersText ?? '')
     setBuilderHypothesis(d.builderHypothesis ?? null)
     setBuilderStartedNoAI(Boolean(d.builderStartedNoAI))
+    setBuilderGroupId(isBuilderScreenId(d.builderGroupId) ? d.builderGroupId : undefined)
+    // A journey from before IMP-07 that went out keeps its lists' source too,
+    // so passing the wishlist step does not word them afresh.
+    setWishlistTranslatedFrom(restoredWishlistSource(d))
+    legacyPrint.current = legacyReviewPrint(d)
+    setSentReview(sentReviewFrom(d, currentBriefId) ?? undefined)
+    setOwedSteps(
+      Array.isArray(d.owedSteps)
+        ? d.owedSteps.map((s) => resolveStepId(s)).filter((s): s is FlowStepId => s !== null)
+        : []
+    )
+  }
+
+  /**
+   * A restored journey with the unload record merged in is applied: track its
+   * build, so the record lives until IndexedDB holds it, and write it there
+   * at once rather than in 800 ms.
+   */
+  function adoptMergedBuild(d: IntakeSnapshot) {
+    const build = d.profile?.builderState as BuilderState | undefined
+    if (readOnly || !build || !isBuilderScreenId(d.builderGroupId)) return
+    builderGuard.track(build, d.builderGroupId)
+    localSaveNow.current = true
   }
 
   function resumeSession() {
-    if (resumeOffer) applySnapshot(resumeOffer.data)
+    if (resumeOffer) {
+      applySnapshot(resumeOffer.data)
+      if (mergedOffer.current) adoptMergedBuild(resumeOffer.data)
+    }
     setResumeOffer(null)
     persistenceReady.current = true
   }
 
   function discardSavedSession() {
     void clearSnapshot(projectId)
+    builderGuard.clear()
+    localSaveNow.current = false
     setResumeOffer(null)
     persistenceReady.current = true
   }
@@ -359,13 +489,41 @@ export function KitchenIntake({
       builderStartedNoAI,
       roomPhase,
       roomPlan,
+      builderGroupId,
+      wishlistSource: wishlistTranslatedFrom,
+      sentReview,
+      owedSteps: owedSteps.length > 0 ? owedSteps : undefined,
     }),
     [
       state.currentStepId, profile, transcript, isDone, wrapUpData, spacePhotos, spaceVision, floorPlan,
       unitEdits, inspirationStyles, inspirationRefs, inspirationVision, conceptRenders, chosenRenderId,
       productReferences, siteAccess, contactDraft, mustHavesText,
       niceToHavesText, dealBreakersText, builderHypothesis, builderStartedNoAI, roomPhase, roomPlan,
+      builderGroupId, wishlistTranslatedFrom, sentReview, owedSteps,
     ]
+  )
+  // The last committed snapshot, for the builder's write-through when the tab
+  // is hidden inside its autosave window (see saveBuilderProgress).
+  const snapshotRef = useRef(snapshot)
+  useEffect(() => {
+    snapshotRef.current = snapshot
+  }, [snapshot])
+
+  /** Write the local copy; a landed write tells the builder guard what IndexedDB now holds. */
+  function persistLocal(snap: IntakeSnapshot) {
+    void saveSnapshot(snap, projectId).then((ok) => {
+      if (ok) builderGuard.landed(snap)
+    })
+  }
+
+  // The local copy, debounced. The hide flush lands on a tab or app switch and
+  // on an in-app unmount; on a reload or a closed tab an IndexedDB write
+  // started that late is lost (lib/page-hide.ts) — the builder's last change
+  // is covered by builderGuard, the rest by the 800 ms window being short.
+  const localSave = useDebouncedCallback(
+    (_cause, snap: IntakeSnapshot) => persistLocal(snap),
+    800,
+    { flushOnPageHide: true, flushOnUnmount: true }
   )
 
   useEffect(() => {
@@ -374,11 +532,18 @@ export function KitchenIntake({
       snapshot.currentStepId !== 'space_photos' ||
       Object.keys(snapshot.profile).length > 0 ||
       snapshot.spacePhotos.length > 0
-    if (!hasSomething) return
-    const t = setTimeout(() => void saveSnapshot(snapshot, projectId), 800)
-    checkpoint.queue(snapshot)
-    return () => clearTimeout(t)
-  }, [snapshot, checkpoint, projectId, readOnly])
+    if (!hasSomething) {
+      // Start over cleared the stored journey; a save still pending must not put it back.
+      localSave.cancel()
+      return
+    }
+    localSave.run(snapshot)
+    if (localSaveNow.current) {
+      localSaveNow.current = false
+      localSave.flush()
+    }
+    queueCheckpoint(snapshot)
+  }, [snapshot, queueCheckpoint, localSave])
 
   const resumeBanner = resumeOffer && !projectId ? (
     <div
@@ -414,6 +579,45 @@ export function KitchenIntake({
     setProfile((prev) => ({ ...prev, ...patch }))
   }
 
+  /**
+   * A build leaving the builder — an autosave, Continue out of it, the escape
+   * hatch — that the local copy does not hold yet. The guard keeps it for the
+   * page-hide record until its IndexedDB write lands, and that write goes out
+   * with the next snapshot instead of 800 ms later: the builder has already
+   * debounced it, so the local copy lands ~500 ms after the last pick.
+   */
+  function trackBuilder(builderState: BuilderState, groupId: BuilderScreenId) {
+    if (readOnly || !persistenceReady.current) return
+    builderGuard.track(builderState, groupId)
+    localSaveNow.current = true
+  }
+
+  /**
+   * Builder autosave (IMP-06): the live build and its group ride the same
+   * snapshot as everything else — the IndexedDB copy (with the re-render
+   * pixels) and the server checkpoint (image-free).
+   *
+   * `urgent` means the tab is being hidden or left, or the builder unmounts,
+   * inside the builder's window. The render that would schedule the saves may
+   * never happen then. What survives a reload or a closed tab is the guard's
+   * synchronous localStorage record, so that is written first; the IndexedDB
+   * write and the checkpoint flush of the composed snapshot still go out, and
+   * land whenever the page lives on (a tab switch, an in-app unmount).
+   * `flush`, not `queue({ immediate })`: a send already on the wire would make
+   * the immediate send return early; flush waits it out and lands ours last.
+   */
+  function saveBuilderProgress(builderState: BuilderState, groupId: BuilderScreenId, { urgent }: { urgent: boolean }) {
+    patchProfile({ builderState })
+    setBuilderGroupId(groupId)
+    trackBuilder(builderState, groupId)
+    if (!urgent || !persistenceReady.current) return
+    builderGuard.writeNow()
+    const base = snapshotRef.current
+    const next: IntakeSnapshot = { ...base, profile: { ...base.profile, builderState }, builderGroupId: groupId }
+    persistLocal(next)
+    void flushCheckpoint(next)
+  }
+
   /** Move to a specific step. */
   function goTo(id: FlowStepId) {
     setState({ currentStepId: id })
@@ -421,14 +625,89 @@ export function KitchenIntake({
     setFinaliseError(null)
   }
 
-  function goNext() {
-    const next = nextStepId(state.currentStepId)
-    if (next) {
-      goTo(next)
-    } else {
-      void finalise()
-    }
+  // The review has been reached at least once: Continue from an edited step
+  // goes back to it rather than through every step after (lib/review-nav).
+  const editing = wrapUpData !== null
+
+  // What the step on screen held when it was entered (lib/review-nav
+  // stepDraftPrint), so leaving it by Back or the rail can tell whether an
+  // edit was left on it. Re-read whenever a step is entered: a step change,
+  // the review left for its own step, a restore that makes this an edit.
+  // Only read while editing (leaveStep): the first walk passes every step
+  // again anyway. Declared after the snapshotRef effect, so the ref holds
+  // this render's snapshot.
+  const stepEntry = useRef('')
+  useEffect(() => {
+    if (editing) stepEntry.current = stepDraftPrint(state.currentStepId, snapshotRef.current)
+  }, [state.currentStepId, isDone, editing])
+
+  /**
+   * Reopen a step from the review, the rail or a section's "Nešto ispraviti?".
+   * A builder group opens a saved build there; without one the build resumes
+   * at the group it was left on (IMP-06). No build yet: there is no group to
+   * open — a new build starts at the first one, and a group picked before it
+   * existed must not outlive it (BuilderShell opens a fresh build at the
+   * first group whatever it is handed).
+   */
+  function openStep(target: ReviewTarget) {
+    leaveStep()
+    if (target.step === 'builder' && !profile.builderState) setBuilderGroupId(undefined)
+    else if (target.group) setBuilderGroupId(target.group)
+    setIsDone(false)
+    goTo(target.step)
   }
+
+  // New photos (or a new read of them) must pass the room step before the
+  // review (lib/review-nav afterCommit). Memoised: photos are data URLs.
+  const photosChanged = useMemo(
+    () => spacePhotosChanged({ photos: spacePhotos, vision: spaceVision }, profile),
+    [spacePhotos, spaceVision, profile]
+  )
+  const commitContext = { editing, hasBuild: Boolean(profile.builderState), photosChanged, owed: owedSteps }
+
+  /**
+   * Leaving the step on screen without its Continue — Back, the rail,
+   * "Izmjeri" — while editing: an edit left on it is owed its Continue
+   * (lib/review-nav owedAfterLeave), so the review cannot go out without it.
+   * Not from the review itself, which holds no draft.
+   */
+  function leaveStep() {
+    if (!editing || isDone) return
+    const step = state.currentStepId
+    const changed = stepDraftPrint(step, snapshot) !== stepEntry.current
+    setOwedSteps((owed) => owedAfterLeave(step, owed, changed))
+  }
+
+  /**
+   * After a step's commit: the next step, or the review (lib/review-nav
+   * afterCommit). The review is queued rather than built here: finalise reads
+   * `profile` from this render's closure, so calling it straight after a
+   * commit's patchProfile would build the review from the profile before the
+   * patch. The effect below runs it once the patch has rendered.
+   */
+  function goNext() {
+    const next = afterCommit(state.currentStepId, commitContext)
+    setOwedSteps(owedAfterCommit(state.currentStepId, commitContext))
+    if (next === 'review') setReviewQueued(true)
+    else goTo(next)
+  }
+
+  // A synchronising effect on purpose: the trigger is consumed in the same
+  // pass that runs finalise, from the render that holds the step's patches.
+  useEffect(() => {
+    if (!reviewQueued) return
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- one-shot trigger, consumed here
+    setReviewQueued(false)
+    // A step still owed its Continue comes first (lib/review-nav): the
+    // review is never built past a change on its way.
+    if (owedSteps.length > 0) {
+      setIsDone(false)
+      goTo(owedSteps[0])
+      return
+    }
+    void finalise()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- finalise is this render's, with the patches in it
+  }, [reviewQueued])
 
   function goBack() {
     // The room step's measure screen goes back to its shape screen first.
@@ -437,7 +716,9 @@ export function KitchenIntake({
       return
     }
     const prev = prevStepId(state.currentStepId)
-    if (prev) goTo(prev)
+    if (!prev) return
+    leaveStep()
+    goTo(prev)
   }
 
   /** Nudge the transcript with what the user just told us, in plain English. */
@@ -577,7 +858,7 @@ export function KitchenIntake({
   /** "Nemaš metar? Spremi i nastavi kasnije" — says saved only when it was. */
   async function saveRoomForLater(): Promise<SaveLaterResult> {
     const local = await saveSnapshot(snapshot, projectId)
-    if (projectId && (await checkpoint.flush(snapshot))) return 'saved_project'
+    if (projectId && (await flushCheckpoint(snapshot))) return 'saved_project'
     return local ? 'saved_local' : 'failed'
   }
 
@@ -644,7 +925,20 @@ export function KitchenIntake({
   }
 
   async function commitWishlist() {
+    const hasLists = Boolean(profile.mustHaves || profile.niceToHaves || profile.dealBreakers)
     if (!mustHavesText.trim() && !niceToHavesText.trim() && !dealBreakersText.trim()) {
+      // An emptied wishlist reaches the brief as none — the lists from the
+      // text that was there before must not ride along.
+      if (hasLists) patchProfile({ mustHaves: undefined, niceToHaves: undefined, dealBreakers: undefined })
+      setWishlistTranslatedFrom(undefined)
+      goNext()
+      return
+    }
+    // The same text as last time: keep the lists. The translation is an AI
+    // call, and words them afresh — an unchanged kitchen would become a new
+    // brief (IMP-07).
+    const source = wishlistSource(mustHavesText, niceToHavesText, dealBreakersText)
+    if (!needsTranslate(source, wishlistTranslatedFrom, hasLists)) {
       goNext()
       return
     }
@@ -674,6 +968,7 @@ export function KitchenIntake({
         niceToHaves: result.niceToHaves,
         dealBreakers: result.dealBreakers,
       })
+      setWishlistTranslatedFrom(source)
       logTurn(
         'user',
         [
@@ -708,7 +1003,7 @@ export function KitchenIntake({
     goNext()
   }
 
-  async function commitContact() {
+  function commitContact() {
     const name = contactDraft.name.trim()
     if (!name) return
     // Signed in: the account email is the contact and a phone is optional (a
@@ -717,22 +1012,44 @@ export function KitchenIntake({
       ? { name, email: customerEmail, phone: contactDraft.phone?.trim() || undefined, contactValue: undefined }
       : { name, contactValue: contactDraft.contactValue.trim() }
     if (!customerEmail && !patch.contactValue) return
+    // A pass that changes nothing (a walk back from the review) adds no turn.
+    const changed = contactPatchChanges(patch, profile)
     patchProfile(patch)
-    logTurn('user', `Contact: ${name} (${contactChannels(patch).join(', ')})`)
-    await finalise(patch)
+    if (changed) logTurn('user', `Contact: ${name} (${contactChannels(patch).join(', ')})`)
+    goNext()
   }
 
-  /** Wrap-up: apply final patch, fetch summary, mark done. */
-  async function finalise(extraPatch: Partial<LeadProfile> = {}) {
-    setIsFinalising(true)
-    setFinaliseError(null)
+  /**
+   * Into the review: apply the final patch, fetch the summary, mark done.
+   * Nothing is sent from here — the review sends only on its button (IMP-07).
+   *
+   * A walk back through the steps that changed nothing keeps the review as it
+   * was, brief id and summary included, and a kitchen that is the brief on
+   * file again — a change undone — goes back to that brief's review
+   * (lib/handoff/review keptReview): the review then IS the brief the maker
+   * has, and offers no send. Anything else is a new brief, so it gets a new
+   * id — minted here, and only here.
+   */
+  async function finalise() {
+    if (finalising.current) return
     const finalProfile = {
       ...profile,
-      ...extraPatch,
       // Chosen render at this point is owned by client state.
       ...(chosenRenderId ? { conceptRenderChosenId: chosenRenderId } : {}),
       ...(conceptRenders.length > 0 ? { conceptRenders } : {}),
     }
+    const print = briefPrint(finalProfile)
+    const kept = keptReview(print, { prev: wrapUpData, sent: sentReview ?? null, legacyPrint: legacyPrint.current })
+    if (kept) {
+      setProfile(finalProfile)
+      if (kept !== wrapUpData) setWrapUpData(kept)
+      setFinaliseError(null)
+      setIsDone(true)
+      return
+    }
+    finalising.current = true
+    setIsFinalising(true)
+    setFinaliseError(null)
     try {
       const res = await fetch('/api/summarize-brief', {
         method: 'POST',
@@ -749,6 +1066,7 @@ export function KitchenIntake({
         thankYouMessage: summary.thankYouMessage,
         summaryLines: summary.summaryLines,
         briefId: mintBriefId(),
+        profilePrint: print,
       })
       setIsDone(true)
     } catch (err) {
@@ -759,10 +1077,12 @@ export function KitchenIntake({
           .replace('{name}', finalProfile.name ? `, ${finalProfile.name}` : ''),
         summaryLines: buildFallbackSummary(finalProfile, locale),
         briefId: mintBriefId(),
+        profilePrint: print,
       })
       setFinaliseError(err instanceof Error ? err.message : 'Summary unavailable')
       setIsDone(true)
     } finally {
+      finalising.current = false
       setIsFinalising(false)
     }
   }
@@ -777,6 +1097,8 @@ export function KitchenIntake({
    */
   function resetAll() {
     void clearSnapshot(projectId)
+    builderGuard.clear()
+    localSaveNow.current = false
     setState({ currentStepId: 'space_photos' })
     setProfile({})
     setTranscript([])
@@ -805,6 +1127,12 @@ export function KitchenIntake({
     setBuilderHypothesis(null)
     setHypothesisError(null)
     setBuilderStartedNoAI(false)
+    setBuilderGroupId(undefined)
+    setWishlistTranslatedFrom(undefined)
+    setSentReview(undefined)
+    setReviewQueued(false)
+    setOwedSteps([])
+    legacyPrint.current = null
   }
 
   /**
@@ -847,9 +1175,12 @@ export function KitchenIntake({
     }
   }
 
+  // Editing from the review: every step is done, so the bar stays full
+  // rather than dropping back to the step reopened.
   const progress = useMemo(
-    () => Math.round(((flowIndex(state.currentStepId) + (isDone ? 1 : 0)) / FLOW.length) * 100),
-    [state.currentStepId, isDone]
+    () =>
+      editing ? 100 : Math.round(((flowIndex(state.currentStepId) + (isDone ? 1 : 0)) / FLOW.length) * 100),
+    [state.currentStepId, isDone, editing]
   )
 
   // The render the builder anchors to: the explicitly chosen one, else the
@@ -931,7 +1262,7 @@ export function KitchenIntake({
         snapshot={initialSnapshot}
         projectId={projectId}
         makerName={makerName}
-        hasExistingBrief={hasExistingBrief}
+        onFileBriefId={currentBriefId}
       />
     )
   }
@@ -964,7 +1295,16 @@ export function KitchenIntake({
                 {tDynamic('nav.startOver', locale)}
               </button>
             </header>
-            <JourneyNavRail funnelStepId="contact" profile={profile} journeyDone voice={railVoice} locale={locale} />
+            {/* Every done step is a way back into the journey (IMP-07). */}
+            <JourneyNavRail
+              funnelStepId="contact"
+              profile={profile}
+              journeyDone
+              voice={railVoice}
+              expandDone={readOnly ? undefined : true}
+              onStepSelect={readOnly ? undefined : openStep}
+              locale={locale}
+            />
           </>
         }
       >
@@ -976,17 +1316,52 @@ export function KitchenIntake({
           projectId={projectId}
           makerName={makerName}
           readOnly={readOnly}
-          hasExistingBrief={hasExistingBrief || sentInSession}
+          closed={closed}
+          onFileBriefId={sentReview?.briefId ?? currentBriefId}
+          // The brief on file as the page loaded it, so a revisit shows its
+          // range, what happens next and the download without sending again.
+          initialResult={currentBriefId ? { briefId: currentBriefId, estimate: savedEstimate } : null}
           // The maker looking in never sends, so there is nothing to flush
           // before a send and no send to remember.
           beforeSubmit={
             readOnly
               ? undefined
               : async () => {
-                  await checkpoint.flush(snapshot)
+                  // The submit stores this snapshot as the project's copy
+                  // itself, in the update that stamps the brief's time (lib/
+                  // project/submit-snapshot), so the copy always matches the
+                  // brief and a save that lands late cannot flag it as
+                  // changed. The flush is a head start: landed, the route has
+                  // nothing to write. Not landed, the client is told the
+                  // server copy will be this snapshot — and the route stores
+                  // it only over a copy the claim says is this tab's. Halted
+                  // on another device's write, there is no claim and no
+                  // snapshot: the brief leaves that device's copy alone.
+                  if (!projectId) return
+                  await flushCheckpoint(snapshot)
+                  const snapshotClaim = checkpointSubmitting(snapshot)
+                  if (!snapshotClaim) return
+                  return { snapshot: submitSnapshotFrom(snapshot) ?? undefined, snapshotClaim }
                 }
           }
-          onSent={readOnly ? undefined : () => setSentInSession(true)}
+          // The brief the maker has now: this review, with the print of the
+          // profile actually sent (the server's brief_print is made from it
+          // too), so a later finish of the same kitchen comes back to it.
+          onSent={
+            readOnly
+              ? undefined
+              : (briefId) => setSentReview({ ...wrapUpData, briefId, profilePrint: briefPrint(profile) })
+          }
+          // Fix anything: a section reopens its step, Back the last one.
+          onFix={readOnly ? undefined : openStep}
+          onBack={
+            readOnly
+              ? undefined
+              : () => {
+                  setIsDone(false)
+                  goTo('contact')
+                }
+          }
           onOpenBuilder={
             readOnly
               ? undefined
@@ -1022,6 +1397,12 @@ export function KitchenIntake({
         layoutContract={layoutContract}
         unitEdits={(profile.unitEdits as UnitEdits | undefined) ?? unitEdits}
         savedState={builderSavedState}
+        initialGroupId={builderGroupId}
+        // The review is being built (an AI summary call): the build holds
+        // still until it is there, so the review is of the build on screen.
+        busy={isFinalising}
+        // The review has been reached: the rail shows every step done.
+        reviewed={editing}
         renderImageDataUrl={chosenRender?.imageDataUrl}
         anchorPhotoDataUrl={spacePhotos[0]}
         rerenderBlocked={!roomDone}
@@ -1030,22 +1411,42 @@ export function KitchenIntake({
         makerName={makerName}
         railVoice={railVoice}
         layoutPreconfirmed
-        onComplete={(builderState) => {
+        // The maker looking in never writes the homeowner's build.
+        onStateChange={readOnly ? undefined : saveBuilderProgress}
+        onComplete={(builderState, groupId) => {
           patchProfile({ builderState })
+          setBuilderGroupId(groupId)
+          trackBuilder(builderState, groupId)
           logTurn(
             'user',
             `Builder complete — doors: ${builderState.doors.decorCode}, worktop: ${builderState.worktop.decorCode}`
           )
           goNext()
         }}
-        onEditLayout={(builderState) => {
+        onEditLayout={(builderState, groupId) => {
           // Escape hatch: keep every pick, reopen the layout. On re-lock the
           // builder remounts with this savedState and relockBuilderState
-          // re-derives the units against the new contract.
+          // re-derives the units against the new contract — at the group the
+          // hatch was opened from.
           patchProfile({ builderState })
+          setBuilderGroupId(groupId)
+          trackBuilder(builderState, groupId)
           logTurn('user', 'Went back to edit the layout from the builder.')
           setState({ currentStepId: 'confirm_look' })
         }}
+        // Editing from the review: back to it from any group, with the live
+        // build and the group it was left on (IMP-07) — through any step
+        // still owed its Continue, like every Continue (goNext).
+        onBackToReview={
+          editing && !readOnly
+            ? (builderState, groupId) => {
+                patchProfile({ builderState })
+                setBuilderGroupId(groupId)
+                trackBuilder(builderState, groupId)
+                goNext()
+              }
+            : undefined
+        }
       />
     )
   }
@@ -1112,7 +1513,7 @@ export function KitchenIntake({
     <AppShell
       progressPercent={progress}
       rightRail={funnelRightRail}
-      mobilePillLabel={journeyPillLabel({ funnelStepId: state.currentStepId, profile, voice: railVoice, locale })}
+      mobilePillLabel={journeyPillLabel({ funnelStepId: state.currentStepId, profile, voice: railVoice, reviewed: editing, locale })}
       mobileDock={
         funnelBuilderState && rightRailSteps.includes(state.currentStepId) ? (
           <MobileRangeDock state={funnelBuilderState} scope={liveScope} makerName={makerName} />
@@ -1135,7 +1536,19 @@ export function KitchenIntake({
               </button>
             </header>
           )}
-          <JourneyNavRail funnelStepId={state.currentStepId} profile={profile} voice={railVoice} locale={locale} />
+          <JourneyNavRail
+            funnelStepId={state.currentStepId}
+            profile={profile}
+            voice={railVoice}
+            locale={locale}
+            // Done steps reopen; once the review was reached, the done acts
+            // show theirs too (IMP-07).
+            expandDone={readOnly ? undefined : editing}
+            onStepSelect={readOnly ? undefined : openStep}
+            // Every step is done once the review was reached: the one
+            // reopened is current, none is "to do" (IMP-07).
+            reviewed={editing}
+          />
           {/* "{maker} vidi tvoj napredak" is for the customer; the maker
               looking in reads that the kitchen is theirs to look at only. */}
           {readOnly ? (
@@ -1168,7 +1581,7 @@ export function KitchenIntake({
                   onStartWithAI={() => void loadHypothesis()}
                   onStartWithoutAI={() => setBuilderStartedNoAI(true)}
                   onSkip={() => {
-                    logTurn('user', 'Skipped the builder — sending minimal brief.')
+                    logTurn('user', 'Skipped the builder — a brief without a range.')
                     goNext()
                   }}
                 />
@@ -1185,6 +1598,7 @@ export function KitchenIntake({
                 confirmHypothesis={builderHyp}
                 roomMeasured={roomMeasuredNow}
                 onMeasureRoom={() => {
+                  leaveStep()
                   setRoomPhase('measure')
                   goTo('room')
                 }}
@@ -1254,6 +1668,7 @@ export function KitchenIntake({
                 isBusy={isTranslating || isFinalising || isReadingRoom}
                 onBack={goBack}
                 onContinue={() => commitForStep(state.currentStepId)}
+                continueLabel={continueKey(state.currentStepId, commitContext)}
                 profile={profile}
                 hasInspirationInput={
                   inspirationStyles.length > 0 || inspirationRefs.length > 0
@@ -1313,7 +1728,7 @@ export function KitchenIntake({
         commitLogistics()
         break
       case 'contact':
-        void commitContact()
+        commitContact()
         break
     }
   }
@@ -1762,6 +2177,7 @@ function FooterNav({
   isBusy,
   onBack,
   onContinue,
+  continueLabel,
   profile,
   hasInspirationInput,
   hasContactDraft,
@@ -1774,6 +2190,8 @@ function FooterNav({
   isBusy: boolean
   onBack: () => void
   onContinue: () => void
+  /** "Nastavi", or "Pregledaj sažetak" when Continue leads to the review (lib/review-nav). */
+  continueLabel: TranslationKey
   profile: LeadProfile
   hasInspirationInput: boolean
   hasContactDraft: boolean
@@ -1784,7 +2202,9 @@ function FooterNav({
 }) {
   const { t } = useTranslations()
   // Per-step continue gating + label.
-  const ctaLabel = stepId === 'contact' ? t('nav.send') : t('nav.continue')
+  // Contact's Continue — and an edited step's — opens the review; nothing is
+  // sent from a step (IMP-07).
+  const ctaLabel = t(continueLabel)
 
   const canContinue = (() => {
     switch (stepId) {

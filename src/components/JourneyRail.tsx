@@ -6,7 +6,9 @@ import { cn } from '@/lib/utils'
  * The design's two-level "Your brief" rail — shared by the funnel (capture /
  * close acts) and the builder (build act with its component groups). Three acts;
  * the current one expands to show its steps with done/current/todo markers and
- * captured-value read-backs. Steps with an `onSelect` are clickable.
+ * captured-value read-backs. Steps with an `onSelect` are clickable. A done
+ * act can be `expanded` too, so its steps can be reopened (IMP-07: editing
+ * from the review).
  */
 export type RailStatus = 'done' | 'current' | 'todo'
 
@@ -28,6 +30,9 @@ export interface RailAct {
   status: RailStatus
   count?: { done: number; total: number }
   steps?: RailStep[]
+  /** Show the steps although the act is not the current one — a done act
+   *  whose steps can be reopened. */
+  expanded?: boolean
 }
 
 export function JourneyRail({ brief, acts }: { brief: string; acts: RailAct[] }) {
@@ -62,7 +67,7 @@ export function JourneyRail({ brief, acts }: { brief: string; acts: RailAct[] })
               ) : null}
             </div>
 
-            {act.status === 'current' && act.steps && act.steps.length > 0 && (
+            {(act.status === 'current' || act.expanded) && act.steps && act.steps.length > 0 && (
               <ol className="ml-3.5 mt-1 space-y-0.5 border-l border-border/60 pl-3">
                 {act.steps.map((step) => (
                   <li key={step.id}>
