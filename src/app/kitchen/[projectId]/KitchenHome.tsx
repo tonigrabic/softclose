@@ -7,7 +7,7 @@ import { AuthShell } from '@/components/AuthShell'
 import { Button } from '@/components/ui/button'
 import { RangeLine, type RangeLineValue } from '@/components/range/RangeLine'
 import { useTranslations, type TranslationKey } from '@/lib/i18n'
-import type { MakerDecision } from '@/lib/project/decision'
+import { formatDecisionDate, type MakerDecision } from '@/lib/project/decision'
 import type { ProjectSnapshot } from '@/lib/project/snapshot'
 import type { HandoffEstimate } from '@/lib/types'
 import { editEntryStep, type EntryStep } from '@/lib/review-nav'
@@ -20,6 +20,7 @@ export interface KitchenHomeProps {
   makerName: string | null
   /** Where they left off, for the continue label. Null before they start. */
   stepLabel: string | null
+  /** ISO timestamps, dated here in the language on screen. */
   submittedAt: string | null
   makerViewedAt: string | null
   briefId: string | null
@@ -35,7 +36,8 @@ export interface KitchenHomeProps {
    *  the range the maker has (IMP-07). Null without a brief or a range. */
   savedEstimate: HandoffEstimate | null
   /** The maker's answer on the current brief (IMP-03). Never the quoted
-   *  amount: that is the maker's to send, with its terms. */
+   *  amount: that is the maker's to send, with its terms. `date` is the ISO
+   *  timestamp of the decision. */
   decision: { status: MakerDecision; date: string | null; note: string | null } | null
   /** Declined or archived: no edit, no re-send — the handoff refuses one. */
   closed: boolean
@@ -140,13 +142,17 @@ const ACTS = [
  * button opens the kitchen to look at — once there is something to look at.
  */
 export function KitchenHome(props: KitchenHomeProps) {
-  const { t } = useTranslations()
+  const { t, locale } = useTranslations()
   const [entered, setEntered] = useState(false)
   const [startAt, setStartAt] = useState<EntryStep | undefined>(undefined)
   // Heads a sentence ("Tvoj izrađivač je otvorio…"), so capitalised. The
   // range lines (here and in the intake) get the raw name and word their own
   // lower-case fallback mid-sentence ("raspon koji tvoj izrađivač potvrđuje").
   const makerLabel = props.makerName || t('kitchen.home.yourMaker')
+  // Dated in the language on screen, so the date matches the sentence around
+  // it, and in Croatian time like the maker's chip — which also keeps the
+  // server render and hydration on the same day.
+  const day = (iso: string) => formatDecisionDate(iso, locale)
 
   if (entered) {
     return (
@@ -218,7 +224,7 @@ export function KitchenHome(props: KitchenHomeProps) {
           <div className="mt-5 space-y-3 rounded-2xl border border-border bg-card p-5 shadow-sm">
             <p className="flex items-start gap-2 text-sm text-foreground">
               <Check className="mt-0.5 size-4 shrink-0 text-emerald-600" />
-              {t('kitchen.home.status.sent').replace('{date}', props.submittedAt!)}
+              {t('kitchen.home.status.sent').replace('{date}', day(props.submittedAt!))}
             </p>
             {unsent ? (
               <p className="flex items-start gap-2 text-sm text-foreground" data-unsent-changes>
@@ -233,12 +239,12 @@ export function KitchenHome(props: KitchenHomeProps) {
             <p className="text-sm text-muted-foreground">
               {readOnly
                 ? props.makerViewedAt
-                  ? t('kitchen.home.readOnly.status.seen').replace('{date}', props.makerViewedAt)
+                  ? t('kitchen.home.readOnly.status.seen').replace('{date}', day(props.makerViewedAt))
                   : t('kitchen.home.readOnly.status.notSeen')
                 : props.makerViewedAt
                   ? t('kitchen.home.status.seen')
                       .replace('{maker}', makerLabel)
-                      .replace('{date}', props.makerViewedAt)
+                      .replace('{date}', day(props.makerViewedAt))
                   : t('kitchen.home.status.notSeen').replace('{maker}', makerLabel)}
             </p>
             {/* The maker's answer (rule 8): the homeowner learns the outcome
@@ -257,7 +263,7 @@ export function KitchenHome(props: KitchenHomeProps) {
                   <span>
                     {t(decision.copy.line)
                       .replace('{maker}', makerLabel)
-                      .replace('{date}', decision.date ?? '')}
+                      .replace('{date}', decision.date ? day(decision.date) : '')}
                   </span>
                 </p>
                 {decision.next ? (

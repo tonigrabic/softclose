@@ -372,7 +372,7 @@ describe('the kitchen home: finished, not sent', () => {
   })
 
   test('not once sent: the sent status, "Izmijeni kuhinju" and the calm edit note', () => {
-    const out = home({ submittedAt: '3. 10. 2026.', briefId: BRIEF_ID })
+    const out = home({ submittedAt: '2026-10-03T09:00:00Z', briefId: BRIEF_ID })
     expect(out).not.toContain(hrHR['kitchen.home.titleReady'])
     expect(out).not.toContain(hrHR['kitchen.home.cta.review'])
     expect(out).toContain(hrHR['kitchen.home.cta.edit'])
@@ -394,7 +394,7 @@ describe('the kitchen home: finished, not sent', () => {
   })
 
   test('the maker looking in is told it is the customer’s page, gets a look-only button once there is something to look at, and no edit note', () => {
-    for (const props of [{ readOnly: true }, { readOnly: true, submittedAt: '3. 10. 2026.', briefId: 'b1' }]) {
+    for (const props of [{ readOnly: true }, { readOnly: true, submittedAt: '2026-10-03T09:00:00Z', briefId: 'b1' }]) {
       const out = home(props)
       expect(out).toContain(hrHR['kitchen.home.readOnly.eyebrow'])
       expect(out).toContain(hrHR['kitchen.home.readOnly.lede'])
@@ -406,7 +406,7 @@ describe('the kitchen home: finished, not sent', () => {
       expect(out).not.toMatch(/pošalj/i)
     }
     // The homeowner keeps their own words.
-    const own = home({ submittedAt: '3. 10. 2026.', briefId: 'b1' })
+    const own = home({ submittedAt: '2026-10-03T09:00:00Z', briefId: 'b1' })
     expect(own).toContain(hrHR['kitchen.home.eyebrow'])
     expect(own).not.toContain(hrHR['kitchen.home.readOnly.lede'])
   })
@@ -428,7 +428,7 @@ describe('the kitchen home: changed since the brief went out, not sent', () => {
           projectId: 'p1',
           makerName: 'Stolarija Horvat',
           stepLabel: 'Korak 8/8',
-          submittedAt: '3. 10. 2026.',
+          submittedAt: '2026-10-03T09:00:00Z',
           makerViewedAt: null,
           briefId: BRIEF_ID,
           unsentChanges: true,

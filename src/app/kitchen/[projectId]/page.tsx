@@ -5,7 +5,7 @@ import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
 import { DEFAULT_LOCALE, isLocale, tDynamic } from '@/lib/i18n/core'
 import { migrateSnapshot } from '@/lib/project/snapshot'
 import { changedSinceBrief, stepProgress } from '@/lib/project/status'
-import { formatDecisionDate, isDecided, isProjectClosed } from '@/lib/project/decision'
+import { isDecided, isProjectClosed } from '@/lib/project/decision'
 import { resumeStepId } from '@/lib/flow'
 import { roomStepDone } from '@/lib/floor-plan'
 import { savedEstimate } from '@/lib/handoff/saved-estimate'
@@ -89,12 +89,12 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
   }
 
   // The maker's answer on the current brief (rule 8: the homeowner learns the
-  // outcome). Dated in Croatian time like the maker's own chip.
+  // outcome). The date goes as the stored timestamp; KitchenHome prints it.
   const decision =
     brief && isDecided(brief.makerStatus)
       ? {
           status: brief.makerStatus,
-          date: brief.decidedAt ? formatDecisionDate(brief.decidedAt, locale) : null,
+          date: brief.decidedAt,
           note: brief.makerNote,
         }
       : null
@@ -114,7 +114,6 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
       })
     : null
   const progress = stepProgress(resumeStep)
-  const date = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString(locale) : null)
   // The works range as the brief stored it — the same figures the maker sees —
   // printed by the shared RangeLine. Null when the brief went out without a
   // build (IMP-01): the home then offers the builder instead of a number.
@@ -142,8 +141,10 @@ export default async function KitchenPage({ params }: { params: Promise<{ projec
           : null
       }
       started={Boolean(project.step)}
-      submittedAt={date(project.submittedAt)}
-      makerViewedAt={date(brief?.makerViewedAt ?? null)}
+      // Timestamps, not labels: the home dates them in the language on screen,
+      // which the viewer may have switched since signing in.
+      submittedAt={project.submittedAt}
+      makerViewedAt={brief?.makerViewedAt ?? null}
       briefId={project.currentBriefId}
       // The kitchen changed since the brief went out, and the changes were
       // not sent: the same test as the maker's "izmijenjeno" (0008).

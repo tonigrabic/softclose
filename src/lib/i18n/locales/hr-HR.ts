@@ -923,8 +923,9 @@ export const hrHR = {
   'kitchen.home.cta.edit': 'Izmijeni kuhinju',
   'kitchen.home.cta.look': 'Pogledaj kupčevu kuhinju',
   'kitchen.home.cta.build': 'Sastavi kuhinju',
-  'kitchen.home.status.sent': 'Poslano {date}.',
-  'kitchen.home.status.seen': '{maker} je otvorio sažetak {date}.',
+  // No full stop after {date}: a Croatian date already ends in one.
+  'kitchen.home.status.sent': 'Poslano {date}',
+  'kitchen.home.status.seen': '{maker} je otvorio sažetak {date}',
   'kitchen.home.status.notSeen': '{maker} ga još nije otvorio — javit ćemo ti kad ga otvori.',
   'kitchen.home.status.rangeLabel': 'Okvirni raspon — kuhinja, izrada i montaža',
   'kitchen.home.status.noRange': 'Raspon dobivaš kad sastaviš kuhinju.',

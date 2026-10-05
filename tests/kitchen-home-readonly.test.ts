@@ -20,10 +20,15 @@ import { describe, expect, test } from 'vitest'
 import { KitchenHome, type KitchenHomeProps } from '@/app/kitchen/[projectId]/KitchenHome'
 import { hrHR } from '@/lib/i18n/locales/hr-HR'
 import { enUS } from '@/lib/i18n/locales/en-US'
+import { formatDecisionDate } from '@/lib/project/decision'
 
 const MAKER = 'Stolarija Horvat'
-const SENT_ON = '4. 10. 2026.'
-const OPENED_ON = '5. 10. 2026.'
+// Dates arrive as ISO and are formatted on screen (fix/kitchen-home-date-stop).
+const SENT_ON_ISO = '2026-10-04T12:00:00Z'
+const OPENED_ON_ISO = '2026-10-05T12:00:00Z'
+// Expected through the same formatter as the page: ICU builds differ on zero-padding.
+const SENT_ON = formatDecisionDate(SENT_ON_ISO, 'hr-HR')
+const OPENED_ON = formatDecisionDate(OPENED_ON_ISO, 'hr-HR')
 
 const NOT_STARTED: KitchenHomeProps = {
   projectId: 'p1',
@@ -46,7 +51,7 @@ const NOT_STARTED: KitchenHomeProps = {
 const IN_PROGRESS: KitchenHomeProps = { ...NOT_STARTED, started: true, stepLabel: 'korak 8/8' }
 const SENT: KitchenHomeProps = {
   ...IN_PROGRESS,
-  submittedAt: SENT_ON,
+  submittedAt: SENT_ON_ISO,
   briefId: 'b1',
   range: { low: 5291, high: 7376, bandPct: 14, assumptions: ['installIncluded', 'noTrades'] },
 }
@@ -116,7 +121,7 @@ describe('the maker looking in at the kitchen home', () => {
   })
 
   test('sent and opened: what the customer sees about it', () => {
-    const html = home({ ...SENT, makerViewedAt: OPENED_ON })
+    const html = home({ ...SENT, makerViewedAt: OPENED_ON_ISO })
     expect(html).toContain(`Kupac vidi da je sažetak otvoren ${OPENED_ON}`)
     expect(html).not.toContain(hrHR['kitchen.home.readOnly.status.notSeen'])
     expect(html).not.toContain('je otvorio sažetak')

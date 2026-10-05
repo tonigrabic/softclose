@@ -25,6 +25,8 @@ import { CONTRACT_FIXTURES } from '@/lib/builder/fixtures'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import { hydrateFromHypothesis } from '@/lib/builder/state'
 import { hrHR } from '@/lib/i18n/locales/hr-HR'
+import { enUS } from '@/lib/i18n/locales/en-US'
+import { formatDecisionDate } from '@/lib/project/decision'
 import type { BuilderState } from '@/lib/builder/inventory'
 
 const NBSP = ' '
@@ -348,7 +350,7 @@ describe('kitchen home', () => {
           projectId: 'p1',
           makerName: 'Stolarija Horvat',
           stepLabel: null,
-          submittedAt: '3. 10. 2026.',
+          submittedAt: '2026-10-03T09:00:00Z',
           makerViewedAt: null,
           briefId: 'b1',
           range: { low: 5291, high: 7376, bandPct: 14, assumptions: ['installIncluded', 'noTrades'] },
@@ -392,5 +394,34 @@ describe('kitchen home', () => {
     const out = home({ range: null, closed: true })
     expect(out).not.toContain(hrHR['kitchen.home.status.noRange'])
     expect(out).not.toContain('€')
+  })
+
+  // Seen 2026-10-04: "Poslano 04. 10. 2026.." — a Croatian date ends in a
+  // full stop, and the line added its own.
+  test('a date ends its sentence once: no ".." after the sent, seen or decision date', () => {
+    const at = '2026-10-03T22:30:00Z' // 00:30 on the 4th in Zagreb
+    const out = home({
+      submittedAt: at,
+      makerViewedAt: at,
+      decision: { status: 'quoted', date: at, note: null },
+    })
+    const day = formatDecisionDate(at, 'hr-HR')
+    expect(day).toMatch(/^0?4\. 10\. 2026\.$/)
+    expect(out).toContain(`Poslano ${day}`)
+    expect(out).toContain(`Stolarija Horvat je otvorio sažetak ${day}`)
+    expect(out).toContain(`Stolarija Horvat: ponuda je poslana ${day}`)
+    expect(out).not.toMatch(/\d\.\s?\./)
+  })
+
+  // The home dates in the language on screen, so each language's lines meet
+  // only that language's dates.
+  test('every {date} line, filled with its own language\'s date, ends in one full stop at most', () => {
+    const day = (locale: string) => formatDecisionDate('2026-10-03T22:30:00Z', locale)
+    for (const [locale, dict] of [['hr-HR', hrHR], ['en-US', enUS]] as const) {
+      for (const [key, value] of Object.entries(dict)) {
+        if (!value.includes('{date}')) continue
+        expect(value.replace('{date}', day(locale)), `${locale} ${key}`).not.toContain('..')
+      }
+    }
   })
 })
