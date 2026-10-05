@@ -3,7 +3,7 @@ import { cache } from 'react'
 import { cookies, headers } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 import { supabaseAdmin, TABLES } from '@/lib/db/supabase'
-import { findAccountById } from './accounts'
+import { accountAdmitsSession, findAccountById } from './accounts'
 import { loginUrl } from './redirect'
 import { SESSION_COOKIE, verifySession, type Role } from './session'
 
@@ -47,9 +47,7 @@ export const getSession = cache(async (): Promise<Session | null> => {
   if (!claims) return null
 
   const account = await findAccountById(claims.sub)
-  if (!account) return null
-  if (account.status !== 'active') return null
-  if (account.sessionEpoch !== claims.epoch) return null
+  if (!account || !accountAdmitsSession(account, claims.epoch)) return null
 
   return {
     accountId: account.id,

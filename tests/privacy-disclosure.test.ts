@@ -36,6 +36,8 @@ const text = (html: string) =>
     .replace(/\s+/g, ' ')
 
 const AI_LINE = 'Kroz korake te vodi AI asistent. Stolarija Horvat osobno pregledava sve što podijeliš.'
+/** The maker looking in: the same disclosure, worded for them, never their own name. */
+const READ_ONLY_AI_LINE = 'Kupca kroz korake vodi AI asistent. Sve što podijeli pregledavaš ti.'
 
 const home = (props: Partial<KitchenHomeProps> = {}) =>
   renderToStaticMarkup(
@@ -86,9 +88,15 @@ describe('the kitchen home says an AI assistant leads, and the maker reviews', (
       },
     ],
     ['closed', { closed: true, submittedAt: '3. 10. 2026.', briefId: 'b1', started: true }],
-    ['the maker looking in', { readOnly: true }],
   ])('and in every later state: %s', (_label, props) => {
     expect(text(home(props))).toContain(AI_LINE)
+  })
+
+  test('the maker looking in: the disclosure worded for them, never their own name', () => {
+    const out = text(home({ readOnly: true }))
+    expect(out).toContain(READ_ONLY_AI_LINE)
+    expect(out).not.toContain(AI_LINE)
+    expect(out).not.toContain('Stolarija Horvat')
   })
 
   test('without a maker name the sentence still starts with a capital', () => {
@@ -221,7 +229,7 @@ describe('the privacy notice', () => {
 
   test('"AI asistent", never "chatbot", in either language', () => {
     const keys = Object.keys(hrHR).filter(
-      (k) => k.startsWith('privacy.') || k.startsWith('legal.') || k === 'kitchen.home.ai' || k === 'space.processingNote'
+      (k) => k.startsWith('privacy.') || k.startsWith('legal.') || k === 'kitchen.home.ai' || k === 'kitchen.home.readOnly.ai' || k === 'space.processingNote'
     ) as (keyof typeof hrHR)[]
     expect(keys.length).toBeGreaterThan(20)
     for (const k of keys) {

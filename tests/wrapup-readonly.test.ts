@@ -20,33 +20,57 @@ import { join } from 'node:path'
 import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, test } from 'vitest'
-import { WrapUpScreen } from '@/components/kitchen-intake/WrapUpScreen'
+import { READ_ONLY_COPY, WrapUpScreen } from '@/components/kitchen-intake/WrapUpScreen'
 import { CONTRACT_FIXTURES } from '@/lib/builder/fixtures'
 import { hydrateFromHypothesis } from '@/lib/builder/state'
 import { floorPlanToLayout } from '@/lib/contract/layout-contract'
 import { hrHR } from '@/lib/i18n/locales/hr-HR'
 import { enUS } from '@/lib/i18n/locales/en-US'
+import type { ConceptRender, LeadProfile } from '@/lib/types'
 
 /** The thank-you as the snapshot stores it: written for the homeowner, in the
  *  locale it was generated in. */
 const THANK_YOU = 'Hvala — tvoj sažetak je spreman. Pogledaj ga u miru prije slanja.'
 const BRIEF_ID = '6f1c2a34-5b6d-4e7f-8a9b-0c1d2e3f4a5b'
 
+const PLAN = CONTRACT_FIXTURES.find((f) => f.id === 'l-shape')!.build()
+
 /** A build on the profile, so the estimate card is past "build your kitchen". */
 const BUILT = {
   builderState: hydrateFromHypothesis(null, {
-    layoutContract: floorPlanToLayout(CONTRACT_FIXTURES.find((f) => f.id === 'l-shape')!.build()),
+    layoutContract: floorPlanToLayout(PLAN),
   }),
 }
 
+const RENDER: ConceptRender = {
+  id: 'r1',
+  imageDataUrl: 'data:image/png;base64,AAAA',
+  prompt: '',
+  modelVersion: 'test',
+  anchorPhotoIndex: 0,
+  nudges: [],
+  inputs: [],
+  generatedAt: '2026-10-04T08:00:00.000Z',
+}
+
+/** Everything the sections that said "tvoj" need: a chosen render, the plan,
+ *  and a sink that moves to a spot nobody has drawn yet. */
+const SECTIONS: LeadProfile = {
+  ...BUILT,
+  floorPlan: PLAN,
+  conceptRenders: [RENDER],
+  conceptRenderChosenId: RENDER.id,
+  trades: { plumbing: { sinkPosition: 'moving' } },
+}
+
 function wrapUp(
-  props: { readOnly?: boolean; onFileBriefId?: string | null; built?: boolean; closed?: boolean } = {}
+  props: { readOnly?: boolean; onFileBriefId?: string | null; built?: boolean; closed?: boolean; profile?: LeadProfile } = {}
 ) {
-  const { built = true, ...rest } = props
+  const { built = true, profile, ...rest } = props
   return renderToStaticMarkup(
     createElement(WrapUpScreen, {
       data: { thankYouMessage: THANK_YOU, summaryLines: [], briefId: BRIEF_ID },
-      profile: built ? BUILT : {},
+      profile: profile ?? (built ? BUILT : {}),
       explorationRefs: [],
       transcript: [],
       projectId: 'p1',
@@ -204,5 +228,58 @@ describe('the copy, hr-HR first, en-US the same keys', () => {
     expect(hrHR['wrapup.readOnly.sent']).toBe('Kupac je poslao sažetak — otvori ga s popisa.')
     expect(enUS['wrapup.readOnly.notSent']).toBe("The customer hasn't sent the brief yet.")
     expect(enUS['wrapup.readOnly.sent']).toBe('The customer has sent the brief — open it from your list.')
+  })
+})
+
+/** Ported from the IMP-05 follow-up (fix/wrapup-readonly-maker-copy): the
+ *  sections that said "tvoj" speak to the maker looking in. */
+describe('the sections speak to the maker looking in', () => {
+  test('the render, its note, the space, the plan’s caption and the sink: the maker’s words', () => {
+    const html = wrapUp({ readOnly: true, onFileBriefId: BRIEF_ID, profile: SECTIONS })
+    expect(html).toContain(hrHR['wrapup.readOnly.section.render'])
+    expect(html).toContain(`alt="${hrHR['wrapup.readOnly.section.render']}"`)
+    expect(html).toContain(hrHR['wrapup.readOnly.render.note'])
+    expect(html).toContain(hrHR['wrapup.readOnly.section.space'])
+    expect(html).toContain(hrHR['floorPlan.static.roughMaker'])
+    expect(html).toContain(hrHR['wrapup.readOnly.trades.movesOpen'])
+
+    expect(html).not.toContain(hrHR['wrapup.section.render'])
+    expect(html).not.toContain(hrHR['wrapup.render.note'])
+    expect(html).not.toContain(hrHR['wrapup.section.space'])
+    expect(html).not.toContain(hrHR['floorPlan.static.rough'])
+    expect(html).not.toContain(hrHR['wrapup.trades.movesOpen'])
+  })
+
+  test('a customer who chose not to measure: the maker takes the measurements', () => {
+    const profile = { ...SECTIONS, floorPlan: { ...PLAN, measurementMethod: 'deferred_to_designer' as const } }
+    const html = wrapUp({ readOnly: true, profile })
+    expect(html).toContain(hrHR['floorPlan.static.deferredMaker'])
+    expect(html).not.toContain(hrHR['floorPlan.static.deferred'])
+  })
+
+  test('nothing on the maker’s wrap-up says "tvoj" about the customer’s things', () => {
+    for (const onFileBriefId of [null, BRIEF_ID]) {
+      const html = wrapUp({ readOnly: true, onFileBriefId, profile: SECTIONS })
+      expect(html).not.toMatch(/\btvo[jgm]/i)
+      expect(html).not.toMatch(/\bsi podijelio\b/)
+    }
+  })
+
+  test('the customer keeps theirs: "Tvoj koncept render", "Tvoj prostor", "što si podijelio"', () => {
+    const html = wrapUp({ onFileBriefId: BRIEF_ID, profile: SECTIONS })
+    expect(html).toContain(hrHR['wrapup.section.render'])
+    expect(html).toContain(hrHR['wrapup.render.note'])
+    expect(html).toContain(hrHR['wrapup.section.space'])
+    expect(html).toContain(hrHR['floorPlan.static.rough'])
+    expect(html).toContain(hrHR['wrapup.trades.movesOpen'])
+    for (const makerKey of Object.values(READ_ONLY_COPY)) expect(html).not.toContain(hrHR[makerKey])
+    expect(html).not.toContain(hrHR['floorPlan.static.roughMaker'])
+  })
+
+  test('every rewording is a different line, in both languages', () => {
+    for (const [homeowner, maker] of Object.entries(READ_ONLY_COPY)) {
+      expect(hrHR[maker]).not.toBe(hrHR[homeowner as keyof typeof READ_ONLY_COPY])
+      expect(enUS[maker]).not.toBe(enUS[homeowner as keyof typeof READ_ONLY_COPY])
+    }
   })
 })
